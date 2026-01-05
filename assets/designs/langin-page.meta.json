@@ -1,0 +1,96 @@
+{
+    "file_info": {
+        "screen_name": "Netsa_Home_Landing",
+        "designer": "Netsa Creative Team",
+        "export_scale": "1x",
+        "last_updated": "2024-12-01",
+        "viewport_width": 1440
+    },
+    "typography": {
+        "font_family_headings": "Poppins, sans-serif",
+        "font_family_body": "Inter, sans-serif",
+        "weights": {
+            "regular": 400,
+            "medium": 500,
+            "semibold": 600,
+            "bold": 700
+        },
+        "scale_estimates": {
+            "h1_hero": "48px - 60px",
+            "h2_section": "32px - 36px",
+            "h3_card_title": "18px - 20px",
+            "body_text": "16px",
+            "small_text": "14px"
+        }
+    },
+    "color_palette": {
+        "gradients": {
+            "brand_primary": {
+                "css_string": "linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #F59E0B 100%)",
+                "stops": [
+                    "#8B5CF6",
+                    "#EC4899",
+                    "#F59E0B"
+                ]
+            },
+            "brand_faded": "linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(236, 72, 153, 0.1))"
+        },
+        "solids": {
+            "white": "#FFFFFF",
+            "background_light": "#F9FAFB",
+            "text_primary": "#1F2937",
+            "text_secondary": "#4B5563",
+            "text_light": "#9CA3AF",
+            "footer_bg": "#0F172A",
+            "footer_input_bg": "#1E293B",
+            "card_shadow": "rgba(0, 0, 0, 0.05)"
+        },
+        "tags": {
+            "purple_bg": "#F3E8FF",
+            "purple_text": "#7E22CE",
+            "orange_bg": "#FFF7ED",
+            "orange_text": "#C2410C"
+        }
+    },
+    "components": {
+        "buttons": {
+            "primary_cta": {
+                "bg": "brand_primary gradient",
+                "text_color": "#FFFFFF",
+                "radius": "50px",
+                "padding": "12px 24px"
+            },
+            "secondary_cta": {
+                "bg": "#FFFFFF",
+                "text_color": "brand_primary (gradient text mask) or #EC4899",
+                "radius": "50px"
+            },
+            "ghost": {
+                "bg": "transparent",
+                "border": "1px solid #FFFFFF",
+                "text_color": "#FFFFFF"
+            }
+        },
+        "cards": {
+            "background": "#FFFFFF",
+            "radius": "16px",
+            "elevation": "shadow-lg",
+            "image_aspect_ratio": "4:3 (approx)"
+        }
+    },
+    "interaction_notes": {
+        "hover_states": {
+            "primary_button": "Brightness filter: 110% or slight scale up (1.05x)",
+            "event_cards": "TranslateY: -5px and Shadow: increase spread",
+            "nav_links": "Color change to #EC4899 (Pink) or underline",
+            "footer_links": "Color change from Gray to White"
+        },
+        "tap_targets": {
+            "minimum_size": "44px x 44px for mobile compliance",
+            "card_clickable_area": "Entire card surface should be clickable link"
+        },
+        "inputs": {
+            "focus_state": "Border color: #8B5CF6 (Purple) with ring-offset"
+        }
+    }
+}

@@ -2,8 +2,9 @@ import { io, Socket } from 'socket.io-client';
 import { Platform } from 'react-native';
 
 const getBaseUrl = () => {
-    if (Platform.OS === 'web') return 'http://localhost:5001';
-    return 'http://10.197.171.107:5001';
+    if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL.replace('/api', '');
+    // if (Platform.OS === 'web') return 'http://localhost:5001';
+    return 'https://netsaa-backend.onrender.com';
 };
 
 class SocketService {

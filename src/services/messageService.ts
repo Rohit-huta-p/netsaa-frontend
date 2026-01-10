@@ -4,8 +4,9 @@ import { useAuthStore } from '../stores/authStore';
 import { Message } from '../types/chat';
 
 const getBaseUrl = () => {
-    if (Platform.OS === 'web') return 'http://localhost:5001/api/messages';
-    return 'http://10.197.171.107:5001/api/messages';
+    if (process.env.EXPO_PUBLIC_API_URL) return `${process.env.EXPO_PUBLIC_API_URL}/messages`;
+    // if (Platform.OS === 'web') return 'http://localhost:5001/api/messages';
+    return 'https://netsaa-backend.onrender.com/api/messages';
 };
 
 const API = axios.create({

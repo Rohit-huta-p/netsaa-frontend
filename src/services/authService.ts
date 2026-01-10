@@ -7,7 +7,7 @@ import { useAuthStore } from '../stores/authStore';
 import { Platform } from 'react-native';
 
 const getBaseUrl = () => {
-  // if (process.renv.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
+  if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
   // Use localhost ONLY for web
   if (Platform.OS === 'web') return 'http://localhost:5001/api';
   // Use LAN IP for both iOS and Android (Physical devices & Emulators)

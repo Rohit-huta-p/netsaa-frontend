@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Slot, SplashScreen } from "expo-router";
 import { View } from "react-native";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../src/lib/react-query';
 import {
@@ -24,6 +25,8 @@ import Footer from "../src/components/Footer";
 
 import useAuthStore from "@/stores/authStore";
 import { socketService } from "../src/services/socketService";
+import { deepLinkService } from "../src/services/deepLinkService";
+import { notificationService } from "../src/services/notificationService";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -61,23 +64,43 @@ export default function RootLayout() {
         }
     }, [accessToken]);
 
+    // Initialize deep link and notification services
+    useEffect(() => {
+        deepLinkService.initialize();
+        notificationService.initialize();
+
+        return () => {
+            notificationService.cleanup();
+        };
+    }, []);
+
+    // Process pending deep links after auth hydration
+    useEffect(() => {
+        if (isHydrated) {
+            console.log('[RootLayout] Auth hydrated, processing pending navigation');
+            deepLinkService.processPendingNavigation();
+        }
+    }, [isHydrated]);
+
     if (!fontsLoaded && !fontError) {
         return null;
     }
 
     return (
-        <QueryClientProvider client={queryClient}>
-            <SafeAreaProvider >
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <QueryClientProvider client={queryClient}>
+                <SafeAreaProvider >
 
-                {/* Default Navbar (not transparent) - individual screens can render their own or use a nested layout */}
-                <Navbar />
+                    {/* Default Navbar (not transparent) - individual screens can render their own or use a nested layout */}
+                    <Navbar />
 
-                {/* App content */}
+                    {/* App content */}
 
-                <Slot />
+                    <Slot />
 
 
-            </SafeAreaProvider>
-        </QueryClientProvider>
+                </SafeAreaProvider>
+            </QueryClientProvider>
+        </GestureHandlerRootView>
     );
 }

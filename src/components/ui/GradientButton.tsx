@@ -15,6 +15,7 @@ interface GradientButtonProps {
     loading?: boolean;
     textClassName?: string;
     label?: string;
+    icon?: React.ReactNode;
 }
 
 export function GradientButton({
@@ -28,6 +29,7 @@ export function GradientButton({
     disabled = false,
     loading = false,
     textClassName,
+    icon,
     label,
 }: GradientButtonProps) {
     return (

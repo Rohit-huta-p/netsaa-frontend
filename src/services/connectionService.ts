@@ -3,7 +3,8 @@ import { Platform } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 
 const getBaseUrl = () => {
-    if (Platform.OS === 'web') return 'http://localhost:5001/api/connections';
+    if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
+    // if (Platform.OS === 'web') return 'http://localhost:5001/api/connections';
     return 'http://10.197.171.107:5001/api/connections';
 };
 

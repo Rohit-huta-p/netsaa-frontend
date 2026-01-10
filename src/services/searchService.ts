@@ -4,9 +4,10 @@ import { useAuthStore } from '../stores/authStore';
 
 // Assuming Search Service runs on port 3000 based on walkthrough
 const getSearchBaseUrl = () => {
-    if (Platform.OS === 'web') return 'http://localhost:5003';
+    if (process.env.EXPO_PUBLIC_API_SEARCH_URL) return process.env.EXPO_PUBLIC_API_SEARCH_URL;
+    // if (Platform.OS === 'web') return 'http://localhost:5003';
     // Use the same LAN IP as authService for consistency
-    return 'http://10.197.171.107:3003';
+    return 'https://netsaa-search-service.onrender.com';
 };
 
 const SEARCH_API = axios.create({

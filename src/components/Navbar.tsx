@@ -132,9 +132,11 @@ export default function Navbar({
                         {/* Right Actions: Notifications + Logout OR Login/Signup */}
                         {user ? (
                             <View className="flex-row items-center">
-                                <Pressable className="p-2" onPress={() => router.push("/(app)/notifications")}>
-                                    <Bell size={24} color="#C9C9D1" />
-                                </Pressable>
+                                <Link href="/(app)/notifications" asChild>
+                                    <Pressable className="p-2">
+                                        <Bell size={24} color="#C9C9D1" />
+                                    </Pressable>
+                                </Link>
                                 {user.role === "organizer" && <Link href="/dashboard" asChild>
                                     <TouchableOpacity>
                                         <Text className="text-netsa-text-primary font-bold text-xs font-satoshi-bold">Dashboard</Text>
@@ -257,10 +259,12 @@ export default function Navbar({
 
                 {/* RIGHT */}
                 <View className="flex-row items-center space-x-3">
-                    <TouchableOpacity className="relative p-2">
-                        <Bell width={20} height={20} color="#C9C9D1" />
-                        <View className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-netsa-accent-red" />
-                    </TouchableOpacity>
+                    <Link href="/(app)/notifications" asChild>
+                        <TouchableOpacity className="relative p-2">
+                            <Bell width={20} height={20} color="#C9C9D1" />
+                            <View className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-netsa-accent-red" />
+                        </TouchableOpacity>
+                    </Link>
 
                     {user ? (
                         <View className="relative">

@@ -4,7 +4,8 @@ import { IEvent, CreateEventDTO } from '../types/event';
 
 // TODO: Centralize this base URL logic
 const getBaseUrl = () => {
-    if (Platform.OS === 'web') return 'http://localhost:5010/v1';
+    if (process.env.EXPO_PUBLIC_API_EVENT_URL) return process.env.EXPO_PUBLIC_API_EVENT_URL;
+    // if (Platform.OS === 'web') return 'http://localhost:5010/v1';
     // Update this IP as needed for physical devices
     return 'http://10.197.171.107:5010/v1';
 };

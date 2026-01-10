@@ -5,12 +5,13 @@ import { Gig, GigResponse, GigsListResponse } from '../types/gig';
 
 // TODO: Centralize this base URL logic or environment variable
 const getBaseUrl = () => {
+    if (process.env.EXPO_PUBLIC_API_GIGS_URL) return process.env.EXPO_PUBLIC_API_GIGS_URL;
     // Use localhost ONLY for web
-    if (Platform.OS === 'web') return 'http://localhost:5002/v1';
+    // if (Platform.OS === 'web') return 'http://localhost:5002/v1';
     // Use LAN IP for both iOS and Android (Physical devices & Emulators)
     // NOTE: Update this IP if you change networks or your local IP changes
     // Using 5002 for Gig Service
-    return 'http://10.197.171.107:5002/v1';
+    return 'https://netsaa-gigs-service.onrender.com/v1';
 };
 
 const API = axios.create({

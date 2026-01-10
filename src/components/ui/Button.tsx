@@ -6,7 +6,7 @@ interface ButtonProps extends TouchableOpacityProps {
     variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'white';
     size?: 'sm' | 'md' | 'lg';
     label: string;
-
+    textClassName?: string;
     labelClassName?: string;
     icon?: React.ReactNode;
 }
@@ -16,7 +16,7 @@ export function Button({
     size = 'md',
     label,
     className,
-
+    textClassName,
     labelClassName,
     icon,
     ...props

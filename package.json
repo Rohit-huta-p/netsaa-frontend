@@ -14,7 +14,7 @@
     "@expo-google-fonts/outfit": "^0.4.3",
     "@expo-google-fonts/source-sans-3": "^0.4.1",
     "@hookform/resolvers": "^5.2.2",
-    "@lottiefiles/dotlottie-react": "^0.17.13",
+    "@lottiefiles/dotlottie-react": "^0.13.5",
     "@lottiefiles/dotlottie-react-native": "^0.7.1",
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-community/slider": "^5.1.2",

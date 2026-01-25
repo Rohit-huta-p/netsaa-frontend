@@ -1,5 +1,6 @@
 import { Redirect } from "expo-router";
 
 export default function Index() {
-  return <Redirect href="/" />;
+  // Default page when accessing /(app) route
+  return <Redirect href="/(app)/gigs" />;
 }

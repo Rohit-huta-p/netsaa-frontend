@@ -1,12 +1,44 @@
 // src/services/api/notificationsApi.ts
-import { API_URL } from '@/lib/constants';
+import axios from 'axios';
 import { Notification } from '@/stores/notificationsStore';
 import { useAuthStore } from '@/stores/authStore';
+import { Platform } from 'react-native';
 
 /**
  * Notifications API Service
  * Handles all notification-related API calls to the backend
  */
+
+// Use env var or production fallback
+const getBaseUrl = () => {
+    return process.env.EXPO_PUBLIC_API_URL || 'https://netsaa-backend.onrender.com';
+};
+
+const API = axios.create({
+    baseURL: getBaseUrl(),
+});
+
+// Request Interceptor: Attach Token
+API.interceptors.request.use((config) => {
+    const token = useAuthStore.getState().accessToken;
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
+// Response Interceptor: Handle 401
+API.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        if (error.response?.status === 401) {
+            // Token expired or invalid
+            const { clearAuth } = useAuthStore.getState();
+            clearAuth();
+        }
+        return Promise.reject(error);
+    }
+);
 
 interface GetNotificationsParams {
     page?: number;
@@ -21,99 +53,45 @@ interface GetNotificationsResponse {
     limit: number;
 }
 
-/**
- * Fetch notifications with pagination
- */
-export async function getNotifications(
-    params: GetNotificationsParams = {}
-): Promise<GetNotificationsResponse> {
-    const { page = 1, limit = 20 } = params;
-    const token = useAuthStore.getState().accessToken;
+const notificationsApi = {
+    /**
+     * Fetch notifications with pagination
+     */
+    getNotifications: async (params: GetNotificationsParams = {}): Promise<GetNotificationsResponse> => {
+        const { page = 1, limit = 20 } = params;
+        console.log("NOTIFICATIONS API: Fetching notifications...");
+        const res = await API.get(`/users/notifications?page=${page}&limit=${limit}`);
+        console.log(`NOTIFICATIONS API: Fetched ${res.data.data.length} notifications`);
+        return res.data;
+    },
 
-    const response = await fetch(
-        `${API_URL}/api/users/notifications?page=${page}&limit=${limit}`,
-        {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(token && { 'Authorization': `Bearer ${token}` }),
-            },
-        }
-    );
+    /**
+     * Mark a single notification as read
+     */
+    markNotificationAsRead: async (notificationId: string): Promise<void> => {
+        console.log(`NOTIFICATIONS API: Marking notification ${notificationId} as read...`);
+        await API.patch(`/users/notifications/${notificationId}/read`);
+        console.log("NOTIFICATIONS API: Notification marked as read");
+    },
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'Failed to fetch notifications' }));
-        throw new Error(error.message || 'Failed to fetch notifications');
-    }
+    /**
+     * Mark all notifications as read
+     */
+    markAllNotificationsAsRead: async (): Promise<void> => {
+        console.log("NOTIFICATIONS API: Marking all notifications as read...");
+        await API.patch('/users/notifications/read-all');
+        console.log("NOTIFICATIONS API: All notifications marked as read");
+    },
 
-    return response.json();
-}
+    /**
+     * Delete a notification
+     */
+    deleteNotification: async (notificationId: string): Promise<void> => {
+        console.log(`NOTIFICATIONS API: Deleting notification ${notificationId}...`);
+        await API.delete(`/users/notifications/${notificationId}`);
+        console.log("NOTIFICATIONS API: Notification deleted");
+    },
+};
 
-/**
- * Mark a single notification as read
- */
-export async function markNotificationAsRead(notificationId: string): Promise<void> {
-    const token = useAuthStore.getState().accessToken;
-
-    const response = await fetch(
-        `${API_URL}/api/users/notifications/${notificationId}/read`,
-        {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(token && { 'Authorization': `Bearer ${token}` }),
-            },
-        }
-    );
-
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'Failed to mark notification as read' }));
-        throw new Error(error.message || 'Failed to mark notification as read');
-    }
-}
-
-/**
- * Mark all notifications as read
- */
-export async function markAllNotificationsAsRead(): Promise<void> {
-    const token = useAuthStore.getState().accessToken;
-
-    const response = await fetch(
-        `${API_URL}/api/users/notifications/read-all`,
-        {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(token && { 'Authorization': `Bearer ${token}` }),
-            },
-        }
-    );
-
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'Failed to mark all notifications as read' }));
-        throw new Error(error.message || 'Failed to mark all notifications as read');
-    }
-}
-
-/**
- * Delete a notification
- */
-export async function deleteNotification(notificationId: string): Promise<void> {
-    const token = useAuthStore.getState().accessToken;
-
-    const response = await fetch(
-        `${API_URL}/api/users/notifications/${notificationId}`,
-        {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(token && { 'Authorization': `Bearer ${token}` }),
-            },
-        }
-    );
-
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'Failed to delete notification' }));
-        throw new Error(error.message || 'Failed to delete notification');
-    }
-}
+export const { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification } = notificationsApi;
+export default notificationsApi;

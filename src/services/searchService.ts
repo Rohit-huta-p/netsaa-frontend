@@ -1,13 +1,9 @@
 import axios from 'axios';
-import { Platform } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 
-// Assuming Search Service runs on port 3000 based on walkthrough
+// Use env var or production fallback
 const getSearchBaseUrl = () => {
-    if (process.env.EXPO_PUBLIC_API_SEARCH_URL) return process.env.EXPO_PUBLIC_API_SEARCH_URL;
-    // if (Platform.OS === 'web') return 'http://localhost:5003';
-    // Use the same LAN IP as authService for consistency
-    return 'https://netsaa-search-service.onrender.com';
+    return process.env.EXPO_PUBLIC_API_SEARCH_URL || 'https://netsaa-search-service.onrender.com';
 };
 
 const SEARCH_API = axios.create({
@@ -45,12 +41,45 @@ export const searchService = {
     },
 
     /**
-     * Search Gigs
+     * Search Gigs with filters in request body
+     * POST /search/gigs
      */
-    searchGigs: async (query: string, filters?: Record<string, any>) => {
-        const { data } = await SEARCH_API.get('/search/gigs', {
-            params: { q: query, ...filters },
-        });
+    searchGigs: async (request: {
+        q?: string;
+        filters?: any;
+        page?: number;
+        pageSize?: number;
+    }) => {
+        const { data } = await SEARCH_API.post('/search/gigs', request);
+
+        // Map search results to match Gig interface expected by UI
+        if (data && data.results) {
+            data.results = data.results.map((item: any) => ({
+                _id: item.id, // Critical: Map id to _id for navigation
+                title: item.title,
+                compensation: item.metadata?.compensation,
+                location: {
+                    city: item.subtitle?.split('•')[0]?.trim()
+                },
+                artistTypes: [item.subtitle?.split('•')[1]?.trim() || 'Artist'],
+                schedule: {
+                    startDate: item.metadata?.date,
+                    // Safe defaults for GigCard
+                    practiceDays: { count: 0, isPaid: false },
+                    durationLabel: 'N/A'
+                },
+                applicationDeadline: item.metadata?.expiresAt,
+                createdAt: new Date().toISOString(), // Fallback
+                experienceLevel: 'Professional', // Fallback
+                isFeatured: (item.score || 0) > 3,
+                organizerSnapshot: {
+                    displayName: 'Organizer',
+                    rating: 5,
+                    profileImageUrl: item.image
+                }
+            }));
+        }
+
         return data;
     },
 

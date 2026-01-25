@@ -112,13 +112,26 @@ class NotificationService {
 
     /**
      * Get Expo push token
+     * Note: Push tokens require a development build or production app.
+     * They won't work in Expo Go as of SDK 53.
      */
     private async getPushToken(): Promise<string | null> {
         try {
+            // Push notifications don't work in Expo Go (SDK 53+)
+            // This will only work in development builds or production
             const token = (await Notifications.getExpoPushTokenAsync()).data;
             return token;
-        } catch (error) {
-            console.error('[NotificationService] Failed to get push token:', error);
+        } catch (error: any) {
+            // Gracefully handle common expected errors
+            const errorMessage = error?.message || String(error);
+
+            if (errorMessage.includes('projectId')) {
+                console.log('[NotificationService] Push token skipped: No projectId configured (expected in development)');
+            } else if (errorMessage.includes('Expo Go')) {
+                console.log('[NotificationService] Push token skipped: Not supported in Expo Go (use development build)');
+            } else {
+                console.warn('[NotificationService] Push token unavailable:', errorMessage);
+            }
             return null;
         }
     }

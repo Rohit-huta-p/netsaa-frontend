@@ -1,121 +1,215 @@
 import React from 'react';
-import { View, Text } from 'react-native';
-import { useRouter } from 'expo-router';
-import { GradientButton } from '@/components/ui/GradientButton';
-import { Button } from '@/components/ui/Button';
-import { ArrowRight, CheckCircle2 } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { NETSA_COLORS } from '@/hooks/useThemeColors';
 
-const benefits = [
-    'Transparent payment terms & on-time disbursement',
-    'Access to 200+ monthly opportunities nationwide',
-    'Skill development through expert-led workshops',
-    'Fair contracts that protect your interests',
-    'Connect with verified organizers and talent scouts',
-    'Build your portfolio and get discovered',
-];
+const isWeb = Platform.OS === 'web';
 
-export function CTASection() {
+export default function CTASection() {
     const router = useRouter();
+    const { width } = useWindowDimensions();
+    const isMobile = width < 768;
+    const isTablet = width >= 768 && width < 1024;
 
     return (
-        <View className="px-6 py-16">
-            {/* Main CTA Card */}
+        <View
+            style={{
+                paddingVertical: isMobile ? 64 : isTablet ? 96 : 128,
+                paddingHorizontal: isMobile ? 16 : 24,
+                backgroundColor: '#000',
+            }}
+        >
             <View
-                className="rounded-[32px] overflow-hidden relative"
                 style={{
-                    shadowColor: '#dc2626',
-                    shadowOffset: { width: 0, height: 12 },
-                    shadowOpacity: 0.4,
-                    shadowRadius: 24,
-                    elevation: 12,
+                    maxWidth: 1200,
+                    alignSelf: 'center',
+                    width: '100%',
                 }}
             >
-                {/* Gradient Background */}
-                <LinearGradient
-                    colors={['#1a0a0f', '#0f0506', '#0a0a0a']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    className="p-8 border-2 border-rose-500/30"
+                {/* CTA Card */}
+                <View
+                    style={{
+                        position: 'relative',
+                        padding: isMobile ? 32 : isTablet ? 64 : 128,
+                        borderRadius: isMobile ? 24 : isWeb ? 64 : 32,
+                        overflow: 'hidden',
+                        borderWidth: 1,
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        shadowColor: NETSA_COLORS.netsa[10],
+                        shadowOffset: { width: 0, height: 0 },
+                        shadowOpacity: 0.05,
+                        shadowRadius: 40,
+                    }}
                 >
-                    {/* Decorative light spots */}
-                    <View
-                        className="absolute -top-20 -right-20 w-48 h-48 bg-rose-500/20 rounded-full"
-                        style={{ filter: 'blur(60px)' }}
-                    />
-                    <View
-                        className="absolute -bottom-20 -left-20 w-48 h-48 bg-amber-500/20 rounded-full"
-                        style={{ filter: 'blur(60px)' }}
+                    {/* Background gradient */}
+                    <LinearGradient
+                        colors={['#18181b', '#000'] as const}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                        }}
                     />
 
-                    <View className="relative z-10">
-                        {/* Header */}
-                        <View className="items-center mb-8">
-                            <Text className="text-white text-[32px] font-black text-center leading-tight mb-3">
-                                Your Stage{'\n'}
-                                <Text className="text-rose-500">Awaits</Text>
+                    {/* Radial gradient overlay */}
+                    <View
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'transparent',
+                        }}
+                    >
+                        <LinearGradient
+                            colors={['rgba(234, 105, 139, 0.1)', 'transparent'] as const}
+                            start={{ x: 0.5, y: 0.5 }}
+                            end={{ x: 0.5, y: 0 }}
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                            }}
+                        />
+                    </View>
+
+                    {/* Content */}
+                    <View style={{ alignItems: 'center', zIndex: 10 }}>
+                        {/* Badge */}
+                        <View
+                            style={{
+                                backgroundColor: NETSA_COLORS.netsa[10],
+                                paddingHorizontal: isMobile ? 16 : 24,
+                                paddingVertical: isMobile ? 6 : 8,
+                                borderRadius: 20,
+                                marginBottom: isMobile ? 24 : 32,
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    fontSize: isMobile ? 10 : 12,
+                                    fontWeight: '700',
+                                    color: '#fff',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 3,
+                                }}
+                            >
+                                Limited Beta
                             </Text>
-                            <View className="h-1 w-16 bg-gradient-to-r from-rose-500 to-amber-500 rounded-full" />
                         </View>
 
-                        {/* Subheading */}
-                        <Text className="text-gray-300 text-center text-base leading-[26px] mb-8 font-medium">
-                            Join 5,000+ artists building sustainable careers in India's ₹3.8B performing arts industry
+                        {/* Headline */}
+                        <Text
+                            style={{
+                                fontSize: isMobile ? 36 : isTablet ? 64 : isWeb ? 96 : 40,
+                                fontWeight: '900',
+                                color: '#fff',
+                                textAlign: 'center',
+                                lineHeight: isMobile ? 40 : isTablet ? 64 : isWeb ? 90 : 44,
+                                letterSpacing: -2,
+                                marginBottom: isMobile ? 24 : 32,
+                            }}
+                        >
+                            Ready to take{'\n'}center stage?
                         </Text>
 
-                        {/* Benefits List */}
-                        <View className="mb-8 space-y-3">
-                            {benefits.map((benefit, index) => (
-                                <View key={index} className="flex-row items-start">
-                                    <View className="mt-0.5">
-                                        <CheckCircle2 size={18} color="#10b981" fill="#10b981" />
-                                    </View>
-                                    <Text className="text-gray-300 text-sm ml-3 flex-1 leading-relaxed">
-                                        {benefit}
+                        {/* Subtext */}
+                        <Text
+                            style={{
+                                fontSize: isMobile ? 14 : isWeb ? 20 : 16,
+                                color: '#a1a1aa',
+                                textAlign: 'center',
+                                lineHeight: isMobile ? 22 : isWeb ? 32 : 26,
+                                maxWidth: isMobile ? '100%' : 600,
+                                marginBottom: isMobile ? 32 : 48,
+                                fontWeight: '300',
+                                paddingHorizontal: isMobile ? 8 : 0,
+                            }}
+                        >
+                            Join thousands of artists already professionalizing their careers. NETSA is your gateway to India's thriving creative economy.
+                        </Text>
+
+                        {/* Buttons */}
+                        <View
+                            style={{
+                                flexDirection: isMobile ? 'column' : 'row',
+                                gap: isMobile ? 16 : 24,
+                                alignItems: 'center',
+                                width: '100%',
+                                maxWidth: isMobile ? 400 : undefined,
+                            }}
+                        >
+                            <TouchableOpacity
+                                onPress={() => router.push('/(auth)/register')}
+                                activeOpacity={0.8}
+                                style={{
+                                    shadowColor: '#fff',
+                                    shadowOffset: { width: 0, height: 0 },
+                                    shadowOpacity: 0.1,
+                                    shadowRadius: 20,
+                                    width: isMobile ? '100%' : 'auto',
+                                }}
+                            >
+                                <View
+                                    style={{
+                                        height: isMobile ? 56 : isWeb ? 80 : 64,
+                                        paddingHorizontal: isMobile ? 24 : isWeb ? 64 : 32,
+                                        backgroundColor: '#fff',
+                                        borderRadius: isMobile ? 28 : isWeb ? 40 : 32,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            fontSize: isMobile ? 16 : isWeb ? 20 : 18,
+                                            fontWeight: '700',
+                                            color: '#000',
+                                        }}
+                                    >
+                                        Get Started Free
                                     </Text>
                                 </View>
-                            ))}
-                        </View>
+                            </TouchableOpacity>
 
-                        {/* CTA Buttons */}
-                        <View className="space-y-3">
-                            <GradientButton
-                                label="Start Your Journey Today"
-                                colors={["#dc2626", "#ea580c", "#f59e0b"]}
-                                onPress={() => router.push('/(auth)/register')}
-                                icon={<ArrowRight size={18} color="white" />}
-                            />
-
-                            <Button
-                                label="Learn More About NETSA"
-                                variant="outline"
-                                className="border-white/20 bg-white/5"
-                                textClassName="text-white font-semibold"
-                                onPress={() => {/* Navigate to about page */ }}
-                            />
-                        </View>
-
-                        {/* Trust Badge */}
-                        <View className="mt-8 pt-6 border-t border-white/10 flex-row items-center justify-center">
-                            <View className="flex-row items-center">
-                                <View className="bg-emerald-500/20 rounded-full p-1 mr-2">
-                                    <CheckCircle2 size={14} color="#10b981" fill="#10b981" />
+                            <TouchableOpacity
+                                onPress={() => router.push('/contact')}
+                                activeOpacity={0.8}
+                                style={{ width: isMobile ? '100%' : 'auto' }}
+                            >
+                                <View
+                                    style={{
+                                        height: isMobile ? 56 : isWeb ? 80 : 64,
+                                        paddingHorizontal: isMobile ? 24 : isWeb ? 64 : 32,
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                                        borderRadius: isMobile ? 28 : isWeb ? 40 : 32,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            fontSize: isMobile ? 16 : isWeb ? 20 : 18,
+                                            fontWeight: '700',
+                                            color: '#fff',
+                                        }}
+                                    >
+                                        Talk to Us
+                                    </Text>
                                 </View>
-                                <Text className="text-gray-400 text-xs font-medium">
-                                    Free to join • No hidden fees • Cancel anytime
-                                </Text>
-                            </View>
+                            </TouchableOpacity>
                         </View>
                     </View>
-                </LinearGradient>
-            </View>
-
-            {/* Footer Message */}
-            <View className="mt-12 items-center">
-                <Text className="text-gray-500 text-xs text-center leading-relaxed max-w-[280px]">
-                    Empowering artists across India to turn their passion into profession.
-                    Built by artists, for artists.
-                </Text>
+                </View>
             </View>
         </View>
     );

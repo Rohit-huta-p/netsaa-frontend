@@ -7,12 +7,8 @@ import { useAuthStore } from '../stores/authStore';
 import { Platform } from 'react-native';
 
 const getBaseUrl = () => {
-  if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
-  // Use localhost ONLY for web
-  if (Platform.OS === 'web') return 'http://localhost:5001/api';
-  // Use LAN IP for both iOS and Android (Physical devices & Emulators)
-  // NOTE: Update this IP if you change networks or your local IP changes
-  return 'http://10.197.171.107:5001/api';
+  // Always prefer env var, fallback to production
+  return process.env.EXPO_PUBLIC_API_URL || 'https://netsaa-backend.onrender.com';
 };
 
 const API = axios.create({

@@ -2,12 +2,9 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import { IEvent, CreateEventDTO } from '../types/event';
 
-// TODO: Centralize this base URL logic
+// Use env var or production fallback
 const getBaseUrl = () => {
-    if (process.env.EXPO_PUBLIC_API_EVENT_URL) return process.env.EXPO_PUBLIC_API_EVENT_URL;
-    // if (Platform.OS === 'web') return 'http://localhost:5010/v1';
-    // Update this IP as needed for physical devices
-    return 'http://10.197.171.107:5010/v1';
+    return process.env.EXPO_PUBLIC_API_EVENT_URL || 'https://netsaa-events-service.onrender.com/v1';
 };
 
 const API = axios.create({
@@ -117,6 +114,16 @@ const eventService = {
 
     postEventDiscussion: async (eventId: string, text: string) => {
         const response = await API.post<{ data: any }>(`/events/${eventId}/discussion`, { text });
+        return response.data;
+    },
+
+    getSavedEvents: async () => {
+        const response = await API.get<{ data: any[] }>('/users/me/saved-events');
+        return response.data;
+    },
+
+    saveEvent: async (id: string) => {
+        const response = await API.post<{ data: any }>(`/events/${id}/save`);
         return response.data;
     },
 };

@@ -1,450 +1,964 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, useWindowDimensions } from "react-native";
-import { Calendar, MapPin, Users, Heart, Share2, Settings, ArrowLeft, Check, X } from "lucide-react-native";
-import { usePathname, useRouter } from "expo-router";
-
-
-import { GigSettingsModal } from "./GigSettingsModal";
-import { ConfirmationModal } from "../events/shared/ConfirmationModal";
-import { GigApplyModal } from "./GigApplyModal";
-import { useDeleteGig, useUpdateGig } from "../../hooks/useGigs";
-import { Gig } from "../../types/gig";
-import { EditableField } from "@/components/ui/EditableField";
-
-import { SegmentedTabs } from "../common/SegmentedTabs";
-import { GigApplicationsList } from "./GigApplicationsList";
-import ApplicationsTab from "../events/shared/ApplicationsTab";
-import AboutTab from "../common/AboutTab";
-import DiscussionTab from "../common/DiscussionTab";
-// TYPES
-const Gig_Organizer_TABS = ["About", "Applications", "Discussion"] as const;
-const Gig_Artist_TABS = ["About", "Discussion"] as const;
-type GigTab = (typeof Gig_Organizer_TABS | typeof Gig_Artist_TABS)[number];
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Image, Alert, Platform } from 'react-native';
+import {
+    Calendar,
+    MapPin,
+    Clock,
+    Heart,
+    Share2,
+    CheckCircle2,
+    ShieldCheck,
+    ArrowRight,
+    Lock,
+    Zap,
+    Star,
+    AlertCircle,
+    Edit2,
+    ChevronDown,
+    ChevronUp,
+    ExternalLink,
+    Check,
+    X,
+    User as UserIcon,
+    DollarSign,
+    Briefcase,
+    Award,
+    Camera,
+    Film,
+    Music,
+} from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { GigApplyModal } from './GigApplyModal';
+import useAuthStore from '@/stores/authStore';
+import { GigSettingsModal } from './GigSettingsModal';
+import { useGigApplications, useUpdateApplicationStatus } from '@/hooks/useGigApplications';
+import { usePlatform } from '@/utils/platform';
 
 interface GigDetailsProps {
+    gig: any;
     isOrganizer?: boolean;
-    gig: Gig | any; // Allow relaxed type for now to avoid breakages if partial data passed
     showActionFooter?: boolean;
-    isEditingExternal?: boolean;
-    onSave?: (data: any) => void;
-    onCancel?: () => void;
 }
 
+
+
 export const GigDetails: React.FC<GigDetailsProps> = ({
-    isOrganizer,
     gig,
     showActionFooter = true,
-    isEditingExternal = false,
-    onSave,
-    onCancel,
 }) => {
-    const router = useRouter();
-    const pathname = usePathname();
+    const { isWeb } = usePlatform();
+    const user = useAuthStore((state) => state.user);
+    const isOrganizer = user?._id === gig.organizerId;
 
-    const [activeTab, setActiveTab] = useState("about");
-    console.log('[GigDetails] Rendered', { gigId: gig?._id, activeTab, isOrganizer });
-    const [tabs] = useState(() => {
-        return (isOrganizer ? Gig_Organizer_TABS : Gig_Artist_TABS).map((tab) => ({
-            key: tab.toLowerCase(),
-            title: tab,
-        }));
-    });
+    const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+    const [applyModalVisible, setApplyModalVisible] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
+    const [activeTab, setActiveTab] = useState<'about' | 'talent' | 'schedule' | 'apply' | 'applications'>('about');
+    const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
 
-    const [showSettings, setShowSettings] = useState(false);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [showApplyModal, setShowApplyModal] = useState(false);
+    // Fetch applications if organizer
+    const { data: applications, isLoading: loadingApplications } = useGigApplications(
+        isOrganizer ? gig._id : ''
+    );
+    const updateMutation = useUpdateApplicationStatus();
 
-    // Local form state for editing
-    const [formData, setFormData] = useState(gig);
+    const handleShare = () => {
+        Alert.alert('Share', 'Share functionality coming soon!');
+    };
 
-    // Sync local state when gig changes or edit mode starts (optional, but safer)
-    React.useEffect(() => {
-        setFormData(gig);
-    }, [gig, isEditingExternal]);
+    const handleSave = () => {
+        setIsSaved(!isSaved);
+    };
 
+    const handleUpdateStatus = (appId: string, status: string) => {
+        updateMutation.mutate({ applicationId: appId, status });
+    };
 
-    const deleteMutation = useDeleteGig();
-    const updateMutation = useUpdateGig();
+    const toggleExpand = (appId: string) => {
+        setExpandedAppId((prev) => (prev === appId ? null : appId));
+    };
 
-    if (!gig) {
-        return (
-            <View className="flex-1 justify-center items-center bg-gray-50">
-                <Text className="text-gray-500">Select a gig to view details</Text>
-            </View>
-        );
-    }
-
-    const title = formData.title || "Contemporary Dance Workshop";
-    const organizerName = formData.organizerSnapshot?.displayName || formData.organizerName || "Maria Santos";
-    const date = formData.schedule?.startDate
-        ? new Date(formData.schedule.startDate).toLocaleDateString()
-        : "Dec 15, 2024";
-    const timeRange = formData.schedule?.timeRange || "7:00 PM – 9:00 PM";
-    const location = formData.location?.city || "Location";
-
-    // Use specific fields if available, otherwise fallback
-    const registered = formData.stats?.applications || formData.registered || 18;
-    const capacity = formData.maxApplications || formData.capacity || 25;
+    // Calculate application progress
+    const capacity = parseInt(gig.maxApplications || gig.capacity || '1');
+    const registered = gig.stats?.applications || 0;
     const spotsLeft = capacity - registered;
-    const progress = (registered / capacity) * 100;
 
-    const handleEdit = () => {
-        setShowSettings(false);
-        router.push(`/organizer/gigs/${gig._id}/edit`);
-    };
-
-    const handleDelete = () => {
-        setShowSettings(false);
-        setTimeout(() => setShowDeleteConfirm(true), 250);
-    };
-
-    const confirmDelete = () => {
-        deleteMutation.mutate(gig._id, {
-            onSuccess: () => {
-                router.back();
-            },
-        });
-    };
-
-    const handleToggleStatus = () => {
-        setShowSettings(false);
-        const newStatus = gig.status === 'published' ? 'draft' : 'published';
-        updateMutation.mutate({ id: gig._id, payload: { status: newStatus } });
-    };
-
-    const renderTabContent = () => {
-        console.log('[GigDetails] Rendering tab content:', activeTab);
-        switch (activeTab) {
-            case 'about':
-                return (
-                    <View className="bg-netsa-card rounded-2xl p-6 mt-6 shadow-sm border border-white/10">
-                        <Text className="text-lg font-satoshi-bold text-white mb-3">About This Gig</Text>
-                        <EditableField
-                            isEditing={!!isEditingExternal}
-                            value={formData.description || ""}
-                            label="Description"
-                            onChangeText={(text) => setFormData({ ...formData, description: text })}
-                            multiline
-                            textStyle="text-netsa-text-secondary leading-relaxed font-inter"
-                        />
-                    </View>
-                );
-            case 'applications':
-                return isOrganizer ? (
-                    <GigApplicationsList gigId={gig._id} />
-                ) : (
-                    <View className="bg-netsa-card rounded-2xl p-6 mt-6 shadow-sm border border-white/10">
-                        <Text className="text-lg font-satoshi-bold text-white mb-3">About This Gig</Text>
-                        <Text className="text-netsa-text-secondary leading-relaxed font-inter">
-                            {gig.description ||
-                                "This gig is an opportunity to collaborate, perform, and grow professionally in a curated artistic environment."}
-                        </Text>
-                    </View>
-                );
-            case 'discussion':
-                return (
-                    <View className="bg-netsa-card rounded-2xl p-6 mt-6 shadow-sm border border-white/10 min-h-[200px] justify-center items-center">
-                        <Text className="text-netsa-text-muted font-inter">Coming soon</Text>
-                    </View>
-                );
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'hired':
+                return { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20' };
+            case 'shortlisted':
+                return { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20' };
+            case 'rejected':
+                return { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/20' };
             default:
-                return null;
+                return { bg: 'bg-zinc-500/10', text: 'text-zinc-400', border: 'border-zinc-500/20' };
         }
     };
 
-    const handleTabSelect = async (tab: any) => {
-        console.log('[GigDetails] Selected tab:', tab);
-        setActiveTab(tab);
+    // Helper to format media requirements
+    const getMediaRequirements = () => {
+        const reqs = [];
+        if (gig.mediaRequirements?.headshots) reqs.push({ icon: Camera, label: 'Headshots' });
+        if (gig.mediaRequirements?.fullBody) reqs.push({ icon: Camera, label: 'Full Body Shots' });
+        if (gig.mediaRequirements?.videoReel) reqs.push({ icon: Film, label: 'Video Reel' });
+        if (gig.mediaRequirements?.audioSample) reqs.push({ icon: Music, label: 'Audio Sample' });
+        return reqs;
     };
 
     return (
-        <View className="flex-1 bg-netsa-bg">
-            {/* Header Section */}
-            <View className="px-6 pt-4 pb-2 flex-row justify-between items-center bg-netsa-bg z-10 border-b border-white/10">
-                <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-white/10">
-                    <ArrowLeft size={24} color="#FFFFFF" />
-                </TouchableOpacity>
+        <View className="flex-1 w-[90%] mx-auto">
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140, marginTop: 20 }}>
+                {/* HERO IMAGE */}
+                <View className="relative w-full overflow-hidden rounded-2xl">
+                    {/* <Image
+                        source={{
+                            uri: 'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?q=80&w=2000',
+                        }}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                    />
+                    <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.3)', '#000000']}
+                        locations={[0, 0.6, 1]}
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                        }}
+                    /> */}
 
-                <View className="flex-row items-center space-x-1">
-                    <TouchableOpacity className="p-2 rounded-full active:bg-white/10">
-                        <Heart size={22} color="#FFFFFF" />
-                    </TouchableOpacity>
-                    <TouchableOpacity className="p-2 rounded-full active:bg-white/10">
-                        <Share2 size={22} color="#FFFFFF" />
-                    </TouchableOpacity>
-                    {/* Settings only visible for organizer mode (when footer is hidden) */}
-                    {!showActionFooter && (
-                        <TouchableOpacity
-                            onPress={() => setShowSettings(true)}
-                            className="p-2 rounded-full active:bg-white/10"
-                        >
-                            <Settings size={22} color="#FFFFFF" />
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </View>
-
-            <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
-                <View className=" px-6 mt-4">
-
-                    {/* Content Container */}
-                    <View className="px-6 mt-4">
-
-                        {/* TAGS */}
-                        <View className="flex-row flex-wrap gap-2 mb-4">
-                            {(gig.tags || ["Gig", "Paid", "Stage"]).map((tag: string, i: number) => (
-                                <View key={i} className="px-3 py-1 rounded-full bg-netsa-accent-purple/20 border border-netsa-accent-purple/30">
-                                    <Text className="text-xs font-satoshi-bold text-netsa-accent-purple">
-                                        {tag}
-                                    </Text>
-                                </View>
-                            ))}
-                        </View>
-
-                        {/* TITLE + META + RIGHT CARD */}
-                        <View className="flex-col md:flex-row gap-6">
-
-                            {/* LEFT */}
-                            <View className="flex-1">
-                                <EditableField
-                                    isEditing={!!isEditingExternal}
-                                    value={title}
-                                    label="Gig Title"
-                                    onChangeText={(text) => setFormData({ ...formData, title: text })}
-                                    textStyle="text-3xl font-satoshi-black text-white mb-4"
-                                    containerStyle="mb-2"
-                                    multiline
-                                />
-
-                                <Text className="font-satoshi-bold text-netsa-text-primary text-lg mb-2">
-                                    {organizerName}
-                                </Text>
-
-                                <View className="space-y-3 mt-2">
-                                    <View className="flex-row items-center">
-                                        <Calendar size={18} color="#9A9AA3" />
-                                        <Text className="ml-3 text-netsa-text-secondary text-sm font-inter">
-                                            {date} · {timeRange}
+                    {/* Hero Content */}
+                    <View className="mt-4 flex-row w-full justify-between">
+                        {/* Title */}
+                        <View>
+                            <View className="flex-row gap-2 mb-4">
+                                {gig.isUrgent && (
+                                    <View className="bg-orange-600 rounded-full px-4 py-2">
+                                        <Text className="text-white font-black text-[10px] uppercase tracking-[0.2em]">
+                                            URGENT
                                         </Text>
                                     </View>
-
-                                    <View className="flex-row items-center">
-                                        <EditableField
-                                            isEditing={!!isEditingExternal}
-                                            value={location}
-                                            label="City/Location"
-                                            onChangeText={(text) => setFormData({
-                                                ...formData,
-                                                location: { ...formData.location, city: text }
-                                            })}
-                                            icon={<MapPin size={18} color="#9A9AA3" />}
-                                            textStyle="ml-3 text-netsa-text-secondary text-sm font-inter"
-                                            containerStyle="mb-0" // Tight spacing in list
-                                        />
-                                    </View>
-
-                                    <View className="flex-row items-center">
-                                        <EditableField
-                                            isEditing={!!isEditingExternal}
-                                            value={String(capacity)} // For editing
-                                            label="Capacity"
-                                            keyboardType="numeric"
-                                            onChangeText={(text) => setFormData({ ...formData, maxApplications: Number(text) })}
-                                            icon={<Users size={18} color="#9A9AA3" />}
-                                            containerStyle="mb-0"
-                                        >
-                                            <Text className="ml-3 text-netsa-text-secondary text-sm font-inter">
-                                                {capacity} capacity
-                                            </Text>
-                                        </EditableField>
-                                    </View>
+                                )}
+                                <View className="bg-blue-600 rounded-full px-5 py-2">
+                                    <Text className="text-white font-black text-[10px] uppercase tracking-[0.2em]">
+                                        {gig.artistTypes?.[0] || 'MUSIC'} • {gig.category?.replace('_', ' ').toUpperCase()}
+                                    </Text>
                                 </View>
                             </View>
 
-                            {/* RIGHT CARD */}
-                            <View className="w-full md:w-64 bg-netsa-card rounded-2xl p-5 shadow-lg border border-white/10">
-                                <EditableField
-                                    isEditing={!!isEditingExternal}
-                                    value={String(formData.compensation?.amount || 0)}
-                                    label="Pay Amount"
-                                    keyboardType="numeric"
-                                    onChangeText={(text) => setFormData({
-                                        ...formData,
-                                        compensation: { ...formData.compensation, amount: Number(text) }
-                                    })}
-                                    textStyle="text-2xl font-satoshi-black text-netsa-accent-orange mb-2"
+                        </View>
+                        <View>
+                            {/* Action Buttons */}
+                            <View className="flex-row gap-3 z-30">
+                                <TouchableOpacity
+                                    onPress={handleSave}
+                                    className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
                                 >
-                                    <Text className="text-2xl font-satoshi-black text-netsa-accent-orange mb-2">
-                                        ₹{formData.compensation?.amount?.toLocaleString()}/-
-                                    </Text>
-                                </EditableField>
+                                    <Heart size={20} color={isSaved ? '#EF4444' : '#FFFFFF'} fill={isSaved ? '#EF4444' : 'none'} />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={handleShare}
+                                    className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
+                                >
+                                    <Share2 size={20} color="#FFFFFF" />
+                                </TouchableOpacity>
+                                {isOrganizer && (
+                                    <TouchableOpacity
+                                        onPress={() => setSettingsModalVisible(true)}
+                                        className="w-12 h-12 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
+                                    >
+                                        <Edit2 size={20} color="#FFFFFF" />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        </View>
+                    </View>
+                </View>
 
-                                <View className="flex-row items-center mb-2">
-                                    <Users size={14} color="#9A9AA3" />
-                                    <Text className="text-xs text-netsa-text-muted ml-1 font-inter">
-                                        {registered}/{capacity} registered
+                <View className="pt-12">
+                    {/* MAIN CONTENT - TWO COLUMN LAYOUT */}
+                    <View className="flex-row justify-between ">
+                        {/* Organizer details */}
+                        <View>
+                            {!isOrganizer && (
+                                <View>
+                                    <Text className="text-5xl font-black text-white leading-tight">
+                                        {gig.title}
                                     </Text>
+
+                                    <View className="flex-row items-center gap-4 mb-8">
+                                        <View className="relative">
+                                            <View className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/10">
+                                                {gig.organizerSnapshot?.profileImageUrl ? (
+                                                    <Image
+                                                        source={{ uri: gig.organizerSnapshot.profileImageUrl }}
+                                                        style={{ width: '100%', height: '100%' }}
+                                                        resizeMode="cover"
+                                                    />
+                                                ) : (
+                                                    <View className="w-full h-full items-center justify-center bg-gradient-to-br from-blue-900 to-purple-900">
+                                                        <Text className="text-white font-black text-xl">
+                                                            {gig.organizerSnapshot?.displayName?.charAt(0) || 'O'}
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                            <View className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-600 rounded-full items-center justify-center border-2 border-black">
+                                                <CheckCircle2 size={12} color="white" />
+                                            </View>
+                                        </View>
+                                        <View className="flex-1">
+                                            <Text className="text-md font-black text-white mb-1">
+                                                {gig.organizerSnapshot?.displayName || 'Organizer'}
+                                            </Text>
+                                            <View className="flex-row items-center gap-3">
+                                                <View className="flex-row items-center gap-1">
+                                                    {[1, 2, 3, 4].map((i) => (
+                                                        <Star key={i} size={10} color="#EAB308" fill="#EAB308" />
+                                                    ))}
+                                                    <Star size={8} color="#3F3F46" fill="#3F3F46" />
+                                                    <Text className="text-[10px] font-bold text-zinc-400 ml-1">
+                                                        {gig.organizerSnapshot?.rating || '4.9'}
+                                                    </Text>
+                                                </View>
+                                                <View className="bg-emerald-500/10 px-2 py-1 rounded">
+                                                    <Text className="text-emerald-500 text-[6px] font-black uppercase tracking-widest">
+                                                        VERIFIED
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        </View>
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* Quick Meta */}
+                            <View className="flex-row justify-start gap-6 mb-10">
+                                <View className="flex-row items-start gap-3">
+                                    <View className="w-10 h-10 rounded-xl bg-blue-500/10 items-center justify-center">
+                                        <MapPin size={18} color="#3B82F6" />
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-md font-bold text-white mb-1">
+                                            {gig.location?.venueName || gig.location?.city || 'Location TBD'}
+                                        </Text>
+                                        <Text className="text-xs text-zinc-400">
+                                            {gig.location?.city || ''}{gig.location?.state ? `, ${gig.location.state}` : ''}
+                                        </Text>
+                                    </View>
                                 </View>
 
-                                <View className="flex-row justify-between mb-1">
-                                    <Text className="text-[10px] text-netsa-text-muted font-inter">
-                                        Spots remaining
-                                    </Text>
-                                    <Text className="text-[10px] text-netsa-text-muted font-inter">
-                                        {spotsLeft}
-                                    </Text>
+                                <View className="flex-row items-center gap-3">
+                                    <View className="w-10 h-10 rounded-xl bg-purple-500/10 items-center justify-center">
+                                        <Calendar size={18} color="#8B5CF6" />
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-md font-bold text-white mb-1">
+                                            {gig.schedule?.startDate
+                                                ? new Date(gig.schedule.startDate).toLocaleDateString('en-IN', {
+                                                    day: 'numeric',
+                                                    month: 'short',
+                                                    year: 'numeric',
+                                                })
+                                                : "Date TBD"}
+                                        </Text>
+                                        <Text className="text-xs text-zinc-400">
+                                            {gig.type === 'one-time' ? 'One-time gig' : gig.type === 'recurring' ? 'Recurring' : 'Contract'}
+                                        </Text>
+                                    </View>
                                 </View>
+                            </View>
+                        </View>
 
-                                {/* Gradient 1 Progress Bar */}
-                                <View className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-4">
-                                    <View
-                                        style={{ width: `${progress}%` }}
-                                        className="h-full bg-netsa-accent-red"
-                                    // ideally use a linear gradient view here, but solid accent-red fits 'Action' theme if native class fails
-                                    // if we can use nativewind gradients: 
-                                    // className="h-full" style={{ width: ..., backgroundColor: ... }}
-                                    // lets assume solid for simplicity or use a LinearGradient component if absolutely needed.
-                                    // User asked for "Gradient 1". I should try to use it.
-                                    />
-                                </View>
-
-                                <Text className="text-xs text-netsa-text-muted mb-4 font-inter">
-                                    Total applications: {gig.totalApplications}
-                                </Text>
-
-                                {/* STATUS BREAKDOWN */}
-                                {
-                                    isOrganizer && (
-                                        <View className="space-y-2 mb-4 border-t border-white/10 pt-4">
-                                            <View className="flex-row justify-between">
-                                                <Text className="text-xs text-netsa-text-secondary font-inter">Pending</Text>
-                                                <Text className="text-xs font-satoshi-bold text-netsa-accent-orange">
-                                                    {(formData.stats?.applications || 0) - (formData.stats?.shortlisted || 0) - (formData.stats?.hired || 0)}
+                        {/* Compensation Card */}
+                        {!isOrganizer && isWeb && (
+                            <View className="w-72">
+                                <View className="p-8 rounded-[2.5rem] bg-zinc-900/50 border border-white/10 mb-6">
+                                    <View className="items-center mb-4">
+                                        <View className="flex-row items-center gap-2 mb-2">
+                                            <Zap size={14} color="#3B82F6" />
+                                            <Text className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                                                TOTAL COMPENSATION
+                                            </Text>
+                                        </View>
+                                        <View className="items-center">
+                                            <View className="flex-row items-baseline">
+                                                <Text className="text-xl font-black text-white">₹</Text>
+                                                <Text className="text-2xl font-black text-white">
+                                                    {gig.compensation?.amount?.toLocaleString() || '0'}
                                                 </Text>
                                             </View>
 
-                                            <View className="flex-row justify-between">
-                                                <Text className="text-xs text-netsa-text-secondary font-inter">Shortlisted</Text>
-                                                <Text className="text-xs font-satoshi-bold text-blue-400">
-                                                    {formData.stats?.shortlisted || 0}
-                                                </Text>
-                                            </View>
+                                        </View>
+                                    </View>
 
-                                            <View className="flex-row justify-between">
-                                                <Text className="text-xs text-netsa-text-secondary font-inter">Confirmed</Text>
-                                                <Text className="text-xs font-satoshi-bold text-green-400">
-                                                    {formData.stats?.hired || 0}
+                                    {/* Progress */}
+                                    <View className="mb-8">
+                                        <View className="flex-row justify-between items-center mb-3">
+                                            <Text className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                                                APPLICANTS
+                                            </Text>
+                                            <Text className="text-[8px] font-black text-white">
+                                                {registered} / {capacity}
+                                            </Text>
+                                        </View>
+                                        <View className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                            <View
+                                                className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                                                style={{ width: `${(registered / capacity) * 100}%` }}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    {/* Closing Alert */}
+                                    {gig.applicationDeadline && (
+                                        <View className="w-fit self-center gap-3 px-3 py-1 bg-rose-500/10 rounded-2xl border border-rose-500/20 mb-4">
+                                            <View className="flex-row justify-center items-center gap-2">
+                                                <AlertCircle size={10} color="#EF4444" />
+                                                <Text className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">
+                                                    DEADLINE:{' '}
+                                                    <Text className="text-white">
+                                                        {new Date(gig.applicationDeadline).toLocaleDateString('en-IN', {
+                                                            day: 'numeric',
+                                                            month: 'short',
+                                                        })}
+                                                    </Text>
                                                 </Text>
                                             </View>
                                         </View>
-                                    )
-                                }
+                                    )}
 
-                                {
-                                    isOrganizer ? (
-                                        <TouchableOpacity onPress={() => setActiveTab('applications')} className="bg-netsa-accent-purple py-3 rounded-full active:opacity-90">
-                                            <Text className="text-center text-white font-satoshi-bold text-xs">
-                                                Review Applications
+                                    {/* Apply Button */}
+                                    <TouchableOpacity
+                                        onPress={() => setApplyModalVisible(true)}
+                                        className="w-full py-3 rounded-2xl bg-white items-center justify-center flex-row mb-6 active:scale-95"
+                                    >
+                                        <Text className="text-black text-lg font-black">Apply Now</Text>
+                                        <ArrowRight size={20} color="#000000" style={{ marginLeft: 8 }} />
+                                    </TouchableOpacity>
+
+                                    {/* Trust Footer */}
+                                    <View className="space-y-3">
+                                        <View className="flex-row items-center gap-2 justify-center">
+                                            <Lock size={12} color="#71717A" />
+                                            <Text className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-500">
+                                                ENCRYPTED APPLICATION FLOW
                                             </Text>
-                                        </TouchableOpacity>
-                                    ) : (
-                                        <TouchableOpacity
-                                            onPress={() => {
-                                                if (gig.viewerContext?.hasApplied) return;
-                                                setShowApplyModal(true);
-                                            }}
-                                            className={`py-3 rounded-full active:opacity-90 ${gig.viewerContext?.hasApplied ? 'bg-green-500/20 border border-green-500/30' : 'bg-netsa-accent-purple'}`}
-                                            disabled={gig.viewerContext?.hasApplied}
-                                        >
-                                            <Text className={`text-center font-satoshi-bold text-xs ${gig.viewerContext?.hasApplied ? 'text-green-400' : 'text-white'}`}>
-                                                {gig.viewerContext?.hasApplied ? 'Applied' : 'Apply'}
+                                        </View>
+                                        <Text className="text-center text-[9px] text-zinc-600 leading-relaxed">
+                                            BY APPLYING, YOU AGREE TO THE{'\n'}
+                                            <Text className="text-blue-400 underline">NETSA PERFORMANCE CHARTER</Text>
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                {/* Trust Badges */}
+                                {/* <View className="space-y-4">
+                                    <View className="p-5 rounded-2xl bg-zinc-900/30 border border-white/5 flex-row items-center gap-4">
+                                        <View className="w-10 h-10 rounded-xl bg-emerald-500/10 items-center justify-center">
+                                            <ShieldCheck size={20} color="#10B981" />
+                                        </View>
+                                        <View className="flex-1">
+                                            <Text className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">
+                                                ESCROW PROTECTED
                                             </Text>
-                                        </TouchableOpacity>
-                                    )
-                                }
+                                            <Text className="text-[11px] text-zinc-500">
+                                                Funds held by NETSA until performance completion.
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <View className="p-5 rounded-2xl bg-zinc-900/30 border border-white/5 flex-row items-center gap-4">
+                                        <View className="w-10 h-10 rounded-xl bg-blue-500/10 items-center justify-center">
+                                            <CheckCircle2 size={20} color="#3B82F6" />
+                                        </View>
+                                        <View className="flex-1">
+                                            <Text className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500 mb-1">
+                                                IDENTITY VERIFIED
+                                            </Text>
+                                            <Text className="text-[11px] text-zinc-500">
+                                                Both organizer and artist identities verified.
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </View> */}
                             </View>
+
+                        )}
+                    </View>
+
+
+                    {/* TABS */}
+                    <View className="mb-12">
+                        {/* Tab Headers */}
+                        <View className="flex-row border-b border-white/10 mb-8">
+                            {[
+                                { key: 'about', label: 'About' },
+                                { key: 'talent', label: 'Talent Criteria' },
+                                { key: 'schedule', label: 'Schedule & Pay' },
+                                { key: 'apply', label: 'How to Apply' },
+                                ...(isOrganizer ? [{ key: 'applications', label: 'Applications' }] : []),
+                            ].map((tab) => (
+                                <TouchableOpacity
+                                    key={tab.key}
+                                    onPress={() => setActiveTab(tab.key as any)}
+                                    className={`px-6 py-4 ${activeTab === tab.key ? 'border-b-2 border-blue-500' : ''}`}
+                                >
+                                    <Text
+                                        className={`text-[11px] font-black uppercase tracking-[0.15em] ${activeTab === tab.key ? 'text-white' : 'text-zinc-500'}`}
+                                    >
+                                        {tab.label}
+                                        {tab.key === 'applications' && applications && (
+                                            <Text className="text-blue-400"> ({applications.length})</Text>
+                                        )}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
                         </View>
 
-                        {/* ---------- TABS ---------- */}
-                        {/* EventTabs might need props to style it dark, assume it inherits or we need to wrap it. 
-                            If EventTabs has hardcoded white, we might need to fix it later. 
-                            For now, passing it here. */}
-                        <View className="mt-8">
+                        {/* Tab Content */}
+                        {activeTab === 'about' && (
+                            <View className="space-y-6">
+                                {/* Description */}
+                                <View>
+                                    <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4">
+                                        GIG OVERVIEW
+                                    </Text>
+                                    <View className="border-l-4 border-blue-500/30 pl-6">
+                                        <Text className="text-xl text-zinc-300 leading-relaxed font-light">
+                                            {gig.description || 'No description provided.'}
+                                        </Text>
+                                    </View>
+                                </View>
 
+                                {/* Tags */}
+                                {gig.tags && gig.tags.length > 0 && (
+                                    <View>
+                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                                            TAGS
+                                        </Text>
+                                        <View className="flex-row flex-wrap gap-2">
+                                            {gig.tags.map((tag: string, idx: number) => (
+                                                <View
+                                                    key={idx}
+                                                    className="px-3 py-2 bg-zinc-800/50 border border-zinc-700 rounded-lg"
+                                                >
+                                                    <Text className="text-zinc-400 text-xs">#{tag}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </View>
+                                )}
 
-                            <SegmentedTabs
-                                tabs={tabs}
-                                activeTab={activeTab}
-                                onTabChange={handleTabSelect}
-                            />
+                                {/* Additional Benefits */}
+                                {gig.compensation?.perks && gig.compensation.perks.length > 0 && (
+                                    <View>
+                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4">
+                                            ADDITIONAL BENEFITS
+                                        </Text>
+                                        <View className="space-y-3">
+                                            {gig.compensation.perks.map((perk: string, idx: number) => (
+                                                <View
+                                                    key={idx}
+                                                    className="flex-row items-center gap-4 p-4 rounded-2xl bg-zinc-900/30 border border-white/5"
+                                                >
+                                                    <View className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 items-center justify-center">
+                                                        <Zap size={18} color="#A855F7" />
+                                                    </View>
+                                                    <Text className="flex-1 text-base text-zinc-300">{perk}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </View>
+                                )}
+                            </View>
+                        )}
 
+                        {activeTab === 'talent' && (
+                            <View className="space-y-6">
+                                {/* Artist Type & Experience */}
+                                <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
+                                    <View className="flex-row items-center gap-2 mb-6">
+                                        <Award size={16} color="#3B82F6" />
+                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">
+                                            ROLE REQUIREMENTS
+                                        </Text>
+                                    </View>
+                                    <View className="space-y-4">
+                                        <View className="flex-row justify-between items-center py-3 border-b border-white/5">
+                                            <Text className="text-sm text-zinc-400">Artist Type</Text>
+                                            <Text className="text-base font-black text-white capitalize">
+                                                {gig.artistTypes?.join(', ') || 'Not specified'}
+                                            </Text>
+                                        </View>
+                                        <View className="flex-row justify-between items-center py-3 border-b border-white/5">
+                                            <Text className="text-sm text-zinc-400">Experience Level</Text>
+                                            <Text className="text-base font-black text-white capitalize">
+                                                {gig.experienceLevel || 'Any'}
+                                            </Text>
+                                        </View>
+                                        {gig.requiredSkills && gig.requiredSkills.length > 0 && (
+                                            <View className="py-3">
+                                                <Text className="text-sm text-zinc-400 mb-2">Required Skills</Text>
+                                                <View className="flex-row flex-wrap gap-2">
+                                                    {gig.requiredSkills.map((skill: string, idx: number) => (
+                                                        <View
+                                                            key={idx}
+                                                            className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-lg"
+                                                        >
+                                                            <Text className="text-blue-400 text-xs font-medium">{skill}</Text>
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
 
-                        </View>
+                                {/* Physical Requirements */}
+                                <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
+                                    <View className="flex-row items-center gap-2 mb-6">
+                                        <UserIcon size={16} color="#8B5CF6" />
+                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-500">
+                                            PHYSICAL CRITERIA
+                                        </Text>
+                                    </View>
+                                    <View className="space-y-4">
+                                        {gig.genderPreference && gig.genderPreference !== 'any' && (
+                                            <View className="flex-row justify-between items-center py-3 border-b border-white/5">
+                                                <Text className="text-sm text-zinc-400">Gender</Text>
+                                                <Text className="text-base font-black text-white capitalize">
+                                                    {gig.genderPreference}
+                                                </Text>
+                                            </View>
+                                        )}
+                                        {(gig.ageRange?.min || gig.ageRange?.max) && (
+                                            <View className="flex-row justify-between items-center py-3 border-b border-white/5">
+                                                <Text className="text-sm text-zinc-400">Age Range</Text>
+                                                <Text className="text-base font-black text-white">
+                                                    {gig.ageRange?.min || '?'} - {gig.ageRange?.max || '?'} years
+                                                </Text>
+                                            </View>
+                                        )}
+                                        {gig.physicalRequirements && (
+                                            <View className="py-3">
+                                                <Text className="text-sm text-zinc-400 mb-2">Other Requirements</Text>
+                                                <Text className="text-zinc-300 text-sm">{gig.physicalRequirements}</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+                            </View>
+                        )}
 
-                        {/* TAB CONTENT */}
-                        <View className="mt-6">
-                            {activeTab === "about" && <AboutTab formData={formData} setFormData={setFormData} isEditingExternal={isEditingExternal} />}
-                            {activeTab === "applications" && <ApplicationsTab isOrganizer={isOrganizer} gig={gig} />}
-                            {activeTab === "discussion" && <DiscussionTab id={gig._id} type="gig" />}
-                        </View>
+                        {activeTab === 'schedule' && (
+                            <View className="space-y-6">
+                                {/* Compensation */}
+                                <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
+                                    <View className="flex-row items-center gap-2 mb-6">
+                                        <DollarSign size={16} color="#10B981" />
+                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">
+                                            COMPENSATION
+                                        </Text>
+                                    </View>
+                                    <View className="space-y-4">
+                                        <View className="flex-row justify-between items-center py-3 border-b border-white/5">
+                                            <Text className="text-sm text-zinc-400">Payment Model</Text>
+                                            <Text className="text-base font-black text-white capitalize">
+                                                {gig.compensation?.model || 'Fixed'}
+                                            </Text>
+                                        </View>
+                                        <View className="flex-row justify-between items-center py-3 border-b border-white/5">
+                                            <Text className="text-sm text-zinc-400">Amount</Text>
+                                            <Text className="text-2xl font-black text-white">
+                                                ₹{gig.compensation?.amount?.toLocaleString() || '0'}
+                                            </Text>
+                                        </View>
+                                        {gig.compensation?.negotiable && (
+                                            <View className="bg-blue-500/10 px-4 py-3 rounded-xl border border-blue-500/20">
+                                                <Text className="text-blue-400 text-sm font-medium">
+                                                    💬 Open to negotiation
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
 
+                                {/* Schedule */}
+                                <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
+                                    <View className="flex-row items-center gap-2 mb-6">
+                                        <Clock size={16} color="#F59E0B" />
+                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500">
+                                            SCHEDULE & TIMING
+                                        </Text>
+                                    </View>
+                                    <View className="space-y-4">
+                                        <View className="flex-row justify-between items-center py-3 border-b border-white/5">
+                                            <Text className="text-sm text-zinc-400">Start Date</Text>
+                                            <Text className="text-base font-black text-white">
+                                                {gig.schedule?.startDate
+                                                    ? new Date(gig.schedule.startDate).toLocaleDateString('en-IN', {
+                                                        day: 'numeric',
+                                                        month: 'long',
+                                                        year: 'numeric',
+                                                    })
+                                                    : 'TBD'}
+                                            </Text>
+                                        </View>
+                                        {gig.schedule?.endDate && gig.schedule.endDate !== gig.schedule.startDate && (
+                                            <View className="flex-row justify-between items-center py-3 border-b border-white/5">
+                                                <Text className="text-sm text-zinc-400">End Date</Text>
+                                                <Text className="text-base font-black text-white">
+                                                    {new Date(gig.schedule.endDate).toLocaleDateString('en-IN', {
+                                                        day: 'numeric',
+                                                        month: 'long',
+                                                        year: 'numeric',
+                                                    })}
+                                                </Text>
+                                            </View>
+                                        )}
+                                        {gig.schedule?.timeCommitment && (
+                                            <View className="py-3">
+                                                <Text className="text-sm text-zinc-400 mb-2">Time Commitment</Text>
+                                                <Text className="text-zinc-300 text-sm">{gig.schedule.timeCommitment}</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+
+                                {/* Practice/Rehearsal Days */}
+                                {gig.schedule?.practiceDays && gig.schedule.practiceDays.count > 0 && (
+                                    <View className="p-6 rounded-2xl bg-amber-500/5 border border-amber-500/20">
+                                        <View className="flex-row items-center gap-2 mb-4">
+                                            <Briefcase size={16} color="#F59E0B" />
+                                            <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500">
+                                                REHEARSALS / PRACTICE DAYS
+                                            </Text>
+                                        </View>
+                                        <View className="space-y-3">
+                                            <View className="flex-row justify-between items-center">
+                                                <Text className="text-sm text-zinc-400">Number of Days</Text>
+                                                <Text className="text-base font-black text-white">
+                                                    {gig.schedule.practiceDays.count} days
+                                                </Text>
+                                            </View>
+                                            {gig.schedule.practiceDays.isPaid && (
+                                                <View className="bg-emerald-500/10 px-3 py-2 rounded-lg border border-emerald-500/20">
+                                                    <Text className="text-emerald-400 text-sm font-medium">
+                                                        ✓ Paid rehearsals
+                                                    </Text>
+                                                </View>
+                                            )}
+                                            {gig.schedule.practiceDays.notes && (
+                                                <View className="pt-2">
+                                                    <Text className="text-zinc-300 text-sm italic">
+                                                        "{gig.schedule.practiceDays.notes}"
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                    </View>
+                                )}
+                            </View>
+                        )}
+
+                        {activeTab === 'apply' && (
+                            <View className="space-y-6">
+                                {/* Application Deadline */}
+                                <View className="p-6 rounded-2xl bg-rose-500/5 border border-rose-500/20">
+                                    <View className="flex-row items-center gap-3">
+                                        <AlertCircle size={20} color="#EF4444" />
+                                        <View className="flex-1">
+                                            <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500 mb-1">
+                                                APPLICATION DEADLINE
+                                            </Text>
+                                            <Text className="text-white text-lg font-black">
+                                                {gig.applicationDeadline
+                                                    ? new Date(gig.applicationDeadline).toLocaleDateString('en-IN', {
+                                                        day: 'numeric',
+                                                        month: 'long',
+                                                        year: 'numeric',
+                                                    })
+                                                    : 'Until filled'}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </View>
+
+                                {/* Media Requirements */}
+                                {getMediaRequirements().length > 0 && (
+                                    <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
+                                        <View className="flex-row items-center gap-2 mb-6">
+                                            <Camera size={16} color="#F472B6" />
+                                            <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-pink-500">
+                                                REQUIRED MATERIALS
+                                            </Text>
+                                        </View>
+                                        <Text className="text-zinc-400 text-sm mb-4">
+                                            Please submit the following with your application:
+                                        </Text>
+                                        <View className="space-y-3">
+                                            {getMediaRequirements().map((req, idx) => (
+                                                <View
+                                                    key={idx}
+                                                    className="flex-row items-center gap-3 p-4 rounded-xl bg-zinc-800/30 border border-white/5"
+                                                >
+                                                    <View className="w-10 h-10 rounded-xl bg-pink-500/10 items-center justify-center">
+                                                        <req.icon size={18} color="#F472B6" />
+                                                    </View>
+                                                    <Text className="text-zinc-200 font-medium">{req.label}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                        {gig.mediaRequirements?.notes && (
+                                            <View className="mt-4 p-4 bg-zinc-800/50 rounded-xl">
+                                                <Text className="text-zinc-400 text-sm italic">
+                                                    Note: {gig.mediaRequirements.notes}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
+
+                                {/* Application Limit */}
+                                {gig.maxApplications && (
+                                    <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
+                                        <View className="flex-row justify-between items-center">
+                                            <Text className="text-sm text-zinc-400">Applications Accepted</Text>
+                                            <Text className="text-base font-black text-white">
+                                                {registered} / {capacity}
+                                            </Text>
+                                        </View>
+                                        <View className="h-2 bg-zinc-800 rounded-full overflow-hidden mt-4">
+                                            <View
+                                                className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                                                style={{ width: `${(registered / capacity) * 100}%` }}
+                                            />
+                                        </View>
+                                    </View>
+                                )}
+                            </View>
+                        )}
+
+                        {activeTab === 'applications' && isOrganizer && (
+                            <View className="space-y-6">
+                                {loadingApplications ? (
+                                    <View className="py-10 items-center">
+                                        <Text className="text-zinc-500">Loading applications...</Text>
+                                    </View>
+                                ) : !applications || applications.length === 0 ? (
+                                    <View className="py-16 items-center bg-zinc-900/30 rounded-3xl border border-white/5">
+                                        <UserIcon size={40} color="#52525B" />
+                                        <Text className="text-zinc-400 mt-4 font-light">No applications yet</Text>
+                                    </View>
+                                ) : (
+                                    applications.map((app: any) => {
+                                        const isExpanded = expandedAppId === app._id;
+                                        const statusColors = getStatusColor(app.status);
+
+                                        return (
+                                            <View
+                                                key={app._id}
+                                                className="p-6 rounded-3xl bg-zinc-900/30 border border-white/5"
+                                            >
+                                                {/* HEADER */}
+                                                <View className="flex-row justify-between items-start mb-6">
+                                                    <View className="flex-row items-center flex-1">
+                                                        {/* Avatar */}
+                                                        <View className="w-14 h-14 rounded-2xl overflow-hidden bg-zinc-800 border-2 border-white/10 mr-4">
+                                                            {app.artistSnapshot?.profileImageUrl ? (
+                                                                <Image
+                                                                    source={{
+                                                                        uri: app.artistSnapshot.profileImageUrl,
+                                                                    }}
+                                                                    style={{ width: '100%', height: '100%' }}
+                                                                    resizeMode="cover"
+                                                                />
+                                                            ) : (
+                                                                <View className="w-full h-full items-center justify-center">
+                                                                    <Text className="text-white font-black text-xl">
+                                                                        {app.artistSnapshot?.displayName?.charAt(0) || 'A'}
+                                                                    </Text>
+                                                                </View>
+                                                            )}
+                                                        </View>
+
+                                                        <View className="flex-1">
+                                                            <Text className="text-white font-black text-lg tracking-tight mb-1">
+                                                                {app.artistSnapshot?.displayName || 'Unknown Artist'}
+                                                            </Text>
+                                                            <Text className="text-zinc-400 text-xs mb-2">
+                                                                {app.artistSnapshot?.artistType || 'Artist'}
+                                                                {app.artistSnapshot?.rating && (
+                                                                    <Text className="text-yellow-500">
+                                                                        {' '}• ⭐ {app.artistSnapshot.rating}
+                                                                    </Text>
+                                                                )}
+                                                            </Text>
+
+                                                            {/* STATUS BADGE */}
+                                                            <View
+                                                                className={`self-start px-3 py-1 rounded-lg border ${statusColors.bg} ${statusColors.border}`}
+                                                            >
+                                                                <Text
+                                                                    className={`text-[10px] font-black uppercase tracking-widest ${statusColors.text}`}
+                                                                >
+                                                                    {app.status}
+                                                                </Text>
+                                                            </View>
+                                                        </View>
+                                                    </View>
+                                                </View>
+
+                                                {/* APPLICANT META INFO */}
+                                                <View className="flex-row flex-wrap gap-4 mb-6 pb-6 border-b border-white/5">
+                                                    {/* Applied Date */}
+                                                    <View className="flex-row items-center gap-2">
+                                                        <Clock size={14} color="#71717A" />
+                                                        <Text className="text-xs text-zinc-500">
+                                                            Applied{' '}
+                                                            {new Date(app.appliedAt).toLocaleDateString('en-IN', {
+                                                                day: 'numeric',
+                                                                month: 'short',
+                                                            })}
+                                                        </Text>
+                                                    </View>
+
+                                                    {/* Experience (if available) */}
+                                                    {app.artistSnapshot?.experience && (
+                                                        <View className="flex-row items-center gap-2">
+                                                            <Star size={14} color="#71717A" />
+                                                            <Text className="text-xs text-zinc-500">
+                                                                {app.artistSnapshot.experience} years exp
+                                                            </Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+
+                                                {/* PORTFOLIO LINKS */}
+                                                {app.portfolioLinks && app.portfolioLinks.length > 0 && (
+                                                    <View className="mb-6">
+                                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                                                            PORTFOLIO
+                                                        </Text>
+                                                        <View className="flex-row flex-wrap gap-2">
+                                                            {app.portfolioLinks.map((link: string, idx: number) => (
+                                                                <TouchableOpacity
+                                                                    key={idx}
+                                                                    className="flex-row items-center gap-2 px-3 py-2 bg-blue-500/10 rounded-lg border border-blue-500/20"
+                                                                >
+                                                                    <ExternalLink size={12} color="#3B82F6" />
+                                                                    <Text className="text-xs text-blue-400 font-medium">
+                                                                        Link {idx + 1}
+                                                                    </Text>
+                                                                </TouchableOpacity>
+                                                            ))}
+                                                        </View>
+                                                    </View>
+                                                )}
+
+                                                {/* COVER NOTE TOGGLE */}
+                                                {app.coverNote && (
+                                                    <>
+                                                        <TouchableOpacity
+                                                            onPress={() => toggleExpand(app._id)}
+                                                            className="flex-row items-center py-3 px-4 rounded-xl bg-zinc-800/50 mb-4"
+                                                        >
+                                                            <Text className="text-zinc-300 text-xs font-medium flex-1">
+                                                                {isExpanded ? 'Hide Cover Note' : 'View Cover Note'}
+                                                            </Text>
+                                                            {isExpanded ? (
+                                                                <ChevronUp size={14} color="#71717A" />
+                                                            ) : (
+                                                                <ChevronDown size={14} color="#71717A" />
+                                                            )}
+                                                        </TouchableOpacity>
+
+                                                        {isExpanded && (
+                                                            <View className="p-5 rounded-2xl bg-zinc-800/30 border border-white/5 mb-6">
+                                                                <Text className="text-zinc-300 text-sm font-light leading-relaxed">
+                                                                    {app.coverNote}
+                                                                </Text>
+                                                            </View>
+                                                        )}
+                                                    </>
+                                                )}
+
+                                                {/* ACTIONS */}
+                                                <View className="flex-row gap-3">
+                                                    {app.status !== 'hired' && (
+                                                        <TouchableOpacity
+                                                            onPress={() => handleUpdateStatus(app._id, 'hired')}
+                                                            className="flex-1 bg-emerald-500/10 border border-emerald-500/20 py-3 rounded-xl flex-row justify-center items-center"
+                                                        >
+                                                            <Check size={16} color="#10B981" />
+                                                            <Text className="text-emerald-400 text-xs font-black ml-2 uppercase tracking-widest">
+                                                                Hire
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    )}
+
+                                                    {app.status !== 'shortlisted' && app.status !== 'hired' && (
+                                                        <TouchableOpacity
+                                                            onPress={() => handleUpdateStatus(app._id, 'shortlisted')}
+                                                            className="flex-1 bg-blue-500/10 border border-blue-500/20 py-3 rounded-xl justify-center items-center"
+                                                        >
+                                                            <Text className="text-blue-400 text-xs font-black uppercase tracking-widest">
+                                                                Shortlist
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    )}
+
+                                                    {app.status !== 'rejected' && (
+                                                        <TouchableOpacity
+                                                            onPress={() => handleUpdateStatus(app._id, 'rejected')}
+                                                            className="flex-1 bg-red-500/10 border border-red-500/20 py-3 rounded-xl flex-row justify-center items-center"
+                                                        >
+                                                            <X size={16} color="#EF4444" />
+                                                            <Text className="text-red-400 text-xs font-black ml-2 uppercase tracking-widest">
+                                                                Reject
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    )}
+                                                </View>
+                                            </View>
+                                        );
+                                    })
+                                )}
+                            </View>
+                        )}
                     </View>
                 </View>
             </ScrollView>
 
-            {/* SAVE BAR */}
-            {
-                isEditingExternal && (
-                    <View className="absolute bottom-0 left-0 right-0 bg-netsa-card border-t border-white/10 px-6 py-4 flex-row justify-between items-center">
-                        <Text className="text-sm text-netsa-text-secondary font-inter">
-                            You have unsaved changes
-                        </Text>
-
-                        <View className="flex-row gap-3">
-                            <TouchableOpacity
-                                onPress={onCancel}
-                                className="px-4 py-2 bg-white/10 rounded-lg"
-                            >
-                                <Text className="font-satoshi-medium text-white">Cancel</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                onPress={() => onSave?.(formData)}
-                                className="px-6 py-2 bg-netsa-accent-purple rounded-lg" // Or Gradient 1
-                            >
-                                <Text className="font-satoshi-bold text-white">Save Changes</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                )
-            }
-
-            {/* ---------- MODALS ---------- */}
-            <GigSettingsModal
-                visible={showSettings}
-                onClose={() => setShowSettings(false)}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onToggleStatus={handleToggleStatus}
-                gig={gig}
-            />
-
-            <ConfirmationModal
-                visible={showDeleteConfirm}
-                onClose={() => setShowDeleteConfirm(false)}
-                onConfirm={confirmDelete}
-                title="Delete Gig"
-                message="Are you sure you want to delete this gig? This action cannot be undone."
-                confirmText="Delete"
-                isDestructive
-            />
+            {/* MOBILE ACTION FOOTER */}
+            {showActionFooter && !isOrganizer && (
+                <View className="absolute bottom-0 left-0 right-0 p-6 bg-black/95 backdrop-blur-xl border-t border-white/10 md:hidden">
+                    <TouchableOpacity
+                        onPress={() => setApplyModalVisible(true)}
+                        className="w-full py-5 rounded-2xl bg-white items-center justify-center active:scale-95"
+                    >
+                        <Text className="text-black text-lg font-black uppercase tracking-widest">Apply Now</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             <GigApplyModal
-                visible={showApplyModal}
-                onClose={() => setShowApplyModal(false)}
+                visible={applyModalVisible}
+                onClose={() => setApplyModalVisible(false)}
                 gigId={gig._id}
-                gigTitle={title}
+                gigTitle={gig.title}
             />
-        </View >
+
+            {settingsModalVisible && (
+                <GigSettingsModal
+                    visible={settingsModalVisible}
+                    onClose={() => setSettingsModalVisible(false)}
+                    gig={gig}
+                />
+            )}
+        </View>
     );
 };

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, FlatList, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Filter } from 'lucide-react-native';
+import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import AppScrollView from '@/components/AppScrollView';
 import { EventCard } from '../../../src/components/events/EventCard';
 import { usePlatform } from '@/utils/platform';
@@ -65,7 +66,11 @@ export default function EventsPage() {
                     {/* Events Grid */}
                     {listLoading ? (
                         <View className="p-8 items-center h-[80%]">
-                            <ActivityIndicator size="large" color="#A855F7" />
+                            <LoadingAnimation
+                                source="https://lottie.host/a9975e00-d157-4513-b40f-77f83c2039be/fJeNBIUK06.lottie"
+                                width={200}
+                                height={200}
+                            />
                         </View>
                     ) : listError ? (
                         <View className="p-8 items-center h-[80%]">

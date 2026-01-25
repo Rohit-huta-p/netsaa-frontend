@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import authService from '../services/authService';
 import { useAuthStore } from '../stores/authStore';
+import { usePendingAuthActionStore } from '../stores/pendingAuthActionStore';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 
@@ -25,13 +26,25 @@ export const useLogin = () => {
                     accessToken: token,
                 });
 
-                console.log("useLogin: Auth state set. Checking redirect...");
-                if (user?.roles?.includes('organizer')) {
-                    console.log("useLogin: Redirecting to /dashboard");
-                    router.replace('/(app)/dashboard');
+                console.log("useLogin: Auth state set. Checking for pending action...");
+
+                // Execute any pending action that triggered the login
+                const { pendingAction } = usePendingAuthActionStore.getState();
+                if (pendingAction) {
+                    console.log("useLogin: Executing pending action");
+                    await usePendingAuthActionStore.getState().executePendingAction();
+                    // Don't navigate away - stay on current page after action
+                    router.back();
                 } else {
-                    console.log("useLogin: Redirecting to /gigs");
-                    router.replace('/(app)/gigs');
+                    // No pending action, navigate normally
+                    console.log("useLogin: No pending action, navigating...");
+                    if (user?.roles?.includes('organizer')) {
+                        console.log("useLogin: Redirecting to /dashboard");
+                        router.replace('/(app)/dashboard');
+                    } else {
+                        console.log("useLogin: Redirecting to /gigs");
+                        router.replace('/(app)/gigs');
+                    }
                 }
             } else {
                 console.warn("useLogin: No accessToken or token in response");
@@ -57,10 +70,20 @@ export const useRegister = () => {
                     accessToken: data.token,
                 });
 
-                if (user?.roles?.includes('organizer')) {
-                    router.replace('/(app)/dashboard');
+                // Execute any pending action that triggered the registration
+                const { pendingAction } = usePendingAuthActionStore.getState();
+                if (pendingAction) {
+                    console.log("useRegister: Executing pending action");
+                    await usePendingAuthActionStore.getState().executePendingAction();
+                    // Don't navigate away - stay on current page after action
+                    router.back();
                 } else {
-                    router.replace('/(app)/gigs');
+                    // No pending action, navigate normally
+                    if (user?.roles?.includes('organizer')) {
+                        router.replace('/(app)/dashboard');
+                    } else {
+                        router.replace('/(app)/gigs');
+                    }
                 }
             } else {
                 // Maybe email verification required?
@@ -82,7 +105,7 @@ export const useLogout = () => {
         mutationFn: () => authService.logout({ token: accessToken }),
         onSettled: () => {
             clearAuth();
-            router.replace('/login');
+            router.replace('/');
         },
     });
 };

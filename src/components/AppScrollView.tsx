@@ -35,6 +35,7 @@ export default function AppScrollView(props: ScrollViewProps) {
 
     return (
         <ScrollView
+
             // sensible defaults: let taps pass through to inputs/buttons
             keyboardShouldPersistTaps="handled"
             // preserve any props passed by caller

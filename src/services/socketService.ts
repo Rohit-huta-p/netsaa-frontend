@@ -1,9 +1,9 @@
 import { io, Socket } from 'socket.io-client';
 import { Platform } from 'react-native';
 
+// Use env var or production fallback
 const getBaseUrl = () => {
     if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL.replace('/api', '');
-    // if (Platform.OS === 'web') return 'http://localhost:5001';
     return 'https://netsaa-backend.onrender.com';
 };
 

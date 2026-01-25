@@ -1,55 +1,53 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
     content: [
-        // explicit app/source folders only — DO NOT use a broad "./**/*" that touches node_modules
         "./App.{js,jsx,ts,tsx}",
         "./app/**/*.{js,jsx,ts,tsx}",
         "./src/**/*.{js,jsx,ts,tsx}",
         "./components/**/*.{js,jsx,ts,tsx}",
-        "./screens/**/*.{js,jsx,ts,tsx}",
-        "./pages/**/*.{js,jsx,ts,tsx}", // if you use pages
     ],
     presets: [require("nativewind/preset")],
     theme: {
         extend: {
             colors: {
-                // NETSA Core Colors
+                // NETSA Color Palette (matching final-landing.tsx)
                 netsa: {
-                    bg: '#2C2C32',       // Main Background
-                    card: '#2B2B31',     // Card / Surface BG
-                    navbar: '#1A1A1F',   // Navbar base
-                    footer: '#1A1A1F',   // Footer base
-                    text: {
-                        primary: '#FFFFFF',
-                        secondary: '#C9C9D1',
-                        muted: '#9A9AA3',
-                    },
-                    accent: {
-                        orange: '#FF7A2F',  // Highlights
-                        purple: '#8B5CF6',  // Chips / Prices
-                        red: '#E63B45',     // Badges / Likes
-                    },
+                    1: '#6D23B6',   // Deep purple
+                    2: '#7B2CBF',   // Purple
+                    3: '#9D4EDD',   // Medium purple
+                    5: '#C77DFF',   // Light purple
+                    8: '#E0AAFF',   // Very light purple/pink
+                    10: '#EA698B',  // Coral/Pink accent
                 },
-                // Gradient Stops (for use with LinearGradient or utility classes)
-                grad1: {
-                    start: '#E63B45',
-                    mid: '#FF4E8A',
-                    end: '#FF7A2F',
-                },
-                grad2: {
-                    start: '#3D79FB',
-                    end: '#8B5CF6',
+
+                // Background colors
+                bg: {
+                    black: '#000000',
+                    dark: '#09090b',      // zinc-950
+                    surface: '#18181b',   // zinc-900
+                    card: '#27272a',      // zinc-800
                 },
             },
             fontFamily: {
-                satoshi: ['Satoshi-Regular', 'sans-serif'],
-                'satoshi-medium': ['Satoshi-Medium', 'sans-serif'],
-                'satoshi-semibold': ['Satoshi-SemiBold', 'sans-serif'],
-                'satoshi-bold': ['Satoshi-Bold', 'sans-serif'],
-                'satoshi-black': ['Satoshi-Black', 'sans-serif'],
-                inter: ['Inter-Regular', 'sans-serif'],
-                'inter-medium': ['Inter-Medium', 'sans-serif'],
-                sans: ['Inter-Regular', 'sans-serif'], // Default body font
+                // Outfit - Primary display/heading font
+                outfit: ['Outfit-Regular', 'sans-serif'],
+                'outfit-thin': ['Outfit-Thin', 'sans-serif'],
+                'outfit-extralight': ['Outfit-ExtraLight', 'sans-serif'],
+                'outfit-light': ['Outfit-Light', 'sans-serif'],
+                'outfit-medium': ['Outfit-Medium', 'sans-serif'],
+                'outfit-semibold': ['Outfit-SemiBold', 'sans-serif'],
+                'outfit-bold': ['Outfit-Bold', 'sans-serif'],
+                'outfit-extrabold': ['Outfit-ExtraBold', 'sans-serif'],
+                'outfit-black': ['Outfit-Black', 'sans-serif'],
+
+                // Source Sans 3 - Body font
+                'source-sans': ['SourceSans3-Regular', 'sans-serif'],
+                'source-sans-medium': ['SourceSans3-Medium', 'sans-serif'],
+                'source-sans-semibold': ['SourceSans3-SemiBold', 'sans-serif'],
+                'source-sans-bold': ['SourceSans3-Bold', 'sans-serif'],
+
+                // Default body font
+                sans: ['SourceSans3-Regular', 'sans-serif'],
             },
         },
     },

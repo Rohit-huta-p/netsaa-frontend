@@ -1,123 +1,225 @@
-import React from "react";
-import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
-import { Link } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-    Instagram,
-    Twitter,
-    Facebook,
-    Youtube,
-} from "lucide-react-native";
+import React from 'react';
+import { View, Text, TouchableOpacity, Platform, Linking } from 'react-native';
+import { Sparkles } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+
+const isWeb = Platform.OS === 'web';
 
 export default function Footer() {
-    const insets = useSafeAreaInsets();
+    const router = useRouter();
+
+    const handleLink = (path: string) => {
+        if (path.startsWith('http')) {
+            Linking.openURL(path);
+        } else {
+            router.push(path as any);
+        }
+    };
+
+    const footerLinks = {
+        platform: [
+            { label: 'Find Gigs', path: '/gigs' },
+            { label: 'Workshops', path: '/events' },
+            { label: 'For Organizers', path: '/organizer' },
+            { label: 'Verification', path: '/verification' },
+        ],
+        company: [
+            { label: 'Our Vision', path: '/about' },
+            { label: 'Manifesto', path: '/manifesto' },
+            { label: 'Blog', path: '/blog' },
+            { label: 'Contact', path: '/contact' },
+        ],
+        legal: [
+            { label: 'Terms of Service', path: '/terms' },
+            { label: 'Privacy Policy', path: '/privacy' },
+            { label: 'Payment Security', path: '/security' },
+        ],
+    };
+
+    const socialLinks = [
+        { label: 'Instagram', url: 'https://instagram.com/netsa' },
+        { label: 'LinkedIn', url: 'https://linkedin.com/company/netsa' },
+        { label: 'Twitter', url: 'https://twitter.com/netsa' },
+    ];
 
     return (
         <View
-            style={{ paddingBottom: insets.bottom }}
-            className="bg-netsa-footer p-8"
+            style={{
+                paddingVertical: 96,
+                paddingHorizontal: 24,
+                backgroundColor: '#09090b',
+                borderTopWidth: 1,
+                borderTopColor: 'rgba(255, 255, 255, 0.05)',
+            }}
         >
+            <View
+                style={{
+                    maxWidth: 1200,
+                    alignSelf: 'center',
+                    width: '100%',
+                }}
+            >
+                {/* Main footer content */}
+                <View
+                    style={{
+                        flexDirection: isWeb ? 'row' : 'column',
+                        gap: 64,
+                        marginBottom: 96,
+                    }}
+                >
+                    {/* Brand section */}
+                    <View style={{ flex: isWeb ? 1 : undefined }}>
+                        <TouchableOpacity
+                            onPress={() => router.push('/')}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 8,
+                                marginBottom: 32,
+                            }}
+                        >
+                            <View
+                                style={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: 8,
+                                    backgroundColor: '#fff',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
+                            >
+                                <Sparkles size={24} color="#000" />
+                            </View>
+                            <Text style={{ fontSize: 24, fontWeight: '700', color: '#fff', letterSpacing: -1 }}>
+                                NETSA
+                            </Text>
+                        </TouchableOpacity>
+                        <Text
+                            style={{
+                                fontSize: 16,
+                                color: '#71717a',
+                                lineHeight: 26,
+                                fontWeight: '300',
+                                maxWidth: 300,
+                            }}
+                        >
+                            Empowering India's performing artists with technology, transparency, and trust. Professionalizing the passion since 2026.
+                        </Text>
+                    </View>
 
-            {/* -------- BRAND + DESCRIPTION -------- */}
-            <View>
-                <Text className="text-netsa-text-primary text-2xl font-semibold font-satoshi-bold">Netsa</Text>
-                <Text className="text-netsa-text-secondary mt-3 leading-5 font-inter">
-                    Connecting the performing arts community through events,
-                    networking, and creative collaboration.
-                </Text>
+                    {/* Platform links */}
+                    <View>
+                        <Text
+                            style={{
+                                fontSize: 11,
+                                fontWeight: '700',
+                                color: '#fff',
+                                textTransform: 'uppercase',
+                                letterSpacing: 3,
+                                marginBottom: 32,
+                            }}
+                        >
+                            Platform
+                        </Text>
+                        <View style={{ gap: 16 }}>
+                            {footerLinks.platform.map((link) => (
+                                <TouchableOpacity key={link.label} onPress={() => handleLink(link.path)}>
+                                    <Text style={{ fontSize: 14, color: '#a1a1aa' }}>{link.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
 
-                {/* Social Row */}
-                <View className="flex-row gap-4 w-full mt-5">
-                    <Instagram size={20} color="#fff" />
-                    <Twitter size={20} color="#fff" />
-                    <Facebook size={20} color="#fff" />
-                    <Youtube size={20} color="#fff" />
+                    {/* Company links */}
+                    <View>
+                        <Text
+                            style={{
+                                fontSize: 11,
+                                fontWeight: '700',
+                                color: '#fff',
+                                textTransform: 'uppercase',
+                                letterSpacing: 3,
+                                marginBottom: 32,
+                            }}
+                        >
+                            Company
+                        </Text>
+                        <View style={{ gap: 16 }}>
+                            {footerLinks.company.map((link) => (
+                                <TouchableOpacity key={link.label} onPress={() => handleLink(link.path)}>
+                                    <Text style={{ fontSize: 14, color: '#a1a1aa' }}>{link.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* Legal links */}
+                    <View>
+                        <Text
+                            style={{
+                                fontSize: 11,
+                                fontWeight: '700',
+                                color: '#fff',
+                                textTransform: 'uppercase',
+                                letterSpacing: 3,
+                                marginBottom: 32,
+                            }}
+                        >
+                            Legal
+                        </Text>
+                        <View style={{ gap: 16 }}>
+                            {footerLinks.legal.map((link) => (
+                                <TouchableOpacity key={link.label} onPress={() => handleLink(link.path)}>
+                                    <Text style={{ fontSize: 14, color: '#a1a1aa' }}>{link.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
                 </View>
-            </View>
 
-            {/* ---------- NAVIGATION SECTIONS ---------- */}
-            <View className="flex-row flex-wrap mt-10">
+                {/* Bottom bar */}
+                <View
+                    style={{
+                        flexDirection: isWeb ? 'row' : 'column',
+                        justifyContent: 'space-between',
+                        alignItems: isWeb ? 'center' : 'flex-start',
+                        paddingTop: 48,
+                        borderTopWidth: 1,
+                        borderTopColor: 'rgba(255, 255, 255, 0.05)',
+                        gap: 24,
+                    }}
+                >
+                    <Text
+                        style={{
+                            fontSize: 11,
+                            fontWeight: '500',
+                            color: '#52525b',
+                            textTransform: 'uppercase',
+                            letterSpacing: 3,
+                        }}
+                    >
+                        © 2026 NETSA. All rights reserved.
+                    </Text>
 
-                {/* Platform */}
-                <View className="w-1/2 mb-6">
-                    <Text className="text-netsa-text-primary font-semibold mb-3 font-satoshi-medium">Platform</Text>
-                    <FooterLink href="/events" label="Events" />
-                    <FooterLink href="/community" label="Community" />
-                    <FooterLink href="/workshops" label="Workshops" />
-                    <FooterLink href="/gigs" label="Gigs" />
-                    <FooterLink href="/artists" label="Artists" />
+                    <View style={{ flexDirection: 'row', gap: 32 }}>
+                        {socialLinks.map((link) => (
+                            <TouchableOpacity key={link.label} onPress={() => Linking.openURL(link.url)}>
+                                <Text
+                                    style={{
+                                        fontSize: 11,
+                                        fontWeight: '500',
+                                        color: '#52525b',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: 3,
+                                    }}
+                                >
+                                    {link.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                 </View>
-
-                {/* Support */}
-                <View className="w-1/2 mb-6">
-                    <Text className="text-netsa-text-primary font-semibold mb-3 font-satoshi-medium">Support</Text>
-                    <FooterLink href="/help" label="Help Center" />
-                    <FooterLink href="/contact" label="Contact Us" />
-                    <FooterLink href="/safety" label="Safety" />
-                    <FooterLink href="/guidelines" label="Guidelines" />
-                    <FooterLink href="/faq" label="FAQ" />
-                </View>
-
-                {/* Company */}
-                <View className="w-1/2 mb-6">
-                    <Text className="text-netsa-text-primary font-semibold mb-3 font-satoshi-medium">Company</Text>
-                    <FooterLink href="/about" label="About Us" />
-                    <FooterLink href="/careers" label="Careers" />
-                    <FooterLink href="/press" label="Press" />
-                    <FooterLink href="/partners" label="Partners" />
-                    <FooterLink href="/blog" label="Blog" />
-                </View>
-
-                {/* Legal */}
-                <View className="w-1/2 mb-6">
-                    <Text className="text-netsa-text-primary font-semibold mb-3 font-satoshi-medium">Legal</Text>
-                    <FooterLink href="/privacy" label="Privacy Policy" />
-                    <FooterLink href="/terms" label="Terms of Service" />
-                    <FooterLink href="/cookies" label="Cookie Policy" />
-                    <FooterLink href="/disclaimer" label="Disclaimer" />
-                </View>
-            </View>
-
-            {/* ---------- STAY IN THE LOOP SECTION ---------- */}
-            <View className="mt-6">
-                <Text className="text-netsa-text-primary font-semibold text-lg font-satoshi-bold">Stay in the Loop</Text>
-                <Text className="text-netsa-text-secondary mt-2 font-inter">
-                    Get the latest events and community updates.
-                </Text>
-
-                <View className="flex-row items-center mt-4">
-                    <TextInput
-                        placeholder="Enter your email"
-                        placeholderTextColor="#9A9AA3"
-                        className="flex-1 bg-white/5 border border-white/10 px-4 py-3 rounded-lg text-white font-inter"
-                    />
-
-                    <Pressable className="bg-netsa-accent-red px-5 py-3 rounded-lg ml-3">
-                        <Text className="text-white font-medium font-satoshi-medium">Subscribe</Text>
-                    </Pressable>
-                </View>
-            </View>
-
-
-            {/* ---------- BOTTOM COPYRIGHT ROW ---------- */}
-            <View className="border-t border-white/10 mt-8 pt-6 flex-row justify-between">
-                <Text className="text-netsa-text-muted text-xs font-inter">
-                    © 2025 Netsa. All rights reserved.
-                </Text>
-                {/* <Text className="text-netsa-text-muted text-xs font-inter">
-                    Made with ❤️ for the performing arts community
-                </Text> */}
             </View>
         </View>
-    );
-}
-
-function FooterLink({ href, label }: { href: string; label: string }) {
-    return (
-        <Link href={href}>
-            <Text className="text-gray-400 mb-2">
-                {label}
-            </Text>
-        </Link>
     );
 }

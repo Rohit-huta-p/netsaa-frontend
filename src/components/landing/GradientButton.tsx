@@ -1,28 +1,31 @@
-// File: netsa-mobile/src/components/landing/GradientButton.tsx
 import React from 'react';
-import { Pressable } from 'react-native';
+import { TouchableOpacity, Text, TouchableOpacityProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-
-type Props = {
-    children: React.ReactNode;
-    onPress?: () => void;
-    style?: any;
-};
-
-
-export default function GradientButton({ children, onPress, style }: Props) {
-    return (
-        <LinearGradient
-            colors={["#FB7185", "#FB923C"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[{ borderRadius: 999, overflow: 'hidden' }, style]}
-        >
-            <Pressable onPress={onPress} android_ripple={{ color: 'rgba(255,255,255,0.1)' }} style={{ paddingVertical: 10, alignItems: 'center' }}>
-                {children}
-            </Pressable>
-        </LinearGradient>
-    );
+interface GradientButtonProps extends TouchableOpacityProps {
+    title: string;
+    colors?: readonly [string, string, ...string[]];
+    textClassName?: string;
+    gradientClassName?: string;
 }
 
+export default function GradientButton({
+    title,
+    colors = ['#ff006e', '#ff4d94'],
+    textClassName = 'text-white font-semibold text-center',
+    gradientClassName = 'px-8 py-3 rounded-full',
+    ...props
+}: GradientButtonProps) {
+    return (
+        <TouchableOpacity {...props}>
+            <LinearGradient
+                colors={colors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                className={gradientClassName}
+            >
+                <Text className={textClassName}>{title}</Text>
+            </LinearGradient>
+        </TouchableOpacity>
+    );
+}

@@ -9,16 +9,26 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../src/lib/react-query';
 import {
     useFonts,
-    Manrope_400Regular,
-    Manrope_500Medium,
-    Manrope_600SemiBold,
-    Manrope_700Bold,
-    Manrope_800ExtraBold,
-} from '@expo-google-fonts/manrope';
+    Outfit_100Thin,
+    Outfit_200ExtraLight,
+    Outfit_300Light,
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+    Outfit_800ExtraBold,
+    Outfit_900Black,
+} from '@expo-google-fonts/outfit';
 import {
-    Inter_400Regular,
-    Inter_500Medium,
-} from '@expo-google-fonts/inter';
+    SourceSans3_200ExtraLight,
+    SourceSans3_300Light,
+    SourceSans3_400Regular,
+    SourceSans3_500Medium,
+    SourceSans3_600SemiBold,
+    SourceSans3_700Bold,
+    SourceSans3_800ExtraBold,
+    SourceSans3_900Black,
+} from '@expo-google-fonts/source-sans-3';
 
 import Navbar from "../src/components/Navbar";
 import Footer from "../src/components/Footer";
@@ -38,16 +48,26 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
     const { isHydrated, accessToken } = useAuthStore();
     const [fontsLoaded, fontError] = useFonts({
-        // Satoshi (Manrope as alternative)
-        'Satoshi-Regular': Manrope_400Regular,
-        'Satoshi-Medium': Manrope_500Medium,
-        'Satoshi-SemiBold': Manrope_600SemiBold,
-        'Satoshi-Bold': Manrope_700Bold,
-        'Satoshi-Black': Manrope_800ExtraBold,
+        // Outfit fonts (primary heading/display font)
+        'Outfit-Thin': Outfit_100Thin,
+        'Outfit-ExtraLight': Outfit_200ExtraLight,
+        'Outfit-Light': Outfit_300Light,
+        'Outfit-Regular': Outfit_400Regular,
+        'Outfit-Medium': Outfit_500Medium,
+        'Outfit-SemiBold': Outfit_600SemiBold,
+        'Outfit-Bold': Outfit_700Bold,
+        'Outfit-ExtraBold': Outfit_800ExtraBold,
+        'Outfit-Black': Outfit_900Black,
 
-        // Inter
-        'Inter-Regular': Inter_400Regular,
-        'Inter-Medium': Inter_500Medium,
+        // Source Sans 3 (body/secondary font)
+        'SourceSans3-ExtraLight': SourceSans3_200ExtraLight,
+        'SourceSans3-Light': SourceSans3_300Light,
+        'SourceSans3-Regular': SourceSans3_400Regular,
+        'SourceSans3-Medium': SourceSans3_500Medium,
+        'SourceSans3-SemiBold': SourceSans3_600SemiBold,
+        'SourceSans3-Bold': SourceSans3_700Bold,
+        'SourceSans3-ExtraBold': SourceSans3_800ExtraBold,
+        'SourceSans3-Black': SourceSans3_900Black,
     });
 
     useEffect(() => {

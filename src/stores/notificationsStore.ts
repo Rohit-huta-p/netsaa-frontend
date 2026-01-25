@@ -1,5 +1,6 @@
 // src/stores/notificationsStore.ts
 import { create } from 'zustand';
+import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '@/services/api/notificationsApi';
 
 // Notification type definition
 export type Notification = {
@@ -63,9 +64,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
         set({ isLoading: true, error: null, page: 1 });
 
         try {
-            const response = await import('@/services/api/notificationsApi').then(
-                (module) => module.getNotifications({ page: 1, limit: 20 })
-            );
+            const response = await getNotifications({ page: 1, limit: 20 });
 
             set({
                 notifications: response.data,
@@ -75,10 +74,11 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
             });
 
             console.log(`Fetched ${response.data.length} notifications from API`);
-        } catch (error) {
-            console.error('Failed to fetch notifications:', error);
+        } catch (error: any) {
+            const serverMsg = error.response?.data?.msg || error.response?.data?.message || (error.response?.data?.errors && error.response.data.errors[0]?.message);
+            console.error('Failed to fetch notifications:', serverMsg || error.message);
             set({
-                error: error instanceof Error ? error.message : 'Failed to fetch notifications',
+                error: serverMsg || error.message || 'Failed to fetch notifications',
                 isLoading: false
             });
         }
@@ -96,9 +96,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
         try {
             const nextPage = page + 1;
 
-            const response = await import('@/services/api/notificationsApi').then(
-                (module) => module.getNotifications({ page: nextPage, limit: 20 })
-            );
+            const response = await getNotifications({ page: nextPage, limit: 20 });
 
             set(state => ({
                 notifications: [...state.notifications, ...response.data],
@@ -108,10 +106,11 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
             }));
 
             console.log(`Loaded ${response.data.length} more notifications (page ${nextPage})`);
-        } catch (error) {
-            console.error('Failed to load more notifications:', error);
+        } catch (error: any) {
+            const serverMsg = error.response?.data?.msg || error.response?.data?.message || (error.response?.data?.errors && error.response.data.errors[0]?.message);
+            console.error('Failed to load more notifications:', serverMsg || error.message);
             set({
-                error: error instanceof Error ? error.message : 'Failed to load more notifications',
+                error: serverMsg || error.message || 'Failed to load more notifications',
                 isLoadingMore: false
             });
         }
@@ -128,13 +127,12 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
             }));
 
             // Call API to persist the change
-            await import('@/services/api/notificationsApi').then(
-                (module) => module.markNotificationAsRead(notificationId)
-            );
+            await markNotificationAsRead(notificationId);
 
             console.log(`Marked notification ${notificationId} as read`);
-        } catch (error) {
-            console.error('Failed to mark notification as read:', error);
+        } catch (error: any) {
+            const serverMsg = error.response?.data?.msg || error.response?.data?.message || (error.response?.data?.errors && error.response.data.errors[0]?.message);
+            console.error('Failed to mark notification as read:', serverMsg || error.message);
             // Revert optimistic update on error
             get().fetchNotifications();
         }
@@ -149,13 +147,12 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
             }));
 
             // Call API to persist the change
-            await import('@/services/api/notificationsApi').then(
-                (module) => module.markAllNotificationsAsRead()
-            );
+            await markAllNotificationsAsRead();
 
             console.log('Marked all notifications as read');
-        } catch (error) {
-            console.error('Failed to mark all notifications as read:', error);
+        } catch (error: any) {
+            const serverMsg = error.response?.data?.msg || error.response?.data?.message || (error.response?.data?.errors && error.response.data.errors[0]?.message);
+            console.error('Failed to mark all notifications as read:', serverMsg || error.message);
             // Revert optimistic update on error
             get().fetchNotifications();
         }

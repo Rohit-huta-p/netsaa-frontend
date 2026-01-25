@@ -13,6 +13,7 @@ export interface InputProps<T extends FieldValues> extends TextInputProps {
     inputClassName?: string;
     startIcon?: React.ReactNode;
     endIcon?: React.ReactNode;
+    labelClassName?: string;
 }
 
 export function Input<T extends FieldValues>({
@@ -20,6 +21,7 @@ export function Input<T extends FieldValues>({
     name,
     label,
     error,
+    labelClassName,
     containerClassName,
     contentContainerClassName,
     inputClassName,

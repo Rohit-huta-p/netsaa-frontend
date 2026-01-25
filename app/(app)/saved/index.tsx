@@ -7,47 +7,42 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { Heart, Calendar, MapPin, Users, Sparkles, Clock, ArrowRight } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const TABS = [
-  { key: "Saved", count: 2 },
-  { key: "Applied", count: 1 },
-  { key: "Upcoming", count: 0 },
-  { key: "History", count: 12 },
-];
-
-const DATA = [
-  {
-    id: "1",
-    type: "Workshop",
-    title: "Contemporary Flow & Floorwork",
-    date: "Dec 15 • 7:00 PM",
-    location: "Downtown Studio, NYC",
-    attending: 24,
-    expiresOn: "2 days",
-    imageGradient: ["#ec4899", "#be185d"], // Pink
-    icon: "🎭"
-  },
-  {
-    id: "2",
-    type: "Audition",
-    title: "Music Video Backup Dancers",
-    date: "Dec 18 • 10:00 AM",
-    location: "Brooklyn Heights",
-    attending: 150,
-    expiresOn: "Tomorrow",
-    imageGradient: ["#8b5cf6", "#6d28d9"], // Purple
-    icon: "👟"
-  },
-];
+import { useSavedItems, SavedItem } from "../../../src/hooks/useSavedItems";
 
 export default function SavedJobsScreen() {
   const [activeTab, setActiveTab] = useState("Saved");
+  const { savedItems, appliedItems, upcomingItems, historyItems, isLoading, refetchAll, counts } = useSavedItems();
 
-  const renderItem = ({ item }: any) => (
+  // Get data based on active tab
+  const getTabData = (): SavedItem[] => {
+    switch (activeTab) {
+      case "Saved":
+        return savedItems;
+      case "Applied":
+        return appliedItems;
+      case "Upcoming":
+        return upcomingItems;
+      case "History":
+        return historyItems;
+      default:
+        return [];
+    }
+  };
+
+  const TABS = [
+    { key: "Saved", count: counts.saved },
+    { key: "Applied", count: counts.applied },
+    { key: "Upcoming", count: counts.upcoming },
+    { key: "History", count: counts.history },
+  ];
+
+  const renderItem = ({ item }: { item: SavedItem }) => (
     <View className="mb-4">
       {/* Glass Container */}
       <View className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden">
@@ -190,18 +185,38 @@ export default function SavedJobsScreen() {
         </View>
 
         {/* List */}
-        <FlatList
-          data={DATA}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
-          ListEmptyComponent={
-            <View className="items-center justify-center mt-20 opacity-50">
-              <Text className="text-white text-lg font-bold">No saved gigs yet.</Text>
-            </View>
-          }
-        />
+        {isLoading ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" color="#a855f7" />
+            <Text className="text-gray-400 mt-4">Loading your collection...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={getTabData()}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={false}
+                onRefresh={refetchAll}
+                tintColor="#a855f7"
+              />
+            }
+            ListEmptyComponent={
+              <View className="items-center justify-center mt-20 opacity-50">
+                <Text className="text-white text-lg font-bold">No items yet.</Text>
+                <Text className="text-gray-400 text-sm mt-2">
+                  {activeTab === "Saved" && "Save events or gigs to see them here"}
+                  {activeTab === "Applied" && "Apply to gigs to see them here"}
+                  {activeTab === "Upcoming" && "Register for events to see them here"}
+                  {activeTab === "History" && "Your past events will appear here"}
+                </Text>
+              </View>
+            }
+          />
+        )}
 
         {/* Floating Load More / Action Button */}
         <View className="absolute bottom-8 left-0 right-0 items-center">

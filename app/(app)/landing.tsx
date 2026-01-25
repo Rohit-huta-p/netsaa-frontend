@@ -1,58 +1,40 @@
-// Path: app/landing.tsx
-// Landing screen — responsive cards: 2 columns on mobile, 3 on tablet
-import React, { useMemo } from "react";
-import { View, Text, ScrollView, Pressable, useWindowDimensions, StyleSheet, DimensionValue } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Link } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Navbar from "@/components/Navbar"; // make sure this exists as earlier suggested
-import { HeroSection } from "@/components/landing/HeroSection";
-import { EventsSection } from "@/components/landing/EventsSection";
-import { CommunitySection } from "@/components/landing/CommunitySection";
-import { StatsSection } from "@/components/landing/StatsSection";
-import AppScrollView from "@/components/AppScrollView";
+import React, { useEffect, useRef } from 'react';
+import { View, ScrollView, Animated, Dimensions } from 'react-native';
 
-// Reusable GradientButton to avoid using invalid 'background' on View styles
-function GradientButton({
-    children,
-    onPress,
-    style,
-}: {
-    children: React.ReactNode;
-    onPress?: () => void;
-    style?: any;
-}) {
-    return (
-        <LinearGradient
-            colors={["#FB7185", "#FB923C"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[{ borderRadius: 999, overflow: "hidden" }, style]}
-        >
-            <Pressable onPress={onPress} android_ripple={{ color: "rgba(255,255,255,0.1)" }} style={{ paddingVertical: 10, alignItems: "center" }}>
-                {children}
-            </Pressable>
-        </LinearGradient>
-    );
-}
+import { StatusBar } from 'expo-status-bar';
+import Footer from '@/components/Footer';
+import FloatingParticles from '@/components/ui/FloatingParticles';
+import HeroSection from '@/components/landing/HeroSection';
+import EventsSection from '@/components/landing/EventsSection';
+import CommunitySection from '@/components/landing/CommunitySection';
 
-export default function LandingScreen() {
-    const insets = useSafeAreaInsets();
-    const { width } = useWindowDimensions();
+const { height } = Dimensions.get('window');
 
-    // Decide columns: phone -> 2, tablet/large -> 3
-    const columns = useMemo(() => (width >= 768 ? 3 : 2), [width]);
-
-
+export default function LiveLandingPage() {
+    const scrollY = useRef(new Animated.Value(0)).current;
 
     return (
-        <View style={{ flex: 1 }}>
-            <AppScrollView className="bg-gray-50">
-                <HeroSection />
-                <EventsSection />
-                <CommunitySection />
-                <StatsSection />
-            </AppScrollView>
-        </View>
+        <>
+            <StatusBar style="light" />
+            <View className="flex-1 bg-[#0a0a0f]">
+                {/* Animated Background Particles */}
+                <FloatingParticles />
+
+                <Animated.ScrollView
+                    className="flex-1"
+                    showsVerticalScrollIndicator={false}
+                    onScroll={Animated.event(
+                        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                        { useNativeDriver: true }
+                    )}
+                    scrollEventThrottle={16}
+                >
+                    <HeroSection scrollY={scrollY} />
+                    <EventsSection scrollY={scrollY} />
+                    <CommunitySection scrollY={scrollY} />
+                    <Footer />
+                </Animated.ScrollView>
+            </View>
+        </>
     );
 }

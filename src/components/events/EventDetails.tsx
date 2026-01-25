@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import useAuthStore from "@/stores/authStore";
+import { requireAuth } from "@/utils/requireAuth";
 // import { useRegisterForEvent } from "@/hooks/useEvents"; // No longer needed directly here
 import { useEventTicketTypes, useMyRegistrations } from "@/hooks/useEvents";
 import { IEvent } from "@/types/event";
@@ -58,11 +59,11 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ event, isOrganizer }
     // const registerMutation = useRegisterForEvent(); // Deprecated in favor of modal flow
 
     const handleRegisterPress = () => {
-        if (!user) {
-            Alert.alert("Login Required", "Please login to register for this event.");
-            return;
-        }
-        setIsRegisterVisible(true);
+        if (isRegistered) return;
+        requireAuth({
+            action: () => setIsRegisterVisible(true),
+            reason: 'register_event'
+        });
     };
     // const activeTab = typeof tab === "string" ? tab : "about";
     const [activeTab, setActiveTab] = useState<EventTabKey>("about");
@@ -113,7 +114,11 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ event, isOrganizer }
                 <View className="w-full">
                     <View className="w-full max-w-[80%] mx-auto">
                         {/* ---------- HERO BANNER ---------- */}
-                        <EventHero event={event} isOrganizer={user?._id === event.organizerId} />
+                        <EventHero
+                            event={event}
+                            isOrganizer={user?._id === event.organizerId}
+                            isSaved={false} // TODO: Fetch saved state from backend or store
+                        />
 
                         {/* ---------- CONTENT ---------- */}
                         <View className="px-6 mt-6">

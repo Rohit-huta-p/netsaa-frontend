@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
+import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import { EventDetails } from '@/components/events/EventDetails';
 import { useEvent } from '@/hooks/useEvents';
 
@@ -24,7 +25,11 @@ export default function EventDetailsPage() {
     if (isLoading) {
         return (
             <View className="flex-1 bg-black justify-center items-center">
-                <ActivityIndicator size="large" color="#A855F7" />
+                <LoadingAnimation
+                    source="https://lottie.host/a9975e00-d157-4513-b40f-77f83c2039be/fJeNBIUK06.lottie"
+                    width={200}
+                    height={200}
+                />
             </View>
         );
     }

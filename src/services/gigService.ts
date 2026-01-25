@@ -3,15 +3,9 @@ import { Platform } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 import { Gig, GigResponse, GigsListResponse } from '../types/gig';
 
-// TODO: Centralize this base URL logic or environment variable
+// Use env var or production fallback
 const getBaseUrl = () => {
-    if (process.env.EXPO_PUBLIC_API_GIGS_URL) return process.env.EXPO_PUBLIC_API_GIGS_URL;
-    // Use localhost ONLY for web
-    // if (Platform.OS === 'web') return 'http://localhost:5002/v1';
-    // Use LAN IP for both iOS and Android (Physical devices & Emulators)
-    // NOTE: Update this IP if you change networks or your local IP changes
-    // Using 5002 for Gig Service
-    return 'https://netsaa-gigs-service.onrender.com/v1';
+    return process.env.EXPO_PUBLIC_API_GIGS_URL || 'https://netsaa-gigs-service.onrender.com/v1';
 };
 
 const API = axios.create({
@@ -29,6 +23,7 @@ API.interceptors.request.use((config) => {
 
 const gigService = {
     createGig: async (payload: Partial<Gig>): Promise<GigResponse> => {
+        console.log("payload: ", payload);
         const res = await API.post('/gigs', payload);
         return res.data;
     },
@@ -59,7 +54,8 @@ const gigService = {
     },
 
     updateGig: async (id: string, payload: Partial<Gig>): Promise<GigResponse> => {
-        const res = await API.patch(`/gigs/${id}`, payload);
+        console.log(payload);
+        const res = await API.put(`/gigs/${id}`, payload);
         return res.data;
     },
 
@@ -85,6 +81,16 @@ const gigService = {
 
     postGigDiscussion: async (gigId: string, text: string): Promise<any> => {
         const res = await API.post(`/gigs/${gigId}/discussion`, { text });
+        return res.data;
+    },
+
+    getSavedGigs: async (): Promise<any> => {
+        const res = await API.get('/users/me/saved-gigs');
+        return res.data;
+    },
+
+    getUserApplications: async (): Promise<any> => {
+        const res = await API.get('/users/me/gig-applications');
         return res.data;
     }
 };

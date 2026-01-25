@@ -270,30 +270,22 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
 
             isUrgent: formData.urgent,
             isFeatured: formData.featured,
-            status: 'draft' // Created as draft first
+            // Set status based on isDraft parameter
+            status: isDraft ? 'draft' : 'published'
         };
 
+        // Create gig with appropriate status (draft or published)
         createGigMutation.mutate(payload, {
-            onSuccess: (newGig) => {
+            onSuccess: (createdGig) => {
                 if (isDraft) {
                     Alert.alert("Draft Saved", "Your gig has been saved as a draft.");
-                    onPublish(newGig); // Or onCancel? Using onPublish to navigate away
                 } else {
-                    // Publish Flow
-                    updateGigMutation.mutate({ id: newGig._id, payload: { status: 'published' } }, {
-                        onSuccess: (publishedGig) => {
-                            Alert.alert("Success", "Gig published successfully!");
-                            onPublish(publishedGig);
-                        },
-                        onError: (err) => {
-                            Alert.alert("Notice", "Gig saved as draft, but failed to publish.");
-                            onPublish(newGig);
-                        }
-                    });
+                    Alert.alert("Success", "Gig published successfully!");
                 }
+                onPublish(createdGig);
             },
             onError: (err) => {
-                Alert.alert("Error", err.message || "Failed to create gig");
+                Alert.alert("Error", err.message || `Failed to ${isDraft ? 'save draft' : 'publish gig'}`);
             }
         });
     };

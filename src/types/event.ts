@@ -38,6 +38,10 @@ export interface IEvent {
     title: string;
     description: string;
     thumbnailUrl?: string;
+    coverImage?: string;
+    image?: string; // Legacy support
+    isOnline?: boolean;
+    duration?: number;
 
     eventType: EventType;
     category: string;

@@ -1,7 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import eventService from '../services/eventService';
+import { searchService } from '../services/searchService';
 import { CreateEventDTO, IEvent } from '../types/event';
-import { useRouter } from 'expo-router';
+
+// import { useRouter } from 'expo-router';
+import { countActiveEventFilters } from '@/lib/constants/eventFilters';
 
 // Keys
 export const eventKeys = {
@@ -11,13 +14,42 @@ export const eventKeys = {
     details: () => [...eventKeys.all, 'detail'] as const,
     detail: (id: string) => [...eventKeys.details(), id] as const,
     organizer: (organizerId: string) => [...eventKeys.all, 'organizer', organizerId] as const,
+    search: (params: any) => ['search:events', params.q, params.filters, params.page] as const,
 };
 
 // Queries
-export const useEvents = (params?: any) => {
+// Queries
+export const useEvents = ({
+    q = '',
+    filters = {},
+    page = 1,
+    pageSize = 10,
+}: {
+    q?: string;
+    filters?: any;
+    page?: number;
+    pageSize?: number;
+} = {}) => {
+    // REVISED STRATEGY: User explicitly requested to hit the Search API for filters.
+    // Even if it returns 404 currently, we implement the correct contract.
+    // Logic: If query 'q' exists OR filters are active -> Use Search Service.
+    // Otherwise -> Use Event Service (List).
+
+    const activeFilterCount = filters ? countActiveEventFilters(filters) : 0;
+    const shouldUseSearch = !!q || activeFilterCount > 0;
+
     return useQuery({
-        queryKey: eventKeys.list(params),
-        queryFn: () => eventService.getEvents(params).then(res => res.data),
+        queryKey: shouldUseSearch
+            ? eventKeys.search({ q, filters, page })
+            : eventKeys.list({ page, limit: pageSize }), // Map pageSize to limit for list endpoint
+        queryFn: () => {
+            if (shouldUseSearch) {
+                return searchService.searchEvents({ q, filters, page, pageSize });
+            } else {
+                return eventService.getEvents({ page, limit: pageSize });
+            }
+        },
+        placeholderData: keepPreviousData,
     });
 };
 

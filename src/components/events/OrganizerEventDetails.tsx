@@ -1,20 +1,29 @@
-import React, { useState, useEffect } from "react"; // Added useEffect for state sync if needed
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from "react-native";
-import { Users, Edit2, ArrowLeft, Settings, Calendar, MapPin, Plus, Check, X } from "lucide-react-native"; // Added missing icons
-import { useRouter } from "expo-router";
-
-import { IEvent } from "@/types/event";
-import { useDeleteEvent, useUpdateEvent, useEventRegistrations, useUpdateRegistrationStatus } from "@/hooks/useEvents"; // Added useUpdateEvent
-
-import AppScrollView from "../AppScrollView";
-// import { EventHero } from "./shared/EventHero"; // Removed
-// import { EventMetaInfo } from "./shared/EventMetaInfo"; // Removed
-
-import { EventSettingsModal } from "./shared/EventSettingsModal";
-import { ConfirmationModal } from "./shared/ConfirmationModal";
-import { EditableField } from "@/components/ui/EditableField"; // Added EditableField import
-import { EventHero } from "./shared/EventHero";
-import { SegmentedTabs as Tabs } from "../common/SegmentedTabs";
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Image, ActivityIndicator, TextInput, Alert, FlatList } from 'react-native';
+import {
+    Calendar,
+    MapPin,
+    Clock,
+    Users,
+    Check,
+    X,
+    Edit2,
+    Plus,
+    Settings,
+    ArrowLeft,
+    Share2,
+    Heart,
+    Zap,
+    ShieldCheck
+} from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { IEvent } from '@/types/event';
+import { useDeleteEvent, useUpdateEvent, useEventRegistrations, useUpdateRegistrationStatus } from '@/hooks/useEvents';
+import { EventSettingsModal } from './shared/EventSettingsModal';
+import { ConfirmationModal } from './shared/ConfirmationModal';
+import { EditableField } from '@/components/ui/EditableField';
+import DiscussionTab from '../common/DiscussionTab';
 
 interface OrganizerEventDetailsProps {
     event: IEvent;
@@ -23,36 +32,37 @@ interface OrganizerEventDetailsProps {
 export const OrganizerEventDetails: React.FC<OrganizerEventDetailsProps> = ({
     event,
 }) => {
-    const [activeTab, setActiveTab] = useState("About");
+    const router = useRouter();
+
+    // State
+    const [activeTab, setActiveTab] = useState('About');
     const [showSettings, setShowSettings] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-    // In-Place Edit State
     const [isEditMode, setIsEditMode] = useState(false);
     const [formData, setFormData] = useState(event);
 
-    // State synced via key prop in parent
-
-    const router = useRouter();
+    // Mutations
     const deleteMutation = useDeleteEvent();
     const updateMutation = useUpdateEvent();
-
-    // Registration Management
     const { data: registrations, isLoading: isLoadingRegistrations } = useEventRegistrations(event._id);
     const updateStatusMutation = useUpdateRegistrationStatus();
 
+    // Stats
+    const capacity = formData.maxParticipants || event.maxParticipants || 100;
+    const registered = registrations?.filter((r: any) => r.status === 'registered' || r.status === 'approved').length || 0;
+    const spotsLeft = capacity - registered;
+    const progress = (registered / capacity) * 100;
+
+    const tabs = [
+        { key: 'About', label: 'About' },
+        { key: 'Registrations', label: `Registrations (${registrations?.length || 0})` },
+        { key: 'Discussion', label: 'Discussion' },
+    ];
+
+    // Handlers
     const handleUpdateStatus = (regId: string, status: string) => {
         updateStatusMutation.mutate({ registrationId: regId, status, eventId: event._id });
     };
-
-    /* ---------- MOCKED STATS (replace later) ---------- */
-    const registered = 18;
-    const totalApplications = 32;
-    const max = formData.maxParticipants || event.maxParticipants;
-    const spotsLeft = max - registered;
-    const progress = (registered / max) * 100;
-
-    const tabs = ["About", "Registrations", "Discussion"];
 
     const handleEdit = () => {
         setShowSettings(false);
@@ -69,7 +79,7 @@ export const OrganizerEventDetails: React.FC<OrganizerEventDetailsProps> = ({
 
     const handleCancel = () => {
         setIsEditMode(false);
-        setFormData(event); // Revert changes
+        setFormData(event);
     };
 
     const handleDelete = () => {
@@ -89,122 +99,84 @@ export const OrganizerEventDetails: React.FC<OrganizerEventDetailsProps> = ({
         updateMutation.mutate({ id: event._id, payload: { status: newStatus } });
     };
 
-    const renderTabContent = () => {
-        switch (activeTab) {
-            case "About":
-                return (
-                    <View className="bg-netsa-card rounded-2xl p-6 mt-6 shadow-sm border border-white/10">
-                        <Text className="text-lg font-satoshi-bold text-white mb-3">About This Event</Text>
-                        <EditableField
-                            isEditing={isEditMode}
-                            value={formData.description || ""}
-                            label="Description"
-                            onChangeText={(text) => setFormData({ ...formData, description: text })}
-                            multiline
-                            textStyle="text-netsa-text-secondary leading-relaxed font-inter"
-                        />
-                    </View>
-                );
-
-            case "Registrations":
-                if (isLoadingRegistrations) {
-                    return (
-                        <View className="bg-netsa-card rounded-2xl p-6 mt-6 shadow-sm border border-white/10 min-h-[200px] justify-center items-center">
-                            <ActivityIndicator color="#A855F7" />
-                        </View>
-                    );
-                }
-
-                if (!registrations || registrations.length === 0) {
-                    return (
-                        <View className="bg-netsa-card rounded-2xl p-6 mt-6 shadow-sm border border-white/10 min-h-[200px] justify-center items-center">
-                            <Text className="text-netsa-text-muted font-inter">No registrations yet.</Text>
-                        </View>
-                    );
-                }
-
-                return (
-                    <View className="bg-netsa-card rounded-2xl p-6 mt-6 shadow-sm border border-white/10">
-                        {registrations.map((reg: any) => (
-                            <View key={reg._id} className="flex-row items-center justify-between py-4 border-b border-white/10 last:border-0">
-                                <View className="flex-row items-center flex-1">
-                                    <View className="w-10 h-10 rounded-full bg-white/10 items-center justify-center mr-3">
-                                        <Users size={20} color="#C9C9D1" />
-                                    </View>
-                                    <View>
-                                        <Text className="text-white font-satoshi-bold text-base">
-                                            {typeof reg.userId === 'object' ? reg.userId.displayName || reg.userId.email : 'Unknown User'}
-                                        </Text>
-                                        <Text className="text-netsa-text-muted text-xs font-inter capitalize">
-                                            {reg.status}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                {reg.status === 'registered' && (
-                                    <View className="flex-row gap-2">
-                                        <TouchableOpacity
-                                            onPress={() => handleUpdateStatus(reg._id, 'approved')}
-                                            className="p-2 bg-green-500/20 rounded-full"
-                                        >
-                                            <Check size={16} color="#4ade80" />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            onPress={() => handleUpdateStatus(reg._id, 'rejected')}
-                                            className="p-2 bg-red-500/20 rounded-full"
-                                        >
-                                            <X size={16} color="#f87171" />
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
-                            </View>
-                        ))}
-                    </View>
-                );
-
-            case "Discussion":
-                return (
-                    <View className="bg-netsa-card rounded-2xl p-6 mt-6 shadow-sm border border-white/10 min-h-[200px] justify-center items-center">
-                        <Text className="text-netsa-text-muted font-inter">
-                            Discussion view coming soon
-                        </Text>
-                    </View>
-                );
-
-            default:
-                return null;
-        }
-    };
+    // Helper to format image uri
+    const imageUri = formData.coverImage || formData.image || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1000";
 
     return (
-        <View className="flex-1 bg-netsa-bg relative">
-            <AppScrollView className="flex-1 py-4">
+        <View className="flex-1 w-[80%] mx-auto">
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140, marginTop: 20 }}>
+                {/* HERO IMAGE */}
+                <View className="relative w-full overflow-hidden rounded-2xl aspect-video md:aspect-[21/9] bg-zinc-900 mb-6">
+                    <Image
+                        source={{ uri: imageUri }}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                    />
+                    <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.3)', '#000000']}
+                        locations={[0, 0.6, 1]}
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                        }}
+                    />
 
-                {/* 🔹 FULL WIDTH CONTEXT */}
-                <View className="w-full">
-                    {/* 🔹 CENTERED CONTENT (80%) */}
-                    <View className="w-full max-w-[80%] mx-auto">
-                        <View className="flex-row justify-between items-center mb-6">
-                            <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-white/10">
-                                <ArrowLeft size={24} color="#FFFFFF" />
-                            </TouchableOpacity>
-
+                    {/* Hero Content Overlay */}
+                    <View className="absolute bottom-0 left-0 right-0 p-6 flex-row w-full justify-between items-end">
+                        <View className="flex-1 mr-4">
+                            <View className="flex-row gap-2 mb-3">
+                                <View className="bg-blue-600 rounded-full px-4 py-1">
+                                    <Text className="text-white font-black text-[10px] uppercase tracking-[0.2em]">
+                                        {formData.eventType || 'EVENT'}
+                                    </Text>
+                                </View>
+                                <View className={`rounded-full px-4 py-1 ${event.status === 'published' ? 'bg-emerald-600' : 'bg-zinc-600'}`}>
+                                    <Text className="text-white font-black text-[10px] uppercase tracking-[0.2em]">
+                                        {event.status || 'DRAFT'}
+                                    </Text>
+                                </View>
+                            </View>
+                            <EditableField
+                                isEditing={isEditMode}
+                                value={formData.title}
+                                label={isEditMode ? "Title" : undefined}
+                                onChangeText={(text) => setFormData({ ...formData, title: text })}
+                                textStyle="text-3xl md:text-5xl font-black text-white leading-tight mb-2"
+                                containerStyle="mb-0"
+                            />
                         </View>
-                        <EventHero onSettingsPress={() => setShowSettings(true)} />
-                        {/* ---------- HEADER ---------- */}
+                    </View>
 
+                    {/* Top Actions */}
+                    <View className="absolute top-4 right-4 flex-row gap-3 z-30">
+                        <TouchableOpacity
+                            onPress={() => setShowSettings(true)}
+                            className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
+                        >
+                            <Settings size={20} color="#FFFFFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={isEditMode ? handleSave : handleEdit}
+                            className={`w-10 h-10 rounded-2xl items-center justify-center border border-white/10 ${isEditMode ? 'bg-blue-600' : 'bg-black/50'}`}
+                        >
+                            {isEditMode ? <Check size={20} color="#FFFFFF" /> : <Edit2 size={20} color="#FFFFFF" />}
+                        </TouchableOpacity>
+                    </View>
+                </View>
 
-                        {/* ---------- CONTENT ---------- */}
-                        <View className="px-6">
-
-
-                            {/* TAGS */}
-                            <View className="flex-row flex-wrap gap-2 mb-4">
-                                {formData.tags?.map((tag, i) => (
-                                    <View
-                                        key={i}
-                                        className="px-3 py-1 rounded-full bg-netsa-accent-purple/20 border border-netsa-accent-purple/30 flex-row items-center"
-                                    >
+                {/* MAIN CONTENT */}
+                <View className="md:flex-row md:justify-between items-start">
+                    {/* LEFT COLUMN */}
+                    <View className="flex-1 w-full md:mr-10">
+                        {/* Meta Header */}
+                        <View className="mb-8 pl-1">
+                            {/* Tags */}
+                            <View className="flex-row flex-wrap gap-2 mb-6">
+                                {formData.tags?.map((tag: string, i: number) => (
+                                    <View key={i} className="px-3 py-1 rounded-full bg-zinc-800/50 border border-zinc-700 flex-row items-center">
                                         {isEditMode ? (
                                             <TextInput
                                                 value={tag}
@@ -213,220 +185,263 @@ export const OrganizerEventDetails: React.FC<OrganizerEventDetailsProps> = ({
                                                     newTags[i] = text;
                                                     setFormData({ ...formData, tags: newTags });
                                                 }}
-                                                className="text-xs font-satoshi-bold text-netsa-accent-purple min-w-[40px] p-0"
-                                                placeholder="Tag"
-                                                placeholderTextColor="#a78bfa"
+                                                className="text-white text-xs font-bold min-w-[40px] p-0"
                                             />
                                         ) : (
-                                            <Text className="text-xs font-satoshi-bold text-netsa-accent-purple">
-                                                {tag}
-                                            </Text>
+                                            <Text className="text-zinc-400 text-xs">#{tag}</Text>
                                         )}
                                     </View>
                                 ))}
                                 {isEditMode && (
                                     <TouchableOpacity
                                         onPress={() => setFormData({ ...formData, tags: [...(formData.tags || []), "New Tag"] })}
-                                        className="px-3 py-1 rounded-full bg-white/10 border border-white/20 flex-row items-center"
+                                        className="px-3 py-1 rounded-full bg-blue-600/20 border border-blue-600/50 flex-row items-center"
                                     >
-                                        <Plus size={12} color="#C9C9D1" />
-                                        <Text className="text-xs font-medium text-netsa-text-muted ml-1">Add</Text>
+                                        <Plus size={12} color="#3B82F6" />
                                     </TouchableOpacity>
                                 )}
                             </View>
 
-                            {/* TITLE + META + STATS */}
-                            <View className="flex-col md:flex-row gap-6">
-
-                                {/* LEFT */}
-                                <View className="flex-1">
-                                    <EditableField
-                                        isEditing={isEditMode}
-                                        value={formData.title}
-                                        label="Event Title"
-                                        onChangeText={(text) => setFormData({ ...formData, title: text })}
-                                        textStyle="text-3xl font-satoshi-black text-white mb-4"
-                                        containerStyle="mb-2"
-                                        multiline
-                                    />
-
-                                    <Text className="font-satoshi-bold text-netsa-text-primary mb-2">
-                                        {event.organizerSnapshot?.name || "Organizer"}
-                                    </Text>
-
-                                    <View className="space-y-4 mt-1">
-                                        <View className="flex-row items-start">
-                                            <View className="mt-1 mr-2">
-                                                <Calendar size={18} color="#9A9AA3" />
-                                            </View>
-                                            <View className="flex-1 flex-row gap-2">
-                                                <View className="flex-1">
-                                                    <EditableField
-                                                        isEditing={isEditMode}
-                                                        value={isEditMode ? String(formData.schedule?.startDate || "").split('T')[0] : (formData.schedule?.startDate ? new Date(formData.schedule.startDate).toLocaleDateString() : "")}
-                                                        label={isEditMode ? "Date (YYYY-MM-DD)" : undefined}
-                                                        placeholder="YYYY-MM-DD"
-                                                        // Update nested schedule.startDate
-                                                        onChangeText={(text) => {
-                                                            setFormData({
-                                                                ...formData,
-                                                                schedule: {
-                                                                    ...formData.schedule,
-                                                                    startDate: text, // Assuming text is valid ISO or date string
-                                                                    endDate: formData.schedule.endDate
-                                                                }
-                                                            })
-                                                        }}
-                                                        textStyle="text-netsa-text-secondary text-sm font-inter"
-                                                        containerStyle="mb-0"
-                                                    />
-                                                </View>
-                                                <View className="flex-1">
-                                                    {/* Time field - keeping it simple for now, maybe map to time string if needed or remove */}
-                                                    <EditableField
-                                                        isEditing={isEditMode}
-                                                        value={formData.time || ""}
-                                                        label={isEditMode ? "Time" : undefined}
-                                                        placeholder="Time"
-                                                        onChangeText={(text) => setFormData({ ...formData, time: text })}
-                                                        textStyle="text-netsa-text-secondary text-sm font-inter"
-                                                        containerStyle="mb-0"
-                                                    />
-                                                </View>
-                                            </View>
-                                        </View>
-
-                                        <View className="flex-row items-center">
-                                            <EditableField
-                                                isEditing={isEditMode}
-                                                value={formData.location?.city || ""}
-                                                label={isEditMode ? "Location" : undefined}
-                                                onChangeText={(text) => setFormData({
-                                                    ...formData,
-                                                    location: { ...formData.location, city: text }
-                                                })}
-                                                icon={<MapPin size={18} color="#9A9AA3" />}
-                                                textStyle="ml-3 text-netsa-text-secondary text-sm font-inter"
-                                                containerStyle="mb-0"
-                                            />
-                                        </View>
+                            {/* Quick Meta */}
+                            <View className="flex-row justify-start gap-8 mb-4">
+                                {/* Location */}
+                                <View className="flex-row items-center gap-2">
+                                    <View className="w-10 h-10 rounded-2xl bg-blue-500/10 items-center justify-center">
+                                        <MapPin size={20} color="#3B82F6" />
+                                    </View>
+                                    <View className="flex-1">
+                                        <EditableField
+                                            isEditing={isEditMode}
+                                            value={formData.location?.venueName || ""}
+                                            placeholder="Venue Name"
+                                            onChangeText={(text) => setFormData({ ...formData, location: { ...formData.location, venueName: text } })}
+                                            textStyle="text-[12px] font-bold text-white mb-0.5"
+                                            containerStyle="mb-0"
+                                        />
+                                        <EditableField
+                                            isEditing={isEditMode}
+                                            value={formData.location?.address || ""}
+                                            placeholder="Address"
+                                            onChangeText={(text) => setFormData({ ...formData, location: { ...formData.location, address: text } })}
+                                            textStyle="text-[10px] text-zinc-400"
+                                            containerStyle="mb-0"
+                                        />
                                     </View>
                                 </View>
 
-                                {/* RIGHT — ORGANIZER CARD */}
-                                <View className="flex flex-col items-start justify-evenly w-full md:w-56 bg-netsa-card rounded-2xl p-5 shadow-lg border border-white/10">
-                                    <View className="w-full">
+                                {/* Date */}
+                                <View className="flex-row items-center gap-2">
+                                    <View className="w-10 h-10 rounded-2xl bg-purple-500/10 items-center justify-center">
+                                        <Calendar size={20} color="#A855F7" />
+                                    </View>
+                                    <View className="flex-1">
                                         <EditableField
                                             isEditing={isEditMode}
-                                            value={String(formData.ticketPrice || 0)}
-                                            label="Price"
-                                            keyboardType="numeric"
-                                            onChangeText={(text) => setFormData({ ...formData, ticketPrice: Number(text) })}
-                                            textStyle="text-2xl font-satoshi-black text-netsa-accent-purple mb-2"
-                                        >
-                                            <Text className="text-2xl font-satoshi-black text-netsa-accent-purple mb-2">
-                                                ₹{formData.ticketPrice?.toLocaleString()}/-
-                                            </Text>
-                                        </EditableField>
-
-                                        <View className="flex-row items-center mb-2">
-                                            <Users size={14} color="#9A9AA3" />
-                                            <Text className="text-xs text-netsa-text-muted ml-1 font-inter">
-                                                {registered}/{max} registered
-                                            </Text>
-                                        </View>
-
-                                        <View className="flex-row justify-between mb-1">
-                                            <Text className="text-[10px] text-netsa-text-muted font-inter">
-                                                Spots remaining
-                                            </Text>
-                                            <Text className="text-[10px] text-netsa-text-muted font-inter">
-                                                {spotsLeft}
-                                            </Text>
-                                        </View>
-
-                                        {/* Gradient 2 Progress Bar */}
-                                        <View className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-4">
-                                            <View
-                                                style={{ width: `${progress}%` }}
-                                                className="h-full bg-gradient-to-r from-[#3D79FB] to-[#8B5CF6]"
-                                            />
-                                        </View>
-                                    </View>
-
-                                    <TouchableOpacity className="bg-gradient-to-r from-[#3D79FB] to-[#8B5CF6] py-3 rounded-lg w-full active:opacity-90">
-                                        <Text className="text-center text-white font-satoshi-bold text-xs">
-                                            Review Applications
+                                            value={formData.schedule?.startDate ? new Date(formData.schedule.startDate).toISOString().split('T')[0] : ""}
+                                            placeholder="YYYY-MM-DD"
+                                            onChangeText={(text) => setFormData({
+                                                ...formData,
+                                                schedule: { ...formData.schedule, startDate: text }
+                                            })}
+                                            textStyle="text-[12px] font-bold text-white mb-0.5"
+                                            containerStyle="mb-0"
+                                        />
+                                        <Text className="text-[10px] text-zinc-400">
+                                            {formData.schedule?.startDate ? new Date(formData.schedule.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Time TBD'}
                                         </Text>
-                                    </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* RIGHT COLUMN (Stats) */}
+                    <View className="w-full md:w-96 md:pt-0 pt-6">
+                        <View className="p-8 rounded-[2.5rem] bg-zinc-900/50 border border-white/10 mb-6">
+                            <View className="items-center mb-6">
+                                <View className="flex-row items-center gap-2 mb-2">
+                                    <Zap size={14} color="#3B82F6" />
+                                    <Text className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                                        TICKET PRICE
+                                    </Text>
+                                </View>
+                                <View className="flex-row items-baseline">
+                                    <Text className="text-xl font-black text-white mr-1">₹</Text>
+                                    <EditableField
+                                        isEditing={isEditMode}
+                                        value={String(formData.ticketPrice || 0)}
+                                        keyboardType="numeric"
+                                        onChangeText={(text) => setFormData({ ...formData, ticketPrice: Number(text) })}
+                                        textStyle="text-3xl font-black text-white"
+                                        containerStyle="min-w-[50px] items-center"
+                                    />
                                 </View>
                             </View>
 
-                            {/* ---------- TABS ---------- */}
-                            <Tabs
-                                tabs={[
-                                    { key: "About", title: "About" },
-                                    { key: "Registrations", title: "Registrations" },
-                                    { key: "Discussion", title: "Discussion" }
-                                ]}
-                                activeTab={activeTab}
-                                onTabChange={setActiveTab}
-                            />
+                            {/* Progress */}
+                            <View className="mb-8">
+                                <View className="flex-row justify-between items-center mb-3">
+                                    <Text className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                                        CAPACITY
+                                    </Text>
+                                    <Text className="text-[8px] font-black text-white">
+                                        {registered} / {capacity}
+                                    </Text>
+                                </View>
+                                <View className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                    <View
+                                        className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                                        style={{ width: `${progress}%` }}
+                                    />
+                                </View>
+                            </View>
 
-                            {/* ---------- TAB CONTENT ---------- */}
-                            {renderTabContent()}
-
-                            <View className="h-16" />
+                            <TouchableOpacity className="w-full py-4 rounded-2xl bg-zinc-800 items-center justify-center flex-row mb-4">
+                                <Text className="text-zinc-500 font-bold">Organizer View</Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
                 </View>
 
-                {/* ---------- SETTINGS MODAL ---------- */}
-                <EventSettingsModal
-                    visible={showSettings}
-                    onClose={() => setShowSettings(false)}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onToggleStatus={handleToggleStatus}
-                    event={event}
-                />
+                {/* TABS - INLINE */}
+                <View className="mt-8 mb-12">
+                    <FlatList
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        data={tabs}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                key={item.key}
+                                onPress={() => setActiveTab(item.key as any)}
+                                className={`px-6 py-4 mb-5 ${activeTab === item.key ? 'border-b-2 border-blue-500' : ''}`}
+                            >
+                                <Text
+                                    className={`text-[11px] font-black uppercase tracking-[0.15em] ${activeTab === item.key ? 'text-white' : 'text-zinc-500'}`}
+                                >
+                                    {item.label}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    />
 
+                    {/* Tab Content */}
+                    <View className="mt-4">
+                        {activeTab === 'About' && (
+                            <View className="space-y-6">
+                                <View>
+                                    <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4">
+                                        EVENT DESCRIPTION
+                                    </Text>
+                                    <View className="border-l-4 border-blue-500/30 pl-6">
+                                        <EditableField
+                                            isEditing={isEditMode}
+                                            value={formData.description || ""}
+                                            onChangeText={(text) => setFormData({ ...formData, description: text })}
+                                            multiline
+                                            textStyle="text-xl text-zinc-300 leading-relaxed font-light"
+                                        />
+                                    </View>
+                                </View>
+                            </View>
+                        )}
 
-                <ConfirmationModal
-                    visible={showDeleteConfirm}
-                    onClose={() => setShowDeleteConfirm(false)}
-                    onConfirm={confirmDelete}
-                    title="Delete Event"
-                    message="Are you sure you want to delete this event? This action cannot be undone."
-                    confirmText="Delete"
-                    isDestructive
-                />
-            </AppScrollView>
+                        {activeTab === 'Registrations' && (
+                            <View className="space-y-4">
+                                {isLoadingRegistrations ? (
+                                    <ActivityIndicator color="#FFFFFF" />
+                                ) : (!registrations || registrations.length === 0) ? (
+                                    <View className="p-8 rounded-2xl bg-zinc-900/30 border border-white/5 items-center">
+                                        <Text className="text-zinc-500">No registrations yet.</Text>
+                                    </View>
+                                ) : (
+                                    registrations.map((reg: any) => (
+                                        <View key={reg._id} className="p-6 rounded-3xl bg-zinc-900/30 border border-white/5">
+                                            <View className="flex-row justify-between items-center mb-4">
+                                                <View className="flex-row items-center gap-4">
+                                                    <View className="w-12 h-12 rounded-2xl bg-zinc-800 items-center justify-center">
+                                                        <Users size={20} color="#FFFFFF" />
+                                                    </View>
+                                                    <View>
+                                                        <Text className="text-white font-black text-lg">
+                                                            {reg.userId?.displayName || reg.userId?.email || 'User'}
+                                                        </Text>
+                                                        <Text className="text-zinc-500 text-xs uppercase tracking-wider font-bold">
+                                                            {reg.status}
+                                                        </Text>
+                                                    </View>
+                                                </View>
 
-            {/* SAVE BAR - OUTSIDE SCROLLVIEW */}
+                                                {reg.status === 'registered' && (
+                                                    <View className="flex-row gap-2">
+                                                        <TouchableOpacity
+                                                            onPress={() => handleUpdateStatus(reg._id, 'approved')}
+                                                            className="w-10 h-10 rounded-xl bg-emerald-500/20 items-center justify-center"
+                                                        >
+                                                            <Check size={20} color="#10B981" />
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            onPress={() => handleUpdateStatus(reg._id, 'rejected')}
+                                                            className="w-10 h-10 rounded-xl bg-rose-500/20 items-center justify-center"
+                                                        >
+                                                            <X size={20} color="#F43F5E" />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        </View>
+                                    ))
+                                )}
+                            </View>
+                        )}
+
+                        {activeTab === 'Discussion' && (
+                            <DiscussionTab id={event._id} type="event" />
+                        )}
+                    </View>
+                </View>
+            </ScrollView>
+
+            {/* Editing Save Bar */}
             {isEditMode && (
-                <View className="absolute bottom-0 left-0 right-0 bg-netsa-card border-t border-white/10 px-6 py-4 flex-row justify-between z-50 pb-8">
-                    <Text className="text-sm text-netsa-text-secondary self-center font-inter">
-                        You have unsaved changes
+                <View className="absolute bottom-0 left-0 right-0 bg-zinc-900 border-t border-white/10 px-6 py-4 flex-row justify-between z-50">
+                    <Text className="text-sm text-zinc-400 self-center">
+                        Unsaved changes
                     </Text>
-
                     <View className="flex-row gap-3">
                         <TouchableOpacity
                             onPress={handleCancel}
                             className="px-4 py-2 bg-white/10 rounded-lg"
                         >
-                            <Text className="font-satoshi-medium text-white">Cancel</Text>
+                            <Text className="font-bold text-white">Cancel</Text>
                         </TouchableOpacity>
-
                         <TouchableOpacity
                             onPress={handleSave}
-                            className="px-6 py-2 bg-netsa-accent-purple rounded-lg shadow-sm"
+                            className="px-6 py-2 bg-blue-600 rounded-lg"
                         >
-                            <Text className="font-satoshi-bold text-white">Save Changes</Text>
+                            <Text className="font-bold text-white">Save Changes</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             )}
+
+            <EventSettingsModal
+                visible={showSettings}
+                onClose={() => setShowSettings(false)}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onToggleStatus={handleToggleStatus}
+                event={event}
+            />
+
+            <ConfirmationModal
+                visible={showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(false)}
+                onConfirm={confirmDelete}
+                title="Delete Event"
+                message="Are you sure you want to delete this event?"
+                confirmText="Delete"
+                isDestructive
+            />
         </View>
     );
 };

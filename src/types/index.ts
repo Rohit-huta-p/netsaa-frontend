@@ -21,6 +21,12 @@ export type User = {
   gender?: string;
   height?: string;
   skinTone?: string;
+  hasPhotos?: boolean;
+  galleryUrls?: string[];
+  videoUrls?: string[];
+  rating?: number;
+  connections?: number;
+  events?: number;
 };
 
 export type AuthResponse = {

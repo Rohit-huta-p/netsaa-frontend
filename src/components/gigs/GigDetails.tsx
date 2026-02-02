@@ -33,6 +33,8 @@ import useAuthStore from '@/stores/authStore';
 import { GigSettingsModal } from './GigSettingsModal';
 import { useGigApplications, useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 import { usePlatform } from '@/utils/platform';
+import { useRouter } from 'expo-router';
+import { FlatList } from 'react-native-gesture-handler';
 
 interface GigDetailsProps {
     gig: any;
@@ -46,6 +48,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
     gig,
     showActionFooter = true,
 }) => {
+    const router = useRouter();
     const { isWeb } = usePlatform();
     const user = useAuthStore((state) => state.user);
     const isOrganizer = user?._id === gig.organizerId;
@@ -107,7 +110,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
     };
 
     return (
-        <View className="flex-1 w-[90%] mx-auto">
+        <View className="flex-1 w-[80%] mx-auto">
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140, marginTop: 20 }}>
                 {/* HERO IMAGE */}
                 <View className="relative w-full overflow-hidden rounded-2xl">
@@ -131,65 +134,66 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                     /> */}
 
                     {/* Hero Content */}
-                    <View className="mt-4 flex-row w-full justify-between">
+                    <View className="mt-4 flex-row w-full justify-between ">
                         {/* Title */}
-                        <View>
-                            <View className="flex-row gap-2 mb-4">
+                        <View className="flex-1 justify-end">
+                            <View className="flex-row gap-2">
                                 {gig.isUrgent && (
-                                    <View className="bg-orange-600 rounded-full px-4 py-2">
+                                    <View className="bg-orange-600 rounded-full px-3 py-1">
                                         <Text className="text-white font-black text-[10px] uppercase tracking-[0.2em]">
                                             URGENT
                                         </Text>
                                     </View>
                                 )}
-                                <View className="bg-blue-600 rounded-full px-5 py-2">
+                                <View className="bg-blue-600 rounded-full px-4 py-1">
                                     <Text className="text-white font-black text-[10px] uppercase tracking-[0.2em]">
                                         {gig.artistTypes?.[0] || 'MUSIC'} • {gig.category?.replace('_', ' ').toUpperCase()}
                                     </Text>
                                 </View>
                             </View>
-
                         </View>
-                        <View>
-                            {/* Action Buttons */}
-                            <View className="flex-row gap-3 z-30">
+                        {/* Action Buttons */}
+                        <View className="flex-row gap-3 z-30">
+                            <TouchableOpacity
+                                onPress={handleSave}
+                                className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
+                            >
+                                <Heart size={20} color={isSaved ? '#EF4444' : '#FFFFFF'} fill={isSaved ? '#EF4444' : 'none'} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={handleShare}
+                                className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
+                            >
+                                <Share2 size={20} color="#FFFFFF" />
+                            </TouchableOpacity>
+                            {isOrganizer && (
                                 <TouchableOpacity
-                                    onPress={handleSave}
-                                    className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
+                                    onPress={() => setSettingsModalVisible(true)}
+                                    className="w-12 h-12 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
                                 >
-                                    <Heart size={20} color={isSaved ? '#EF4444' : '#FFFFFF'} fill={isSaved ? '#EF4444' : 'none'} />
+                                    <Edit2 size={20} color="#FFFFFF" />
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={handleShare}
-                                    className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
-                                >
-                                    <Share2 size={20} color="#FFFFFF" />
-                                </TouchableOpacity>
-                                {isOrganizer && (
-                                    <TouchableOpacity
-                                        onPress={() => setSettingsModalVisible(true)}
-                                        className="w-12 h-12 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
-                                    >
-                                        <Edit2 size={20} color="#FFFFFF" />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
+                            )}
                         </View>
                     </View>
                 </View>
 
-                <View className="pt-12">
+                <View className="">
                     {/* MAIN CONTENT - TWO COLUMN LAYOUT */}
-                    <View className="flex-row justify-between ">
+                    <View className="items-start md:flex-row md:justify-between  ">
                         {/* Organizer details */}
-                        <View>
+                        <View className='pt-1'>
                             {!isOrganizer && (
                                 <View>
                                     <Text className="text-5xl font-black text-white leading-tight">
                                         {gig.title}
                                     </Text>
 
-                                    <View className="flex-row items-center gap-4 mb-8">
+                                    <TouchableOpacity
+                                        activeOpacity={0.7}
+                                        onPress={() => router.push(`/profile/${gig.organizerId}`)}
+                                        className="flex-row items-center gap-4 mb-8"
+                                    >
                                         <View className="relative">
                                             <View className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/10">
                                                 {gig.organizerSnapshot?.profileImageUrl ? (
@@ -231,32 +235,32 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                                 </View>
                                             </View>
                                         </View>
-                                    </View>
+                                    </TouchableOpacity>
                                 </View>
                             )}
 
                             {/* Quick Meta */}
                             <View className="flex-row justify-start gap-6 mb-10">
-                                <View className="flex-row items-start gap-3">
-                                    <View className="w-10 h-10 rounded-xl bg-blue-500/10 items-center justify-center">
-                                        <MapPin size={18} color="#3B82F6" />
+                                <View className="flex-row items-center gap-1">
+                                    <View className="w-8 h-8 items-center justify-center">
+                                        <MapPin size={24} color="#3B82F6" />
                                     </View>
                                     <View className="flex-1">
-                                        <Text className="text-md font-bold text-white mb-1">
+                                        <Text className="text-[12px] font-bold text-white mb-1">
                                             {gig.location?.venueName || gig.location?.city || 'Location TBD'}
                                         </Text>
-                                        <Text className="text-xs text-zinc-400">
+                                        <Text className="text-[10px] text-zinc-400">
                                             {gig.location?.city || ''}{gig.location?.state ? `, ${gig.location.state}` : ''}
                                         </Text>
                                     </View>
                                 </View>
 
-                                <View className="flex-row items-center gap-3">
-                                    <View className="w-10 h-10 rounded-xl bg-purple-500/10 items-center justify-center">
-                                        <Calendar size={18} color="#8B5CF6" />
+                                <View className="flex-row items-center gap-1">
+                                    <View className="w-8 h-8 items-center justify-center">
+                                        <Calendar size={24} color="#8B5CF6" />
                                     </View>
                                     <View className="flex-1">
-                                        <Text className="text-md font-bold text-white mb-1">
+                                        <Text className="text-[12px] font-bold text-white mb-1">
                                             {gig.schedule?.startDate
                                                 ? new Date(gig.schedule.startDate).toLocaleDateString('en-IN', {
                                                     day: 'numeric',
@@ -265,7 +269,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                                 })
                                                 : "Date TBD"}
                                         </Text>
-                                        <Text className="text-xs text-zinc-400">
+                                        <Text className="text-[10px] text-zinc-400">
                                             {gig.type === 'one-time' ? 'One-time gig' : gig.type === 'recurring' ? 'Recurring' : 'Contract'}
                                         </Text>
                                     </View>
@@ -273,9 +277,9 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                             </View>
                         </View>
 
-                        {/* Compensation Card */}
+                        {/* Compensation Details */}
                         {!isOrganizer && isWeb && (
-                            <View className="w-72">
+                            <View className="w-96 mx-auto md:mx-0 pt-5">
                                 <View className="p-8 rounded-[2.5rem] bg-zinc-900/50 border border-white/10 mb-6">
                                     <View className="items-center mb-4">
                                         <View className="flex-row items-center gap-2 mb-2">
@@ -314,7 +318,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                     </View>
 
                                     {/* Closing Alert */}
-                                    {gig.applicationDeadline && (
+                                    {gig.applicationDeadline && !showActionFooter && !isOrganizer && (
                                         <View className="w-fit self-center gap-3 px-3 py-1 bg-rose-500/10 rounded-2xl border border-rose-500/20 mb-4">
                                             <View className="flex-row justify-center items-center gap-2">
                                                 <AlertCircle size={10} color="#EF4444" />
@@ -332,13 +336,17 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                     )}
 
                                     {/* Apply Button */}
-                                    <TouchableOpacity
-                                        onPress={() => setApplyModalVisible(true)}
-                                        className="w-full py-3 rounded-2xl bg-white items-center justify-center flex-row mb-6 active:scale-95"
-                                    >
-                                        <Text className="text-black text-lg font-black">Apply Now</Text>
-                                        <ArrowRight size={20} color="#000000" style={{ marginLeft: 8 }} />
-                                    </TouchableOpacity>
+                                    {
+                                        !showActionFooter && !isOrganizer && (
+                                            <TouchableOpacity
+                                                onPress={() => setApplyModalVisible(true)}
+                                                className="w-full py-3 rounded-2xl bg-white items-center justify-center flex-row mb-6 active:scale-95"
+                                            >
+                                                <Text className="text-black text-lg font-black">Apply Now</Text>
+                                                <ArrowRight size={20} color="#000000" style={{ marginLeft: 8 }} />
+                                            </TouchableOpacity>
+                                        )
+                                    }
 
                                     {/* Trust Footer */}
                                     <View className="space-y-3">
@@ -393,30 +401,33 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                     {/* TABS */}
                     <View className="mb-12">
                         {/* Tab Headers */}
-                        <View className="flex-row border-b border-white/10 mb-8">
-                            {[
+                        <FlatList
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            data={[
                                 { key: 'about', label: 'About' },
                                 { key: 'talent', label: 'Talent Criteria' },
                                 { key: 'schedule', label: 'Schedule & Pay' },
                                 { key: 'apply', label: 'How to Apply' },
                                 ...(isOrganizer ? [{ key: 'applications', label: 'Applications' }] : []),
-                            ].map((tab) => (
+                            ]}
+                            renderItem={({ item }) => (
                                 <TouchableOpacity
-                                    key={tab.key}
-                                    onPress={() => setActiveTab(tab.key as any)}
-                                    className={`px-6 py-4 ${activeTab === tab.key ? 'border-b-2 border-blue-500' : ''}`}
+                                    key={item.key}
+                                    onPress={() => setActiveTab(item.key as any)}
+                                    className={`px-6 py-4 mb-5 ${activeTab === item.key ? 'border-b-2 border-blue-500' : ''}`}
                                 >
                                     <Text
-                                        className={`text-[11px] font-black uppercase tracking-[0.15em] ${activeTab === tab.key ? 'text-white' : 'text-zinc-500'}`}
+                                        className={`text-[11px] font-black uppercase tracking-[0.15em] ${activeTab === item.key ? 'text-white' : 'text-zinc-500'}`}
                                     >
-                                        {tab.label}
-                                        {tab.key === 'applications' && applications && (
+                                        {item.label}
+                                        {item.key === 'applications' && applications && (
                                             <Text className="text-blue-400"> ({applications.length})</Text>
                                         )}
                                     </Text>
                                 </TouchableOpacity>
-                            ))}
-                        </View>
+                            )}
+                        />
 
                         {/* Tab Content */}
                         {activeTab === 'about' && (
@@ -934,14 +945,30 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
             </ScrollView>
 
             {/* MOBILE ACTION FOOTER */}
-            {showActionFooter && !isOrganizer && (
-                <View className="absolute bottom-0 left-0 right-0 p-6 bg-black/95 backdrop-blur-xl border-t border-white/10 md:hidden">
-                    <TouchableOpacity
-                        onPress={() => setApplyModalVisible(true)}
-                        className="w-full py-5 rounded-2xl bg-white items-center justify-center active:scale-95"
-                    >
-                        <Text className="text-black text-lg font-black uppercase tracking-widest">Apply Now</Text>
-                    </TouchableOpacity>
+            {showActionFooter && !isOrganizer && gig.applicationDeadline && (
+                <View className='absolute bottom-0 left-0 right-0 p-6 bg-black/95 backdrop-blur-xl border-t border-white/10 md:hidden'>
+                    <View className="w-fit self-center gap-3 px-3 py-1 bg-rose-500/10 rounded-2xl border border-rose-500/20 mb-4">
+                        <View className="flex-row justify-center items-center gap-2">
+                            <AlertCircle size={10} color="#EF4444" />
+                            <Text className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">
+                                DEADLINE:{' '}
+                                <Text className="text-white">
+                                    {new Date(gig.applicationDeadline).toLocaleDateString('en-IN', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                    })}
+                                </Text>
+                            </Text>
+                        </View>
+                    </View>
+                    <View className="">
+                        <TouchableOpacity
+                            onPress={() => setApplyModalVisible(true)}
+                            className="w-full py-5 rounded-2xl bg-white items-center justify-center active:scale-95"
+                        >
+                            <Text className="text-black text-lg font-black uppercase tracking-widest">Apply Now</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             )}
 

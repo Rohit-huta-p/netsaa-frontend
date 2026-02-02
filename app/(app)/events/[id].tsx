@@ -46,12 +46,14 @@ export default function EventDetailsPage() {
     const isOrganizer = user?._id === event.organizerId;
 
     return (
-        <View className="flex-1 rounded-2xl ">
+        <View className="flex-1 bg-black">
             <Stack.Screen options={{
                 title: isOrganizer ? 'Manage Event' : 'Event Details',
                 headerStyle: { backgroundColor: '#000' },
                 headerTintColor: '#fff',
-                headerBackTitle: ''
+                headerBackTitle: '',
+                headerShown: false, // Ensure header is shown
+                headerShadowVisible: false, // Clean look
             }} />
 
             {isOrganizer ? (

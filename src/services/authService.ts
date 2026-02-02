@@ -61,6 +61,14 @@ const authService = {
     return res.data;
   },
 
+  getUserById: async (id: string): Promise<User> => {
+    // GET /users/:id
+    console.log(`AUTH SERVICE: Getting user ${id}...`)
+    // Fallback URL if standard one fails, leveraging existing backend structure assumption
+    const res = await API.get(`/users/${id}`);
+    return res.data;
+  },
+
   updateProfile: async (data: Partial<User>): Promise<User> => {
     console.log("AUTH SERVICE: Updating profile...", data);
     const res = await API.patch('/auth/me', data);

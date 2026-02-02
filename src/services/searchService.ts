@@ -54,30 +54,36 @@ export const searchService = {
 
         // Map search results to match Gig interface expected by UI
         if (data && data.results) {
-            data.results = data.results.map((item: any) => ({
-                _id: item.id, // Critical: Map id to _id for navigation
-                title: item.title,
-                compensation: item.metadata?.compensation,
-                location: {
-                    city: item.subtitle?.split('•')[0]?.trim()
-                },
-                artistTypes: [item.subtitle?.split('•')[1]?.trim() || 'Artist'],
-                schedule: {
-                    startDate: item.metadata?.date,
-                    // Safe defaults for GigCard
-                    practiceDays: { count: 0, isPaid: false },
-                    durationLabel: 'N/A'
-                },
-                applicationDeadline: item.metadata?.expiresAt,
-                createdAt: new Date().toISOString(), // Fallback
-                experienceLevel: 'Professional', // Fallback
-                isFeatured: (item.score || 0) > 3,
-                organizerSnapshot: {
-                    displayName: 'Organizer',
-                    rating: 5,
-                    profileImageUrl: item.image
+            data.results = data.results.map((item: any) => {
+                if (item.raw) {
+                    return item.raw;
                 }
-            }));
+
+                return {
+                    _id: item.id, // Critical: Map id to _id for navigation
+                    title: item.title,
+                    compensation: item.metadata?.compensation,
+                    location: {
+                        city: item.subtitle?.split('•')[0]?.trim()
+                    },
+                    artistTypes: [item.subtitle?.split('•')[1]?.trim() || 'Artist'],
+                    schedule: {
+                        startDate: item.metadata?.date,
+                        // Safe defaults for GigCard
+                        practiceDays: { count: 0, isPaid: false },
+                        durationLabel: 'N/A'
+                    },
+                    applicationDeadline: item.metadata?.expiresAt,
+                    createdAt: new Date().toISOString(), // Fallback
+                    experienceLevel: 'Professional', // Fallback
+                    isFeatured: (item.score || 0) > 3,
+                    organizerSnapshot: {
+                        displayName: 'Organizer',
+                        rating: 5,
+                        profileImageUrl: item.image
+                    }
+                };
+            });
         }
 
         return data;
@@ -86,9 +92,17 @@ export const searchService = {
     /**
      * Search Events
      */
-    searchEvents: async (query: string, filters?: Record<string, any>) => {
-        const { data } = await SEARCH_API.get('/search/events', {
-            params: { q: query, ...filters },
+    searchEvents: async ({ q, filters, page, pageSize }: {
+        q?: string;
+        filters?: any;
+        page?: number;
+        pageSize?: number;
+    }) => {
+        const { data } = await SEARCH_API.post('/search/events', {
+            q,
+            filters,
+            page,
+            pageSize,
         });
         return data;
     },

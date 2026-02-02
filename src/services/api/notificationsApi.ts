@@ -60,7 +60,7 @@ const notificationsApi = {
     getNotifications: async (params: GetNotificationsParams = {}): Promise<GetNotificationsResponse> => {
         const { page = 1, limit = 20 } = params;
         console.log("NOTIFICATIONS API: Fetching notifications...");
-        const res = await API.get(`/users/notifications?page=${page}&limit=${limit}`);
+        const res = await API.get(`/notifications?page=${page}&limit=${limit}`);
         console.log(`NOTIFICATIONS API: Fetched ${res.data.data.length} notifications`);
         return res.data;
     },
@@ -70,7 +70,7 @@ const notificationsApi = {
      */
     markNotificationAsRead: async (notificationId: string): Promise<void> => {
         console.log(`NOTIFICATIONS API: Marking notification ${notificationId} as read...`);
-        await API.patch(`/users/notifications/${notificationId}/read`);
+        await API.patch(`/notifications/${notificationId}/read`);
         console.log("NOTIFICATIONS API: Notification marked as read");
     },
 
@@ -79,7 +79,7 @@ const notificationsApi = {
      */
     markAllNotificationsAsRead: async (): Promise<void> => {
         console.log("NOTIFICATIONS API: Marking all notifications as read...");
-        await API.patch('/users/notifications/read-all');
+        await API.patch('/notifications/read-all');
         console.log("NOTIFICATIONS API: All notifications marked as read");
     },
 
@@ -88,7 +88,7 @@ const notificationsApi = {
      */
     deleteNotification: async (notificationId: string): Promise<void> => {
         console.log(`NOTIFICATIONS API: Deleting notification ${notificationId}...`);
-        await API.delete(`/users/notifications/${notificationId}`);
+        await API.delete(`/notifications/${notificationId}`);
         console.log("NOTIFICATIONS API: Notification deleted");
     },
 };

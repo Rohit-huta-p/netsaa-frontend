@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ActivityIndicator, Text, Dimensions } from 'react-native';
+import { View, ActivityIndicator, Text, Dimensions, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import { GigDetails } from '../../../src/components/gigs/GigDetails';
@@ -12,6 +12,7 @@ import { Sparkles } from 'lucide-react-native';
 const { width, height } = Dimensions.get('window');
 
 export default function GigDetailsPage() {
+    const { width, height } = useWindowDimensions();
     const { id } = useLocalSearchParams();
     const gigId = Array.isArray(id) ? id[0] : id;
     const { data: gig, isLoading, error } = useGig(gigId || '');
@@ -25,9 +26,9 @@ export default function GigDetailsPage() {
                     style={{
                         position: 'absolute',
                         top: 0,
-                        left: '50%',
-                        marginLeft: -width * 0.5,
                         width: width,
+                        left: '50%',
+                        marginLeft: width * 0.5,
                         height: height * 0.5,
                     }}
                 >
@@ -83,27 +84,32 @@ export default function GigDetailsPage() {
             />
 
             {/* Spotlight Effect */}
+
             <View
                 style={{
                     position: 'absolute',
                     top: 0,
-                    left: '50%',
-                    marginLeft: -width * 0.75,
-                    width: width * 1.5,
-                    height: height * 0.35,
+                    width: width,
+                    left: 0,
+                    overflow: 'hidden',
+                    height: height * 0.38,
                     pointerEvents: 'none',
                 }}
             >
                 <LinearGradient
-                    colors={['rgba(59,130,246,0.2)', 'rgba(139,92,246,0.1)', 'transparent']}
-                    locations={[0, 0.5, 1]}
+                    colors={[
+                        'rgba(59,130,246,0.22)',
+                        'rgba(139,92,246,0.12)',
+                        'transparent',
+                    ]}
+                    locations={[0, 0.55, 1]}
                     start={{ x: 0.5, y: 0 }}
                     end={{ x: 0.5, y: 1 }}
                     style={{
                         width: '100%',
                         height: '100%',
-                        borderBottomLeftRadius: width,
-                        borderBottomRightRadius: width,
+                        // borderBottomLeftRadius: width * 0.9,
+                        // borderBottomRightRadius: width * 0.9,
                     }}
                 />
             </View>

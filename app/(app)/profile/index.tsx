@@ -758,8 +758,8 @@ export default function ProfilePage() {
                 <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 120, width: '80%', marginLeft: '10%', marginRight: '10%' }}>
 
                     {/* Header Section */}
-                    <View className="relative pt-12 pb-8 border-b  px-6 py-10 ">
-                        <View className={`flex-col ${isDesktop ? 'md:flex-row ' : ''} items-start gap-10 bg-zinc-900/80 rounded-2xl py-6 px-4`}>
+                    <View className=" pt-12 pb-8 border-b  px-6 py-10 ">
+                        <View className={`flex-col relative  ${isDesktop ? 'md:flex-row ' : ''} items-start gap-10 bg-zinc-900/80 rounded-2xl py-6 px-4`}>
                             {/* Avatar */}
                             <View className="relative">
                                 <View className="w-32 h-32 md:w-44 md:h-44 rounded-2xl overflow-hidden border border-white/10 relative">
@@ -823,7 +823,7 @@ export default function ProfilePage() {
                             </View>
 
                             {/* Actions - Mapped to EDIT MODE functionality */}
-                            <View className={`flex-row gap-2 ${isDesktop ? 'w-auto' : 'w-full'}`}>
+                            <View className={`flex-row absolute right-5 top-4 gap-2 ${isDesktop ? 'w-auto' : ''}`}>
                                 <TouchableOpacity
                                     className=" h-12 w-12 rounded-lg items-center justify-center "
                                 >

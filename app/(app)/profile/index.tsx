@@ -1,5 +1,6 @@
 // app/(app)/profile/index.tsx
 import React, { useState, useEffect } from "react";
+import noAvatar from "../../../assets/no-avatar.jpg";
 import {
     View,
     Text,
@@ -759,13 +760,14 @@ export default function ProfilePage() {
 
                     {/* Header Section */}
                     <View className=" pt-12 pb-8 border-b  px-6 py-10 ">
-                        <View className={`flex-col relative  ${isDesktop ? 'md:flex-row ' : ''} items-start gap-10 bg-zinc-900/80 rounded-2xl py-6 px-4`}>
+                        <View className={`flex-col relative  ${isDesktop ? 'md:flex-row ' : ''} items-center  gap-10 bg-zinc-900/80 rounded-2xl py-6 px-4`}>
                             {/* Avatar */}
                             <View className="relative">
                                 <View className="w-32 h-32 md:w-44 md:h-44 rounded-2xl overflow-hidden border border-white/10 relative">
                                     <Image
-                                        source={{ uri: user?.profileImageUrl || 'https://i.pravatar.cc/800?u=me' }}
-                                        className="w-full h-full opacity-90"
+                                        source={user?.profileImageUrl ? { uri: user.profileImageUrl } : noAvatar}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' } as any}
+                                        resizeMode="cover"
                                     />
                                 </View>
                                 {/* Available Tag */}

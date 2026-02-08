@@ -228,14 +228,14 @@ export default function EventsPage() {
             <View className="absolute top-[10%] -left-[10%] w-[600px] h-[600px] bg-rose-900/20 rounded-full opacity-50 blur-3xl pointer-events-none" />
             <View className="absolute bottom-[10%] -right-[10%] w-[500px] h-[500px] bg-orange-900/10 rounded-full opacity-30 blur-3xl pointer-events-none" />
 
-            <SafeAreaView className="flex-1" edges={['top']}>
+            <SafeAreaView className="flex-1 " edges={['top']}>
 
                 <AppScrollView
                     className="flex-1"
                     contentContainerStyle={{ paddingBottom: 100 }}
                     showsVerticalScrollIndicator={false}
                 >
-                    <View className="px-6 pt-10 pb-8">
+                    <View className="px-6 pt-10 pb-8 w-full md:w-[80%] mx-auto">
                         {/* Hero Typography */}
                         <View className="mb-12">
                             <View className="self-start bg-white/5 border border-white/10 px-4 py-1.5 mb-8 rounded-full">

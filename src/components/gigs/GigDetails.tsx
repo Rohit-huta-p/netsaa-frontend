@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, Alert, Platform } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Image, Alert, Platform, useWindowDimensions, Settings } from 'react-native';
 import {
     Calendar,
     MapPin,
@@ -13,12 +13,6 @@ import {
     Zap,
     Star,
     AlertCircle,
-    Edit2,
-    ChevronDown,
-    ChevronUp,
-    ExternalLink,
-    Check,
-    X,
     User as UserIcon,
     DollarSign,
     Briefcase,
@@ -26,8 +20,11 @@ import {
     Camera,
     Film,
     Music,
+    Settings2,
 } from 'lucide-react-native';
+import { MapLinkCard } from '@/components/location/MapLinkCard';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { GigApplyModal } from './GigApplyModal';
 import useAuthStore from '@/stores/authStore';
 import { GigSettingsModal } from './GigSettingsModal';
@@ -35,6 +32,9 @@ import { useGigApplications, useUpdateApplicationStatus } from '@/hooks/useGigAp
 import { usePlatform } from '@/utils/platform';
 import { useRouter } from 'expo-router';
 import { FlatList } from 'react-native-gesture-handler';
+
+// Application Management Components
+import { ApplicationsTab, ApplicationsBadge, ApplicationsBottomSheet } from './applications';
 
 interface GigDetailsProps {
     gig: any;
@@ -44,20 +44,28 @@ interface GigDetailsProps {
 
 
 
+import { AuthPromptModal } from '../common/AuthPromptModal';
+
 export const GigDetails: React.FC<GigDetailsProps> = ({
     gig,
     showActionFooter = true,
 }) => {
+    // ... existing hooks ...
     const router = useRouter();
+    const { width } = useWindowDimensions();
     const { isWeb } = usePlatform();
     const user = useAuthStore((state) => state.user);
-    const isOrganizer = user?._id === gig.organizerId;
+    console.log("gig:", gig);
+    const isOrganizer = user?._id === gig.organizerId._id;
+    const hasApplied = gig.viewerContext?.hasApplied;
 
     const [settingsModalVisible, setSettingsModalVisible] = useState(false);
     const [applyModalVisible, setApplyModalVisible] = useState(false);
+    const [authPromptVisible, setAuthPromptVisible] = useState(false); // New state for custom auth modal
     const [isSaved, setIsSaved] = useState(false);
-    const [activeTab, setActiveTab] = useState<'about' | 'talent' | 'schedule' | 'apply' | 'applications'>('about');
+    const [activeTab, setActiveTab] = useState<'about' | 'talent' | 'schedule' | 'apply' | 'applications' | 'terms'>('about');
     const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
+    const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
 
     // Fetch applications if organizer
     const { data: applications, isLoading: loadingApplications } = useGigApplications(
@@ -65,8 +73,30 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
     );
     const updateMutation = useUpdateApplicationStatus();
 
+    // Calculate pending applications count for badge
+    const pendingCount = useMemo(() => {
+        if (!applications) return 0;
+        return applications.filter((app: any) => app.status === 'pending').length;
+    }, [applications]);
+
+    // Total applications count
+    const totalCount = applications?.length || 0;
+
+    const handleApply = () => {
+        if (!user) {
+            setAuthPromptVisible(true);
+            return;
+        }
+        setApplyModalVisible(true);
+    };
+
     const handleShare = () => {
         Alert.alert('Share', 'Share functionality coming soon!');
+    };
+
+    const handleViewTerms = () => {
+        setApplyModalVisible(false);
+        setActiveTab('terms');
     };
 
     const handleSave = () => {
@@ -110,7 +140,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
     };
 
     return (
-        <View className="flex-1 w-[80%] mx-auto">
+        <View className="flex-1 w-[90%] mx-auto">
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140, marginTop: 20 }}>
                 {/* HERO IMAGE */}
                 <View className="relative w-full overflow-hidden rounded-2xl">
@@ -134,8 +164,8 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                     /> */}
 
                     {/* Hero Content */}
-                    <View className="mt-4 flex-row w-full justify-between ">
-                        {/* Title */}
+                    <View className="flex-row w-full justify-between mb-4">
+                        {/* tags */}
                         <View className="flex-1 justify-end">
                             <View className="flex-row gap-2">
                                 {gig.isUrgent && (
@@ -154,26 +184,39 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                         </View>
                         {/* Action Buttons */}
                         <View className="flex-row gap-3 z-30">
-                            <TouchableOpacity
-                                onPress={handleSave}
-                                className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
-                            >
-                                <Heart size={20} color={isSaved ? '#EF4444' : '#FFFFFF'} fill={isSaved ? '#EF4444' : 'none'} />
-                            </TouchableOpacity>
+                            {
+                                !isOrganizer && (
+                                    <TouchableOpacity
+                                        onPress={handleSave}
+                                        className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
+                                    >
+                                        <Heart size={20} color={isSaved ? '#EF4444' : '#FFFFFF'} fill={isSaved ? '#EF4444' : 'none'} />
+                                    </TouchableOpacity>
+                                )
+                            }
+
+                            {isOrganizer && (
+                                <>
+                                    <ApplicationsBadge
+                                        count={totalCount}
+                                        pendingCount={pendingCount}
+                                        onPress={() => setBottomSheetVisible(true)}
+                                    />
+                                    <TouchableOpacity
+                                        onPress={() => setSettingsModalVisible(true)}
+                                        className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
+                                    >
+                                        <Settings2 size={20} color="#FFFFFF" />
+                                    </TouchableOpacity>
+                                </>
+                            )}
+
                             <TouchableOpacity
                                 onPress={handleShare}
                                 className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
                             >
                                 <Share2 size={20} color="#FFFFFF" />
                             </TouchableOpacity>
-                            {isOrganizer && (
-                                <TouchableOpacity
-                                    onPress={() => setSettingsModalVisible(true)}
-                                    className="w-12 h-12 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
-                                >
-                                    <Edit2 size={20} color="#FFFFFF" />
-                                </TouchableOpacity>
-                            )}
                         </View>
                     </View>
                 </View>
@@ -183,61 +226,64 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                     <View className="items-start md:flex-row md:justify-between  ">
                         {/* Organizer details */}
                         <View className='pt-1'>
-                            {!isOrganizer && (
-                                <View>
-                                    <Text className="text-5xl font-black text-white leading-tight">
-                                        {gig.title}
-                                    </Text>
 
-                                    <TouchableOpacity
-                                        activeOpacity={0.7}
-                                        onPress={() => router.push(`/profile/${gig.organizerId}`)}
-                                        className="flex-row items-center gap-4 mb-8"
-                                    >
-                                        <View className="relative">
-                                            <View className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/10">
-                                                {gig.organizerSnapshot?.profileImageUrl ? (
-                                                    <Image
-                                                        source={{ uri: gig.organizerSnapshot.profileImageUrl }}
-                                                        style={{ width: '100%', height: '100%' }}
-                                                        resizeMode="cover"
-                                                    />
-                                                ) : (
-                                                    <View className="w-full h-full items-center justify-center bg-gradient-to-br from-blue-900 to-purple-900">
-                                                        <Text className="text-white font-black text-xl">
-                                                            {gig.organizerSnapshot?.displayName?.charAt(0) || 'O'}
+                            <View>
+                                <Text className="text-4xl font-black text-white leading-tight mb-4 mt-3">
+                                    {gig.title}
+                                </Text>
+
+                                {
+                                    !isOrganizer && (
+                                        <TouchableOpacity
+                                            activeOpacity={0.7}
+                                            onPress={() => router.push(`/profile/${gig.organizerId}`)}
+                                            className="flex-row items-center gap-4 mb-8"
+                                        >
+                                            <View className="relative">
+                                                <View className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/10">
+                                                    {gig.organizerSnapshot?.profileImageUrl ? (
+                                                        <Image
+                                                            source={{ uri: gig.organizerSnapshot.profileImageUrl }}
+                                                            style={{ width: '100%', height: '100%' }}
+                                                            resizeMode="cover"
+                                                        />
+                                                    ) : (
+                                                        <View className="w-full h-full items-center justify-center bg-gradient-to-br from-blue-900 to-purple-900">
+                                                            <Text className="text-white font-black text-xl">
+                                                                {gig.organizerSnapshot?.displayName?.charAt(0) || 'O'}
+                                                            </Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                                <View className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-600 rounded-full items-center justify-center border-2 border-black">
+                                                    <CheckCircle2 size={12} color="white" />
+                                                </View>
+                                            </View>
+                                            <View className="flex-1">
+                                                <Text className="text-md font-black text-white mb-1">
+                                                    {gig.organizerSnapshot?.displayName || 'Organizer'}
+                                                </Text>
+                                                <View className="flex-row items-center gap-3">
+                                                    <View className="flex-row items-center gap-1">
+                                                        {[1, 2, 3, 4].map((i) => (
+                                                            <Star key={i} size={10} color="#EAB308" fill="#EAB308" />
+                                                        ))}
+                                                        <Star size={8} color="#3F3F46" fill="#3F3F46" />
+                                                        <Text className="text-[10px] font-bold text-zinc-400 ml-1">
+                                                            {gig.organizerSnapshot?.rating || '4.9'}
                                                         </Text>
                                                     </View>
-                                                )}
-                                            </View>
-                                            <View className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-600 rounded-full items-center justify-center border-2 border-black">
-                                                <CheckCircle2 size={12} color="white" />
-                                            </View>
-                                        </View>
-                                        <View className="flex-1">
-                                            <Text className="text-md font-black text-white mb-1">
-                                                {gig.organizerSnapshot?.displayName || 'Organizer'}
-                                            </Text>
-                                            <View className="flex-row items-center gap-3">
-                                                <View className="flex-row items-center gap-1">
-                                                    {[1, 2, 3, 4].map((i) => (
-                                                        <Star key={i} size={10} color="#EAB308" fill="#EAB308" />
-                                                    ))}
-                                                    <Star size={8} color="#3F3F46" fill="#3F3F46" />
-                                                    <Text className="text-[10px] font-bold text-zinc-400 ml-1">
-                                                        {gig.organizerSnapshot?.rating || '4.9'}
-                                                    </Text>
-                                                </View>
-                                                <View className="bg-emerald-500/10 px-2 py-1 rounded">
-                                                    <Text className="text-emerald-500 text-[6px] font-black uppercase tracking-widest">
-                                                        VERIFIED
-                                                    </Text>
+                                                    <View className="bg-emerald-500/10 px-2 py-1 rounded">
+                                                        <Text className="text-emerald-500 text-[6px] font-black uppercase tracking-widest">
+                                                            VERIFIED
+                                                        </Text>
+                                                    </View>
                                                 </View>
                                             </View>
-                                        </View>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
+                                        </TouchableOpacity>
+                                    )
+                                }
+                            </View>
 
                             {/* Quick Meta */}
                             <View className="flex-row justify-start gap-6 mb-10">
@@ -275,27 +321,52 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                     </View>
                                 </View>
                             </View>
+
+
                         </View>
 
                         {/* Compensation Details */}
-                        {!isOrganizer && isWeb && (
-                            <View className="w-96 mx-auto md:mx-0 pt-5">
-                                <View className="p-8 rounded-[2.5rem] bg-zinc-900/50 border border-white/10 mb-6">
+
+                        <View className="w-full lg:w-96 mx-auto lg:mx-0 pt-5">
+                            <BlurView intensity={20} tint="dark" className="rounded-[2.5rem] overflow-hidden mb-6 border border-white/10">
+                                <View className="p-8 bg-black/40">
                                     <View className="items-center mb-4">
                                         <View className="flex-row items-center gap-2 mb-2">
                                             <Zap size={14} color="#3B82F6" />
-                                            <Text className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                                            <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">
                                                 TOTAL COMPENSATION
                                             </Text>
                                         </View>
                                         <View className="items-center">
                                             <View className="flex-row items-baseline">
-                                                <Text className="text-xl font-black text-white">₹</Text>
-                                                <Text className="text-2xl font-black text-white">
-                                                    {gig.compensation?.amount?.toLocaleString() || '0'}
-                                                </Text>
+                                                {gig.compensation?.amount ? (
+                                                    <>
+                                                        <Text className="text-2xl font-black text-zinc-400 mr-1">₹</Text>
+                                                        <Text className="text-3xl font-black text-white bg-transparent px-2 py-1">
+                                                            {gig.compensation.amount.toLocaleString()}
+                                                        </Text>
+                                                    </>
+                                                ) : gig.compensation?.minAmount ? (
+                                                    <>
+                                                        <Text className="text-xl font-black text-zinc-400 mr-1">
+                                                            {gig.compensation.maxAmount ? '₹' : 'Starts at ₹'}
+                                                        </Text>
+                                                        <Text className="text-2xl font-black text-white bg-transparent px-2 py-1">
+                                                            {gig.compensation.minAmount.toLocaleString()}
+                                                            {gig.compensation.maxAmount && ` - ${gig.compensation.maxAmount.toLocaleString()}`}
+                                                        </Text>
+                                                    </>
+                                                ) : (
+                                                    <Text className="text-2xl font-black text-white bg-transparent px-2 py-1">
+                                                        To Be Discussed
+                                                    </Text>
+                                                )}
                                             </View>
-
+                                            {gig.compensation?.perks && (
+                                                <Text className="text-zinc-400 text-xs mt-2 font-medium">
+                                                    + {gig.compensation.perks.length} benefits
+                                                </Text>
+                                            )}
                                         </View>
                                     </View>
 
@@ -316,6 +387,24 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                             />
                                         </View>
                                     </View>
+                                    <TouchableOpacity
+                                        onPress={() => !hasApplied && handleApply()}
+                                        disabled={hasApplied}
+                                        className={`w-full py-3 rounded-2xl items-center justify-center flex-row mb-6 ${hasApplied ? 'bg-zinc-800 border border-white/10' : 'bg-white active:scale-95'
+                                            }`}
+                                    >
+                                        {hasApplied ? (
+                                            <>
+                                                <CheckCircle2 size={20} color="#10B981" style={{ marginRight: 8 }} />
+                                                <Text className="text-zinc-400 text-lg font-black">Applied</Text>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Text className="text-black text-lg font-black">Apply Now</Text>
+                                                <ArrowRight size={20} color="#000000" style={{ marginLeft: 8 }} />
+                                            </>
+                                        )}
+                                    </TouchableOpacity>
 
                                     {/* Closing Alert */}
                                     {gig.applicationDeadline && !showActionFooter && !isOrganizer && (
@@ -339,7 +428,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                     {
                                         !showActionFooter && !isOrganizer && (
                                             <TouchableOpacity
-                                                onPress={() => setApplyModalVisible(true)}
+                                                onPress={handleApply}
                                                 className="w-full py-3 rounded-2xl bg-white items-center justify-center flex-row mb-6 active:scale-95"
                                             >
                                                 <Text className="text-black text-lg font-black">Apply Now</Text>
@@ -362,9 +451,10 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                         </Text>
                                     </View>
                                 </View>
+                            </BlurView>
 
-                                {/* Trust Badges */}
-                                {/* <View className="space-y-4">
+                            {/* Trust Badges */}
+                            {/* <View className="space-y-4">
                                     <View className="p-5 rounded-2xl bg-zinc-900/30 border border-white/5 flex-row items-center gap-4">
                                         <View className="w-10 h-10 rounded-xl bg-emerald-500/10 items-center justify-center">
                                             <ShieldCheck size={20} color="#10B981" />
@@ -392,30 +482,34 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                         </View>
                                     </View>
                                 </View> */}
-                            </View>
+                        </View>
 
-                        )}
                     </View>
 
 
                     {/* TABS */}
-                    <View className="mb-12">
+                    <View className="mb-12 w-full">
                         {/* Tab Headers */}
                         <FlatList
                             horizontal
                             showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={{
+                                width: width >= 1024 ? '100%' : 'auto',
+                                justifyContent: width >= 1024 ? 'space-around' : 'flex-start'
+                            }}
                             data={[
                                 { key: 'about', label: 'About' },
                                 { key: 'talent', label: 'Talent Criteria' },
                                 { key: 'schedule', label: 'Schedule & Pay' },
                                 { key: 'apply', label: 'How to Apply' },
+                                ...(gig.termsAndConditions ? [{ key: 'terms', label: 'Terms' }] : []),
                                 ...(isOrganizer ? [{ key: 'applications', label: 'Applications' }] : []),
                             ]}
                             renderItem={({ item }) => (
                                 <TouchableOpacity
                                     key={item.key}
                                     onPress={() => setActiveTab(item.key as any)}
-                                    className={`px-6 py-4 mb-5 ${activeTab === item.key ? 'border-b-2 border-blue-500' : ''}`}
+                                    className={`px-4 py-4 mb-5 bg-black/10 ${activeTab === item.key ? 'border-b-2 border-blue-500' : ''}`}
                                 >
                                     <Text
                                         className={`text-[11px] font-black uppercase tracking-[0.15em] ${activeTab === item.key ? 'text-white' : 'text-zinc-500'}`}
@@ -584,7 +678,11 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                         <View className="flex-row justify-between items-center py-3 border-b border-white/5">
                                             <Text className="text-sm text-zinc-400">Amount</Text>
                                             <Text className="text-2xl font-black text-white">
-                                                ₹{gig.compensation?.amount?.toLocaleString() || '0'}
+                                                {gig.compensation?.amount
+                                                    ? `₹${gig.compensation.amount.toLocaleString()}`
+                                                    : gig.compensation?.minAmount
+                                                        ? `₹${gig.compensation.minAmount.toLocaleString()}${gig.compensation.maxAmount ? ` - ₹${gig.compensation.maxAmount.toLocaleString()}` : '+'}`
+                                                        : 'To Be Discussed'}
                                             </Text>
                                         </View>
                                         {gig.compensation?.negotiable && (
@@ -636,6 +734,43 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                                 <Text className="text-zinc-300 text-sm">{gig.schedule.timeCommitment}</Text>
                                             </View>
                                         )}
+                                    </View>
+                                </View>
+                                {/* Location */}
+                                <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
+                                    <View className="flex-row items-center gap-2 mb-6">
+                                        <Clock size={16} color="#F59E0B" />
+                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500">
+                                            Location
+                                        </Text>
+                                    </View>
+                                    <View className="space-y-4">
+                                        <View className="flex-row justify-between items-center py-3 border-b border-white/5">
+                                            <Text className="text-sm text-zinc-400">City</Text>
+                                            <Text className="text-base font-black text-white">
+                                                {gig.location?.city
+                                                    ? gig.location.city
+                                                    : 'TBD'}
+                                            </Text>
+                                        </View>
+                                        <View className="flex-row justify-between items-center py-3 border-b border-white/5">
+                                            <Text className="text-sm text-zinc-400">Venue Name</Text>
+                                            <Text className="text-base font-black text-white">
+                                                {gig.location?.venueName
+                                                    ? gig.location.venueName
+                                                    : 'TBD'}
+                                            </Text>
+                                        </View>
+
+                                        <View className="mb-10 w-full">
+                                            <MapLinkCard
+                                                venueName={gig.location?.venueName}
+                                                address={gig.location?.address || ''}
+                                                city={gig.location?.city || ''}
+                                                state={gig.location?.state || ''}
+                                                country={gig.location?.country || ''}
+                                            />
+                                        </View>
                                     </View>
                                 </View>
 
@@ -753,239 +888,112 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                             </View>
                         )}
 
-                        {activeTab === 'applications' && isOrganizer && (
+                        {activeTab === 'terms' && gig.termsAndConditions && (
                             <View className="space-y-6">
-                                {loadingApplications ? (
-                                    <View className="py-10 items-center">
-                                        <Text className="text-zinc-500">Loading applications...</Text>
+                                <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
+                                    <View className="flex-row items-center gap-2 mb-6">
+                                        <ShieldCheck size={16} color="#A1A1AA" />
+                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                                            TERMS & CONDITIONS
+                                        </Text>
                                     </View>
-                                ) : !applications || applications.length === 0 ? (
-                                    <View className="py-16 items-center bg-zinc-900/30 rounded-3xl border border-white/5">
-                                        <UserIcon size={40} color="#52525B" />
-                                        <Text className="text-zinc-400 mt-4 font-light">No applications yet</Text>
-                                    </View>
-                                ) : (
-                                    applications.map((app: any) => {
-                                        const isExpanded = expandedAppId === app._id;
-                                        const statusColors = getStatusColor(app.status);
-
-                                        return (
-                                            <View
-                                                key={app._id}
-                                                className="p-6 rounded-3xl bg-zinc-900/30 border border-white/5"
-                                            >
-                                                {/* HEADER */}
-                                                <View className="flex-row justify-between items-start mb-6">
-                                                    <View className="flex-row items-center flex-1">
-                                                        {/* Avatar */}
-                                                        <View className="w-14 h-14 rounded-2xl overflow-hidden bg-zinc-800 border-2 border-white/10 mr-4">
-                                                            {app.artistSnapshot?.profileImageUrl ? (
-                                                                <Image
-                                                                    source={{
-                                                                        uri: app.artistSnapshot.profileImageUrl,
-                                                                    }}
-                                                                    style={{ width: '100%', height: '100%' }}
-                                                                    resizeMode="cover"
-                                                                />
-                                                            ) : (
-                                                                <View className="w-full h-full items-center justify-center">
-                                                                    <Text className="text-white font-black text-xl">
-                                                                        {app.artistSnapshot?.displayName?.charAt(0) || 'A'}
-                                                                    </Text>
-                                                                </View>
-                                                            )}
-                                                        </View>
-
-                                                        <View className="flex-1">
-                                                            <Text className="text-white font-black text-lg tracking-tight mb-1">
-                                                                {app.artistSnapshot?.displayName || 'Unknown Artist'}
-                                                            </Text>
-                                                            <Text className="text-zinc-400 text-xs mb-2">
-                                                                {app.artistSnapshot?.artistType || 'Artist'}
-                                                                {app.artistSnapshot?.rating && (
-                                                                    <Text className="text-yellow-500">
-                                                                        {' '}• ⭐ {app.artistSnapshot.rating}
-                                                                    </Text>
-                                                                )}
-                                                            </Text>
-
-                                                            {/* STATUS BADGE */}
-                                                            <View
-                                                                className={`self-start px-3 py-1 rounded-lg border ${statusColors.bg} ${statusColors.border}`}
-                                                            >
-                                                                <Text
-                                                                    className={`text-[10px] font-black uppercase tracking-widest ${statusColors.text}`}
-                                                                >
-                                                                    {app.status}
-                                                                </Text>
-                                                            </View>
-                                                        </View>
-                                                    </View>
-                                                </View>
-
-                                                {/* APPLICANT META INFO */}
-                                                <View className="flex-row flex-wrap gap-4 mb-6 pb-6 border-b border-white/5">
-                                                    {/* Applied Date */}
-                                                    <View className="flex-row items-center gap-2">
-                                                        <Clock size={14} color="#71717A" />
-                                                        <Text className="text-xs text-zinc-500">
-                                                            Applied{' '}
-                                                            {new Date(app.appliedAt).toLocaleDateString('en-IN', {
-                                                                day: 'numeric',
-                                                                month: 'short',
-                                                            })}
-                                                        </Text>
-                                                    </View>
-
-                                                    {/* Experience (if available) */}
-                                                    {app.artistSnapshot?.experience && (
-                                                        <View className="flex-row items-center gap-2">
-                                                            <Star size={14} color="#71717A" />
-                                                            <Text className="text-xs text-zinc-500">
-                                                                {app.artistSnapshot.experience} years exp
-                                                            </Text>
-                                                        </View>
-                                                    )}
-                                                </View>
-
-                                                {/* PORTFOLIO LINKS */}
-                                                {app.portfolioLinks && app.portfolioLinks.length > 0 && (
-                                                    <View className="mb-6">
-                                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
-                                                            PORTFOLIO
-                                                        </Text>
-                                                        <View className="flex-row flex-wrap gap-2">
-                                                            {app.portfolioLinks.map((link: string, idx: number) => (
-                                                                <TouchableOpacity
-                                                                    key={idx}
-                                                                    className="flex-row items-center gap-2 px-3 py-2 bg-blue-500/10 rounded-lg border border-blue-500/20"
-                                                                >
-                                                                    <ExternalLink size={12} color="#3B82F6" />
-                                                                    <Text className="text-xs text-blue-400 font-medium">
-                                                                        Link {idx + 1}
-                                                                    </Text>
-                                                                </TouchableOpacity>
-                                                            ))}
-                                                        </View>
-                                                    </View>
-                                                )}
-
-                                                {/* COVER NOTE TOGGLE */}
-                                                {app.coverNote && (
-                                                    <>
-                                                        <TouchableOpacity
-                                                            onPress={() => toggleExpand(app._id)}
-                                                            className="flex-row items-center py-3 px-4 rounded-xl bg-zinc-800/50 mb-4"
-                                                        >
-                                                            <Text className="text-zinc-300 text-xs font-medium flex-1">
-                                                                {isExpanded ? 'Hide Cover Note' : 'View Cover Note'}
-                                                            </Text>
-                                                            {isExpanded ? (
-                                                                <ChevronUp size={14} color="#71717A" />
-                                                            ) : (
-                                                                <ChevronDown size={14} color="#71717A" />
-                                                            )}
-                                                        </TouchableOpacity>
-
-                                                        {isExpanded && (
-                                                            <View className="p-5 rounded-2xl bg-zinc-800/30 border border-white/5 mb-6">
-                                                                <Text className="text-zinc-300 text-sm font-light leading-relaxed">
-                                                                    {app.coverNote}
-                                                                </Text>
-                                                            </View>
-                                                        )}
-                                                    </>
-                                                )}
-
-                                                {/* ACTIONS */}
-                                                <View className="flex-row gap-3">
-                                                    {app.status !== 'hired' && (
-                                                        <TouchableOpacity
-                                                            onPress={() => handleUpdateStatus(app._id, 'hired')}
-                                                            className="flex-1 bg-emerald-500/10 border border-emerald-500/20 py-3 rounded-xl flex-row justify-center items-center"
-                                                        >
-                                                            <Check size={16} color="#10B981" />
-                                                            <Text className="text-emerald-400 text-xs font-black ml-2 uppercase tracking-widest">
-                                                                Hire
-                                                            </Text>
-                                                        </TouchableOpacity>
-                                                    )}
-
-                                                    {app.status !== 'shortlisted' && app.status !== 'hired' && (
-                                                        <TouchableOpacity
-                                                            onPress={() => handleUpdateStatus(app._id, 'shortlisted')}
-                                                            className="flex-1 bg-blue-500/10 border border-blue-500/20 py-3 rounded-xl justify-center items-center"
-                                                        >
-                                                            <Text className="text-blue-400 text-xs font-black uppercase tracking-widest">
-                                                                Shortlist
-                                                            </Text>
-                                                        </TouchableOpacity>
-                                                    )}
-
-                                                    {app.status !== 'rejected' && (
-                                                        <TouchableOpacity
-                                                            onPress={() => handleUpdateStatus(app._id, 'rejected')}
-                                                            className="flex-1 bg-red-500/10 border border-red-500/20 py-3 rounded-xl flex-row justify-center items-center"
-                                                        >
-                                                            <X size={16} color="#EF4444" />
-                                                            <Text className="text-red-400 text-xs font-black ml-2 uppercase tracking-widest">
-                                                                Reject
-                                                            </Text>
-                                                        </TouchableOpacity>
-                                                    )}
-                                                </View>
-                                            </View>
-                                        );
-                                    })
-                                )}
+                                    <Text className="text-zinc-300 text-sm leading-relaxed">
+                                        {gig.termsAndConditions}
+                                    </Text>
+                                </View>
                             </View>
+                        )}
+
+                        {activeTab === 'applications' && isOrganizer && (
+                            <ApplicationsTab gigId={gig._id} />
                         )}
                     </View>
                 </View>
-            </ScrollView>
+            </ScrollView >
 
             {/* MOBILE ACTION FOOTER */}
-            {showActionFooter && !isOrganizer && gig.applicationDeadline && (
-                <View className='absolute bottom-0 left-0 right-0 p-6 bg-black/95 backdrop-blur-xl border-t border-white/10 md:hidden'>
-                    <View className="w-fit self-center gap-3 px-3 py-1 bg-rose-500/10 rounded-2xl border border-rose-500/20 mb-4">
-                        <View className="flex-row justify-center items-center gap-2">
-                            <AlertCircle size={10} color="#EF4444" />
-                            <Text className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">
-                                DEADLINE:{' '}
-                                <Text className="text-white">
-                                    {new Date(gig.applicationDeadline).toLocaleDateString('en-IN', {
-                                        day: 'numeric',
-                                        month: 'short',
-                                    })}
+            {
+                showActionFooter && !isOrganizer && gig.applicationDeadline ? (
+                    <View className='absolute bottom-12 left-0 right-0 p-6 bg-black/95 backdrop-blur-xl border-t border-white/10 md:hidden'>
+                        <View className="w-fit self-center gap-3 px-3 py-1 bg-rose-500/10 rounded-2xl border border-rose-500/20 mb-4">
+                            <View className="flex-row justify-center items-center gap-2">
+                                <AlertCircle size={10} color="#EF4444" />
+                                <Text className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">
+                                    DEADLINE:{' '}
+                                    <Text className="text-white">
+                                        {new Date(gig.applicationDeadline).toLocaleDateString('en-IN', {
+                                            day: 'numeric',
+                                            month: 'short',
+                                        })}
+                                    </Text>
                                 </Text>
-                            </Text>
+                            </View>
+                        </View>
+                        <View className="">
+                            <TouchableOpacity
+                                onPress={() => !hasApplied && handleApply()}
+                                disabled={hasApplied}
+                                className={`w-[80%] self-center py-4 rounded-2xl items-center justify-center flex-row ${hasApplied ? 'bg-zinc-800 border border-white/10' : 'bg-white active:scale-95'
+                                    }`}
+                            >
+                                {hasApplied ? (
+                                    <>
+                                        <CheckCircle2 size={20} color="#10B981" style={{ marginRight: 8 }} />
+                                        <Text className="text-zinc-400 text-md font-black uppercase tracking-widest">Applied</Text>
+                                    </>
+                                ) : (
+                                    <Text className="text-black text-md font-black uppercase tracking-widest">Apply Now</Text>
+                                )}
+                            </TouchableOpacity>
                         </View>
                     </View>
-                    <View className="">
-                        <TouchableOpacity
-                            onPress={() => setApplyModalVisible(true)}
-                            className="w-full py-5 rounded-2xl bg-white items-center justify-center active:scale-95"
-                        >
-                            <Text className="text-black text-lg font-black uppercase tracking-widest">Apply Now</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
+                ) : (
+                    <View></View>
+                )
+            }
 
             <GigApplyModal
                 visible={applyModalVisible}
                 onClose={() => setApplyModalVisible(false)}
                 gigId={gig._id}
                 gigTitle={gig.title}
+                onViewTerms={handleViewTerms}
+                hasTerms={!!gig.termsAndConditions}
             />
 
-            {settingsModalVisible && (
-                <GigSettingsModal
-                    visible={settingsModalVisible}
-                    onClose={() => setSettingsModalVisible(false)}
-                    gig={gig}
+            {
+                settingsModalVisible && (
+                    <GigSettingsModal
+                        visible={settingsModalVisible}
+                        onClose={() => setSettingsModalVisible(false)}
+                        gig={gig}
+                    />
+                )
+            }
+            {
+                authPromptVisible && (
+                    <AuthPromptModal
+                        visible={authPromptVisible}
+                        onClose={() => setAuthPromptVisible(false)}
+                    />
+                )
+            }
+
+            {/* Applications Bottom Sheet for Organizer */}
+            {isOrganizer && (
+                <ApplicationsBottomSheet
+                    visible={bottomSheetVisible}
+                    onClose={() => setBottomSheetVisible(false)}
+                    applications={applications || []}
+                    onViewAll={() => {
+                        setBottomSheetVisible(false);
+                        setActiveTab('applications');
+                    }}
+                    onUpdateStatus={handleUpdateStatus}
+                    gigId={gig._id}
+                    isLoading={loadingApplications}
                 />
             )}
-        </View>
+        </View >
     );
 };

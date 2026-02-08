@@ -14,6 +14,7 @@ import {
     ShieldCheck,
     User as UserIcon
 } from 'lucide-react-native';
+import { MapLinkCard } from '@/components/location/MapLinkCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import useAuthStore from '@/stores/authStore';
 import { usePlatform } from '@/utils/platform';
@@ -22,6 +23,7 @@ import { IEvent } from '@/types/event';
 import { EventRegisterModal } from './EventRegisterModal';
 import { useEventRegistrations, useEventTicketTypes, useMyRegistrations } from '@/hooks/useEvents';
 import DiscussionTab from '../common/DiscussionTab';
+import { AuthPromptModal } from '../common/AuthPromptModal';
 
 interface EventDetailsProps {
     event: IEvent;
@@ -40,6 +42,7 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
 
     // State
     const [applyModalVisible, setApplyModalVisible] = useState(false);
+    const [authPromptVisible, setAuthPromptVisible] = useState(false);
     const [isSaved, setIsSaved] = useState(false); // TODO: Fetch initial state
     const [activeTab, setActiveTab] = useState<'about' | 'schedule' | 'tickets' | 'venue' | 'host' | 'discussion' | 'registrations'>('about');
 
@@ -69,6 +72,17 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
 
     const handleSave = () => {
         setIsSaved(!isSaved);
+    };
+
+    const handleRegister = () => {
+        // Checking for user presence (auth check)
+        const user = useAuthStore.getState().user;
+
+        if (!user) {
+            setAuthPromptVisible(true);
+            return;
+        }
+        setApplyModalVisible(true);
     };
 
     const tabs = [
@@ -281,9 +295,20 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
                                     </View>
                                 </View>
 
+                                {/* Map Link Card */}
+                                <View className="mb-6">
+                                    <MapLinkCard
+                                        venueName={event.location?.venueName}
+                                        address={event.location?.address || ''}
+                                        city={event.location?.city || ''}
+                                        state={event.location?.state || ''}
+                                        country={event.location?.country || ''}
+                                    />
+                                </View>
+
                                 {/* Apply Button */}
                                 <TouchableOpacity
-                                    onPress={() => setApplyModalVisible(true)}
+                                    onPress={handleRegister}
                                     disabled={isRegistered || isFull}
                                     className={`w-full py-4 rounded-2xl items-center justify-center flex-row mb-4 active:scale-95 ${isRegistered ? 'bg-zinc-800' : 'bg-white'}`}
                                 >
@@ -507,6 +532,11 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
                 eventId={event._id}
                 ticketTypes={ticketTypes || []}
                 ticketPrice={event.ticketPrice}
+            />
+
+            <AuthPromptModal
+                visible={authPromptVisible}
+                onClose={() => setAuthPromptVisible(false)}
             />
         </View>
     );

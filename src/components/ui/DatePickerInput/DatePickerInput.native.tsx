@@ -1,10 +1,9 @@
 import React, { useState } from "react"
-import { View, Text, TouchableOpacity, Platform, Modal } from "react-native"
-import DateTimePicker from "@react-native-community/datetimepicker"
+import { View, Text, TouchableOpacity } from "react-native"
 import dayjs from "dayjs"
 import { Calendar, Clock } from "lucide-react-native"
 import { DatePickerInputProps } from "@/types/DatePickerInput.types"
-
+import { CalendarModal } from "../CalendarModal"
 
 export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     label,
@@ -21,11 +20,8 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     const [open, setOpen] = useState(false)
     const dateValue = value ? dayjs(value).toDate() : undefined
 
-    const handleConfirm = (_event: any, date?: Date) => {
-        setOpen(false)
-        if (date) {
-            onChange(date)
-        }
+    const handleSelect = (date: Date) => {
+        onChange(date);
     }
 
     return (
@@ -69,51 +65,14 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
 
             {error && <Text className="text-red-500 text-xs mt-1 ml-1">{error}</Text>}
 
-            {/* Android Picker */}
-            {open && Platform.OS === 'android' && (
-                <DateTimePicker
-                    value={dateValue || new Date()}
-                    mode={mode as any}
-                    display="default"
-                    minimumDate={minimumDate}
-                    maximumDate={maximumDate}
-                    onChange={handleConfirm}
-                />
-            )}
-
-            {/* iOS Picker Modal */}
-            {Platform.OS === 'ios' && (
-                <Modal
-                    visible={open}
-                    transparent
-                    animationType="slide"
-                    onRequestClose={() => setOpen(false)}
-                >
-                    <View className="flex-1 justify-end bg-black/50">
-                        <View className="bg-zinc-900 rounded-t-3xl p-4 pb-10">
-                            <View className="flex-row justify-end mb-4">
-                                <TouchableOpacity onPress={() => setOpen(false)} className="px-4 py-2">
-                                    <Text className="text-indigo-500 font-bold text-lg">Done</Text>
-                                </TouchableOpacity>
-                            </View>
-                            <View className="items-center">
-                                <DateTimePicker
-                                    value={dateValue || new Date()}
-                                    mode={mode as any}
-                                    display="spinner"
-                                    minimumDate={minimumDate}
-                                    maximumDate={maximumDate}
-                                    onChange={(_e, date) => {
-                                        if (date) onChange(date)
-                                    }}
-                                    textColor="white"
-                                    themeVariant="dark"
-                                />
-                            </View>
-                        </View>
-                    </View>
-                </Modal>
-            )}
+            <CalendarModal
+                visible={open}
+                onClose={() => setOpen(false)}
+                date={dateValue}
+                onSelect={handleSelect}
+                minDate={minimumDate}
+                maxDate={maximumDate}
+            />
         </View>
     )
 }

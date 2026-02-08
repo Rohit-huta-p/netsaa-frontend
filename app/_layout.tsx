@@ -32,6 +32,7 @@ import {
 
 import Navbar from "../src/components/Navbar";
 import Footer from "../src/components/Footer";
+import MobileTabBar from "../src/components/MobileTabBar";
 
 import useAuthStore from "@/stores/authStore";
 import { socketService } from "../src/services/socketService";
@@ -109,16 +110,17 @@ export default function RootLayout() {
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <QueryClientProvider client={queryClient}>
-                <SafeAreaProvider >
+                <SafeAreaProvider>
+                    <View style={{ flex: 1 }}>
+                        {/* Default Navbar (not transparent) - individual screens can render their own or use a nested layout */}
+                        <Navbar />
 
-                    {/* Default Navbar (not transparent) - individual screens can render their own or use a nested layout */}
-                    <Navbar />
+                        {/* App content */}
+                        <Slot />
 
-                    {/* App content */}
-
-                    <Slot />
-
-
+                        {/* Mobile bottom tab bar - only visible on mobile */}
+                        <MobileTabBar />
+                    </View>
                 </SafeAreaProvider>
             </QueryClientProvider>
         </GestureHandlerRootView>

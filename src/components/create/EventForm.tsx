@@ -17,11 +17,11 @@ import {
     AlignLeft,
     Eye,
 } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StepIndicator } from '@/components/common/StepIndicator';
 import { InputGroup } from '@/components/ui/InputGroup';
 import { SelectInput } from '@/components/ui/SelectInput';
 import { TextArea } from '@/components/ui/TextArea';
-import { Chip } from '@/components/ui/Chip';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 
 import { eventSchema, EventFormData } from '@/schemas/eventSchema';
@@ -29,17 +29,18 @@ import { useCreateEvent, usePublishEvent } from '@/hooks/useEvents';
 import { useAuthStore } from '@/stores/authStore';
 import { CreateEventDTO } from '@/types/event';
 
+// NETSA Organizer-themed TextInput (Matches GigForm)
 const StyledTextInput = ({ value, onChangeText, placeholder, icon: Icon, type = 'text', error, ...props }: any) => (
     <View className="relative">
         {Icon && (
             <View className="absolute left-3 top-1/2 -translate-y-6 z-10">
-                <Icon size={18} color="#71717a" />
+                <Icon size={18} color="rgba(255, 255, 255, 0.4)" />
             </View>
         )}
         <TextInput
-            className={`w-full bg-zinc-900/50 border ${error ? 'border-red-500' : 'border-zinc-700'} rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-zinc-100 placeholder-zinc-600 focus:border-indigo-500`}
+            className={`w-full bg-zinc-900/50 border ${error ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500 focus:border-[#FF6B35]`}
             placeholder={placeholder}
-            placeholderTextColor="#52525b"
+            placeholderTextColor="rgba(255, 255, 255, 0.3)"
             value={value}
             onChangeText={onChangeText}
             {...props}
@@ -53,10 +54,10 @@ interface EventFormProps {
     onCancel: () => void;
 }
 
+
 import { useCreateEventStore } from '@/stores/createEventStore';
 import { useEffect } from 'react';
-
-// ... imports remain the same
+import { MapLinkCard } from '@/components/location/MapLinkCard';
 
 // Helper to format date as YYYY-MM-DD in local time
 const toLocalDateString = (date: Date) => {
@@ -276,19 +277,42 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
         });
     };
 
-    // Render Steps
     const renderStep1 = () => (
-        <View className="gap-4">
+        <View className="gap-6">
+            {/* Gradient Header Card */}
+            <LinearGradient
+                colors={['#FF6B35', '#FF8C42']}
+                start={[0, 0]}
+                end={[1, 0]}
+                className="rounded-2xl p-6 mb-2"
+                style={{
+                    shadowColor: '#FF6B35',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                }}
+            >
+                <View className="flex-row items-center mb-2">
+                    <Layout size={20} color="#fff" />
+                    <Text className="text-white font-black text-sm ml-2 uppercase tracking-wider">
+                        Event Basics
+                    </Text>
+                </View>
+                <Text className="text-white/90 text-sm font-light">
+                    Start with the essentials—what's this event all about?
+                </Text>
+            </LinearGradient>
+
             <Controller
                 control={control}
                 name="title"
                 render={({ field: { onChange, value } }) => (
-                    <InputGroup label="Event Title" required error={errors.title?.message}>
+                    <InputGroup label="Event Title" required subtitle="Make it catchy and clear" error={errors.title?.message}>
                         <StyledTextInput
                             icon={Type}
                             value={value}
                             onChangeText={onChange}
-                            placeholder="e.g. Summer Dance Workshop"
+                            placeholder="e.g. Summer Dance Workshop 2024"
                             error={errors.title?.message}
                         />
                     </InputGroup>
@@ -305,7 +329,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                                 icon={Layout}
                                 options={[
                                     { label: 'Workshop', value: 'workshop' },
-                                    { label: 'Battle', value: 'competition' }, // Mapping 'battle' to 'competition' enum
+                                    { label: 'Battle', value: 'competition' },
                                     { label: 'Show/Performance', value: 'showcase' },
                                     { label: 'Meetup', value: 'meetup' },
                                 ]}
@@ -340,12 +364,12 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                 control={control}
                 name="tags"
                 render={({ field: { onChange, value } }) => (
-                    <InputGroup label="Tags" subtitle="Press Enter to add" error={errors.tags?.message}>
+                    <InputGroup label="Tags" subtitle="Comma-separated for better discovery" error={errors.tags?.message}>
                         <StyledTextInput
                             icon={AlignLeft}
                             value={value}
                             onChangeText={onChange}
-                            placeholder="Add tags separated by commas..."
+                            placeholder="e.g. hip-hop, contemporary, workshop"
                             error={errors.tags?.message}
                         />
                     </InputGroup>
@@ -355,20 +379,50 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
     );
 
     const renderStep2 = () => (
-        <View className="gap-4">
+        <View className="gap-6">
+            <LinearGradient
+                colors={['#FF6B35', '#FF8C42']}
+                start={[0, 0]}
+                end={[1, 0]}
+                className="rounded-2xl p-6 mb-2"
+                style={{
+                    shadowColor: '#FF6B35',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                }}
+            >
+                <View className="flex-row items-center mb-2">
+                    <Ticket size={20} color="#fff" />
+                    <Text className="text-white font-black text-sm ml-2 uppercase tracking-wider">
+                        Access & Fees
+                    </Text>
+                </View>
+                <Text className="text-white/90 text-sm font-light">
+                    Who can join and how much does it cost?
+                </Text>
+            </LinearGradient>
+
             <Controller
                 control={control}
                 name="skillLevel"
                 render={({ field: { onChange, value } }) => (
                     <InputGroup label="Skill Level" error={errors.skillLevel?.message}>
-                        <View className="flex-row flex-wrap">
+                        <View className="flex-row gap-3">
                             {['All', 'Beginner', 'Intermediate', 'Advanced'].map(level => (
-                                <Chip
+                                <TouchableOpacity
                                     key={level}
-                                    label={level}
-                                    selected={value?.toLowerCase() === level.toLowerCase()}
-                                    onClick={() => onChange(level.toLowerCase())}
-                                />
+                                    onPress={() => onChange(level.toLowerCase())}
+                                    className={`flex-1 px-3 py-3 rounded-xl border ${value?.toLowerCase() === level.toLowerCase()
+                                        ? 'bg-[#FF6B35]/15 border-[#FF6B35]'
+                                        : 'bg-zinc-900/50 border-white/10'
+                                        }`}
+                                >
+                                    <Text className={`text-center font-bold text-xs capitalize ${value?.toLowerCase() === level.toLowerCase() ? 'text-[#FF6B35]' : 'text-zinc-400'
+                                        }`}>
+                                        {level}
+                                    </Text>
+                                </TouchableOpacity>
                             ))}
                         </View>
                     </InputGroup>
@@ -387,7 +441,9 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                                     icon={Users}
                                     value={String(value || '')}
                                     onChangeText={onChange}
+                                    placeholder="e.g. 50"
                                     error={errors.maxParticipants?.message}
+                                    subtitle="Leave empty for unlimited"
                                 />
                             </InputGroup>
                         )}
@@ -395,18 +451,18 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                 </View>
 
                 {/* Pricing Mode Toggle */}
-                <View className="bg-zinc-800 p-1 rounded-xl flex-row mb-2">
+                <View className="bg-zinc-900/50 p-1 rounded-xl flex-row mb-2 border border-white/10">
                     <TouchableOpacity
                         onPress={() => setPricingMode('simple')}
-                        className={`flex-1 py-2 rounded-lg items-center ${pricingMode === 'simple' ? 'bg-zinc-700' : ''}`}
+                        className={`flex-1 py-2 rounded-lg items-center ${pricingMode === 'simple' ? 'bg-[#FF6B35]/20' : ''}`}
                     >
-                        <Text className={`font-medium ${pricingMode === 'simple' ? 'text-white' : 'text-zinc-400'}`}>Fixed Price</Text>
+                        <Text className={`font-medium ${pricingMode === 'simple' ? 'text-[#FF6B35]' : 'text-zinc-400'}`}>Fixed Price</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         onPress={() => setPricingMode('types')}
-                        className={`flex-1 py-2 rounded-lg items-center ${pricingMode === 'types' ? 'bg-zinc-700' : ''}`}
+                        className={`flex-1 py-2 rounded-lg items-center ${pricingMode === 'types' ? 'bg-[#FF6B35]/20' : ''}`}
                     >
-                        <Text className={`font-medium ${pricingMode === 'types' ? 'text-white' : 'text-zinc-400'}`}>Ticket Types</Text>
+                        <Text className={`font-medium ${pricingMode === 'types' ? 'text-[#FF6B35]' : 'text-zinc-400'}`}>Ticket Types</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -415,7 +471,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                         control={control}
                         name="ticketPrice"
                         render={({ field: { onChange, value } }) => (
-                            <InputGroup label="Effect Price (₹)" error={errors.ticketPrice?.message}>
+                            <InputGroup label="Entry Fee (₹)" error={errors.ticketPrice?.message}>
                                 <StyledTextInput
                                     inputMode="numeric"
                                     value={String(value === undefined ? '' : value)}
@@ -440,7 +496,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                                         <>
                                             {/* List of added ticket types */}
                                             {value && value.map((ticket: any, index: number) => (
-                                                <View key={index} className="bg-zinc-800 p-3 rounded-lg border border-zinc-700 flex-row justify-between items-center">
+                                                <View key={index} className="bg-zinc-900/50 p-3 rounded-lg border border-white/10 flex-row justify-between items-center">
                                                     <View>
                                                         <Text className="text-white font-medium">{ticket.name}</Text>
                                                         <Text className="text-zinc-400 text-xs">
@@ -453,7 +509,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                                                             newTypes.splice(index, 1);
                                                             onChange(newTypes);
                                                         }}
-                                                        className="p-2 bg-zinc-700/50 rounded-full"
+                                                        className="p-2 bg-zinc-800 rounded-full"
                                                     >
                                                         <Text className="text-zinc-400 font-bold">✕</Text>
                                                     </TouchableOpacity>
@@ -463,10 +519,10 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                                             {/* Add New Ticket Type Trigger */}
                                             <TouchableOpacity
                                                 onPress={() => setAddingTicket(true)}
-                                                className="flex-row items-center justify-center p-3 border border-dashed border-zinc-600 rounded-xl bg-zinc-900/30"
+                                                className="flex-row items-center justify-center p-4 border border-dashed border-zinc-700 rounded-xl bg-[#FF6B35]/5"
                                             >
-                                                <View className="bg-indigo-600/20 p-1 rounded mr-2">
-                                                    <Text className="text-indigo-400 font-bold text-lg leading-none">+</Text>
+                                                <View className="bg-[#FF6B35]/20 p-1 rounded mr-2">
+                                                    <Text className="text-[#FF6B35] font-bold text-lg leading-none">+</Text>
                                                 </View>
                                                 <Text className="text-zinc-300 font-medium">Add Ticket Type</Text>
                                             </TouchableOpacity>
@@ -484,9 +540,32 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
 
     const renderStep3 = () => (
         <View className="gap-6">
-            <View className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
-                <Text className="text-lg font-medium text-white mb-4 flex-row items-center">
-                    <MapPin size={18} color="#818cf8" /> Location & Schedule
+            <LinearGradient
+                colors={['#FF6B35', '#FF8C42']}
+                start={[0, 0]}
+                end={[1, 0]}
+                className="rounded-2xl p-6 mb-2"
+                style={{
+                    shadowColor: '#FF6B35',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                }}
+            >
+                <View className="flex-row items-center mb-2">
+                    <MapPin size={20} color="#fff" />
+                    <Text className="text-white font-black text-sm ml-2 uppercase tracking-wider">
+                        Location & Time
+                    </Text>
+                </View>
+                <Text className="text-white/90 text-sm font-light">
+                    Where is it happening and when?
+                </Text>
+            </LinearGradient>
+
+            <View className="bg-zinc-900/40 border border-white/10 rounded-2xl p-6">
+                <Text className="text-white font-black text-lg tracking-tight mb-4">
+                    Location
                 </Text>
                 <View className="gap-4">
                     <Controller
@@ -497,7 +576,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                                 <StyledTextInput
                                     value={value}
                                     onChangeText={onChange}
-                                    placeholder="City"
+                                    placeholder="e.g. Mumbai"
                                     error={errors.city?.message}
                                 />
                             </InputGroup>
@@ -511,7 +590,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                                 <StyledTextInput
                                     value={value}
                                     onChangeText={onChange}
-                                    placeholder="Venue Name"
+                                    placeholder="e.g. The Royal Opera House"
                                 />
                             </InputGroup>
                         )}
@@ -521,53 +600,91 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                         name="address"
                         render={({ field: { onChange, value } }) => (
                             <InputGroup label="Complete Address">
-                                <StyledTextInput
-                                    value={value}
-                                    onChangeText={onChange}
-                                    placeholder="Address"
-                                />
+                                <View className="flex-col gap-3">
+                                    <StyledTextInput
+                                        value={value}
+                                        onChangeText={onChange}
+                                        placeholder="Street, Area, Landmark"
+                                    />
+                                    {/* Location Preview */}
+                                    <MapLinkCard
+                                        venueName={watch('venue')}
+                                        address={watch('address') || ''}
+                                        city={watch('city')}
+                                        state={'State'}
+                                        country={'India'}
+                                    />
+                                </View>
                             </InputGroup>
                         )}
                     />
                 </View>
 
-                <View className="gap-4 mt-4">
-                    <Controller
-                        control={control}
-                        name="startDate"
-                        render={({ field: { onChange, value } }) => (
-                            <DatePickerInput
-                                label="Start Date"
-                                required
-                                value={value}
-                                onChange={(date) => onChange(toLocalDateString(date))}
-                                error={errors.startDate?.message}
-                                placeholder="Select Start Date"
-                                minimumDate={new Date()}
-                            />
-                        )}
-                    />
-                    <Controller
-                        control={control}
-                        name="endDate"
-                        render={({ field: { onChange, value } }) => (
-                            <DatePickerInput
-                                label="End Date"
-                                value={value}
-                                onChange={(date) => onChange(toLocalDateString(date))}
-                                error={errors.endDate?.message}
-                                placeholder="Select End Date"
-                                minimumDate={watch('startDate') ? new Date(watch('startDate')) : new Date()}
-                            />
-                        )}
-                    />
+                <View className="mt-6 mb-2">
+                    <Text className="text-white font-black text-lg tracking-tight mb-4">
+                        Schedule
+                    </Text>
+                    <View className="gap-4">
+                        <Controller
+                            control={control}
+                            name="startDate"
+                            render={({ field: { onChange, value } }) => (
+                                <DatePickerInput
+                                    label="Start Date"
+                                    required
+                                    value={value}
+                                    onChange={(date) => onChange(toLocalDateString(date))}
+                                    error={errors.startDate?.message}
+                                    placeholder="Select Start Date"
+                                    minimumDate={new Date()}
+                                />
+                            )}
+                        />
+                        <Controller
+                            control={control}
+                            name="endDate"
+                            render={({ field: { onChange, value } }) => (
+                                <DatePickerInput
+                                    label="End Date"
+                                    value={value}
+                                    onChange={(date) => onChange(toLocalDateString(date))}
+                                    error={errors.endDate?.message}
+                                    placeholder="Select End Date"
+                                    minimumDate={watch('startDate') ? new Date(watch('startDate')) : new Date()}
+                                />
+                            )}
+                        />
+                    </View>
                 </View>
             </View>
         </View>
     );
 
     const renderStep4 = () => (
-        <View className="gap-4">
+        <View className="gap-6">
+            <LinearGradient
+                colors={['#FF6B35', '#FF8C42']}
+                start={[0, 0]}
+                end={[1, 0]}
+                className="rounded-2xl p-6 mb-2"
+                style={{
+                    shadowColor: '#FF6B35',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                }}
+            >
+                <View className="flex-row items-center mb-2">
+                    <AlignLeft size={20} color="#fff" />
+                    <Text className="text-white font-black text-sm ml-2 uppercase tracking-wider">
+                        The Pitch
+                    </Text>
+                </View>
+                <Text className="text-white/90 text-sm font-light">
+                    Sell the event—what to expect?
+                </Text>
+            </LinearGradient>
+
             <Controller
                 control={control}
                 name="description"
@@ -577,32 +694,62 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                             rows={6}
                             value={value}
                             onChangeText={onChange}
-                            placeholder="Description..."
+                            placeholder="Describe the event, the vibe, special guests..."
                             error={errors.description?.message}
                         />
                     </InputGroup>
                 )}
             />
-            <Controller
-                control={control}
-                name="deadline"
-                render={({ field: { onChange, value } }) => (
-                    <DatePickerInput
-                        label="Deadline for Application"
-                        value={value}
-                        onChange={(date) => onChange(toLocalDateString(date))}
-                        placeholder="Select Deadline"
-                        minimumDate={new Date()}
-                        maximumDate={watch('startDate') ? new Date(watch('startDate')) : undefined}
-                    />
-                )}
-            />
+
+            <View className="bg-zinc-900/40 border border-white/10 rounded-2xl p-6">
+                <Text className="text-white font-black text-lg tracking-tight mb-4">
+                    Registration
+                </Text>
+                <Controller
+                    control={control}
+                    name="deadline"
+                    render={({ field: { onChange, value } }) => (
+                        <DatePickerInput
+                            label="Deadline for Registration"
+                            value={value}
+                            onChange={(date) => onChange(toLocalDateString(date))}
+                            placeholder="Select Deadline"
+                            minimumDate={new Date()}
+                            maximumDate={watch('startDate') ? new Date(watch('startDate')) : undefined}
+                            subtitle="When do sales/registrations close?"
+                        />
+                    )}
+                />
+            </View>
         </View>
     );
 
     const renderStep5 = () => (
         <View className="gap-6">
-            <View className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800 gap-4">
+            <LinearGradient
+                colors={['#FF6B35', '#FF8C42']}
+                start={[0, 0]}
+                end={[1, 0]}
+                className="rounded-2xl p-6 mb-2"
+                style={{
+                    shadowColor: '#FF6B35',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                }}
+            >
+                <View className="flex-row items-center mb-2">
+                    <Eye size={20} color="#fff" />
+                    <Text className="text-white font-black text-sm ml-2 uppercase tracking-wider">
+                        Final Review
+                    </Text>
+                </View>
+                <Text className="text-white/90 text-sm font-light">
+                    Check everything before going live!
+                </Text>
+            </LinearGradient>
+
+            <View className="bg-zinc-900/50 p-6 rounded-2xl border border-white/10 gap-4">
                 <Controller
                     control={control}
                     name="urgent"
@@ -615,8 +762,8 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                                 {value && <Check size={14} color="#fff" />}
                             </View>
                             <View>
-                                <Text className="text-zinc-200 font-medium">Urgent Event</Text>
-                                <Text className="text-xs text-zinc-500">Adds an "Urgent" badge</Text>
+                                <Text className="text-zinc-200 font-medium h-full align-middle pt-1 ml-2">Urgent Event</Text>
+                                <Text className="text-xs text-zinc-500 ml-2">Adds an "Urgent" badge</Text>
                             </View>
                         </TouchableOpacity>
                     )}
@@ -630,12 +777,12 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                             className="flex-row items-center space-x-3 p-3 rounded-xl bg-zinc-800/50"
                             onPress={() => onChange(!value)}
                         >
-                            <View className={`w-6 h-6 rounded-md border items-center justify-center ${value ? 'bg-indigo-500 border-indigo-500' : 'border-zinc-600'}`}>
+                            <View className={`w-6 h-6 rounded-md border items-center justify-center ${value ? 'bg-[#FF6B35] border-[#FF6B35]' : 'border-zinc-600'}`}>
                                 {value && <Check size={14} color="#fff" />}
                             </View>
                             <View>
-                                <Text className="text-zinc-200 font-medium">Feature this Event</Text>
-                                <Text className="text-xs text-zinc-500">Pin to top (+$15.00)</Text>
+                                <Text className="text-zinc-200 font-medium h-full align-middle pt-1 ml-2">Feature this Event</Text>
+                                <Text className="text-xs text-zinc-500 ml-2">Pin to top (+$15.00)</Text>
                             </View>
                         </TouchableOpacity>
                     )}
@@ -643,15 +790,15 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
             </View>
 
             {/* Summary Preview */}
-            <View className="bg-indigo-900/20 border border-indigo-500/30 rounded-2xl p-6">
-                <Text className="text-indigo-200 font-semibold mb-4 flex-row items-center">
-                    <Eye size={18} color="#c7d2fe" /> Preview
+            <View className="bg-[#FF6B35]/10 border border-[#FF6B35]/30 rounded-2xl p-6">
+                <Text className="text-[#FF6B35] font-semibold mb-4 flex-row items-center">
+                    <Eye size={18} color="#FF6B35" /> Preview
                 </Text>
                 <View className="gap-2">
                     <View className="flex-row justify-between items-start">
                         <View className="flex-1 mr-2">
                             <View className="flex-row gap-2 mb-2">
-                                <Text className="bg-purple-600/20 text-purple-300 text-xs px-2 py-0.5 rounded capitalize overflow-hidden">{formData.eventType}</Text>
+                                <Text className="bg-zinc-800 text-zinc-300 text-xs px-2 py-0.5 rounded capitalize overflow-hidden">{formData.eventType}</Text>
                             </View>
                             <Text className="text-xl font-bold text-white mb-1">{formData.title}</Text>
                             <Text className="text-zinc-400 text-sm flex-row items-center">
@@ -662,7 +809,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                             <Text className="text-xl font-bold text-white">{formData.ticketPrice && Number(formData.ticketPrice) > 0 ? `₹${formData.ticketPrice}` : 'Free'}</Text>
                         </View>
                     </View>
-                    <View className="h-[1px] bg-indigo-500/20 my-2" />
+                    <View className="h-[1px] bg-[#FF6B35]/20 my-2" />
                     <Text className="text-zinc-300 text-sm italic" numberOfLines={3}>"{formData.description}"</Text>
                 </View>
             </View>

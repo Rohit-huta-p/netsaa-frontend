@@ -14,7 +14,8 @@ export interface PopulatedConversation extends Omit<Conversation, 'participants'
 }
 
 const getBaseUrl = () => {
-    if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
+    // EXPO_PUBLIC_API_URL already ends with /api (e.g., http://localhost:5001/api)
+    if (process.env.EXPO_PUBLIC_API_URL) return `${process.env.EXPO_PUBLIC_API_URL}/conversations`;
     // if (Platform.OS === 'web') return 'http://localhost:5001/api/conversations';
     return 'http://10.197.171.107:5001/api/conversations';
 };

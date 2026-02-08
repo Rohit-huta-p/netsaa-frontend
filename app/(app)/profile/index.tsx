@@ -1,6 +1,6 @@
 // app/(app)/profile/index.tsx
-import React, { useState, useEffect } from "react";
-import noAvatar from "../../../assets/no-avatar.jpg";
+import React, { useState } from "react";
+
 import {
     View,
     Text,
@@ -13,66 +13,43 @@ import {
     KeyboardAvoidingView,
     Platform,
     StatusBar,
-    Pressable,
     Alert,
     ActivityIndicator
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from 'expo-image-picker';
 import { Video as ExpoVideo, ResizeMode } from 'expo-av';
 import {
-    MapPin, Instagram,
-    Play, Star, Quote, Plus,
-    ArrowLeft, User, Ruler, Palette, Briefcase, Camera, Sparkles, X,
-    Edit3, Shield, Check, ArrowRight, Menu, Calendar, Zap, Users, Activity, Award,
-    Share2,
-    Edit2,
-    Video,
-    Trash2
+    Plus, ArrowLeft, Camera, X, Video, Trash2
 } from "lucide-react-native";
-import { useAuthStore } from "../../../src/stores/authStore";
-import authService from "../../../src/services/authService";
-import { uploadMediaFlow, validateMediaFile, isLargeFile } from "../../../src/utils/upload";
+import { useAuthStore } from "@/stores/authStore";
+import authService from "@/services/authService";
+import { uploadMediaFlow, validateMediaFile, isLargeFile } from "@/utils/upload";
 
-// --- THEME ---
-const THEME = {
-    colors: {
-        bg: '#000000',
-        card: 'rgba(255, 255, 255, 0.03)',
-        border: 'rgba(255, 255, 255, 0.08)',
-        primary: '#ffffff',
-        secondary: '#a1a1aa', // zinc-400
-        accent: '#ea698b', // netsa-10
-    }
-};
+// Import shared profile components
+import {
+    ProfileHeader,
+    ProfileSidebar,
+    FeaturedWorks,
+    ProfessionalHistory,
+    Testimonials,
+    ProfileFooter,
+    ProfileData,
+    ProfileStats,
+} from "@/components/profile";
 
 // --- TYPES ---
-type ProfileFormData = {
-    fullName: string;
-    location: string;
-    age: string;
-    gender: string;
-    height: string;
-    skinTone: string;
-    artistType: string;
-    skills: string[];
-    bio: string;
-    instagramHandle: string;
-    experience: string[];
-    hasPhotos: boolean;
-    profileImageUrl: string;
-    galleryUrls: string[];  // Up to 5 photos
-    videoUrls: string[];    // Up to 3 videos
+type ProfileFormData = ProfileData & {
+    galleryUrls: string[];
+    videoUrls: string[];
 };
 
 type UploadingState = {
     [key: string]: { progress: number; uploading: boolean; localUri?: string };
 };
 
-// --- COMPONENTS ---
+// --- WIZARD COMPONENTS ---
 
-// 1. Brutalist Progress Bar (KEPT FROM OLD FILE AS PER INSTRUCTIONS TO KEEP LOGIC/WIZARD)
 const ProgressBar = ({ step, total }: { step: number; total: number }) => {
     const progress = Math.min(((step + 1) / total) * 100, 100);
     return (
@@ -93,12 +70,8 @@ const ProgressBar = ({ step, total }: { step: number; total: number }) => {
     );
 };
 
-// 2. Neon Selection Pill (KEPT)
 const SelectionPill = ({ label, isSelected, onPress }: { label: string, isSelected: boolean, onPress: () => void }) => (
-    <TouchableOpacity
-        onPress={onPress}
-        className="mr-3 mb-3"
-    >
+    <TouchableOpacity onPress={onPress} className="mr-3 mb-3">
         <View
             style={{
                 backgroundColor: isSelected ? 'rgba(234, 105, 139, 0.15)' : 'rgba(255, 255, 255, 0.03)',
@@ -121,7 +94,6 @@ const SelectionPill = ({ label, isSelected, onPress }: { label: string, isSelect
     </TouchableOpacity>
 );
 
-
 const TextInputStyled = (props: any) => (
     <TextInput
         {...props}
@@ -139,7 +111,7 @@ const TextInputStyled = (props: any) => (
     />
 );
 
-// 4. WIZARD (Deep Black Theme) (KEPT EXACTLY AS BEFORE)
+// --- PROFILE WIZARD ---
 const ProfileWizard = ({
     initialData,
     initialStep = 0,
@@ -168,7 +140,6 @@ const ProfileWizard = ({
         if (step > 0) setStep(step - 1);
         else onClose();
     };
-
 
     const renderStep1_Basic = () => (
         <View className="space-y-8">
@@ -331,7 +302,6 @@ const ProfileWizard = ({
     );
 
     const renderStep5_Gallery = () => {
-
         const handlePickMedia = async (type: 'profile' | 'gallery' | 'video', index?: number) => {
             const mediaType = type === 'video'
                 ? ImagePicker.MediaTypeOptions.Videos
@@ -349,14 +319,12 @@ const ProfileWizard = ({
             const asset = result.assets[0];
             const isVideo = type === 'video';
 
-            // Validate file
             const validation = validateMediaFile(asset, isVideo);
             if (!validation.valid) {
                 Alert.alert('Error', validation.error);
                 return;
             }
 
-            // Warn for large files
             if (isLargeFile(asset)) {
                 Alert.alert(
                     'Large File',
@@ -379,7 +347,6 @@ const ProfileWizard = ({
         ) => {
             const uploadKey = type === 'profile' ? 'profile' : `${type}-${index}`;
 
-            // Show local preview immediately
             setUploadingState(prev => ({
                 ...prev,
                 [uploadKey]: { progress: 0, uploading: true, localUri: asset.uri }
@@ -466,9 +433,6 @@ const ProfileWizard = ({
                                         src={url}
                                         controls
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                        onError={(e) => console.error('[Video] Playback error:', e)}
-                                        onLoadedData={() => console.log('[Video] Loaded successfully')}
-                                        className="cursor-pointer"
                                     />
                                 ) : (
                                     <ExpoVideo
@@ -478,8 +442,6 @@ const ProfileWizard = ({
                                         resizeMode={ResizeMode.COVER}
                                         shouldPlay={false}
                                         isLooping={false}
-                                        onError={(error) => console.error('[Video] Playback error:', error)}
-                                        onLoad={() => console.log('[Video] Loaded successfully')}
                                     />
                                 )
                             ) : (
@@ -647,35 +609,6 @@ const ProfileWizard = ({
     );
 };
 
-
-// --- HELPER COMPONENT: Replicating Navbar from Design ---
-const Navbar = () => {
-    // Simplified RN version of the Navbar component in profile-v2
-    return (
-        <View className="flex-row items-center justify-between px-6 py-6 pt-4 bg-transparent z-50">
-            <View className="flex-row items-center gap-2">
-                <LinearGradient
-                    colors={['#18181b', '#ea698b']}
-                    start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}
-                    className="w-8 h-8 rounded items-center justify-center"
-                >
-                    <Sparkles size={20} color="white" />
-                </LinearGradient>
-                <Text className="text-xl font-bold tracking-tight text-white uppercase italic">NETSA</Text>
-            </View>
-
-            {/* Desktop Menu - Hidden on Mobile, showed simplified if desktop */}
-            {/* Note: RN doesn't handle hidden md:flex automatically without NativeWind config, but assuming standard breakpoints work or just simplified for mobile */}
-            <View className="flex-row items-center gap-4">
-                {/* Keeping it simple for mobile view mostly as RN is primarily mobile */}
-                <TouchableOpacity>
-                    <Menu size={24} color="white" />
-                </TouchableOpacity>
-            </View>
-        </View>
-    );
-};
-
 // --- MAIN PAGE ---
 
 export default function ProfilePage() {
@@ -688,23 +621,27 @@ export default function ProfilePage() {
 
     const profileData: ProfileFormData = {
         fullName: user?.displayName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || '',
-        location: user?.location || "",
-        age: user?.age || "",
-        gender: user?.gender || "",
-        height: user?.height || "",
-        skinTone: user?.skinTone || "",
-        artistType: user?.artistType || "",
-        skills: user?.skills || [],
-        bio: user?.bio || "",
-        instagramHandle: user?.instagramHandle || "",
-        experience: user?.experience || [],
-        hasPhotos: user?.hasPhotos || false,
+        location: (user as any)?.location || "",
+        age: (user as any)?.age || "",
+        gender: (user as any)?.gender || "",
+        height: (user as any)?.height || "",
+        skinTone: (user as any)?.skinTone || "",
+        artistType: (user as any)?.artistType || "",
+        skills: (user as any)?.skills || [],
+        bio: (user as any)?.bio || "",
+        instagramHandle: (user as any)?.instagramHandle || "",
+        experience: (user as any)?.experience || [],
+        hasPhotos: (user as any)?.hasPhotos || false,
         profileImageUrl: user?.profileImageUrl || "",
-        galleryUrls: [...(user?.galleryUrls || []), '', '', '', '', ''].slice(0, 5),
-        videoUrls: [...(user?.videoUrls || []), '', '', ''].slice(0, 3)
+        galleryUrls: [...((user as any)?.galleryUrls || []), '', '', '', '', ''].slice(0, 5),
+        videoUrls: [...((user as any)?.videoUrls || []), '', '', ''].slice(0, 3)
     };
 
-    const mockStats = { events: 47, connections: 234, rating: 4.9 };
+    const stats: ProfileStats = {
+        connections: 234,
+        events: 47,
+        rating: 4.9
+    };
 
     const openWizard = (step: number = 0) => {
         setWizardStep(step);
@@ -727,8 +664,8 @@ export default function ProfilePage() {
                 experience: data.experience,
                 hasPhotos: data.hasPhotos,
                 profileImageUrl: data.profileImageUrl,
-                galleryUrls: data.galleryUrls.filter(url => url), // Only non-empty URLs
-                videoUrls: data.videoUrls.filter(url => url)      // Only non-empty URLs
+                galleryUrls: data.galleryUrls.filter(url => url),
+                videoUrls: data.videoUrls.filter(url => url)
             };
             console.log('[Profile] Saving with payload:', JSON.stringify(updatePayload, null, 2));
             const updatedUser = await authService.updateProfile(updatePayload);
@@ -747,341 +684,72 @@ export default function ProfilePage() {
         }
     };
 
-    // --- RENDER (Matched to profile-v2.tsx) ---
     return (
         <View className="flex-1 bg-black">
             <StatusBar barStyle="light-content" />
             <SafeAreaView className="flex-1" edges={['top']}>
 
-                {/* Fixed Navbar simulation inside the simplified standard layout */}
-                {/* <Navbar /> */}
-
                 <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 120, width: '80%', marginLeft: '10%', marginRight: '10%' }}>
 
                     {/* Header Section */}
-                    <View className=" pt-12 pb-8 border-b  px-6 py-10 ">
-                        <View className={`flex-col relative  ${isDesktop ? 'md:flex-row ' : ''} items-center  gap-10 bg-zinc-900/80 rounded-2xl py-6 px-4`}>
-                            {/* Avatar */}
-                            <View className="relative">
-                                <View className="w-32 h-32 md:w-44 md:h-44 rounded-2xl overflow-hidden border border-white/10 relative">
-                                    <Image
-                                        source={user?.profileImageUrl ? { uri: user.profileImageUrl } : noAvatar}
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' } as any}
-                                        resizeMode="cover"
-                                    />
-                                </View>
-                                {/* Available Tag */}
-                                <View className="absolute -bottom-2 -right-2 bg-green-500 px-2 py-0.5 rounded-lg border-2 border-black">
-                                    <Text className="text-black font-black text-[8px] uppercase tracking-tighter">Available</Text>
-                                </View>
-                            </View>
-
-                            {/* Info */}
-                            <View className="flex-1 space-y-3">
-                                <View className="flex-row items-center gap-3">
-                                    <View className="bg-pink-500/10 border border-pink-500/20 px-2 py-0.5 rounded-full">
-                                        <Text className="text-pink-500 text-[9px] font-bold uppercase tracking-widest">Verified Artist</Text>
-                                    </View>
-                                    {profileData.location ? (
-                                        <View className="flex-row items-center gap-1">
-                                            <MapPin size={10} color="#71717a" />
-                                            <Text className="text-zinc-500 text-[9px] font-bold uppercase tracking-widest">{profileData.location}</Text>
-                                        </View>
-                                    ) : null}
-                                </View>
-
-                                <View>
-                                    <Text className="text-4xl md:text-5xl font-black tracking-tight text-white italic uppercase leading-none mb-1">
-                                        {profileData.fullName || "YOUR NAME"}
-                                    </Text>
-                                    <Text className="text-lg md:text-xl text-zinc-400 font-medium italic">
-                                        {profileData.artistType || "ADD YOUR ROLE"}
-                                    </Text>
-                                </View>
-
-                                {/* Stats Bar */}
-                                <View className="flex-row flex-wrap items-center gap-6 pt-6 ">
-                                    <View>
-                                        <Text className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Base</Text>
-                                        {profileData.location ? (
-                                            <>
-                                                {/* <MapPin size={10} color="#71717a" /> */}
-                                                <Text className="text-sm text-white font-black italic">{profileData.location.charAt(0).toUpperCase() + profileData.location.slice(1)}</Text>
-                                            </>
-                                        ) : null}
-                                    </View>
-                                    <View>
-                                        <Text className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Connections</Text>
-                                        <Text className="text-sm text-white font-black italic">{mockStats.connections}</Text>
-                                    </View>
-                                    {/* <View>
-                                        <Text className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Rating</Text>
-                                        <View className="flex-row items-center gap-1">
-                                            <Star size={12} fill="#ea698b" color="#ea698b" />
-                                            <Text className="text-sm text-white font-black italic">{mockStats.rating}</Text>
-                                        </View>
-                                    </View> */}
-                                </View>
-                            </View>
-
-                            {/* Actions - Mapped to EDIT MODE functionality */}
-                            <View className={`flex-row absolute right-5 top-4 gap-2 ${isDesktop ? 'w-auto' : ''}`}>
-                                <TouchableOpacity
-                                    className=" h-12 w-12 rounded-lg items-center justify-center "
-                                >
-                                    {/* <Text className="text-white font-black italic text-sm uppercase">Share Profile</Text> */}
-                                    <Share2 size={16} color="#fff" />
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => openWizard(0)}
-                                    className="  px-3 rounded-lg items-center justify-center"
-                                >
-                                    {/* <Text className="text-black font-black italic text-sm uppercase">Edit Profile</Text> */}
-                                    <Edit3 size={16} color="#fff" />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </View>
+                    <ProfileHeader
+                        fullName={profileData.fullName}
+                        artistType={profileData.artistType}
+                        location={profileData.location}
+                        profileImageUrl={profileData.profileImageUrl}
+                        stats={stats}
+                        isDesktop={isDesktop}
+                        isEditable={true}
+                        onEditPress={() => openWizard(0)}
+                    />
 
                     {/* Main Layout Grid */}
-                    <View className="px-6 ">
+                    <View className="px-6">
                         <View className={`flex-col ${isDesktop ? 'md:flex-row' : ''} gap-16`}>
 
                             {/* SIDEBAR */}
-                            <View className={`${isDesktop ? 'w-[300px]' : 'w-full'} space-y-12`}>
-                                {/* Manifesto */}
-                                <View className="bg-zinc-900/60 rounded-2xl py-6 px-6">
-                                    <Text className="text-xs font-black text-zinc-500 uppercase tracking-[0.3em] mb-6">Manifesto</Text>
-                                    <Text className="text-zinc-400 leading-6 font-medium italic pl-6 border-l-2 border-zinc-800">
-                                        "{profileData.bio || "No manifesto yet."}"
-                                    </Text>
-                                </View>
-
-                                {/* Physical Specs */}
-                                <View className="bg-zinc-900/60 rounded-2xl py-6 px-6">
-                                    <Text className="text-xs font-black text-zinc-500 uppercase tracking-[0.3em] mb-6 pl-4 border-l-2 border-pink-500">Physical Specs</Text>
-                                    <View className="gap-4 bg-zinc-900/30 p-5 rounded-xl border border-white/5">
-                                        <View className="flex-row items-center justify-between">
-                                            <View className="flex-row items-center gap-2">
-                                                <Calendar size={14} color="#71717a" />
-                                                <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Age</Text>
-                                            </View>
-                                            <Text className="text-white text-xs font-black italic">{profileData.age || "-"} Years</Text>
-                                        </View>
-                                        <View className="flex-row items-center justify-between">
-                                            <View className="flex-row items-center gap-2">
-                                                <Ruler size={14} color="#71717a" />
-                                                <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Height</Text>
-                                            </View>
-                                            <Text className="text-white text-xs font-black italic">{profileData.height || "-"}</Text>
-                                        </View>
-                                        <View className="flex-row items-center justify-between">
-                                            <View className="flex-row items-center gap-2">
-                                                <User size={14} color="#71717a" />
-                                                <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Skin Tone</Text>
-                                            </View>
-                                            <Text className="text-white text-xs font-black italic">{profileData.skinTone || "-"}</Text>
-                                        </View>
-                                    </View>
-                                </View>
-
-
-
-                                {/* Skills */}
-                                <View className="bg-zinc-900/60 rounded-2xl py-6 px-6">
-                                    <Text className="text-xs font-black text-zinc-500 uppercase tracking-[0.3em] mb-6">Core Skills</Text>
-                                    <View className="flex-row flex-wrap gap-2">
-                                        {profileData.skills.length > 0 ? profileData.skills.map((skill, i) => (
-                                            <View key={i} className="bg-zinc-900 border border-white/5 px-3 py-1 rounded-lg">
-                                                <Text className="text-zinc-400 text-[10px] font-bold uppercase">{skill}</Text>
-                                            </View>
-                                        )) : (
-                                            <Text className="text-zinc-700 text-[10px] uppercase font-bold">No skills listed</Text>
-                                        )}
-                                    </View>
-                                </View>
-
-                                {/* Availability (Static for now as per design) */}
-                                <View className="p-8 rounded-2xl bg-zinc-900/40 border border-white/5 space-y-6">
-                                    <View className="flex-row items-center gap-3">
-                                        <Zap size={18} color="#ea698b" fill="#ea698b" />
-                                        <Text className="text-pink-500 text-xs font-black uppercase tracking-widest">Availability</Text>
-                                    </View>
-                                    <Text className="text-zinc-400 text-sm">
-                                        Next free slot: <Text className="text-white font-bold">Feb 12th, 2026</Text>
-                                    </Text>
-                                    <TouchableOpacity className="flex-row items-center gap-2">
-                                        <Text className="text-[10px] font-black uppercase tracking-widest text-white">View Calendar</Text>
-                                        <ArrowRight size={12} color="white" />
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* Socials */}
-                                <View className="bg-zinc-900/60 rounded-2xl py-6 px-6">
-                                    <Text className="text-xs font-black text-zinc-500 uppercase tracking-[0.3em] mb-6">Socials</Text>
-                                    <View className="flex-row items-center gap-4">
-                                        <TouchableOpacity className="w-10 h-10 rounded-xl bg-white/5 items-center justify-center border border-white/5">
-                                            <Instagram size={18} color="white" />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity className="w-10 h-10 rounded-xl bg-white/5 items-center justify-center border border-white/5">
-                                            <Briefcase size={18} color="white" />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            </View>
+                            <ProfileSidebar
+                                profileData={profileData}
+                                isDesktop={isDesktop}
+                                isEditable={true}
+                                onEditPress={openWizard}
+                            />
 
                             {/* MAIN CONTENT */}
                             <View className="flex-1 space-y-20">
-
-                                {/* Showcase */}
-                                <View className="bg-zinc-900/60 rounded-2xl py-6 px-6">
-                                    <View className="flex-row items-center justify-between mb-8 border-b border-white/5 pb-4">
-                                        <Text className="text-2xl font-black text-white italic tracking-tight">FEATURED WORKS</Text>
-                                        <TouchableOpacity onPress={() => openWizard(4)}>
-                                            <Text className="text-[10px] font-bold text-pink-400 uppercase tracking-widest">Edit</Text>
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    <View className="space-y-8">
-                                        {/* Photo Gallery - Always 5 slots */}
-                                        <View>
-                                            <Text className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4">
-                                                Photos ({profileData.galleryUrls.filter(u => u).length}/5)
-                                            </Text>
-                                            <View className="flex-row flex-wrap gap-3">
-                                                {[0, 1, 2, 3, 4].map((index) => {
-                                                    const url = profileData.galleryUrls[index];
-                                                    return (
-                                                        <TouchableOpacity
-                                                            key={index}
-                                                            onPress={() => openWizard(4)}
-                                                            className="w-[18%] aspect-square rounded-xl overflow-hidden border border-white/10"
-                                                            style={{ minWidth: 60 }}
-                                                        >
-                                                            {url ? (
-                                                                <Image source={{ uri: url }} className="w-full h-full" />
-                                                            ) : (
-                                                                <View className="w-full h-full bg-zinc-800/50 items-center justify-center">
-                                                                    <Camera size={20} color="#52525b" />
-                                                                    <Text className="text-zinc-600 text-[8px] mt-1 text-center">Add</Text>
-                                                                </View>
-                                                            )}
-                                                        </TouchableOpacity>
-                                                    );
-                                                })}
-                                            </View>
-                                        </View>
-
-                                        {/* Video Reels - Always 3 slots */}
-                                        <View>
-                                            <Text className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4">
-                                                Video Reels ({profileData.videoUrls.filter(u => u).length}/3)
-                                            </Text>
-                                            <View className="flex-row gap-3">
-                                                {[0, 1, 2].map((index) => {
-                                                    const url = profileData.videoUrls[index];
-                                                    return (
-                                                        <TouchableOpacity
-                                                            key={index}
-                                                            onPress={() => !url && openWizard(4)}
-                                                            activeOpacity={url ? 1 : 0.7}
-                                                            className="flex-1 aspect-[9/16] rounded-xl overflow-hidden border border-white/10"
-                                                            style={{ maxWidth: 120 }}
-                                                        >
-                                                            {url ? (
-                                                                Platform.OS === 'web' ? (
-                                                                    <video
-                                                                        src={url}
-                                                                        controls
-                                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                                    />
-                                                                ) : (
-                                                                    <ExpoVideo
-                                                                        source={{ uri: url }}
-                                                                        style={{ width: '100%', height: '100%' }}
-                                                                        useNativeControls
-                                                                        resizeMode={ResizeMode.COVER}
-                                                                        shouldPlay={false}
-                                                                    />
-                                                                )
-                                                            ) : (
-                                                                <View className="w-full h-full bg-zinc-800/50 items-center justify-center">
-                                                                    <Play size={24} color="#52525b" />
-                                                                    <Text className="text-zinc-600 text-[8px] mt-2 text-center">Add{'\n'}Reel</Text>
-                                                                </View>
-                                                            )}
-                                                        </TouchableOpacity>
-                                                    );
-                                                })}
-                                            </View>
-                                        </View>
-                                    </View>
-                                </View>
+                                {/* Featured Works */}
+                                <FeaturedWorks
+                                    galleryUrls={profileData.galleryUrls || []}
+                                    videoUrls={profileData.videoUrls || []}
+                                    hasPhotos={profileData.hasPhotos}
+                                    isDesktop={isDesktop}
+                                    isEditable={true}
+                                    onEditPress={() => openWizard(4)}
+                                />
 
                                 {/* Professional History */}
-                                <View className="bg-zinc-900/60 rounded-2xl py-6 px-6">
-                                    <View className="flex-row items-center justify-between mb-8 border-b border-white/5 pb-4">
-                                        <Text className="text-2xl font-black text-white italic tracking-tight">PROFESSIONAL HISTORY</Text>
-                                        <Award size={20} color="#52525b" />
-                                    </View>
-                                    <View className="space-y-6">
-                                        {profileData.experience.length > 0 ? profileData.experience.map((exp, i) => (
-                                            <View key={i} className="flex-row items-center justify-between py-6 border-b border-white/5">
-                                                <View className="flex-row items-center gap-6">
-                                                    <Text className="text-[10px] font-black text-zinc-600">0{i + 1}</Text>
-                                                    <View className="flex-col">
-                                                        <Text className="text-lg font-bold text-white">{exp}</Text>
-                                                        <Text className="text-xs text-zinc-500 uppercase font-bold tracking-widest mt-1">Event • 2026</Text>
-                                                    </View>
-                                                </View>
-                                                <Text className="text-xs font-black text-zinc-500 italic">Jan 2026</Text>
-                                            </View>
-                                        )) : (
-                                            <TouchableOpacity onPress={() => openWizard(3)} className="py-8 border border-dashed border-white/10 items-center justify-center">
-                                                <Text className="text-zinc-600 font-bold uppercase tracking-widest text-[10px]">Add Experience</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                </View>
+                                <ProfessionalHistory
+                                    experience={profileData.experience}
+                                    isEditable={true}
+                                    onEditPress={() => openWizard(3)}
+                                />
 
-                                {/* Testimonials (Static Placeholder as per design) */}
-                                <View className="p-12 rounded-[2rem] bg-zinc-900/20 border border-white/5 relative overflow-hidden">
-                                    <View className="absolute -top-4 -right-4 rotate-12 opacity-5">
-                                        <Quote size={128} color="white" />
-                                    </View>
-                                    <View className="relative z-10">
-                                        <View className="flex-row gap-1 mb-6">
-                                            {[1, 2, 3, 4, 5].map(s => <Star key={s} size={14} fill="#ea698b" color="#ea698b" />)}
-                                        </View>
-                                        <Text className="text-2xl md:text-3xl font-medium italic tracking-tight leading-relaxed text-zinc-200 mb-10">
-                                            "Rahul's ability to blend traditional nuances with modern athleticism is unparalleled in the Delhi scene today."
-                                        </Text>
-                                        <View className="flex-row items-center gap-4 border-t border-white/5 pt-8">
-                                            <View className="w-10 h-10 rounded-full bg-zinc-800" />
-                                            <View>
-                                                <Text className="text-sm text-white font-black uppercase italic">Aditi Rao</Text>
-                                                <Text className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Director • Piano Man Delhi</Text>
-                                            </View>
-                                        </View>
-                                    </View>
-                                </View>
-
+                                {/* Testimonials */}
+                                <Testimonials
+                                    testimonial={{
+                                        text: "Rahul's ability to blend traditional nuances with modern athleticism is unparalleled in the Delhi scene today.",
+                                        author: "Aditi Rao",
+                                        role: "Director • Piano Man Delhi"
+                                    }}
+                                />
                             </View>
                         </View>
                     </View>
 
                 </ScrollView>
 
-                {/* Footer Visual Replica */}
-                <View className="py-8 border-t border-white/5 bg-black px-6">
-                    <View className="flex-row justify-between items-center">
-                        <Text className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">© 2026 NETSA PLATFORMS.</Text>
-                        <View className="flex-row gap-4">
-                            <Text className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">Privacy</Text>
-                            <Text className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">Terms</Text>
-                        </View>
-                    </View>
-                </View>
+                {/* Footer */}
+                <ProfileFooter />
 
                 {/* WIZARD MODAL */}
                 {wizardVisible && (

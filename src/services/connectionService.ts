@@ -1,9 +1,9 @@
 import axios from 'axios';
-import { Platform } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 
 const getBaseUrl = () => {
-    if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
+    // EXPO_PUBLIC_API_URL already ends with /api (e.g., http://localhost:5001/api)
+    if (process.env.EXPO_PUBLIC_API_URL) return `${process.env.EXPO_PUBLIC_API_URL}/connections`;
     // if (Platform.OS === 'web') return 'http://localhost:5001/api/connections';
     return 'http://10.197.171.107:5001/api/connections';
 };
@@ -57,6 +57,8 @@ const connectionService = {
      * Get list of accepted connections
      */
     getConnections: async () => {
+        console.log(API.defaults.baseURL);
+
         const { data } = await API.get('/');
         return data.data; // Assuming response structure { success: true, data: [...] }
     },

@@ -7,6 +7,7 @@ module.exports = {
         "./components/**/*.{js,jsx,ts,tsx}",
     ],
     presets: [require("nativewind/preset")],
+    darkMode: 'class',
     theme: {
         extend: {
             colors: {
@@ -27,6 +28,40 @@ module.exports = {
                     surface: '#18181b',   // zinc-900
                     card: '#27272a',      // zinc-800
                 },
+
+                // Card system (Phase 1: Gigs UI Enhancement)
+                card: {
+                    bg: 'rgba(18, 18, 18, 1)',
+                    hover: 'rgba(24, 24, 24, 1)',
+                },
+
+                // Border colors
+                border: {
+                    subtle: 'rgba(255, 255, 255, 0.08)',
+                    hover: 'rgba(255, 255, 255, 0.12)',
+                },
+
+                // Accent colors
+                accent: {
+                    urgent: '#FF6B35',
+                    verified: '#10B981',
+                    premium: '#8B5CF6',
+                },
+            },
+            // Spacing scale (8px grid)
+            spacing: {
+                'xs': '8px',
+                'sm': '16px',
+                'md': '24px',
+                'lg': '32px',
+                'xl': '48px',
+                'xxl': '64px',
+            },
+            // Box shadows with purple glow
+            boxShadow: {
+                'glow': '0 0 20px rgba(139, 92, 246, 0.15)',
+                'glow-hover': '0 0 40px rgba(139, 92, 246, 0.25)',
+                'glow-lg': '0 0 60px rgba(139, 92, 246, 0.3)',
             },
             fontFamily: {
                 // Outfit - Primary display/heading font

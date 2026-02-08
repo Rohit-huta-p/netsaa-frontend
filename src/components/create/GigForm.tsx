@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
 import {
     ChevronRight,
@@ -17,14 +17,20 @@ import {
     Camera,
     Clock
 } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StepIndicator } from '@/components/common/StepIndicator';
 import { InputGroup } from '@/components/ui/InputGroup';
 import { SelectInput } from '@/components/ui/SelectInput';
 import { TextArea } from '@/components/ui/TextArea';
 import { Chip } from '@/components/ui/Chip';
+import { TagInput } from '@/components/ui/TagInput';
+import { DatePickerInput } from '@/components/ui/DatePickerInput';
+
+import dayjs from 'dayjs';
 import { z } from 'zod';
 import { useCreateGig, useUpdateGig } from '@/hooks/useGigs';
 import { Gig } from '@/types/gig';
+import { MapLinkCard } from '@/components/location/MapLinkCard';
 
 // Zod Schema synced to backend
 const formSchema = z.object({
@@ -43,7 +49,10 @@ const formSchema = z.object({
     maxHeight: z.string().optional(),
 
     compType: z.enum(['fixed', 'hourly', 'per-day']),
-    amount: z.string().min(1, "Amount is required"),
+    compStructure: z.enum(['fixed', 'range', 'tbd']).optional(),
+    amount: z.string().optional(),
+    minAmount: z.string().optional(),
+    maxAmount: z.string().optional(),
     negotiable: z.boolean(),
 
     city: z.string().min(1, "City is required"),
@@ -71,21 +80,23 @@ const formSchema = z.object({
     practiceCount: z.string().optional(),
     practicePaid: z.boolean(),
     practiceExtend: z.boolean(),
-    practiceNotes: z.string().optional()
+    practiceNotes: z.string().optional(),
+
+    termsAndConditions: z.string().optional()
 });
 
-// Simple TextInput wrapper for consistency with design
+// NETSA Organizer-themed TextInput
 const StyledTextInput = ({ value, onChangeText, placeholder, icon: Icon, type = 'text', ...props }: any) => (
     <View className="relative">
         {Icon && (
             <View className="absolute left-3 top-1/2 -translate-y-6 z-10">
-                <Icon size={18} color="#71717a" />
+                <Icon size={18} color="rgba(255, 255, 255, 0.4)" />
             </View>
         )}
         <TextInput
-            className={`w-full bg-zinc-900/50 border border-zinc-700 rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-zinc-100 placeholder-zinc-600 focus:border-indigo-500`}
+            className={`w-full bg-zinc-900/50 border border-white/10 rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500 focus:border-[#FF6B35]`}
             placeholder={placeholder}
-            placeholderTextColor="#52525b"
+            placeholderTextColor="rgba(255, 255, 255, 0.3)"
             value={value}
             onChangeText={onChangeText}
             {...props}
@@ -110,7 +121,7 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
     // Form State
     const [formData, setFormData] = useState({
         title: 'Need 5 dancers ',
-        gigType: 'one-time', // Backend Enum
+        gigType: 'one-time',
         category: 'music_video',
         tags: 'sangeet',
 
@@ -123,8 +134,11 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
         minHeight: '150',
         maxHeight: '200',
 
-        compType: 'fixed', // Backend Enum
+        compType: 'fixed',
+        compStructure: 'fixed', // 'fixed' | 'range' | 'tbd'
         amount: '2500',
+        minAmount: '',
+        maxAmount: '',
         negotiable: false,
 
         city: 'Pune',
@@ -148,11 +162,12 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
         urgent: false,
         featured: false,
 
-        // Practice Days (New)
         practiceCount: '',
         practicePaid: false,
         practiceExtend: false,
-        practiceNotes: ''
+        practiceNotes: '',
+
+        termsAndConditions: ''
     });
 
     const steps = [
@@ -163,9 +178,13 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
         { title: "Finalize", subtitle: "Review & Publish" },
     ];
 
+    const scrollViewRef = useRef<ScrollView>(null);
+
+    const scrollToTop = () => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    };
+
     const handleNext = () => {
-        // Validate current step fields before moving?
-        // simple validation for now
         if (currentStep === 1 && !formData.title) {
             Alert.alert("Validation", "Please enter a title");
             return;
@@ -175,6 +194,7 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
             setCompletedSteps(prev => [...prev, currentStep]);
         }
         setCurrentStep(prev => Math.min(prev + 1, steps.length));
+        scrollToTop();
     };
 
     const handleBack = () => {
@@ -182,450 +202,666 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
             onCancel();
         } else {
             setCurrentStep(prev => Math.max(prev - 1, 1));
+            scrollToTop();
         }
     };
 
     const updateField = (field: string, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
-        // Clear specific error if any
-        if (validationErrors[field]) {
-            setValidationErrors(prev => ({ ...prev, [field]: '' }));
-        }
     };
 
-    const handleSubmit = async (isDraft: boolean = false) => {
-        // Zod Validation
-        const result = formSchema.safeParse(formData);
+    const handleSubmit = async (isDraft: boolean) => {
+        try {
+            const parsed = formSchema.parse(formData);
 
-        if (!result.success) {
-            const errors: any = {};
-            result.error.issues.forEach(issue => {
-                errors[issue.path[0]] = issue.message;
-            });
-            setValidationErrors(errors);
-            Alert.alert("Validation Error", "Please check the form for errors.");
-            return;
-        }
-
-        // Map to Backend DTO
-        const payload: Partial<Gig> = {
-            title: formData.title,
-            description: formData.description,
-            type: formData.gigType as any,
-            category: formData.category,
-            tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : [],
-
-            artistTypes: [formData.artistType],
-            requiredSkills: formData.skills ? formData.skills.split(',').map(s => s.trim()) : [],
-            experienceLevel: formData.experienceLevel as any,
-
-            genderPreference: formData.gender as any,
-            physicalRequirements: `Height: ${formData.minHeight || '?'} - ${formData.maxHeight || '?'} cm`,
-
-            ageRange: {
-                min: formData.minAge ? parseInt(formData.minAge) : undefined,
-                max: formData.maxAge ? parseInt(formData.maxAge) : undefined
-            },
-
-            location: {
-                city: formData.city,
-                venueName: formData.venue,
-                address: formData.address,
-                isRemote: false,
-                country: 'India',
-                state: ''
-            },
-
-            schedule: {
-                startDate: formData.startDate,
-                endDate: formData.endDate || formData.startDate,
-                durationLabel: 'TBD',
-                timeCommitment: formData.timeCommitment,
-                practiceDays: {
-                    count: parseInt(formData.practiceCount) || 0,
-                    isPaid: formData.practicePaid,
-                    mayExtend: formData.practiceExtend,
-                    notes: formData.practiceNotes
-                }
-            },
-
-            compensation: {
-                model: formData.compType as any,
-                amount: parseFloat(formData.amount) || 0,
-                currency: 'INR',
-                negotiable: formData.negotiable,
-                perks: formData.benefits ? [formData.benefits] : []
-            },
-
-            mediaRequirements: {
-                headshots: formData.mediaHeadshot,
-                fullBody: formData.mediaFullBody,
-                videoReel: formData.mediaReel,
-                audioSample: formData.mediaAudio,
-                notes: formData.requirements // Mapped correctly now
-            },
-
-            applicationDeadline: formData.deadline || new Date().toISOString(),
-            maxApplications: parseInt(formData.maxApplicants) || 100,
-
-            isUrgent: formData.urgent,
-            isFeatured: formData.featured,
-            // Set status based on isDraft parameter
-            status: isDraft ? 'draft' : 'published'
-        };
-
-        // Create gig with appropriate status (draft or published)
-        createGigMutation.mutate(payload, {
-            onSuccess: (createdGig) => {
-                if (isDraft) {
-                    Alert.alert("Draft Saved", "Your gig has been saved as a draft.");
-                } else {
-                    Alert.alert("Success", "Gig published successfully!");
-                }
-                onPublish(createdGig);
-            },
-            onError: (err) => {
-                Alert.alert("Error", err.message || `Failed to ${isDraft ? 'save draft' : 'publish gig'}`);
+            // Custom Validation for Compensation
+            if (formData.compStructure === 'fixed' && !formData.amount) {
+                Alert.alert("Validation", "Please enter an amount");
+                return;
             }
-        });
+            if (formData.compStructure === 'range' && !formData.minAmount) {
+                Alert.alert("Validation", "Please enter a minimum amount");
+                return;
+            }
+
+            const payload = {
+                title: parsed.title,
+                description: parsed.description,
+                type: parsed.gigType,
+                category: parsed.category,
+                tags: parsed.tags?.split(',').map(t => t.trim()).filter(Boolean) || [],
+
+                artistTypes: [parsed.artistType],
+                requiredSkills: parsed.skills?.split(',').map(s => s.trim()).filter(Boolean) || [],
+                experienceLevel: parsed.experienceLevel,
+
+                ageRange: {
+                    min: parsed.minAge ? parseInt(parsed.minAge) : undefined,
+                    max: parsed.maxAge ? parseInt(parsed.maxAge) : undefined
+                },
+                genderPreference: parsed.gender,
+                physicalRequirements: `Height: ${parsed.minHeight}-${parsed.maxHeight}cm`,
+
+                location: {
+                    city: parsed.city,
+                    state: 'Maharashtra',
+                    country: 'India',
+                    venueName: parsed.venue,
+                    address: parsed.address,
+                    isRemote: false
+                },
+
+                schedule: {
+                    startDate: new Date(parsed.startDate),
+                    endDate: parsed.endDate ? new Date(parsed.endDate) : new Date(parsed.startDate),
+                    durationLabel: parsed.timeCommitment || '1 day',
+                    timeCommitment: parsed.timeCommitment,
+                    practiceDays: {
+                        count: parsed.practiceCount ? parseInt(parsed.practiceCount) : 0,
+                        isPaid: parsed.practicePaid,
+                        mayExtend: parsed.practiceExtend,
+                        notes: parsed.practiceNotes
+                    }
+                },
+
+                compensation: {
+                    model: parsed.compType,
+                    // Use optional mapping based on structure
+                    amount: (formData.compStructure === 'fixed' && parsed.amount) ? parseInt(parsed.amount) : undefined,
+                    minAmount: (formData.compStructure === 'range' && parsed.minAmount) ? parseInt(parsed.minAmount) : undefined,
+                    maxAmount: (formData.compStructure === 'range' && parsed.maxAmount) ? parseInt(parsed.maxAmount) : undefined,
+                    currency: 'INR',
+                    negotiable: parsed.negotiable,
+                    perks: parsed.benefits?.split(',').map(p => p.trim()).filter(Boolean) || []
+                },
+
+                applicationDeadline: parsed.deadline ? new Date(parsed.deadline) : undefined,
+                maxApplications: parsed.maxApplicants ? parseInt(parsed.maxApplicants) : undefined,
+
+                mediaRequirements: {
+                    headshots: parsed.mediaHeadshot,
+                    fullBody: parsed.mediaFullBody,
+                    videoReel: parsed.mediaReel,
+                    audioSample: parsed.mediaAudio,
+                    notes: parsed.requirements
+                },
+
+                status: (isDraft ? 'draft' : 'published') as Gig['status'],
+                isUrgent: parsed.urgent,
+                isFeatured: parsed.featured
+            };
+
+            await createGigMutation.mutateAsync(payload);
+            Alert.alert("Success", `Gig ${isDraft ? 'saved as draft' : 'published'} successfully!`);
+            onPublish(payload);
+        } catch (err: any) {
+            Alert.alert("Error", err.message || "Failed to create gig");
+        }
     };
 
-    // Render Steps
+    /* -------------------------------------------------------------------------- */
+    /*                                 STEP 1                                     */
+    /* -------------------------------------------------------------------------- */
     const renderStep1 = () => (
-        <View className="gap-4">
-            <View className="bg-indigo-500/10 p-4 rounded-2xl border border-indigo-500/20 mb-4">
-                <Text className="text-indigo-300 font-semibold mb-2 flex-row items-center">
-                    <Sparkles size={16} color="#818cf8" /> Pro Tip
+        <View className="gap-6">
+            {/* Gradient Header Card */}
+            <LinearGradient
+                colors={['#FF6B35', '#FF8C42']}
+                start={[0, 0]}
+                end={[1, 0]}
+                className="rounded-2xl p-6 mb-2"
+                style={{
+                    shadowColor: '#FF6B35',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                }}
+            >
+                <View className="flex-row items-center mb-2">
+                    <Briefcase size={20} color="#fff" />
+                    <Text className="text-white font-black text-sm ml-2 uppercase tracking-wider">
+                        Gig Basics
+                    </Text>
+                </View>
+                <Text className="text-white/90 text-sm font-light">
+                    Start with the essentials—what's this gig all about?
                 </Text>
-                <Text className="text-zinc-400 text-sm">
-                    Specific titles attract 40% more qualified applicants. Instead of "Dancer needed", try "Hip-Hop Dancer for Music Video".
-                </Text>
-            </View>
+            </LinearGradient>
 
-            <InputGroup label="Gig Title" required error={validationErrors.title}>
+            <InputGroup label="Gig Title" subtitle="Make it clear and specific">
                 <StyledTextInput
                     icon={Type}
                     value={formData.title}
                     onChangeText={(val: string) => updateField('title', val)}
-                    placeholder="e.g. Lead Guitarist for Summer Tour"
+                    placeholder="e.g. Need 5 Dancers for Sangeet Performance"
                 />
             </InputGroup>
 
-            <View className="flex-col md:flex-row gap-4">
-                <InputGroup label="Gig Type" required>
-                    <SelectInput
-                        icon={Layout}
-                        options={[
-                            { label: 'One-Time', value: 'one-time' },
-                            { label: 'Recurring', value: 'recurring' },
-                            { label: 'Contract', value: 'contract' }
-                        ]}
-                        value={formData.gigType}
-                        onChange={(val) => updateField('gigType', val)}
-                    />
-                </InputGroup>
-
-                <InputGroup label="Category" required error={validationErrors.category}>
-                    <SelectInput
-                        icon={Briefcase}
-                        options={[
-                            { label: 'Music Video', value: 'music_video' },
-                            { label: 'Commercial', value: 'commercial' },
-                            { label: 'Live Event', value: 'live_event' },
-                            { label: 'Movie / Film', value: 'movie' },
-                            { label: 'Theatre', value: 'theatre' }
-                        ]}
-                        value={formData.category}
-                        onChange={(val) => updateField('category', val)}
-                    />
-                </InputGroup>
-            </View>
-
-            <InputGroup label="Tags" subtitle="Press Enter to add">
-                <StyledTextInput
-                    icon={AlignLeft}
-                    value={formData.tags}
-                    onChangeText={(val: string) => updateField('tags', val)}
-                    placeholder="Add tags separated by commas..."
-                />
-            </InputGroup>
-        </View>
-    );
-
-    const renderStep2 = () => (
-        <View className="gap-4">
-            <InputGroup label="Artist Type" required error={validationErrors.artistType}>
-                <View className="flex-row flex-wrap">
-                    {['Dancer', 'Singer', 'Model', 'Musician', 'DJ', 'Actor', 'Other'].map(type => (
-                        <Chip
+            <InputGroup label="Gig Type">
+                <View className="flex-row gap-3">
+                    {['one-time', 'recurring', 'contract'].map((type) => (
+                        <TouchableOpacity
                             key={type}
-                            label={type}
-                            selected={formData.artistType.toLowerCase() === type.toLowerCase()}
-                            onClick={() => updateField('artistType', type.toLowerCase())}
-                        />
+                            onPress={() => updateField('gigType', type)}
+                            className={`flex-1 px-4 py-3 rounded-xl border ${formData.gigType === type
+                                ? 'bg-[#FF6B35]/15 border-[#FF6B35]'
+                                : 'bg-zinc-900/50 border-white/10'
+                                }`}
+                        >
+                            <Text className={`text-center font-bold capitalize ${formData.gigType === type ? 'text-[#FF6B35]' : 'text-zinc-400'
+                                }`}>
+                                {type.replace('-', ' ')}
+                            </Text>
+                        </TouchableOpacity>
                     ))}
                 </View>
             </InputGroup>
 
-            <InputGroup label="Experience Level" required>
-                <SelectInput
-                    options={[
-                        { label: 'Beginner', value: 'beginner' },
-                        { label: 'Intermediate', value: 'intermediate' },
-                        { label: 'Professional', value: 'professional' }
-                    ]}
-                    value={formData.experienceLevel}
-                    onChange={(val) => updateField('experienceLevel', val)}
-                />
-            </InputGroup>
-
-            <InputGroup label="Required Skills">
+            <InputGroup label="Category">
                 <StyledTextInput
-                    value={formData.skills}
-                    onChangeText={(val: string) => updateField('skills', val)}
-                    placeholder="e.g. Ballet, Tap, Sight Reading"
+                    icon={Layout}
+                    value={formData.category}
+                    onChangeText={(val: string) => updateField('category', val)}
+                    placeholder="e.g. Wedding, Corporate Event, Concert"
                 />
             </InputGroup>
 
-            <View className="gap-4">
+            <InputGroup label="Tags" subtitle="Type comma or enter to add tags">
+                <TagInput
+                    value={formData.tags}
+                    onChangeTags={(val: string) => updateField('tags', val)}
+                    placeholder="e.g. sangeet, classical"
+                />
+            </InputGroup>
+
+            <InputGroup label="Description" subtitle="Paint the full picture">
+                <TextArea
+                    rows={6}
+                    value={formData.description}
+                    onChangeText={(val: string) => updateField('description', val)}
+                    placeholder="Describe the gig, atmosphere, what makes it special..."
+                />
+            </InputGroup>
+        </View>
+    );
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 STEP 2                                     */
+    /* -------------------------------------------------------------------------- */
+    const renderStep2 = () => (
+        <View className="gap-6">
+            <LinearGradient
+                colors={['#FF6B35', '#FF8C42']}
+                start={[0, 0]}
+                end={[1, 0]}
+                className="rounded-2xl p-6 mb-2"
+                style={{
+                    shadowColor: '#FF6B35',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                }}
+            >
+                <View className="flex-row items-center mb-2">
+                    <User size={20} color="#fff" />
+                    <Text className="text-white font-black text-sm ml-2 uppercase tracking-wider">
+                        Talent Requirements
+                    </Text>
+                </View>
+                <Text className="text-white/90 text-sm font-light">
+                    Define who you're looking for—skills, experience, attributes
+                </Text>
+            </LinearGradient>
+
+            <InputGroup label="Artist Type" subtitle="Primary performer role">
+                <StyledTextInput
+                    icon={User}
+                    value={formData.artistType}
+                    onChangeText={(val: string) => updateField('artistType', val)}
+                    placeholder="e.g. Dancer, Singer, Actor"
+                />
+            </InputGroup>
+
+            <InputGroup label="Required Skills" subtitle="Type comma or enter to add skills">
+                <TagInput
+                    value={formData.skills}
+                    onChangeTags={(val: string) => updateField('skills', val)}
+                    placeholder="e.g. Classical Dance, Bollywood"
+                />
+            </InputGroup>
+
+            <InputGroup label="Experience Level">
+                <View className="flex-row gap-3">
+                    {['beginner', 'intermediate', 'professional'].map((level) => (
+                        <TouchableOpacity
+                            key={level}
+                            onPress={() => updateField('experienceLevel', level)}
+                            className={`flex-1 px-4 py-3 rounded-xl border ${formData.experienceLevel === level
+                                ? 'bg-[#FF6B35]/15 border-[#FF6B35]'
+                                : 'bg-zinc-900/50 border-white/10'
+                                }`}
+                        >
+                            <Text className={`text-center font-bold capitalize ${formData.experienceLevel === level ? 'text-[#FF6B35]' : 'text-zinc-400'
+                                }`}>
+                                {level}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </InputGroup>
+
+            <View className="bg-zinc-900/40 border border-white/10 rounded-2xl p-6">
+                <Text className="text-white font-black text-lg tracking-tight mb-4">
+                    Physical Attributes
+                </Text>
+
                 <InputGroup label="Gender Preference">
-                    <SelectInput
-                        icon={User}
-                        options={[
-                            { label: 'Any', value: 'any' },
-                            { label: 'Female', value: 'female' },
-                            { label: 'Male', value: 'male' },
-                            { label: 'Other / NB', value: 'other' }
-                        ]}
-                        value={formData.gender}
-                        onChange={(val) => updateField('gender', val)}
-                    />
+                    <View className="flex-row gap-3">
+                        {['any', 'male', 'female', 'other'].map((gen) => (
+                            <TouchableOpacity
+                                key={gen}
+                                onPress={() => updateField('gender', gen)}
+                                className={`flex-1 px-4 py-3 rounded-xl border ${formData.gender === gen
+                                    ? 'bg-[#FF6B35]/15 border-[#FF6B35]'
+                                    : 'bg-zinc-900/50 border-white/10'
+                                    }`}
+                            >
+                                <Text className={`text-center font-bold capitalize ${formData.gender === gen ? 'text-[#FF6B35]' : 'text-zinc-400'
+                                    }`}>
+                                    {gen}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                 </InputGroup>
 
-                <View className="flex-row gap-4">
+                <View className="flex-row gap-4 mt-4">
+                    {/* Age Range - Compact Row */}
                     <View className="flex-1">
-                        <InputGroup label="Min Age">
-                            <StyledTextInput
-                                inputMode="numeric"
-                                value={formData.minAge}
-                                onChangeText={(val: string) => updateField('minAge', val)}
-                                placeholder="18"
-                            />
-                        </InputGroup>
+                        <Text className="text-zinc-400 mb-2 font-medium">Age Range (Years)</Text>
+                        <View className="flex-row items-center gap-3">
+                            <View className="flex-1">
+                                <TextInput
+                                    className="bg-zinc-900/50 border border-white/10 rounded-xl py-3 px-4 text-white text-center font-bold"
+                                    placeholder="Min"
+                                    placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                                    keyboardType="numeric"
+                                    value={formData.minAge}
+                                    onChangeText={(val) => updateField('minAge', val)}
+                                />
+                            </View>
+                            <Text className="text-zinc-500 font-medium text-lg">-</Text>
+                            <View className="flex-1">
+                                <TextInput
+                                    className="bg-zinc-900/50 border border-white/10 rounded-xl py-3 px-4 text-white text-center font-bold"
+                                    placeholder="Max"
+                                    placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                                    keyboardType="numeric"
+                                    value={formData.maxAge}
+                                    onChangeText={(val) => updateField('maxAge', val)}
+                                />
+                            </View>
+                        </View>
                     </View>
-                    <View className="flex-1">
-                        <InputGroup label="Max Age">
-                            <StyledTextInput
-                                inputMode="numeric"
-                                value={formData.maxAge}
-                                onChangeText={(val: string) => updateField('maxAge', val)}
-                                placeholder="60"
-                            />
-                        </InputGroup>
-                    </View>
-                </View>
 
-                <View className="flex-row gap-4">
+                    {/* Height Range - Compact Row */}
                     <View className="flex-1">
-                        <InputGroup label="Min Ht (cm)">
-                            <StyledTextInput
-                                inputMode="numeric"
-                                value={formData.minHeight}
-                                onChangeText={(val: string) => updateField('minHeight', val)}
-                                placeholder="150"
-                            />
-                        </InputGroup>
-                    </View>
-                    <View className="flex-1">
-                        <InputGroup label="Max Ht (cm)">
-                            <StyledTextInput
-                                inputMode="numeric"
-                                value={formData.maxHeight}
-                                onChangeText={(val: string) => updateField('maxHeight', val)}
-                                placeholder="200"
-                            />
-                        </InputGroup>
+                        <Text className="text-zinc-400 mb-2 font-medium">Height (cm)</Text>
+                        <View className="flex-row items-center gap-3">
+                            <View className="flex-1">
+                                <TextInput
+                                    className="bg-zinc-900/50 border border-white/10 rounded-xl py-3 px-4 text-white text-center font-bold"
+                                    placeholder="Min"
+                                    placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                                    keyboardType="numeric"
+                                    value={formData.minHeight}
+                                    onChangeText={(val) => updateField('minHeight', val)}
+                                />
+                            </View>
+                            <Text className="text-zinc-500 font-medium text-lg">-</Text>
+                            <View className="flex-1">
+                                <TextInput
+                                    className="bg-zinc-900/50 border border-white/10 rounded-xl py-3 px-4 text-white text-center font-bold"
+                                    placeholder="Max"
+                                    placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                                    keyboardType="numeric"
+                                    value={formData.maxHeight}
+                                    onChangeText={(val) => updateField('maxHeight', val)}
+                                />
+                            </View>
+                        </View>
                     </View>
                 </View>
             </View>
         </View>
     );
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 STEP 3                                     */
+    /* -------------------------------------------------------------------------- */
     const renderStep3 = () => (
         <View className="gap-6">
-            {/* Compensation Section */}
-            <View className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
-                <Text className="text-lg font-medium text-white mb-4 flex-row items-center">
-                    <DollarSign size={18} color="#4ade80" /> Compensation
+            <LinearGradient
+                colors={['#FF6B35', '#FF8C42']}
+                start={[0, 0]}
+                end={[1, 0]}
+                className="rounded-2xl p-6 mb-2"
+                style={{
+                    shadowColor: '#FF6B35',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                }}
+            >
+                <View className="flex-row items-center mb-2">
+                    <MapPin size={20} color="#fff" />
+                    <Text className="text-white font-black text-sm ml-2 uppercase tracking-wider">
+                        Logistics
+                    </Text>
+                </View>
+                <Text className="text-white/90 text-sm font-light">
+                    Location, schedule, and compensation details
                 </Text>
-                <View className="gap-4">
-                    <InputGroup label="Model" required>
-                        <SelectInput
-                            options={[
-                                { label: 'Fixed Price', value: 'fixed' },
-                                { label: 'Hourly Rate', value: 'hourly' },
-                                { label: 'Per Day', value: 'per-day' }
-                            ]}
-                            value={formData.compType}
-                            onChange={(val) => updateField('compType', val)}
+            </LinearGradient>
+
+            {/* Location */}
+            <View className="bg-zinc-900/40 border border-white/10 rounded-2xl p-6">
+                <Text className="text-white font-black text-lg tracking-tight mb-4">
+                    Location
+                </Text>
+
+                <InputGroup label="City">
+                    <StyledTextInput
+                        icon={MapPin}
+                        value={formData.city}
+                        onChangeText={(val: string) => updateField('city', val)}
+                        placeholder="e.g. Mumbai, Delhi, Bangalore"
+                    />
+                </InputGroup>
+
+                <View className="mt-4">
+                    <InputGroup label="Venue Name (Optional)">
+                        <StyledTextInput
+                            value={formData.venue}
+                            onChangeText={(val: string) => updateField('venue', val)}
+                            placeholder="e.g. Grand Ballroom, XYZ Hotel"
                         />
                     </InputGroup>
+                </View>
 
-                    <View className="flex-row gap-4">
-                        <View className="flex-1">
-                            <InputGroup label="Amount (INR)" error={validationErrors.amount}>
+                <View className="mt-4">
+                    <InputGroup label="Full Address (Optional)">
+                        <View className="flex-row gap-2">
+                            <View className="flex-1">
                                 <StyledTextInput
-                                    inputMode="numeric"
-                                    value={formData.amount}
-                                    onChangeText={(val: string) => updateField('amount', val)}
-                                    placeholder="0.00"
+                                    value={formData.address}
+                                    onChangeText={(val: string) => updateField('address', val)}
+                                    placeholder="Street, Area, Landmark"
                                 />
-                            </InputGroup>
+                            </View>
                         </View>
-                        <View className="justify-end mb-6">
-                            <TouchableOpacity
-                                className={`flex-row items-center space-x-2 p-3 rounded-xl border ${formData.negotiable ? 'bg-indigo-500/20 border-indigo-500' : 'border-zinc-700 bg-zinc-900/50'}`}
-                                onPress={() => updateField('negotiable', !formData.negotiable)}
-                            >
-                                <View className={`w-5 h-5 rounded border items-center justify-center ${formData.negotiable ? 'bg-indigo-500 border-indigo-500' : 'border-zinc-500'}`}>
-                                    {formData.negotiable && <Check size={12} color="#fff" />}
-                                </View>
-                                <Text className="text-zinc-300">Negotiable</Text>
-                            </TouchableOpacity>
-                        </View>
+                        {/* Map Link Preview */}
+                    </InputGroup>
+                    <View className="">
+                        <MapLinkCard
+                            venueName={formData.venue}
+                            address={formData.address}
+                            city={formData.city}
+                            state={'State'}
+                            country={'India'}
+                        />
                     </View>
                 </View>
             </View>
 
-            {/* Location Section */}
-            <View className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
-                <Text className="text-lg font-medium text-white mb-4 flex-row items-center">
-                    <MapPin size={18} color="#818cf8" /> Location & Schedule
+            {/* Schedule */}
+            <View className="bg-zinc-900/40 border border-white/10 rounded-2xl p-6">
+                <Text className="text-white font-black text-lg tracking-tight mb-4">
+                    Schedule
                 </Text>
-                <View className="gap-4">
-                    <InputGroup label="City" required error={validationErrors.city}>
-                        <StyledTextInput
-                            value={formData.city}
-                            onChangeText={(val: string) => updateField('city', val)}
-                            placeholder="City, State"
-                        />
-                    </InputGroup>
-                    <InputGroup label="Venue Name">
-                        <StyledTextInput
-                            value={formData.venue}
-                            onChangeText={(val: string) => updateField('venue', val)}
-                            placeholder="e.g. MSG"
-                        />
-                    </InputGroup>
-                </View>
-                <View className="mt-4">
-                    <InputGroup label="Full Address">
-                        <StyledTextInput
-                            value={formData.address}
-                            onChangeText={(val: string) => updateField('address', val)}
-                            placeholder="Street Address"
-                        />
-                    </InputGroup>
-                </View>
-                <View className="gap-4 mt-4">
-                    <InputGroup label="Start Date" required error={validationErrors.startDate}>
-                        <StyledTextInput
-                            icon={Calendar}
+
+                <View className="flex-row gap-4">
+                    <View className="flex-1">
+                        <DatePickerInput
+                            label="Start Date"
                             value={formData.startDate}
-                            onChangeText={(val: string) => updateField('startDate', val)}
-                            placeholder="YYYY-MM-DD"
+                            onChange={(date: Date) => updateField('startDate', dayjs(date).format('YYYY-MM-DD'))}
+                            placeholder="Select Date"
+                            minimumDate={new Date()}
                         />
-                    </InputGroup>
-                    <InputGroup label="End Date">
-                        <StyledTextInput
-                            icon={Calendar}
+                    </View>
+                    <View className="flex-1">
+                        <DatePickerInput
+                            label="End Date"
                             value={formData.endDate}
-                            onChangeText={(val: string) => updateField('endDate', val)}
-                            placeholder="YYYY-MM-DD"
+                            onChange={(date: Date) => updateField('endDate', dayjs(date).format('YYYY-MM-DD'))}
+                            placeholder="Select Date"
+                            minimumDate={formData.startDate ? new Date(formData.startDate) : new Date()}
                         />
-                    </InputGroup>
+                    </View>
+                </View>
+
+                <View className="mt-4">
                     <InputGroup label="Time Commitment">
                         <StyledTextInput
                             icon={Clock}
                             value={formData.timeCommitment}
                             onChangeText={(val: string) => updateField('timeCommitment', val)}
-                            placeholder="e.g. 4 hours per day, 2 days a week"
+                            placeholder="e.g. 2 hours, Full day, 3 days"
+                        />
+                    </InputGroup>
+                </View>
+
+                {/* Practice Days */}
+                <View className="mt-6 p-4 bg-zinc-800/50 rounded-xl border border-white/5">
+                    <Text className="text-zinc-300 font-bold mb-3">Practice Days</Text>
+
+                    <InputGroup label="Number of Practice Days">
+                        <StyledTextInput
+                            inputMode="numeric"
+                            value={formData.practiceCount}
+                            onChangeText={(val: string) => updateField('practiceCount', val)}
+                            placeholder="e.g. 3"
                         />
                     </InputGroup>
 
-                    {/* Practice Days */}
-                    <View className="bg-zinc-800/30 p-4 rounded-xl border border-zinc-800 gap-3">
-                        <Text className="text-zinc-400 font-medium mb-1">Rehearsals & Practice</Text>
-                        <View className="flex-row gap-4">
-                            <View className="flex-1">
-                                <InputGroup label="Practice Days (Count)">
-                                    <StyledTextInput
-                                        inputMode="numeric"
-                                        value={formData.practiceCount}
-                                        onChangeText={(val: string) => updateField('practiceCount', val)}
-                                        placeholder="0"
-                                    />
-                                </InputGroup>
+                    <View className="flex-row gap-4 mt-3">
+                        <TouchableOpacity
+                            className="flex-row items-center gap-2 flex-1 p-3 rounded-lg bg-zinc-900/50"
+                            onPress={() => updateField('practicePaid', !formData.practicePaid)}
+                        >
+                            <View className={`w-5 h-5 rounded border items-center justify-center ${formData.practicePaid ? 'bg-[#FF6B35] border-[#FF6B35]' : 'border-zinc-500'
+                                }`}>
+                                {formData.practicePaid && <Check size={12} color="#fff" />}
                             </View>
-                            <View className="flex-1 justify-center pt-6">
+                            <Text className="text-zinc-300 text-sm">Paid Practice</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="flex-row items-center gap-2 flex-1 p-3 rounded-lg bg-zinc-900/50"
+                            onPress={() => updateField('practiceExtend', !formData.practiceExtend)}
+                        >
+                            <View className={`w-5 h-5 rounded border items-center justify-center ${formData.practiceExtend ? 'bg-[#FF6B35] border-[#FF6B35]' : 'border-zinc-500'
+                                }`}>
+                                {formData.practiceExtend && <Check size={12} color="#fff" />}
+                            </View>
+                            <Text className="text-zinc-300 text-sm">May Extend</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View className="mt-3">
+                        <TextArea
+                            rows={2}
+                            value={formData.practiceNotes}
+                            onChangeText={(val: string) => updateField('practiceNotes', val)}
+                            placeholder="Any notes about practice sessions..."
+                        />
+                    </View>
+                </View>
+            </View>
+
+            <View className="bg-zinc-900/40 border border-white/10 rounded-2xl p-6">
+                <Text className="text-white font-black text-lg tracking-tight mb-4">
+                    Compensation
+                </Text>
+
+                <InputGroup label="Payment Period">
+                    <View className="flex-row gap-3">
+                        {['fixed', 'hourly', 'per-day'].map((type) => (
+                            <TouchableOpacity
+                                key={type}
+                                onPress={() => updateField('compType', type)}
+                                className={`flex-1 px-4 py-3 rounded-xl border ${formData.compType === type
+                                    ? 'bg-[#FF6B35]/15 border-[#FF6B35]'
+                                    : 'bg-zinc-900/50 border-white/10'
+                                    }`}
+                            >
+                                <Text className={`text-center font-bold capitalize ${formData.compType === type ? 'text-[#FF6B35]' : 'text-zinc-400'
+                                    }`}>
+                                    {type.replace('-', ' ')}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </InputGroup>
+
+                <View className="mt-4">
+                    <InputGroup label="Payment Structure">
+                        <View className="flex-row gap-2">
+                            {[
+                                { id: 'fixed', label: 'Fixed Amount' },
+                                { id: 'range', label: 'Range / Min' },
+                                { id: 'tbd', label: 'To Be Discussed' }
+                            ].map((struct) => (
                                 <TouchableOpacity
-                                    className="flex-row items-center space-x-2"
-                                    onPress={() => updateField('practicePaid', !formData.practicePaid)}
+                                    key={struct.id}
+                                    onPress={() => updateField('compStructure', struct.id)}
+                                    className={`flex-1 px-3 py-3 rounded-xl border ${formData.compStructure === struct.id
+                                        ? 'bg-[#FF6B35]/15 border-[#FF6B35]'
+                                        : 'bg-zinc-900/50 border-white/10'
+                                        }`}
                                 >
-                                    <View className={`w-5 h-5 rounded border items-center justify-center ${formData.practicePaid ? 'bg-indigo-500 border-indigo-500' : 'border-zinc-500'}`}>
-                                        {formData.practicePaid && <Check size={12} color="#fff" />}
-                                    </View>
-                                    <Text className="text-zinc-300">Paid Rehearsals?</Text>
+                                    <Text className={`text-center text-xs font-bold ${formData.compStructure === struct.id ? 'text-[#FF6B35]' : 'text-zinc-400'
+                                        }`}>
+                                        {struct.label}
+                                    </Text>
                                 </TouchableOpacity>
-                            </View>
+                            ))}
                         </View>
-                        <InputGroup label="Practice Notes">
+                    </InputGroup>
+                </View>
+
+                {formData.compStructure === 'fixed' && (
+                    <View className="mt-4">
+                        <InputGroup label="Amount (₹)">
                             <StyledTextInput
-                                value={formData.practiceNotes}
-                                onChangeText={(val: string) => updateField('practiceNotes', val)}
-                                placeholder="e.g. 5pm - 8pm at Studio A"
+                                icon={DollarSign}
+                                inputMode="numeric"
+                                value={formData.amount}
+                                onChangeText={(val: string) => updateField('amount', val)}
+                                placeholder="e.g. 5000"
                             />
                         </InputGroup>
                     </View>
-                </View>
+                )}
+
+                {formData.compStructure === 'range' && (
+                    <View className="mt-4 flex-row gap-4">
+                        <View className="flex-1">
+                            <InputGroup label="Minimum (₹)">
+                                <StyledTextInput
+                                    inputMode="numeric"
+                                    value={formData.minAmount}
+                                    onChangeText={(val: string) => updateField('minAmount', val)}
+                                    placeholder="e.g. 3000"
+                                />
+                            </InputGroup>
+                        </View>
+                        <View className="flex-1">
+                            <InputGroup label="Maximum (₹) (Optional)">
+                                <StyledTextInput
+                                    inputMode="numeric"
+                                    value={formData.maxAmount}
+                                    onChangeText={(val: string) => updateField('maxAmount', val)}
+                                    placeholder="e.g. 8000"
+                                />
+                            </InputGroup>
+                        </View>
+                    </View>
+                )}
+
+                <TouchableOpacity
+                    className="flex-row items-center gap-3 mt-4 p-3 rounded-xl bg-zinc-800/50"
+                    onPress={() => updateField('negotiable', !formData.negotiable)}
+                >
+                    <View className={`w-6 h-6 rounded-md border items-center justify-center ${formData.negotiable ? 'bg-[#FF6B35] border-[#FF6B35]' : 'border-zinc-600'
+                        }`}>
+                        {formData.negotiable && <Check size={14} color="#fff" />}
+                    </View>
+                    <View>
+                        <Text className="text-white font-medium">Negotiable</Text>
+                        <Text className="text-xs text-zinc-500">Open to discuss compensation</Text>
+                    </View>
+                </TouchableOpacity>
             </View>
         </View>
     );
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 STEP 4                                     */
+    /* -------------------------------------------------------------------------- */
     const renderStep4 = () => (
-        <View className="gap-4">
-            <InputGroup label="Description" required subtitle="Be descriptive. What's the vibe?" error={validationErrors.description}>
-                <TextArea
-                    rows={6}
-                    value={formData.description}
-                    onChangeText={(val: string) => updateField('description', val)}
-                    placeholder="Describe the role, the project, and the team..."
-                />
-            </InputGroup>
-
-            {/* Media Requirements Toggle Section */}
-            <View className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
-                <Text className="text-lg font-medium text-white mb-4 flex-row items-center">
-                    <Camera size={18} color="#f472b6" /> Application Requirements
+        <View className="gap-6">
+            <LinearGradient
+                colors={['#FF6B35', '#FF8C42']}
+                start={[0, 0]}
+                end={[1, 0]}
+                className="rounded-2xl p-6 mb-2"
+                style={{
+                    shadowColor: '#FF6B35',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                }}
+            >
+                <View className="flex-row items-center mb-2">
+                    <AlignLeft size={20} color="#fff" />
+                    <Text className="text-white font-black text-sm ml-2 uppercase tracking-wider">
+                        The Pitch
+                    </Text>
+                </View>
+                <Text className="text-white/90 text-sm font-light">
+                    Sell the opportunity—requirements and benefits
                 </Text>
-                <Text className="text-zinc-400 text-sm mb-4">What must the artist submit?</Text>
+            </LinearGradient>
 
-                <View className="flex-row flex-wrap gap-3">
+            <View className="bg-zinc-900/40 border border-white/10 rounded-2xl p-6">
+                <Text className="text-white font-black text-lg tracking-tight mb-4">
+                    Media Requirements
+                </Text>
+                <Text className="text-zinc-400 text-sm mb-4">
+                    What should applicants submit?
+                </Text>
+
+                <View className="gap-3">
                     {[
-                        { key: 'mediaHeadshot', label: 'Headshots' },
-                        { key: 'mediaFullBody', label: 'Full Body Shots' },
+                        { key: 'mediaHeadshot', label: 'Headshot Photos' },
+                        { key: 'mediaFullBody', label: 'Full-Body Photos' },
                         { key: 'mediaReel', label: 'Video Reel' },
                         { key: 'mediaAudio', label: 'Audio Sample' }
                     ].map((item) => (
                         <TouchableOpacity
                             key={item.key}
-                            className={`flex-row items-center space-x-2 px-3 py-2 rounded-lg border ${formData[item.key as keyof typeof formData] ? 'bg-pink-500/20 border-pink-500' : 'border-zinc-700 bg-zinc-900'}`}
+                            className="flex-row items-center gap-3 p-3 rounded-xl bg-zinc-800/50"
                             onPress={() => updateField(item.key, !formData[item.key as keyof typeof formData])}
                         >
-                            <View className={`w-4 h-4 rounded border items-center justify-center ${formData[item.key as keyof typeof formData] ? 'bg-pink-500 border-pink-500' : 'border-zinc-500'}`}>
-                                {formData[item.key as keyof typeof formData] && <Check size={10} color="#fff" />}
+                            <View className={`w-5 h-5 rounded border items-center justify-center ${formData[item.key as keyof typeof formData]
+                                ? 'bg-[#FF6B35] border-[#FF6B35]'
+                                : 'border-zinc-500'
+                                }`}>
+                                {formData[item.key as keyof typeof formData] && <Check size={12} color="#fff" />}
                             </View>
-                            <Text className="text-zinc-200 text-sm">{item.label}</Text>
+                            <Text className="text-white text-sm font-medium">{item.label}</Text>
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -633,107 +869,187 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
 
             <InputGroup label="Specific Instructions" subtitle="Notes for applicants">
                 <TextArea
-                    rows={3}
+                    rows={4}
                     value={formData.requirements}
                     onChangeText={(val: string) => updateField('requirements', val)}
                     placeholder="e.g. Please wear black for the audition reel."
                 />
             </InputGroup>
 
-            <InputGroup label="Additional Benefits" subtitle="Perks attract better talent.">
-                <StyledTextInput
-                    icon={Sparkles}
+            <InputGroup label="Additional Benefits" subtitle="Perks attract better talent">
+                <TagInput
                     value={formData.benefits}
-                    onChangeText={(val: string) => updateField('benefits', val)}
-                    placeholder="e.g. Travel covered, Meals provided"
+                    onChangeTags={(val: string) => updateField('benefits', val)}
+                    placeholder="e.g. Travel, Meals"
+                />
+            </InputGroup>
+
+            <InputGroup label="Terms and Conditions" subtitle="Legal or specific conditions for the gig">
+                <TextArea
+                    rows={4}
+                    value={formData.termsAndConditions}
+                    onChangeText={(val: string) => updateField('termsAndConditions', val)}
+                    placeholder="e.g. Non-disclosure agreement required, no social media posting during shoot, etc."
                 />
             </InputGroup>
         </View>
     );
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 STEP 5                                     */
+    /* -------------------------------------------------------------------------- */
     const renderStep5 = () => (
         <View className="gap-6">
+            <LinearGradient
+                colors={['#FF6B35', '#FF8C42']}
+                start={[0, 0]}
+                end={[1, 0]}
+                className="rounded-2xl p-6 mb-2"
+                style={{
+                    shadowColor: '#FF6B35',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                }}
+            >
+                <View className="flex-row items-center mb-2">
+                    <Eye size={20} color="#fff" />
+                    <Text className="text-white font-black text-sm ml-2 uppercase tracking-wider">
+                        Final Review
+                    </Text>
+                </View>
+                <Text className="text-white/90 text-sm font-light">
+                    Almost there! Review and publish your gig
+                </Text>
+            </LinearGradient>
+
             {/* Settings */}
             <View className="gap-6">
-                <View className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
+                <View className="bg-zinc-900/40 border border-white/10 rounded-2xl p-6">
+                    <Text className="text-white font-black text-lg tracking-tight mb-4">
+                        Application Settings
+                    </Text>
+
                     <InputGroup label="Max Applications" subtitle="Stop accepting after X applies">
                         <StyledTextInput
                             inputMode="numeric"
                             value={formData.maxApplicants}
                             onChangeText={(val: string) => updateField('maxApplicants', val)}
+                            placeholder="e.g. 100"
                         />
                     </InputGroup>
+
                     <View className="mt-4">
-                        <InputGroup label="Deadline">
-                            <StyledTextInput
-                                value={formData.deadline}
-                                onChangeText={(val: string) => updateField('deadline', val)}
-                                placeholder="YYYY-MM-DD"
-                            />
-                        </InputGroup>
+                        <DatePickerInput
+                            label="Application Deadline"
+                            value={formData.deadline}
+                            onChange={(date: Date) => updateField('deadline', dayjs(date).format('YYYY-MM-DD'))}
+                            placeholder="Select Deadline"
+                            minimumDate={new Date()}
+                        />
                     </View>
                 </View>
 
-                <View className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800 gap-4">
+                <View className="bg-zinc-900/40 border border-white/10 rounded-2xl p-6 gap-4">
+                    <Text className="text-white font-black text-lg tracking-tight mb-2">
+                        Boost Visibility
+                    </Text>
+
                     <TouchableOpacity
-                        className="flex-row items-center space-x-3 p-3 rounded-xl bg-zinc-800/50"
+                        className="flex-row items-center gap-3 p-4 rounded-xl bg-zinc-800/50"
                         onPress={() => updateField('urgent', !formData.urgent)}
                     >
-                        <View className={`w-6 h-6 rounded-md border items-center justify-center ${formData.urgent ? 'bg-orange-500 border-orange-500' : 'border-zinc-600'}`}>
+                        <View className={`w-6 h-6 rounded-md border items-center justify-center ${formData.urgent ? 'bg-orange-500 border-orange-500' : 'border-zinc-600'
+                            }`}>
                             {formData.urgent && <Check size={14} color="#fff" />}
                         </View>
-                        <View>
-                            <Text className="text-zinc-200 font-medium">Urgent Gig</Text>
-                            <Text className="text-xs text-zinc-500">Adds an "Urgent" badge</Text>
+                        <View className="flex-1">
+                            <Text className="text-white font-bold">Urgent Gig</Text>
+                            <Text className="text-xs text-zinc-400">Adds an "URGENT" badge to attract fast applicants</Text>
                         </View>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        className="flex-row items-center space-x-3 p-3 rounded-xl bg-zinc-800/50"
+                        className="flex-row items-center gap-3 p-4 rounded-xl bg-zinc-800/50"
                         onPress={() => updateField('featured', !formData.featured)}
                     >
-                        <View className={`w-6 h-6 rounded-md border items-center justify-center ${formData.featured ? 'bg-indigo-500 border-indigo-500' : 'border-zinc-600'}`}>
+                        <View className={`w-6 h-6 rounded-md border items-center justify-center ${formData.featured ? 'bg-[#FF6B35] border-[#FF6B35]' : 'border-zinc-600'
+                            }`}>
                             {formData.featured && <Check size={14} color="#fff" />}
                         </View>
-                        <View>
-                            <Text className="text-zinc-200 font-medium">Feature this Gig</Text>
-                            <Text className="text-xs text-zinc-500">Pin to top (+$15.00)</Text>
+                        <View className="flex-1">
+                            <Text className="text-white font-bold">Feature this Gig</Text>
+                            <Text className="text-xs text-zinc-400">Pin to top of search results (+₹500)</Text>
                         </View>
                     </TouchableOpacity>
                 </View>
             </View>
 
-            {/* Summary Card */}
-            <View className="bg-indigo-900/20 border border-indigo-500/30 rounded-2xl p-6">
-                <Text className="text-indigo-200 font-semibold mb-4 flex-row items-center">
-                    <Eye size={18} color="#c7d2fe" /> Preview
-                </Text>
-                <View className="gap-2">
-                    <View className="flex-row justify-between items-start">
-                        <View className="flex-1 mr-2">
-                            <View className="flex-row gap-2 mb-2">
-                                {formData.urgent && <Text className="bg-orange-500/20 text-orange-300 text-xs px-2 py-0.5 rounded font-medium overflow-hidden">URGENT</Text>}
-                                <Text className="bg-zinc-700 text-zinc-300 text-xs px-2 py-0.5 rounded capitalize overflow-hidden">{formData.artistType}</Text>
+            {/* Preview Card */}
+            <View className="bg-zinc-900/40 border border-[#FF6B35]/30 rounded-2xl p-6">
+                <View className="flex-row items-center mb-4">
+                    <Eye size={18} color="#FF6B35" />
+                    <Text className="text-[#FF6B35] font-black ml-2 uppercase tracking-wider text-sm">
+                        Preview
+                    </Text>
+                </View>
+
+                <View className="gap-3">
+                    <View className="flex-row gap-2 mb-2">
+                        {formData.urgent && (
+                            <View className="bg-orange-500/20 px-3 py-1 rounded">
+                                <Text className="text-orange-300 text-xs font-black uppercase">URGENT</Text>
                             </View>
-                            <Text className="text-xl font-bold text-white mb-1">{formData.title}</Text>
-                            <Text className="text-zinc-400 text-sm flex-row items-center">
-                                <MapPin size={12} color="#a1a1aa" /> {formData.city} • <Calendar size={12} color="#a1a1aa" /> {formData.startDate}
-                            </Text>
-                        </View>
-                        <View className="items-end">
-                            <Text className="text-xl font-bold text-white">₹{formData.amount}</Text>
-                            <Text className="text-xs text-zinc-500 uppercase tracking-wide">{formData.compType}</Text>
+                        )}
+                        <View className="bg-zinc-700 px-3 py-1 rounded">
+                            <Text className="text-zinc-300 text-xs font-medium capitalize">{formData.artistType}</Text>
                         </View>
                     </View>
-                    <View className="h-[1px] bg-indigo-500/20 my-2" />
-                    <Text className="text-zinc-300 text-sm italic" numberOfLines={3}>"{formData.description}"</Text>
+
+                    <Text className="text-white text-2xl font-black tracking-tight">
+                        {formData.title}
+                    </Text>
+
+                    <View className="flex-row items-center gap-4 mt-2">
+                        <View className="flex-row items-center">
+                            <MapPin size={14} color="rgba(255, 255, 255, 0.5)" />
+                            <Text className="text-zinc-400 text-sm ml-1">{formData.city}</Text>
+                        </View>
+                        <View className="flex-row items-center">
+                            <Calendar size={14} color="rgba(255, 255, 255, 0.5)" />
+                            <Text className="text-zinc-400 text-sm ml-1">{formData.startDate}</Text>
+                        </View>
+                    </View>
+
+                    <View className="h-px bg-white/10 my-3" />
+
+                    <View className="flex-row justify-between items-end">
+                        <View>
+                            <Text className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Compensation</Text>
+                            <Text className="text-white text-2xl font-black">₹{formData.amount}</Text>
+                            <Text className="text-zinc-500 text-xs uppercase tracking-wide">{formData.compType}</Text>
+                        </View>
+                        {formData.featured && (
+                            <View className="bg-[#FF6B35]/15 px-3 py-2 rounded-lg">
+                                <Text className="text-[#FF6B35] text-xs font-black uppercase tracking-wider">
+                                    ⭐ FEATURED
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+
+                    <View className="mt-3 p-3 bg-zinc-800/50 rounded-lg">
+                        <Text className="text-zinc-300 text-sm italic" numberOfLines={3}>
+                            "{formData.description}"
+                        </Text>
+                    </View>
                 </View>
             </View>
         </View>
     );
 
     return (
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 24, paddingBottom: 100 }}>
+        <ScrollView ref={scrollViewRef} className="flex-1 bg-black" contentContainerStyle={{ padding: 24, paddingBottom: 100 }}>
             <View className="flex-col lg:flex-row gap-8">
                 <StepIndicator
                     currentStep={currentStep}
@@ -743,8 +1059,10 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
 
                 <View className="flex-1 max-w-3xl">
                     <View className="mb-6">
-                        <Text className="text-3xl font-bold text-white mb-2">{steps[currentStep - 1].title}</Text>
-                        <Text className="text-zinc-400">{steps[currentStep - 1].subtitle}</Text>
+                        <Text className="text-4xl font-black text-white mb-2 tracking-tight">
+                            {steps[currentStep - 1].title}
+                        </Text>
+                        <Text className="text-zinc-400 font-light">{steps[currentStep - 1].subtitle}</Text>
                     </View>
 
                     <View>
@@ -758,52 +1076,81 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
             </View>
 
             {/* Footer Actions */}
-            <View className="flex-row justify-between items-center mt-12 pt-8 border-t border-zinc-800">
+            <View className="flex-row justify-between items-center mt-12 pt-8 border-t border-white/10">
                 <TouchableOpacity
                     onPress={handleBack}
-                    className={`flex-row items-center gap-2 px-6 py-3 rounded-xl font-medium ${currentStep === 1 ? 'opacity-70' : ''}`}
+                    className={`flex-row items-center gap-2 px-6 py-3 rounded-xl ${currentStep === 1 ? 'opacity-50' : ''}`}
                     disabled={isLoading}
                 >
                     <ChevronLeft size={20} color={currentStep === 1 ? "#52525b" : "#d4d4d8"} />
-                    <Text className={`${currentStep === 1 ? 'text-zinc-600' : 'text-zinc-300'}`}>{currentStep === 1 ? 'Cancel' : 'Back'}</Text>
+                    <Text className={`font-medium ${currentStep === 1 ? 'text-zinc-600' : 'text-zinc-300'}`}>
+                        {currentStep === 1 ? 'Cancel' : 'Back'}
+                    </Text>
                 </TouchableOpacity>
 
                 {currentStep === steps.length ? (
                     <View className="flex-row gap-3">
                         {/* Draft Button */}
                         <TouchableOpacity
-                            className={`px-6 py-3 rounded-xl font-semibold border border-zinc-600 ${isLoading ? 'opacity-50' : 'active:bg-zinc-800'}`}
+                            className={`px-6 py-3 rounded-xl border border-white/20 bg-zinc-900/50 ${isLoading ? 'opacity-50' : ''}`}
                             onPress={() => handleSubmit(true)}
                             disabled={isLoading}
                         >
-                            <Text className="text-zinc-300">Save Draft</Text>
+                            <Text className="text-zinc-300 font-bold">Save Draft</Text>
                         </TouchableOpacity>
 
                         {/* Publish Button */}
                         <TouchableOpacity
-                            className={`flex-row items-center gap-2 px-8 py-3 rounded-xl font-bold bg-indigo-600 ${isLoading ? 'opacity-50' : 'hover:bg-indigo-500'}`}
                             onPress={() => handleSubmit(false)}
                             disabled={isLoading}
                         >
-                            {isLoading ? <ActivityIndicator color="#fff" /> : (
-                                <>
-                                    <Text className="text-white font-bold mr-2">Publish Gig</Text>
-                                    <Check size={20} color="#fff" />
-                                </>
-                            )}
+                            <LinearGradient
+                                colors={['#FF6B35', '#FF8C42']}
+                                start={[0, 0]}
+                                end={[1, 0]}
+                                className="flex-row items-center gap-2 px-8 py-3 rounded-xl"
+                                style={{
+                                    shadowColor: '#FF6B35',
+                                    shadowOffset: { width: 0, height: 4 },
+                                    shadowOpacity: 0.3,
+                                    shadowRadius: 12,
+                                }}
+                            >
+                                {isLoading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <>
+                                        <Text className="text-white font-black text-base tracking-tight">
+                                            Publish Gig
+                                        </Text>
+                                        <Check size={20} color="#fff" />
+                                    </>
+                                )}
+                            </LinearGradient>
                         </TouchableOpacity>
                     </View>
                 ) : (
-                    <TouchableOpacity
-                        onPress={handleNext}
-                        className="flex-row items-center gap-2 px-8 py-3 rounded-xl font-bold bg-white"
-                        disabled={isLoading}
-                    >
-                        <Text className="text-black font-bold mr-2">Next Step</Text>
-                        <ChevronRight size={20} color="#000" />
+                    <TouchableOpacity onPress={handleNext} disabled={isLoading}>
+                        <LinearGradient
+                            colors={['#FF6B35', '#FF8C42']}
+                            start={[0, 0]}
+                            end={[1, 0]}
+                            className="flex-row items-center gap-2 px-8 py-3 rounded-xl"
+                            style={{
+                                shadowColor: '#FF6B35',
+                                shadowOffset: { width: 0, height: 4 },
+                                shadowOpacity: 0.3,
+                                shadowRadius: 12,
+                            }}
+                        >
+                            <Text className="text-white font-black text-base tracking-tight">Next Step</Text>
+                            <ChevronRight size={20} color="#fff" />
+                        </LinearGradient>
                     </TouchableOpacity>
                 )}
             </View>
-        </ScrollView>
+
+
+        </ScrollView >
     );
 };

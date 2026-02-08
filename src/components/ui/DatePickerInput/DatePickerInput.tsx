@@ -1,8 +1,9 @@
-import * as React from "react"
+import React, { useState } from "react"
+import { View, Text, TouchableOpacity } from "react-native"
 import dayjs from "dayjs"
-
+import { Calendar, Clock } from "lucide-react-native"
 import { DatePickerInputProps } from "@/types/DatePickerInput.types"
-import { Calendar } from "lucide-react-native"
+import { CalendarModal } from "../CalendarModal"
 
 export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     label,
@@ -10,48 +11,68 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     value,
     onChange,
     error,
+    mode = "date",
     minimumDate,
     maximumDate,
     placeholder = "Select date",
     required,
 }) => {
-    const dateValue = value ? dayjs(value).format("YYYY-MM-DD") : ""
+    const [open, setOpen] = useState(false)
+    const dateValue = value ? dayjs(value).toDate() : undefined
+
+    const handleSelect = (date: Date) => {
+        onChange(date);
+    }
 
     return (
-        <div className="flex flex-col gap-2 mb-1">
+        <View className="mb-1">
             {label && (
-                <div className="flex flex-row items-center mb-1.5 ml-1">
-                    <span className="text-zinc-400 text-sm font-medium">
-                        {label} {required && <span className="text-red-500">*</span>}
-                    </span>
+                <View className="flex-row items-center mb-1.5 ml-1">
+                    <Text className="text-zinc-400 text-sm font-medium">
+                        {label} {required && <Text className="text-red-500">*</Text>}
+                    </Text>
                     {subtitle && (
-                        <span className="ml-2 text-xs text-zinc-500">{subtitle}</span>
+                        <Text className="text-zinc-500 text-xs ml-2">{subtitle}</Text>
                     )}
-                </div>
+                </View>
             )}
 
-            <div className="relative">
-                <input
-                    type="date"
-                    value={dateValue}
-                    min={minimumDate ? dayjs(minimumDate).format("YYYY-MM-DD") : undefined}
-                    max={maximumDate ? dayjs(maximumDate).format("YYYY-MM-DD") : undefined}
-                    onChange={(e) => {
-                        const val = e.target.value
-                        if (!val) return
-                        onChange(new Date(val + "T00:00:00"))
-                    }}
-                    className={`w-full appearance-none bg-zinc-900/50 border ${error ? "border-red-500" : "border-zinc-700"
-                        } rounded-xl py-3 pl-10 pr-4 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500`}
-                />
+            <TouchableOpacity
+                onPress={() => setOpen(true)}
+                className={`flex-row items-center w-full bg-zinc-900/50 border ${error ? "border-red-500" : "border-zinc-700"
+                    } rounded-xl py-3 px-4`}
+            >
+                <View className="mr-3">
+                    {mode === "time" ? (
+                        <Clock size={18} color="#71717a" />
+                    ) : (
+                        <Calendar size={18} color="#71717a" />
+                    )}
+                </View>
 
-                {/* Calendar Icon - Absolute Positioned */}
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none flex items-center justify-center">
-                    <Calendar size={18} color="#71717a" />
-                </div>
-            </div>
+                <Text className={`flex-1 ${dateValue ? "text-zinc-100" : "text-zinc-500"}`}>
+                    {dateValue
+                        ? dayjs(dateValue).format(
+                            mode === "time"
+                                ? "h:mm A"
+                                : mode === "datetime"
+                                    ? "MMM D, YYYY h:mm A"
+                                    : "MMM D, YYYY"
+                        )
+                        : placeholder}
+                </Text>
+            </TouchableOpacity>
 
-            {error && <p className="text-xs text-red-500 mt-1 ml-1">{error}</p>}
-        </div>
+            {error && <Text className="text-red-500 text-xs mt-1 ml-1">{error}</Text>}
+
+            <CalendarModal
+                visible={open}
+                onClose={() => setOpen(false)}
+                date={dateValue}
+                onSelect={handleSelect}
+                minDate={minimumDate}
+                maxDate={maximumDate}
+            />
+        </View>
     )
 }

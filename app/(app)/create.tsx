@@ -8,7 +8,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, Briefcase, Calendar } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { GigForm } from "@/components/create/GigForm";
 import { EventForm } from "@/components/create/EventForm";
 
@@ -42,41 +43,67 @@ export default function CreateListing() {
             <View style={styles.tabWrapper}>
                 <View style={styles.tabContainer}>
                     <TouchableOpacity
-                        style={[
-                            styles.tab,
-                            activeTab === "gig" && styles.activeTab,
-                        ]}
+                        style={styles.tab}
                         onPress={() => setActiveTab("gig")}
+                        activeOpacity={0.9}
                     >
-                        <Text
-                            style={[
-                                styles.tabText,
-                                activeTab === "gig"
-                                    ? styles.activeTabText
-                                    : styles.inactiveTabText,
-                            ]}
-                        >
-                            Post a Gig
-                        </Text>
+                        {activeTab === "gig" && (
+                            <LinearGradient
+                                colors={['#b835ff52', '#FF8C42']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={StyleSheet.absoluteFill}
+                            />
+                        )}
+                        <View style={styles.tabContent}>
+                            <Briefcase
+                                size={16}
+                                color={activeTab === "gig" ? "#FFFFFF" : "#71717A"}
+                                strokeWidth={activeTab === "gig" ? 2.5 : 2}
+                            />
+                            <Text
+                                style={[
+                                    styles.tabText,
+                                    activeTab === "gig"
+                                        ? styles.activeTabText
+                                        : styles.inactiveTabText,
+                                ]}
+                            >
+                                Post a Gig
+                            </Text>
+                        </View>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[
-                            styles.tab,
-                            activeTab === "event" && styles.activeTab,
-                        ]}
+                        style={styles.tab}
                         onPress={() => setActiveTab("event")}
+                        activeOpacity={0.9}
                     >
-                        <Text
-                            style={[
-                                styles.tabText,
-                                activeTab === "event"
-                                    ? styles.activeTabText
-                                    : styles.inactiveTabText,
-                            ]}
-                        >
-                            Post an Event
-                        </Text>
+                        {activeTab === "event" && (
+                            <LinearGradient
+                                colors={['#b835ff52', '#FF8C42']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={StyleSheet.absoluteFill}
+                            />
+                        )}
+                        <View style={styles.tabContent}>
+                            <Calendar
+                                size={16}
+                                color={activeTab === "event" ? "#FFFFFF" : "#71717A"}
+                                strokeWidth={activeTab === "event" ? 2.5 : 2}
+                            />
+                            <Text
+                                style={[
+                                    styles.tabText,
+                                    activeTab === "event"
+                                        ? styles.activeTabText
+                                        : styles.inactiveTabText,
+                                ]}
+                            >
+                                Post an Event
+                            </Text>
+                        </View>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -118,38 +145,44 @@ const styles = StyleSheet.create({
     },
 
     tabWrapper: {
-        paddingHorizontal: 24,
-        paddingVertical: 16,
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+        paddingTop: 8,
     },
 
     tabContainer: {
         flexDirection: "row",
-        backgroundColor: "rgba(0,0,0,0.3)",
-        borderRadius: 12,
+        backgroundColor: "rgba(255, 255, 255, 0.05)",
+        borderRadius: 100,
         padding: 4,
         borderWidth: 1,
-        borderColor: "#27272A", // zinc-800
+        borderColor: "rgba(255, 255, 255, 0.1)",
     },
 
     tab: {
         flex: 1,
-        paddingVertical: 8,
-        borderRadius: 8,
+        height: 48,
+        borderRadius: 100,
+        overflow: 'hidden',
+        justifyContent: "center",
+        alignItems: "center",
+    },
+
+    tabContent: {
+        flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
+        gap: 8,
+        zIndex: 1,
     },
 
     activeTab: {
-        backgroundColor: "#1A1A1F", // netsa-background equivalent
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        // Handled by Gradient now
     },
 
     tabText: {
-        fontSize: 14,
-        fontWeight: "500",
+        fontSize: 15,
+        fontWeight: "600",
     },
 
     activeTabText: {
@@ -157,7 +190,7 @@ const styles = StyleSheet.create({
     },
 
     inactiveTabText: {
-        color: "#71717A", // zinc-500
+        color: "#71717A",
     },
 
     content: {

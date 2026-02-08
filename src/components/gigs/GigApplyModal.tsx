@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useApplyToGig } from '../../hooks/useGigApplications';
-import { X, Link as LinkIcon, Plus, Trash2 } from 'lucide-react-native';
+import { X, Link as LinkIcon, Plus, Trash2, Check } from 'lucide-react-native';
 
 interface GigApplyModalProps {
     visible: boolean;
     onClose: () => void;
     gigId: string;
     gigTitle: string;
+    onViewTerms?: () => void;
+    hasTerms?: boolean;
 }
 
-export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, gigId, gigTitle }) => {
+export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, gigId, gigTitle, onViewTerms, hasTerms }) => {
     const [coverNote, setCoverNote] = useState('');
     const [portfolioLinks, setPortfolioLinks] = useState<string[]>(['']);
+    const [termsAccepted, setTermsAccepted] = useState(false);
 
     const applyMutation = useApplyToGig();
 
@@ -38,6 +41,11 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, 
             return;
         }
 
+        if (hasTerms && !termsAccepted) {
+            Alert.alert("Required", "Please agree to the Terms and Conditions to apply.");
+            return;
+        }
+
         // Filter out empty links
         const validLinks = portfolioLinks.filter(link => link.trim() !== '');
 
@@ -54,6 +62,7 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, 
                     Alert.alert("Success", "Your application has been submitted!");
                     setCoverNote('');
                     setPortfolioLinks(['']);
+                    setTermsAccepted(false);
                     onClose();
                 },
                 onError: (error: any) => {
@@ -139,6 +148,29 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, 
                                 <Text className="text-netsa-accent-purple font-satoshi-bold ml-2">Add Another Link</Text>
                             </TouchableOpacity>
                         </View>
+
+                        {/* Terms and Conditions Checkbox */}
+                        {hasTerms && (
+                            <View className="flex-row items-center mb-6">
+                                <TouchableOpacity
+                                    onPress={() => setTermsAccepted(!termsAccepted)}
+                                    className={`w-6 h-6 rounded border items-center justify-center mr-3 ${termsAccepted ? 'bg-netsa-accent-purple border-netsa-accent-purple' : 'border-zinc-500'
+                                        }`}
+                                >
+                                    {termsAccepted && <Check size={14} color="white" />}
+                                </TouchableOpacity>
+                                <View className="flex-1 flex-row flex-wrap">
+                                    <Text className="text-zinc-400 font-inter text-sm">
+                                        I agree to the{' '}
+                                    </Text>
+                                    <TouchableOpacity onPress={onViewTerms}>
+                                        <Text className="text-netsa-accent-purple font-satoshi-bold text-sm underline">
+                                            Terms and Conditions
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
                     </ScrollView>
 
                     {/* Footer */}

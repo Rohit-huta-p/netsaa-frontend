@@ -36,3 +36,16 @@ export const useApplyToGig = () => {
         },
     });
 };
+
+// Hook to get a specific application for profile context card
+export const useApplicationContext = (gigId: string, applicationId: string) => {
+    return useQuery({
+        queryKey: ['applicationContext', gigId, applicationId],
+        queryFn: async () => {
+            // Fetch all applications for the gig and find the specific one
+            const applications = await gigService.getGigApplications(gigId);
+            return applications?.find((app: any) => app._id === applicationId) || null;
+        },
+        enabled: !!gigId && !!applicationId,
+    });
+};

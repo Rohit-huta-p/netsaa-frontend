@@ -3,10 +3,11 @@ import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, ScrollView,
 import { useRouter } from 'expo-router';
 import { Search, Filter, TrendingUp, Sparkles } from 'lucide-react-native';
 import { SequentialLoadingAnimation } from '@/components/ui/SequentialLoadingAnimation';
-import { useGigs } from '@/hooks/useGigs';
+import { useGigs, useGig } from '@/hooks/useGigs';
 import { useDebounce } from '@/hooks/useDebounce';
 import { GigCard } from '@/components/gigs/GigCard';
 import { GigDetails } from '@/components/gigs/GigDetails';
+import { BackgroundElements } from '@/components/ui/BackgroundElements';
 import AppScrollView from '@/components/AppScrollView';
 import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import { FilterModal } from '@/components/gigs/FilterModal';
@@ -14,6 +15,25 @@ import { FilterState } from '@/types/filters';
 import { countActiveFilters } from '@/lib/constants/filters';
 
 const isWeb = Platform.OS === 'web';
+
+// Wrapper component to fetch full gig details (including viewerContext) on desktop
+const DesktopGigPreview = ({ gigId, placeholderData }: { gigId: string, placeholderData: any }) => {
+    const { data: fullGig, isLoading } = useGig(gigId);
+
+    // Use full details if available, otherwise fall back to list data (placeholder)
+    // We prioritize fullGig because it has viewerContext.hasApplied
+    const gigToRender = fullGig || placeholderData;
+
+    if (isLoading && !gigToRender) {
+        return (
+            <View className="flex-1 justify-center items-center">
+                <ActivityIndicator size="large" color="#8B5CF6" />
+            </View>
+        );
+    }
+
+    return <GigDetails gig={gigToRender} />;
+};
 
 export default function GigsListPage() {
     const router = useRouter();
@@ -87,179 +107,210 @@ export default function GigsListPage() {
     }, []);
 
     return (
-        <AppScrollView className="flex-1 bg-black">
-            {/* HERO SECTION - COMPACT */}
-            <View className="pt-32 pb-12 px-6 border-b border-white/5">
-                <View className="container mx-auto max-w-7xl">
-                    <View className="flex-row items-end justify-between mb-10">
-                        <View className="flex-1 max-w-2xl">
-                            <Text className="text-4xl md:text-6xl font-black tracking-tighter mb-6 text-white">
-                                THE GIG BOARD.
-                            </Text>
-                            <Text className="text-xl text-zinc-500 font-light">
-                                Explore hand-picked professional opportunities in your city.
-                            </Text>
-                        </View>
-                    </View>
-
-                    {/* SEARCH & FILTERS */}
-                    <View className="flex-col md:flex-row gap-4 w-full">
-                        {/* Search */}
-                        <View className="relative flex-1 lg:w-80">
-                            <View className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
-                                <Search size={20} color={isFetching ? "#3B82F6" : "#71717A"} />
+        <View style={{ flex: 1, backgroundColor: '#000000' }}>
+            {/* <BackgroundElements /> */}
+            <AppScrollView className="flex-1">
+                {/* HERO SECTION - COMPACT */}
+                <View className="pt-32 pb-12 px-6 border-b border-white/5">
+                    <View className="container mx-auto max-w-7xl">
+                        <View className="flex-row items-end justify-between mb-10">
+                            <View className="flex-1 max-w-2xl">
+                                <Text className="text-4xl md:text-6xl font-black tracking-tighter mb-6 text-white">
+                                    THE GIG BOARD.
+                                </Text>
+                                <Text className="text-xl text-zinc-500 font-light">
+                                    Explore hand-picked professional opportunities in your city.
+                                </Text>
                             </View>
-                            <TextInput
-                                placeholder="Search gigs..."
-                                placeholderTextColor="#71717A"
-                                className="w-full bg-zinc-900/50 border border-white/5 h-14 pl-12 pr-4 rounded-2xl text-white text-lg font-light"
-                                value={inputQuery}
-                                onChangeText={setInputQuery}
-                                returnKeyType="search"
-                            />
-                            {/* Search indicator */}
-                            {isFetching && inputQuery && (
-                                <View className="absolute right-4 top-1/2 -translate-y-1/2">
-                                    <ActivityIndicator size="small" color="#3B82F6" />
-                                </View>
-                            )}
                         </View>
 
-                        {/* Filter Button */}
-                        <TouchableOpacity
-                            onPress={() => setShowFilterModal(true)}
-                            className="bg-zinc-900/50 border border-white/10 h-14 px-6 rounded-2xl flex-row items-center gap-3"
-                        >
-                            <Filter size={20} color="#FFFFFF" />
-                            <Text className="text-white text-sm font-bold uppercase tracking-wider">
-                                Filters
-                            </Text>
-                            {activeFilterCount > 0 && (
-                                <View className="bg-white rounded-full w-6 h-6 items-center justify-center">
-                                    <Text className="text-black text-xs font-black">
-                                        {activeFilterCount}
-                                    </Text>
+                        {/* SEARCH & FILTERS */}
+                        <View className="flex-col md:flex-row gap-4 w-full">
+                            {/* Search */}
+                            <View className="relative flex-1 lg:w-80">
+                                <View className="absolute left-5 top-1/2 -translate-y-1/2 z-10">
+                                    <Search size={20} color={isFetching ? "#8B5CF6" : "rgba(255, 255, 255, 0.4)"} />
                                 </View>
-                            )}
-                        </TouchableOpacity>
+                                <TextInput
+                                    placeholder="Search gigs..."
+                                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                                    style={{
+                                        width: '100%',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255, 255, 255, 0.08)',
+                                        height: 56,
+                                        paddingLeft: 48,
+                                        paddingRight: 16,
+                                        borderRadius: 12,
+                                        color: '#FFFFFF',
+                                        fontSize: 16,
+                                    }}
+                                    value={inputQuery}
+                                    onChangeText={setInputQuery}
+                                    returnKeyType="search"
+                                />
+                                {/* Search indicator */}
+                                {isFetching && inputQuery && (
+                                    <View className="absolute right-4 top-1/2 -translate-y-1/2">
+                                        <ActivityIndicator size="small" color="#8B5CF6" />
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Filter Button */}
+                            <TouchableOpacity
+                                onPress={() => setShowFilterModal(true)}
+                                style={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                                    height: 56,
+                                    paddingHorizontal: 24,
+                                    borderRadius: 12,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 12,
+                                }}
+                            >
+                                <Filter size={20} color="#FFFFFF" />
+                                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '500' }}>
+                                    Filters
+                                </Text>
+                                {activeFilterCount > 0 && (
+                                    <View style={{
+                                        backgroundColor: '#8B5CF6',
+                                        borderRadius: 12,
+                                        width: 24,
+                                        height: 24,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}>
+                                        <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
+                                            {activeFilterCount}
+                                        </Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
-            </View>
 
-            {/* BOARD SECTION */}
-            <View className="flex-1 px-6 py-12">
-                <View className="container mx-auto max-w-7xl">
-                    {isLoading ? (
-                        <View className="flex-1 justify-center items-center py-20">
-                            <LoadingAnimation
-                                source="https://lottie.host/ecebcd4d-d1c9-4e57-915f-d3f61705a717/VFWGhqMAX0.lottie"
-                                width={300}
-                                height={300}
-                            />
-                            {/* // {
+                {/* BOARD SECTION */}
+                <View className="w-[90%] mx-auto py-12  ">
+                    <View className="flex-1">
+                        {isLoading ? (
+                            <View className="flex-1 justify-center items-center py-20">
+                                <LoadingAnimation
+                                    source="https://lottie.host/ecebcd4d-d1c9-4e57-915f-d3f61705a717/VFWGhqMAX0.lottie"
+                                    width={300}
+                                    height={300}
+                                />
+                                {/* // {
                                 //     source: "https://lottie.host/feea2e9b-b1c6-492f-bfa3-95feca9f20a0/1NoVsp8rDk.lottie",
                                 //     width: 200,
                                 //     height: 200,
                                 // }, */}
-                            <Text className="text-zinc-500 mt-4 text-xs font-medium">
-                                Loading opportunities...
-                            </Text>
-                        </View>
-                    ) : error ? (
-                        <View className="flex-1 justify-center items-center py-20 px-8">
-                            <View className="w-20 h-20 rounded-full items-center justify-center mb-4 bg-red-500/10">
-                                <Sparkles size={32} color="#EF4444" />
+                                <Text className="text-zinc-500 mt-4 text-xs font-medium">
+                                    Loading opportunities...
+                                </Text>
                             </View>
-                            <Text className="text-white font-bold text-xl text-center mb-2">Oops!</Text>
-                            <Text className="text-zinc-400 text-center">
-                                Unable to load gigs. Please check your connection.
-                            </Text>
-                        </View>
-                    ) : !gigsData || gigsData.length === 0 ? (
-                        <View className="flex-1 justify-center items-center py-20 px-8">
-                            <View className="w-20 h-20 rounded-full items-center justify-center mb-4 bg-zinc-800/50">
-                                <Sparkles size={32} color="#71717A" />
+                        ) : error ? (
+                            <View className="flex-1 justify-center items-center py-20 px-8">
+                                <View className="w-20 h-20 rounded-full items-center justify-center mb-4 bg-red-500/10">
+                                    <Sparkles size={32} color="#EF4444" />
+                                </View>
+                                <Text className="text-white font-bold text-xl text-center mb-2">Oops!</Text>
+                                <Text className="text-zinc-400 text-center">
+                                    Unable to load gigs. Please check your connection.
+                                </Text>
                             </View>
-                            <Text className="text-white font-bold text-xl text-center mb-2">No Gigs Yet</Text>
-                            <Text className="text-zinc-400 text-center">
-                                Check back soon for new opportunities.
-                            </Text>
-                        </View>
-                    ) : (
-                        <View className="flex-row gap-12">
-                            {/* LIST VIEW */}
-                            <View className="w-full lg:w-1/3">
-                                <View className="flex-row items-center justify-between px-2 mb-4">
-                                    <Text className="text-zinc-500 text-[10px] uppercase font-black tracking-[0.3em]">
-                                        {gigsData.length} {gigsData.length === 1 ? 'result' : 'results'}
-                                        {(searchState.q || activeFilterCount > 0) && ' found'}
-                                    </Text>
-                                    <View className="flex-row items-center gap-1">
-                                        {isFetching ? (
-                                            <ActivityIndicator size="small" color="#3B82F6" />
-                                        ) : (
+                        ) : !gigsData || gigsData.length === 0 ? (
+                            <View className="flex-1 justify-center items-center py-20 px-8">
+                                <View className="w-20 h-20 rounded-full items-center justify-center mb-4 bg-zinc-800/50">
+                                    <Sparkles size={32} color="#71717A" />
+                                </View>
+                                <Text className="text-white font-bold text-xl text-center mb-2">No Gigs Yet</Text>
+                                <Text className="text-zinc-400 text-center">
+                                    Check back soon for new opportunities.
+                                </Text>
+                            </View>
+                        ) : (
+                            <View className="grid grid-cols-1 lg:grid-cols-8 gap-12">
+                                {/* LIST VIEW */}
+                                <View className="col-span-2">
+                                    <View className="flex-row items-center justify-between px-2 mb-4">
+                                        <Text className="text-zinc-500 text-[10px] uppercase font-black tracking-[0.3em]">
+                                            {gigsData.length} {gigsData.length === 1 ? 'result' : 'results'}
+                                            {(searchState.q || activeFilterCount > 0) && ' found'}
+                                        </Text>
+                                        <View className="flex-row items-center gap-1">
+                                            {isFetching ? (
+                                                <ActivityIndicator size="small" color="#3B82F6" />
+                                            ) : (
+                                                <>
+                                                    <TrendingUp size={12} color="#3B82F6" />
+                                                    <Text className="text-blue-400 text-[10px] font-black uppercase">
+                                                        Live Feed
+                                                    </Text>
+                                                </>
+                                            )}
+                                        </View>
+                                    </View>
+
+                                    <ScrollView
+                                        showsVerticalScrollIndicator={false}
+                                        contentContainerStyle={{ paddingBottom: 24 }}
+                                        style={{ maxHeight: 900 }}
+                                    >
+                                        {gigsData.map((gig: any) => (
                                             <>
-                                                <TrendingUp size={12} color="#3B82F6" />
-                                                <Text className="text-blue-400 text-[10px] font-black uppercase">
-                                                    Live Feed
-                                                </Text>
+                                                <GigCard
+                                                    key={gig._id}
+                                                    gig={gig}
+                                                    onPress={() => handleGigPress(gig)}
+                                                    isSelected={isDesktopLayout && selectedGig?._id === gig._id}
+                                                />
                                             </>
-                                        )}
-                                    </View>
+                                        ))}
+                                    </ScrollView>
                                 </View>
 
-                                <ScrollView
-                                    showsVerticalScrollIndicator={false}
-                                    contentContainerStyle={{ paddingBottom: 24 }}
-                                    style={{ maxHeight: 900 }}
-                                >
-                                    {gigsData.map((gig: any) => (
-                                        <>
-                                            <GigCard
-                                                key={gig._id}
-                                                gig={gig}
-                                                onPress={() => handleGigPress(gig)}
-                                                isSelected={isDesktopLayout && selectedGig?._id === gig._id}
-                                            />
-                                        </>
-                                    ))}
-                                </ScrollView>
+                                {/* DETAIL VIEW - DESKTOP ONLY (>= 1024px) */}
+                                {isDesktopLayout && selectedGig && (
+                                    <View className="col-span-6">
+                                        <View className="bg-zinc-900/40 border border-white/10 rounded-[4rem] overflow-hidden min-h-[900px]">
+                                            <DesktopGigPreview gigId={selectedGig._id} placeholderData={selectedGig} />
+                                        </View>
+                                    </View>
+                                )}
                             </View>
-
-                            {/* DETAIL VIEW - DESKTOP ONLY (>= 1024px) */}
-                            {isDesktopLayout && selectedGig && (
-                                <View className="hidden lg:flex flex-1">
-                                    <View className="bg-zinc-900/40 border border-white/10 rounded-[4rem] overflow-hidden min-h-[900px]">
-                                        <GigDetails gig={selectedGig} />
-                                    </View>
-                                </View>
-                            )}
-                        </View>
-                    )}
+                        )}
+                    </View>
                 </View>
-            </View>
 
-            {/* Filter Modal */}
-            <FilterModal
-                visible={showFilterModal}
-                onClose={() => setShowFilterModal(false)}
-                filters={searchState.filters || {
-                    quick: null,
-                    advanced: {
-                        trust: {},
-                        compensation: {},
-                        artistType: {},
-                        experience: {},
-                        location: {},
-                        timing: {},
-                        eventType: {},
-                        requirements: {},
-                        sorting: { sortBy: 'relevance' },
-                    },
-                }}
-                onApplyFilters={handleApplyFilters}
-                activeFilterCount={activeFilterCount}
-            />
-        </AppScrollView>
+                {/* Filter Modal */}
+                <FilterModal
+                    visible={showFilterModal}
+                    onClose={() => setShowFilterModal(false)}
+                    filters={searchState.filters || {
+                        quick: null,
+                        advanced: {
+                            trust: {},
+                            compensation: {},
+                            artistType: {},
+                            experience: {},
+                            location: {},
+                            timing: {},
+                            eventType: {},
+                            requirements: {},
+                            sorting: { sortBy: 'relevance' },
+                        },
+                    }}
+                    onApplyFilters={handleApplyFilters}
+                    activeFilterCount={activeFilterCount}
+                />
+            </AppScrollView>
+        </View>
     );
 }

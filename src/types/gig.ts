@@ -44,13 +44,15 @@ export interface Gig {
             count: number;
             isPaid: boolean;
             mayExtend: boolean;
-            notes: string;
+            notes?: string;
         };
     };
 
     compensation: {
         model: 'fixed' | 'hourly' | 'per-day';
-        amount: number;
+        amount?: number;
+        minAmount?: number;
+        maxAmount?: number;
         currency: string;
         negotiable?: boolean;
         perks?: string[];

@@ -1,5 +1,6 @@
 // app/(app)/search/index.tsx
 import React, { useState, useEffect } from "react";
+import noAvatar from "@/assets/no-avatar.jpg";
 import {
     View,
     Text,
@@ -52,7 +53,7 @@ const FilterPill = ({ label, isActive, onPress }: { label: string, isActive: boo
 );
 
 // 1. People List Item (LinkedIn Style)
-const PersonItem = ({ item, status: initialStatus }: { item: any, status: 'none' | 'pending' | 'connected' }) => {
+const PersonItem = ({ item, status: initialStatus, onPress }: { item: any, status: 'none' | 'pending' | 'connected', onPress?: () => void }) => {
     const [status, setStatus] = useState<'none' | 'pending' | 'connected'>(initialStatus);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -77,12 +78,16 @@ const PersonItem = ({ item, status: initialStatus }: { item: any, status: 'none'
     };
 
     return (
-        <View className="flex-row items-center py-4 border-b border-white/5">
+        <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center py-4 border-b border-white/5">
             {/* Avatar */}
-            <Image
-                source={{ uri: item.profilePicture || "https://i.pravatar.cc/150?img=11" }}
-                className="w-14 h-14 rounded-full mr-4 bg-gray-800"
-            />
+            <View className="w-14 h-14 rounded-full overflow-hidden border border-white/10 relative">
+                <Image
+                    source={item?.profileImageUrl ? { uri: item.profileImageUrl } : noAvatar}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' } as any}
+                    className="rounded-full mr-4 bg-gray-800"
+                    resizeMode="cover"
+                />
+            </View>
 
             {/* Info */}
             <View className="flex-1">
@@ -97,7 +102,10 @@ const PersonItem = ({ item, status: initialStatus }: { item: any, status: 'none'
 
             {/* Action Button */}
             <TouchableOpacity
-                onPress={handleConnect}
+                onPress={(e) => {
+                    e.stopPropagation();
+                    handleConnect();
+                }}
                 disabled={status !== 'none' || isLoading}
                 className={`px-4 py-2 rounded-full border ${status === 'connected' || status === 'pending'
                     ? "bg-white/5 border-white/20"
@@ -120,14 +128,14 @@ const PersonItem = ({ item, status: initialStatus }: { item: any, status: 'none'
                     </View>
                 )}
             </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
     );
 };
 
 
 // 2. Gig List Item
-const GigItem = ({ item }: { item: any }) => (
-    <View className="flex-row items-start py-4 border-b border-white/5">
+const GigItem = ({ item, onPress }: { item: any, onPress?: () => void }) => (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-start py-4 border-b border-white/5">
         <View className="w-12 h-12 bg-white/10 rounded-lg items-center justify-center mr-4 border border-white/5">
             {/* Use Logo image if available, else Icon */}
             <Briefcase size={20} color="#a1a1aa" />
@@ -142,17 +150,17 @@ const GigItem = ({ item }: { item: any }) => (
             </View>
         </View>
 
-        <TouchableOpacity className="mt-1">
+        <View className="mt-1">
             <View className="bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
                 <Text className="text-white text-xs font-bold">View</Text>
             </View>
-        </TouchableOpacity>
-    </View>
+        </View>
+    </TouchableOpacity>
 );
 
 // 3. Event List Item
-const EventItem = ({ item }: { item: any }) => (
-    <View className="flex-row items-center py-4 border-b border-white/5">
+const EventItem = ({ item, onPress }: { item: any, onPress?: () => void }) => (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center py-4 border-b border-white/5">
         {/* Calendar Box */}
         <View className="w-14 h-14 bg-white/5 rounded-xl border border-white/10 items-center justify-center mr-4">
             <Text className="text-red-400 text-xs font-bold uppercase mb-0.5">
@@ -171,10 +179,10 @@ const EventItem = ({ item }: { item: any }) => (
             </View>
         </View>
 
-        <TouchableOpacity className="bg-white/10 p-2 rounded-full">
+        <View className="bg-white/10 p-2 rounded-full">
             <MoreHorizontal size={20} color="gray" />
-        </TouchableOpacity>
-    </View>
+        </View>
+    </TouchableOpacity>
 );
 
 
@@ -234,6 +242,8 @@ export default function SearchScreen() {
     // We conditionally fetch based on active tab
     // For "All", we use preview endpoint (or individual if preview invalid) -> using preview hook
     const { data: previewData, isLoading: isLoadingPreview } = useSearchPreview(searchQuery);
+    console.log("previewData: ", previewData);
+
     const { data: peopleData, isLoading: isLoadingPeople } = useSearchPeople(searchQuery);
     const { data: gigsData, isLoading: isLoadingGigs } = useSearchGigs(searchQuery);
     const { data: eventsData, isLoading: isLoadingEvents } = useSearchEvents(searchQuery);
@@ -290,7 +300,7 @@ export default function SearchScreen() {
 
                 {/* 3. CONTENT AREA */}
                 <ScrollView
-                    className="flex-1 px-4"
+                    className="flex-1 px-4 w-[90%] mx-auto"
                     contentContainerStyle={{ paddingBottom: 100 }}
                     showsVerticalScrollIndicator={false}
                 >
@@ -309,7 +319,7 @@ export default function SearchScreen() {
                                     {previewData.people?.length > 0 && <SectionHeader title="People" onPress={() => setActiveTab("People")} />}
                                     <View className="bg-white/5 border border-white/5 rounded-2xl px-4 mb-4">
                                         {previewData.people?.slice(0, 3).map((person: any) => (
-                                            <PersonItem key={person._id || person.id} item={person} status={getPersonStatus(person._id || person.id)} />
+                                            <PersonItem key={person._id || person.id} item={person} status={getPersonStatus(person._id || person.id)} onPress={() => router.push(`/profile/${person._id || person.id}`)} />
                                         ))}
                                         {previewData.people?.length > 3 &&
                                             <TouchableOpacity
@@ -323,7 +333,7 @@ export default function SearchScreen() {
                                     {previewData.gigs?.length > 0 && <SectionHeader title="Gigs" onPress={() => setActiveTab("Gigs")} />}
                                     <View className="bg-white/5 border border-white/5 rounded-2xl px-4 mb-4">
                                         {previewData.gigs?.slice(0, 3).map((gig: any) => (
-                                            <GigItem key={gig._id} item={gig} />
+                                            <GigItem key={gig._id} item={gig} onPress={() => router.push(`/gigs/${gig._id}`)} />
                                         ))}
                                         {previewData.gigs?.length > 3 &&
                                             <TouchableOpacity
@@ -337,7 +347,7 @@ export default function SearchScreen() {
                                     {previewData.events?.length > 0 && <SectionHeader title="Events" onPress={() => setActiveTab("Events")} />}
                                     <View className="bg-white/5 border border-white/5 rounded-2xl px-4 mb-4">
                                         {previewData.events?.slice(0, 3).map((event: any) => (
-                                            <EventItem key={event._id} item={event} />
+                                            <EventItem key={event._id} item={event} onPress={() => router.push(`/events/${event._id}`)} />
                                         ))}
                                     </View>
 
@@ -354,7 +364,7 @@ export default function SearchScreen() {
                                 <View className="mt-4">
                                     <Text className="text-gray-400 text-sm mb-4">About {peopleData.total || 0} results</Text>
                                     {peopleData.results?.map((person: any) => (
-                                        <PersonItem key={person._id || person.id} item={person} status={getPersonStatus(person._id || person.id)} />
+                                        <PersonItem key={person._id || person.id} item={person} status={getPersonStatus(person._id || person.id)} onPress={() => router.push(`/profile/${person._id || person.id}`)} />
                                     ))}
                                 </View>
                             )}
@@ -364,7 +374,7 @@ export default function SearchScreen() {
                                 <View className="mt-4">
                                     <Text className="text-gray-400 text-sm mb-4">{gigsData.total || 0} results found</Text>
                                     {gigsData.results?.map((gig: any) => (
-                                        <GigItem key={gig._id} item={gig} />
+                                        <GigItem key={gig._id} item={gig} onPress={() => router.push(`/gigs/${gig._id}`)} />
                                     ))}
                                 </View>
                             )}
@@ -374,7 +384,7 @@ export default function SearchScreen() {
                                 <View className="mt-4">
                                     <Text className="text-gray-400 text-sm mb-4">Events near you</Text>
                                     {eventsData.results?.map((event: any) => (
-                                        <EventItem key={event._id} item={event} />
+                                        <EventItem key={event._id} item={event} onPress={() => router.push(`/events/${event._id}`)} />
                                     ))}
                                 </View>
                             )}

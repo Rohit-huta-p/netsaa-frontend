@@ -50,9 +50,10 @@ export const GigCard: React.FC<GigCardProps> = ({ gig, onPress, isSelected }) =>
 
     // ===== EXTRACT KEY DATA =====
     const urgency = getUrgencyBadge();
-    const payAmount = gig.compensation?.amount || 0;
-    const compModel = gig.compensation?.model || 'fixed';
-    const isNegotiable = gig.compensation?.negotiable;
+    // Compensation variables removed as they are currently unused in the UI
+    // const payAmount = gig.compensation?.amount || 0;
+    // const compModel = gig.compensation?.model || 'fixed';
+    // const isNegotiable = gig.compensation?.negotiable;
     const experienceLevel = gig.experienceLevel || 'intermediate';
     const artistTypes = gig.artistTypes || [];
     const primaryArtistType = artistTypes[0] || 'Artist';
@@ -75,34 +76,62 @@ export const GigCard: React.FC<GigCardProps> = ({ gig, onPress, isSelected }) =>
         <TouchableOpacity
             onPress={onPress}
             activeOpacity={0.9}
-            className={`group relative overflow-hidden mb-4 transition-all ${isSelected
-                ? 'bg-zinc-900/90 border-2 border-blue-500/60 shadow-2xl shadow-blue-500/10 rounded-[2.5rem] p-8'
-                : 'bg-zinc-900/30 border border-white/5 active:border-white/20 active:bg-zinc-900/50 rounded-[2.5rem] p-6'
-                }`}
+            style={{
+                backgroundColor: isSelected ? 'rgba(24, 24, 24, 1)' : 'rgba(18, 18, 18, 1)',
+                borderWidth: 1,
+                borderColor: isSelected ? 'rgba(139, 92, 246, 0.4)' : 'rgba(255, 255, 255, 0.08)',
+                borderRadius: 16,
+                padding: 24,
+                marginBottom: 24,
+                // Purple glow effect
+                shadowColor: '#8B5CF6',
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: isSelected ? 0.15 : 0.15,
+                shadowRadius: isSelected ? 20 : 20,
+                elevation: 8,
+            }}
         >
             {/* ===== TOP ROW: BADGES + FEATURED INDICATOR ===== */}
-            <View className="flex-row justify-between items-start mb-2">
-                <View className="flex-row gap-2 flex-wrap flex-1">
-                    {/* Urgency/New Badge */}
-                    {/* {urgency && (
-                        <View className={`border rounded-full px-3 py-0.5x flex-row items-center gap-1 ${urgency.color}`}>
-                            {urgency.icon && <urgency.icon size={10} />}
-                            <Text className="text-[6px] uppercase tracking-widest font-black">
-                                {urgency.label}
-                            </Text>
-                        </View>
-                    )} */}
-
-                    {/* Artist Type Badge */}
-                    <View className="bg-zinc-800/80 border border-zinc-700/50 rounded-full px-3 py-[3px] flex-row items-center">
-                        <Text className="text-[8px] uppercase tracking-widest font-black text-zinc-400">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', flex: 1 }}>
+                    {/* Artist Type Badge - Purple accent */}
+                    <View style={{
+                        backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(139, 92, 246, 0.3)',
+                        borderRadius: 20,
+                        paddingHorizontal: 12,
+                        paddingVertical: 4,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                    }}>
+                        <Text style={{
+                            fontSize: 12,
+                            fontWeight: '500',
+                            color: '#8B5CF6',
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                        }}>
                             {primaryArtistType}
                         </Text>
                     </View>
 
-                    {/* Experience Level Badge */}
-                    <View className="bg-purple-500/10 border border-purple-500/30 rounded-full px-3 py-[3px] flex-row items-center">
-                        <Text className="text-[8px] uppercase tracking-widest font-black text-purple-400">
+                    {/* Experience Level Badge - Subtle */}
+                    <View style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                        borderRadius: 20,
+                        paddingHorizontal: 12,
+                        paddingVertical: 4,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                    }}>
+                        <Text style={{
+                            fontSize: 12,
+                            fontWeight: '500',
+                            color: 'rgba(255, 255, 255, 0.7)',
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                        }}>
                             {experienceLevel}
                         </Text>
                     </View>
@@ -110,7 +139,14 @@ export const GigCard: React.FC<GigCardProps> = ({ gig, onPress, isSelected }) =>
 
                 {/* Featured/Urgent Icons */}
                 {gig.isFeatured && (
-                    <View className="w-7 h-7 rounded-full bg-yellow-500/20 items-center justify-center">
+                    <View style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
+                        backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}>
                         <Award size={14} color="#EAB308" fill="#EAB308" />
                     </View>
                 )}
@@ -118,7 +154,15 @@ export const GigCard: React.FC<GigCardProps> = ({ gig, onPress, isSelected }) =>
 
             {/* ===== TITLE ===== */}
             <Text
-                className="font-bold text-2xl leading-tight text-white tracking-tight mb-5"
+                style={{
+                    fontSize: 24,
+                    fontWeight: '700',
+                    letterSpacing: -0.5,
+                    lineHeight: 28,
+                    color: '#FFFFFF',
+                    marginBottom: 12,
+                    fontFamily: 'Outfit-Bold',
+                }}
                 numberOfLines={2}
             >
                 {gig.title}
@@ -171,27 +215,39 @@ export const GigCard: React.FC<GigCardProps> = ({ gig, onPress, isSelected }) =>
 
             {/* ===== KEY REQUIREMENTS ROW (COMPACT) ===== */}
             {(ageRange || genderPref || hasPracticeDays) && (
-                <View className="flex-row flex-wrap gap-3 mb-6 pb-6 border-b border-white/5">
+                <View style={{
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    gap: 12,
+                    marginBottom: 16,
+                    paddingBottom: 16,
+                    borderBottomWidth: 1,
+                    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+                }}>
                     {ageRange && (
-                        <View className="flex-row items-center gap-1.5">
-                            <Users size={12} color="#71717A" />
-                            <Text className="text-[10px] font-black text-zinc-500">
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Users size={12} color="rgba(255, 255, 255, 0.5)" />
+                            <Text style={{ fontSize: 12, fontWeight: '500', color: 'rgba(255, 255, 255, 0.5)' }}>
                                 {ageRange}
                             </Text>
                         </View>
                     )}
                     {genderPref && (
-                        <View className="flex-row items-center gap-1.5">
-                            <View className="w-1 h-1 rounded-full bg-zinc-600" />
-                            <Text className="text-[10px] font-black text-zinc-500 capitalize">
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(255, 255, 255, 0.3)' }} />
+                            <Text style={{ fontSize: 12, fontWeight: '500', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'capitalize' }}>
                                 {genderPref}
                             </Text>
                         </View>
                     )}
                     {hasPracticeDays && (
-                        <View className="flex-row items-center gap-1.5">
-                            <Clock size={12} color={isPracticePaid ? '#3B82F6' : '#71717A'} />
-                            <Text className={`text-[10px] font-black ${isPracticePaid ? 'text-blue-400' : 'text-zinc-500'}`}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Clock size={12} color={isPracticePaid ? '#8B5CF6' : 'rgba(255, 255, 255, 0.5)'} />
+                            <Text style={{
+                                fontSize: 12,
+                                fontWeight: '500',
+                                color: isPracticePaid ? '#8B5CF6' : 'rgba(255, 255, 255, 0.5)',
+                            }}>
                                 {gig.schedule.practiceDays.count} Practice Days
                                 {isPracticePaid && ' (Paid)'}
                             </Text>
@@ -201,17 +257,25 @@ export const GigCard: React.FC<GigCardProps> = ({ gig, onPress, isSelected }) =>
             )}
 
             {/* ===== BOTTOM ROW: LOCATION & DATE ===== */}
-            <View className="flex-row justify-between items-center">
-                <View className="flex-row items-center gap-4">
-                    <View className="flex-row items-center gap-2">
-                        <MapPin size={14} color="#3B82F6" />
-                        <Text className="text-[11px] font-black uppercase tracking-tight text-zinc-400">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <MapPin size={14} color="#8B5CF6" />
+                        <Text style={{
+                            fontSize: 14,
+                            fontWeight: '400',
+                            color: 'rgba(255, 255, 255, 0.5)',
+                        }}>
                             {gig.location?.city || 'Remote'}
                         </Text>
                     </View>
-                    <View className="flex-row items-center gap-2">
-                        <Calendar size={14} color="#3B82F6" />
-                        <Text className="text-[11px] font-black uppercase tracking-tight text-zinc-400">
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Calendar size={14} color="#8B5CF6" />
+                        <Text style={{
+                            fontSize: 14,
+                            fontWeight: '400',
+                            color: 'rgba(255, 255, 255, 0.5)',
+                        }}>
                             {gig.schedule?.startDate
                                 ? new Date(gig.schedule.startDate).toLocaleDateString('en-IN', {
                                     day: 'numeric',
@@ -224,15 +288,29 @@ export const GigCard: React.FC<GigCardProps> = ({ gig, onPress, isSelected }) =>
 
                 {/* Duration/Commitment Indicator */}
                 {(durationLabel || timeCommitment) && (
-                    <Text className="text-[9px] text-zinc-600 font-black uppercase tracking-wider">
+                    <Text style={{
+                        fontSize: 12,
+                        fontWeight: '500',
+                        color: 'rgba(255, 255, 255, 0.4)',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                    }}>
                         {durationLabel || timeCommitment}
                     </Text>
                 )}
             </View>
 
-            {/* HOVER STATE INDICATOR (subtle, appears only when selected) */}
+            {/* SELECTED INDICATOR */}
             {isSelected && (
-                <View className="absolute right-4 top-4 w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                <View style={{
+                    position: 'absolute',
+                    right: 16,
+                    top: 16,
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: '#8B5CF6',
+                }} />
             )}
         </TouchableOpacity>
     );

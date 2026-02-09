@@ -1,6 +1,6 @@
 // app/(app)/notifications.tsx
 import React, { useEffect } from 'react';
-import { View, Text, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { useNotificationsStore } from '@/stores/notificationsStore';
@@ -8,6 +8,7 @@ import { NotificationCard } from '@/components/notifications/NotificationCard';
 import { DateSectionHeader } from '@/components/notifications/DateSectionHeader';
 import { flattenGroupedNotifications, groupNotificationsByDate } from '@/utils/dateGrouping';
 import { Bell } from 'lucide-react-native';
+import AppFlatList from '@/components/AppFlatList';
 
 export default function NotificationsScreen() {
     const {
@@ -103,14 +104,14 @@ export default function NotificationsScreen() {
                     </View>
                 )}
 
-                {/* Notifications List */}
-                <FlatList
+                {/* Notifications List - Uses AppFlatList for automatic tab bar padding */}
+                <AppFlatList
                     data={flattenedData}
                     renderItem={renderItem}
                     keyExtractor={(item, index) =>
                         item.type === 'header' ? `header-${item.date}` : `notification-${item.data._id}`
                     }
-                    contentContainerStyle={{ paddingTop: 16, paddingBottom: 32 }}
+                    contentContainerStyle={{ paddingTop: 16 }}
                     ListEmptyComponent={renderEmpty}
                     ListFooterComponent={renderFooter}
                     onEndReached={handleLoadMore}
@@ -128,3 +129,4 @@ export default function NotificationsScreen() {
         </View>
     );
 }
+

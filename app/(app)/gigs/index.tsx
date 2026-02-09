@@ -145,6 +145,7 @@ export default function GigsListPage() {
                                         borderRadius: 12,
                                         color: '#FFFFFF',
                                         fontSize: 16,
+                                        outline: 'none',
                                     }}
                                     value={inputQuery}
                                     onChangeText={setInputQuery}

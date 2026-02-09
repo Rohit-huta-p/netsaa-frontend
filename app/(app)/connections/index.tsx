@@ -463,7 +463,7 @@ export default function ConnectionsScreen() {
                                         <TextInput
                                             placeholder="Search connections..."
                                             placeholderTextColor="#71717a"
-                                            className="flex-1 ml-3 text-white text-lg font-light h-full"
+                                            className="flex-1 ml-3 text-white text-lg font-light h-full outline-none"
                                             value={searchQuery}
                                             onChangeText={setSearchQuery}
                                         />

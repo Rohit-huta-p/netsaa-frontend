@@ -121,7 +121,7 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, 
                                         <TextInput
                                             placeholder="https://..."
                                             placeholderTextColor="#9CA3AF"
-                                            className="flex-1 ml-3 text-white font-inter"
+                                            className="flex-1 ml-3 text-white font-inter outline-none"
                                             value={link}
                                             onChangeText={(text) => handleLinkChange(text, index)}
                                             autoCapitalize="none"

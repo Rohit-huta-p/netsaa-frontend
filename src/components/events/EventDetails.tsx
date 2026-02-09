@@ -26,6 +26,9 @@ import DiscussionTab from '../common/DiscussionTab';
 import { AuthPromptModal } from '../common/AuthPromptModal';
 import { ShareBottomSheet } from '../common/ShareBottomSheet';
 
+// Tab bar height for dynamic padding
+import { useMobileTabBarHeight } from '@/components/MobileTabBar';
+
 interface EventDetailsProps {
     event: IEvent;
     isOrganizer?: boolean;
@@ -47,6 +50,7 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
     const [isSaved, setIsSaved] = useState(false); // TODO: Fetch initial state
     const [activeTab, setActiveTab] = useState<'about' | 'schedule' | 'tickets' | 'venue' | 'host' | 'discussion' | 'registrations'>('about');
     const [shareSheetVisible, setShareSheetVisible] = useState(false);
+    const tabBarHeight = useMobileTabBarHeight();
 
     // Data Hooks
     const { data: ticketTypes, isLoading: loadingTickets } = useEventTicketTypes(event._id);
@@ -99,7 +103,7 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
 
     return (
         <View className="flex-1 w-[80%] mx-auto">
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140, marginTop: 20 }}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tabBarHeight > 0 ? tabBarHeight + 100 : 140, marginTop: 20 }}>
                 {/* HERO IMAGE */}
                 <View className="relative w-full overflow-hidden rounded-2xl aspect-video md:aspect-[21/9] bg-zinc-900 mb-6">
                     <Image

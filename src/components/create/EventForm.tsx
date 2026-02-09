@@ -22,6 +22,7 @@ import { StepIndicator } from '@/components/common/StepIndicator';
 import { InputGroup } from '@/components/ui/InputGroup';
 import { SelectInput } from '@/components/ui/SelectInput';
 import { TextArea } from '@/components/ui/TextArea';
+import { TagInput } from '@/components/ui/TagInput';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 
 import { eventSchema, EventFormData } from '@/schemas/eventSchema';
@@ -38,7 +39,7 @@ const StyledTextInput = ({ value, onChangeText, placeholder, icon: Icon, type = 
             </View>
         )}
         <TextInput
-            className={`w-full bg-zinc-900/50 border ${error ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500 focus:border-[#FF6B35]`}
+            className={`w-full bg-zinc-900/50 border outline-none ${error ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500 focus:border-[#FF6B35]`}
             placeholder={placeholder}
             placeholderTextColor="rgba(255, 255, 255, 0.3)"
             value={value}
@@ -364,13 +365,11 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                 control={control}
                 name="tags"
                 render={({ field: { onChange, value } }) => (
-                    <InputGroup label="Tags" subtitle="Comma-separated for better discovery" error={errors.tags?.message}>
-                        <StyledTextInput
-                            icon={AlignLeft}
-                            value={value}
-                            onChangeText={onChange}
+                    <InputGroup label="Tags" subtitle="Type comma or enter to add tags" error={errors.tags?.message}>
+                        <TagInput
+                            value={Array.isArray(value) ? value.join(', ') : value}
+                            onChangeTags={onChange}
                             placeholder="e.g. hip-hop, contemporary, workshop"
-                            error={errors.tags?.message}
                         />
                     </InputGroup>
                 )}
@@ -624,36 +623,40 @@ export const EventForm: React.FC<EventFormProps> = ({ onPublish, onCancel }) => 
                     <Text className="text-white font-black text-lg tracking-tight mb-4">
                         Schedule
                     </Text>
-                    <View className="gap-4">
-                        <Controller
-                            control={control}
-                            name="startDate"
-                            render={({ field: { onChange, value } }) => (
-                                <DatePickerInput
-                                    label="Start Date"
-                                    required
-                                    value={value}
-                                    onChange={(date) => onChange(toLocalDateString(date))}
-                                    error={errors.startDate?.message}
-                                    placeholder="Select Start Date"
-                                    minimumDate={new Date()}
-                                />
-                            )}
-                        />
-                        <Controller
-                            control={control}
-                            name="endDate"
-                            render={({ field: { onChange, value } }) => (
-                                <DatePickerInput
-                                    label="End Date"
-                                    value={value}
-                                    onChange={(date) => onChange(toLocalDateString(date))}
-                                    error={errors.endDate?.message}
-                                    placeholder="Select End Date"
-                                    minimumDate={watch('startDate') ? new Date(watch('startDate')) : new Date()}
-                                />
-                            )}
-                        />
+                    <View className="flex-row gap-4">
+                        <View className="flex-1">
+                            <Controller
+                                control={control}
+                                name="startDate"
+                                render={({ field: { onChange, value } }) => (
+                                    <DatePickerInput
+                                        label="Start Date"
+                                        required
+                                        value={value}
+                                        onChange={(date) => onChange(toLocalDateString(date))}
+                                        error={errors.startDate?.message}
+                                        placeholder="Select Date"
+                                        minimumDate={new Date()}
+                                    />
+                                )}
+                            />
+                        </View>
+                        <View className="flex-1">
+                            <Controller
+                                control={control}
+                                name="endDate"
+                                render={({ field: { onChange, value } }) => (
+                                    <DatePickerInput
+                                        label="End Date"
+                                        value={value}
+                                        onChange={(date) => onChange(toLocalDateString(date))}
+                                        error={errors.endDate?.message}
+                                        placeholder="Select Date"
+                                        minimumDate={watch('startDate') ? new Date(watch('startDate')) : new Date()}
+                                    />
+                                )}
+                            />
+                        </View>
                     </View>
                 </View>
             </View>

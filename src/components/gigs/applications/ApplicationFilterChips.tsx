@@ -45,7 +45,7 @@ export const ApplicationFilterChips: React.FC<ApplicationFilterChipsProps> = ({
                     onChangeText={onSearchChange}
                     placeholder="Search applicants..."
                     placeholderTextColor="#52525B"
-                    className="flex-1 ml-3 text-white text-sm"
+                    className="flex-1 ml-3 text-white text-sm outline-none"
                     autoCapitalize="none"
                     autoCorrect={false}
                 />
@@ -71,8 +71,8 @@ export const ApplicationFilterChips: React.FC<ApplicationFilterChipsProps> = ({
                             key={filter.key}
                             onPress={() => onFilterChange(filter.key)}
                             className={`px-4 py-2 rounded-xl flex-row items-center gap-2 border ${isActive
-                                    ? 'bg-white/10 border-white/20'
-                                    : 'bg-zinc-900/30 border-white/5'
+                                ? 'bg-white/10 border-white/20'
+                                : 'bg-zinc-900/30 border-white/5'
                                 }`}
                         >
                             {filter.key !== 'all' && (

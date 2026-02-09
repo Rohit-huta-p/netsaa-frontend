@@ -228,7 +228,7 @@ export default function Navbar() {
                                 }}
                                 placeholder="Search gigs, events, artists..."
                                 placeholderTextColor="#666"
-                                className="flex-1 text-white ml-3 font-outfit"
+                                className="flex-1 text-white ml-3 font-outfit outline-none"
                                 returnKeyType="search"
                                 onSubmitEditing={handleViewAllResults}
                             />

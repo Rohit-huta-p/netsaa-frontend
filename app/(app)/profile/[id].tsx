@@ -30,6 +30,9 @@ import {
 import { ShareBottomSheet } from "@/components/common/ShareBottomSheet";
 import { User } from "@/types/index";
 
+// Tab bar height for dynamic padding
+import { useMobileTabBarHeight } from "@/components/MobileTabBar";
+
 // Import application context components
 import { ApplicantContextCard } from "@/components/gigs/applications";
 import { useApplicationContext, useUpdateApplicationStatus } from "@/hooks/useGigApplications";
@@ -51,6 +54,7 @@ export default function UserProfile() {
     const [error, setError] = useState("");
     const [showContextCard, setShowContextCard] = useState(true);
     const [shareSheetVisible, setShareSheetVisible] = useState(false);
+    const tabBarHeight = useMobileTabBarHeight();
 
     // Check if viewing from a gig context
     const isFromGig = fromGig === 'true' && gigId && applicationId;
@@ -161,7 +165,7 @@ export default function UserProfile() {
                     </View>
                 </View>
 
-                <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 120, width: '80%', marginLeft: '10%', marginRight: '10%' }}>
+                <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: tabBarHeight > 0 ? tabBarHeight + 60 : 120, width: '80%', marginLeft: '10%', marginRight: '10%' }}>
 
                     {/* Application Context Card - Shown when organizer views applicant from gig */}
                     {isFromGig && isOrganizer && applicationContext && showContextCard && (

@@ -193,7 +193,7 @@ export default function DiscussionTab({ id, type }: DiscussionTabProps) {
             {/* Input */}
             <View className="flex-row gap-2 items-center bg-black/20 p-2 rounded-xl border border-white/5">
                 <TextInput
-                    className="flex-1 text-white font-inter p-2 min-h-[40px]"
+                    className="flex-1 text-white font-inter p-2 min-h-[40px] outline-none"
                     placeholder="Add to the discussion..."
                     placeholderTextColor="#666"
                     value={inputText}
@@ -204,8 +204,8 @@ export default function DiscussionTab({ id, type }: DiscussionTabProps) {
                     onPress={handleSend}
                     disabled={!inputText.trim() || sending}
                     className={`p-2 rounded-full ${!inputText.trim()
-                            ? "bg-gray-800"
-                            : "bg-netsa-accent-purple"
+                        ? "bg-gray-800"
+                        : "bg-netsa-accent-purple"
                         }`}
                 >
                     {sending ? (

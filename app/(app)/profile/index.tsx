@@ -39,6 +39,9 @@ import {
 
 import { ShareBottomSheet } from "@/components/common/ShareBottomSheet";
 
+// Tab bar height for dynamic padding
+import { useMobileTabBarHeight } from "@/components/MobileTabBar";
+
 // --- TYPES ---
 type ProfileFormData = ProfileData & {
     galleryUrls: string[];
@@ -107,6 +110,7 @@ const TextInputStyled = (props: any) => (
             color: '#fff',
             fontSize: 18,
             fontWeight: '500',
+            outline: 'none',
             ...props.style
         }}
     />
@@ -620,6 +624,7 @@ export default function ProfilePage() {
     const [wizardVisible, setWizardVisible] = useState(false);
     const [wizardStep, setWizardStep] = useState(0);
     const [shareSheetVisible, setShareSheetVisible] = useState(false);
+    const tabBarHeight = useMobileTabBarHeight();
 
     const profileData: ProfileFormData = {
         fullName: user?.displayName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || '',
@@ -691,7 +696,7 @@ export default function ProfilePage() {
             <StatusBar barStyle="light-content" />
             <SafeAreaView className="flex-1" edges={['top']}>
 
-                <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 120, width: '80%', marginLeft: '10%', marginRight: '10%' }}>
+                <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: tabBarHeight > 0 ? tabBarHeight + 60 : 120, width: '80%', marginLeft: '10%', marginRight: '10%' }}>
 
                     {/* Header Section */}
                     <ProfileHeader

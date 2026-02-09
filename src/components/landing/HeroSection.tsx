@@ -157,6 +157,18 @@ const GradientOrb = ({ color, size, top, left, delay = 0 }: { color: string; siz
 const FloatingMockup = () => {
     const floatAnim = useRef(new Animated.Value(0)).current;
     const rotateAnim = useRef(new Animated.Value(0)).current;
+    const { width } = useWindowDimensions();
+
+    // Hide on mobile widths
+    const isSmallScreen = width < 900;
+    const isMediumScreen = width >= 900 && width < 1200;
+
+    // Scale down for medium screens
+    const cardWidth = isMediumScreen ? 280 : 384;
+    const cardHeight = isMediumScreen ? 380 : 500;
+    const cardPadding = isMediumScreen ? 20 : 32;
+    const cardBorderRadius = isMediumScreen ? 32 : 48;
+    const opportunityMarginTop = isMediumScreen ? 50 : 80;
 
     useEffect(() => {
         if (!isWeb) return;
@@ -195,13 +207,14 @@ const FloatingMockup = () => {
         ).start();
     }, []);
 
-    if (!isWeb) return null;
+    // Hide on native or small screens
+    if (!isWeb || isSmallScreen) return null;
 
     return (
         <Animated.View
             style={{
                 position: 'absolute',
-                right: '-5%',
+                right: isMediumScreen ? '-8%' : '-5%',
                 top: '15%',
                 transform: [
                     { translateY: floatAnim },
@@ -212,14 +225,14 @@ const FloatingMockup = () => {
         >
             <View
                 style={{
-                    width: 384,
-                    height: 500,
+                    width: cardWidth,
+                    height: cardHeight,
                     backgroundColor: 'rgba(24, 24, 27, 0.4)',
                     backdropFilter: 'blur(32px)',
                     borderWidth: 1,
                     borderColor: 'rgba(255, 255, 255, 0.1)',
-                    borderRadius: 48,
-                    padding: 32,
+                    borderRadius: cardBorderRadius,
+                    padding: cardPadding,
                     overflow: 'hidden',
 
                 } as any}
@@ -233,44 +246,44 @@ const FloatingMockup = () => {
                 {/* Play button */}
                 <View
                     style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 24,
+                        width: isMediumScreen ? 40 : 48,
+                        height: isMediumScreen ? 40 : 48,
+                        borderRadius: isMediumScreen ? 20 : 24,
                         backgroundColor: 'rgba(255, 255, 255, 0.1)',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        marginBottom: 24,
+                        marginBottom: isMediumScreen ? 16 : 24,
                     }}
                 >
-                    <Play size={16} color="#fff" fill="#fff" />
+                    <Play size={isMediumScreen ? 14 : 16} color="#fff" fill="#fff" />
                 </View>
 
                 {/* Skeleton content */}
-                <View style={{ gap: 16 }}>
-                    <View style={{ height: 16, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 8, width: '75%' }} />
-                    <View style={{ height: 16, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: 8, width: '50%' }} />
-                    <View style={{ flexDirection: 'row', gap: 16, paddingTop: 16 }}>
-                        <View style={{ flex: 1, aspectRatio: 1, backgroundColor: '#27272a', borderRadius: 16 }} />
-                        <View style={{ flex: 1, aspectRatio: 1, backgroundColor: '#27272a', borderRadius: 16 }} />
+                <View style={{ gap: isMediumScreen ? 12 : 16 }}>
+                    <View style={{ height: isMediumScreen ? 12 : 16, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 8, width: '75%' }} />
+                    <View style={{ height: isMediumScreen ? 12 : 16, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: 8, width: '50%' }} />
+                    <View style={{ flexDirection: 'row', gap: isMediumScreen ? 12 : 16, paddingTop: isMediumScreen ? 12 : 16 }}>
+                        <View style={{ flex: 1, aspectRatio: 1, backgroundColor: '#27272a', borderRadius: isMediumScreen ? 12 : 16 }} />
+                        <View style={{ flex: 1, aspectRatio: 1, backgroundColor: '#27272a', borderRadius: isMediumScreen ? 12 : 16 }} />
                     </View>
                 </View>
 
                 {/* Opportunity card */}
                 <View
                     style={{
-                        marginTop: 80,
-                        padding: 24,
-                        borderRadius: 24,
+                        marginTop: opportunityMarginTop,
+                        padding: isMediumScreen ? 16 : 24,
+                        borderRadius: isMediumScreen ? 16 : 24,
                         backgroundColor: '#fff',
                     }}
                 >
-                    <Text style={{ fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8, color: '#000' }}>
+                    <Text style={{ fontSize: isMediumScreen ? 9 : 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2, marginBottom: isMediumScreen ? 4 : 8, color: '#000' }}>
                         New Opportunity
                     </Text>
-                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#000' }}>
+                    <Text style={{ fontSize: isMediumScreen ? 14 : 18, fontWeight: '700', color: '#000' }}>
                         Jazz Night at Piano Man
                     </Text>
-                    <Text style={{ fontSize: 14, opacity: 0.6, marginTop: 4, color: '#000' }}>
+                    <Text style={{ fontSize: isMediumScreen ? 12 : 14, opacity: 0.6, marginTop: 4, color: '#000' }}>
                         ₹15,000 • New Delhi
                     </Text>
                 </View>
@@ -278,6 +291,7 @@ const FloatingMockup = () => {
         </Animated.View>
     );
 };
+
 
 
 export default function HeroSection({ scrollY }: { scrollY: any }) {

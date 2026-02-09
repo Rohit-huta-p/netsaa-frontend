@@ -81,13 +81,13 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, 
             onRequestClose={onClose}
         >
             <View className="flex-1 justify-end bg-black/50">
-                <View className="bg-netsa-card rounded-t-3xl h-[85%] border-t border-white/10">
+                <View className="bg-card-surface rounded-t-3xl h-[85%] border-t border-white/10">
 
                     {/* Header */}
                     <View className="flex-row justify-between items-center p-6 border-b border-white/10">
                         <View>
                             <Text className="text-white font-satoshi-bold text-xl">Apply for Gig</Text>
-                            <Text className="text-netsa-text-secondary font-inter text-sm mt-1">{gigTitle}</Text>
+                            <Text className="text-white/50 font-inter text-sm mt-1">{gigTitle}</Text>
                         </View>
                         <TouchableOpacity onPress={onClose} className="p-2 bg-white/5 rounded-full">
                             <X size={24} color="#FFFFFF" />

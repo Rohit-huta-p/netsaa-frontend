@@ -24,6 +24,7 @@ import { EventRegisterModal } from './EventRegisterModal';
 import { useEventRegistrations, useEventTicketTypes, useMyRegistrations } from '@/hooks/useEvents';
 import DiscussionTab from '../common/DiscussionTab';
 import { AuthPromptModal } from '../common/AuthPromptModal';
+import { ShareBottomSheet } from '../common/ShareBottomSheet';
 
 interface EventDetailsProps {
     event: IEvent;
@@ -45,6 +46,7 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
     const [authPromptVisible, setAuthPromptVisible] = useState(false);
     const [isSaved, setIsSaved] = useState(false); // TODO: Fetch initial state
     const [activeTab, setActiveTab] = useState<'about' | 'schedule' | 'tickets' | 'venue' | 'host' | 'discussion' | 'registrations'>('about');
+    const [shareSheetVisible, setShareSheetVisible] = useState(false);
 
     // Data Hooks
     const { data: ticketTypes, isLoading: loadingTickets } = useEventTicketTypes(event._id);
@@ -67,7 +69,7 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
     const showDiscussion = true; // Conditional logic from request
 
     const handleShare = () => {
-        Alert.alert('Share', 'Share functionality coming soon!');
+        setShareSheetVisible(true);
     };
 
     const handleSave = () => {
@@ -537,6 +539,14 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
             <AuthPromptModal
                 visible={authPromptVisible}
                 onClose={() => setAuthPromptVisible(false)}
+            />
+
+            {/* Share Bottom Sheet */}
+            <ShareBottomSheet
+                visible={shareSheetVisible}
+                onClose={() => setShareSheetVisible(false)}
+                type="event"
+                data={event}
             />
         </View>
     );

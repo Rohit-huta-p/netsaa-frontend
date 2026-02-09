@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import { Gig, GigResponse, GigsListResponse } from '../types/gig';
 
 // Use env var or production fallback
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
     return process.env.EXPO_PUBLIC_API_GIGS_URL || 'https://netsaa-gigs-service.onrender.com/v1';
 };
 

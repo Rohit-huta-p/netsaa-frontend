@@ -21,6 +21,20 @@ module.exports = {
                     10: '#EA698B',  // Coral/Pink accent
                 },
 
+                // Organizer Theme Colors (Orange/Amber)
+                organizer: {
+                    50: '#FFF8F4',
+                    100: '#FFEDE4',
+                    200: '#FFD4BF',
+                    300: '#FFB27F',
+                    400: '#FF9D55',
+                    500: '#FF8C42',   // Secondary
+                    600: '#FF6B35',   // Primary
+                    700: '#E5572A',
+                    800: '#CC4A23',
+                    900: '#A63919',
+                },
+
                 // Background colors
                 bg: {
                     black: '#000000',
@@ -32,6 +46,7 @@ module.exports = {
                 // Card system (Phase 1: Gigs UI Enhancement)
                 card: {
                     bg: 'rgba(18, 18, 18, 1)',
+                    surface: 'rgba(18, 5, 23, 1)',
                     hover: 'rgba(24, 24, 24, 1)',
                 },
 
@@ -62,6 +77,9 @@ module.exports = {
                 'glow': '0 0 20px rgba(139, 92, 246, 0.15)',
                 'glow-hover': '0 0 40px rgba(139, 92, 246, 0.25)',
                 'glow-lg': '0 0 60px rgba(139, 92, 246, 0.3)',
+                'glow-organizer': '0 0 20px rgba(255, 107, 53, 0.2)',
+                'glow-organizer-hover': '0 0 40px rgba(255, 107, 53, 0.3)',
+                'glow-organizer-lg': '0 0 60px rgba(255, 107, 53, 0.35)',
             },
             fontFamily: {
                 // Outfit - Primary display/heading font

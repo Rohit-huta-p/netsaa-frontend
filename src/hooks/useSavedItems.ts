@@ -83,7 +83,8 @@ const calculateExpiry = (deadlineString: string): string => {
 };
 
 const transformEventToItem = (savedEvent: any): SavedItem => {
-    const event = savedEvent.eventId || savedEvent.eventDetails || savedEvent;
+    // Prioritize eventDetails (object with full data) over eventId (which may be just a string ID)
+    const event = savedEvent.eventDetails || (typeof savedEvent.eventId === 'object' ? savedEvent.eventId : null) || savedEvent;
     const category = (event.category || 'default').toLowerCase();
 
     return {
@@ -103,7 +104,8 @@ const transformEventToItem = (savedEvent: any): SavedItem => {
 };
 
 const transformGigToItem = (savedGig: any): SavedItem => {
-    const gig = savedGig.gigId || savedGig.gigDetails || savedGig;
+    // Prioritize gigDetails (object with full data) over gigId (which is just a string ID)
+    const gig = savedGig.gigDetails || (typeof savedGig.gigId === 'object' ? savedGig.gigId : null) || savedGig;
     const category = (gig.category || 'default').toLowerCase();
 
     return {

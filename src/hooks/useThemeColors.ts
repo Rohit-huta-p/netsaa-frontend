@@ -109,20 +109,18 @@ export const THEME_COLORS = {
         accent: '#EA698B',
     },
 
-    // Organizer Theme
+    // Organizer Theme (Orange)
     organizer: {
         primary: {
-            colors: ['#EA698B', '#C77DFF', '#9D4EDD'] as const,
-            locations: [0, 0.5, 1] as const,
+            colors: ['#FF6B35', '#FF8C42'] as const,
         },
         secondary: {
-            colors: ['#6D23B6', '#9D4EDD'] as const,
+            colors: ['#FF8C42', '#FFB27F'] as const,
         },
         button: {
-            colors: ['#EA698B', '#C77DFF', '#9D4EDD'] as const,
-            locations: [0, 0.5, 1] as const,
+            colors: ['#FF6B35', '#FF8C42'] as const,
         },
-        accent: '#EA698B',
+        accent: '#FF6B35',
     },
 } as const;
 

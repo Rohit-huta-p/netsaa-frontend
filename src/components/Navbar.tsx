@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Pressable, ScrollView, Keyboard, Platform } from 'react-native';
 import { Link, useRouter } from 'expo-router';
-import { Search, Bell, User, X, MapPin, Calendar, Users, Briefcase, Music, ChevronDown, Settings, LogOut, HelpCircle, Heart, UserCircle } from 'lucide-react-native';
+import { Search, Bell, User, X, MapPin, Calendar, Users, Briefcase, Music, ChevronDown, Settings, LogOut, HelpCircle, Heart, UserCircle, LayoutDashboard } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import useAuthStore from '@/stores/authStore';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -27,7 +27,9 @@ interface SearchPreviewResponse {
 
 export default function Navbar() {
     const router = useRouter();
-    const { accessToken, isHydrated } = useAuthStore();
+    const { accessToken, isHydrated, user } = useAuthStore();
+
+
     const isAuthenticated = !!accessToken;
     const insets = useSafeAreaInsets();
 
@@ -184,6 +186,13 @@ export default function Navbar() {
 
                 {/* Navigation Links - Gigs & Events for everyone, Connections & Saved require auth */}
                 <View className="hidden md:flex flex-row items-center gap-8">
+                    {
+                        user?.role === 'organizer' && (
+                            <TouchableOpacity onPress={() => router.push('/(app)/dashboard')}>
+                                <Text className="text-gray-400 hover:text-white font-outfit-medium">Dashboard</Text>
+                            </TouchableOpacity>
+                        )
+                    }
                     <TouchableOpacity onPress={() => router.push('/(app)/gigs')}>
                         <Text className="text-gray-400 hover:text-white font-outfit-medium">Gigs</Text>
                     </TouchableOpacity>
@@ -192,9 +201,6 @@ export default function Navbar() {
                     </TouchableOpacity>
                     {isAuthenticated && (
                         <>
-                            <TouchableOpacity onPress={() => router.push('/(app)/connections')}>
-                                <Text className="text-gray-400 hover:text-white font-outfit-medium">Connections</Text>
-                            </TouchableOpacity>
                             <TouchableOpacity onPress={() => router.push('/(app)/saved')}>
                                 <Text className="text-gray-400 hover:text-white font-outfit-medium">Saved</Text>
                             </TouchableOpacity>
@@ -394,6 +400,23 @@ export default function Navbar() {
 
                                             {/* Menu Items */}
                                             <ScrollView style={{ maxHeight: 400 }}>
+                                                {/* Dashboard (Organizer Only) */}
+                                                {(user?.role === 'organizer' || user?.roles?.includes('organizer')) && (
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            setIsProfileDropdownOpen(false);
+                                                            router.push('/(app)/dashboard');
+                                                        }}
+                                                        className="px-4 py-3 border-b border-white/5 flex-row items-center gap-3"
+                                                        style={{ backgroundColor: 'rgba(255, 107, 53, 0.08)' }}
+                                                    >
+                                                        <LayoutDashboard size={18} color="#FF6B35" />
+                                                        <Text className="text-white font-outfit-medium text-sm flex-1">
+                                                            Dashboard
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                )}
+
                                                 {/* My Gigs */}
                                                 <TouchableOpacity
                                                     onPress={() => {

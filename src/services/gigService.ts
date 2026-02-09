@@ -92,6 +92,11 @@ const gigService = {
     getUserApplications: async (): Promise<any> => {
         const res = await API.get('/users/me/gig-applications');
         return res.data;
+    },
+
+    rephraseText: async (text: string): Promise<{ original: string; rephrased: string }> => {
+        const res = await API.post('/ai/rephrase', { text });
+        return res.data.data;
     }
 };
 

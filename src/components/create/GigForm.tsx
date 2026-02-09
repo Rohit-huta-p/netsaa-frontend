@@ -13,8 +13,10 @@ import {
     AlignLeft,
     Eye,
     Clock,
-    Pencil
+    Pencil,
+    Wand2
 } from 'lucide-react-native';
+import gigService from '@/services/gigService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StepIndicator } from '@/components/common/StepIndicator';
 import { InputGroup } from '@/components/ui/InputGroup';
@@ -115,6 +117,7 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
     const [currentStep, setCurrentStep] = useState(1);
     const [completedSteps, setCompletedSteps] = useState<number[]>([]);
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+    const [rephrasingField, setRephrasingField] = useState<string | null>(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -208,6 +211,27 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
+    const handleRephrase = async (field: 'description' | 'termsAndConditions') => {
+        const text = formData[field];
+        if (!text || text.length < 5) {
+            Alert.alert("Input Required", "Please enter some text to rephrase.");
+            return;
+        }
+
+        setRephrasingField(field);
+        try {
+            const result = await gigService.rephraseText(text);
+            if (result && result.rephrased) {
+                updateField(field, result.rephrased);
+            }
+        } catch (error: any) {
+            console.error("Rephrase failed:", error);
+            Alert.alert("Error", "Failed to rephrase text. Please try again.");
+        } finally {
+            setRephrasingField(null);
+        }
+    };
+
     const handleSubmit = async (isDraft: boolean) => {
         try {
             const parsed = formSchema.parse(formData);
@@ -286,7 +310,8 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
 
                 status: (isDraft ? 'draft' : 'published') as Gig['status'],
                 isUrgent: parsed.urgent,
-                isFeatured: parsed.featured
+                isFeatured: parsed.featured,
+                termsAndConditions: parsed.termsAndConditions
             };
 
             await createGigMutation.mutateAsync(payload);
@@ -373,6 +398,22 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
             </InputGroup>
 
             <InputGroup label="Description" subtitle="Paint the full picture">
+                <View className="items-end mb-2">
+                    <TouchableOpacity
+                        onPress={() => handleRephrase('description')}
+                        disabled={!!rephrasingField}
+                        className="flex-row items-center gap-1.5 bg-zinc-800/80 px-3 py-1.5 rounded-full border border-zinc-700/50"
+                    >
+                        {rephrasingField === 'description' ? (
+                            <ActivityIndicator size="small" color="#FF6B35" />
+                        ) : (
+                            <Wand2 size={12} color="#FF6B35" />
+                        )}
+                        <Text className="text-[#FF6B35] text-[10px] font-black uppercase tracking-wider">
+                            {rephrasingField === 'description' ? 'AI Magic...' : 'Rephrase with AI'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
                 <TextArea
                     rows={6}
                     value={formData.description}
@@ -883,6 +924,22 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
             </InputGroup>
 
             <InputGroup label="Terms and Conditions" subtitle="Legal or specific conditions for the gig">
+                <View className="items-end mb-2">
+                    <TouchableOpacity
+                        onPress={() => handleRephrase('termsAndConditions')}
+                        disabled={!!rephrasingField}
+                        className="flex-row items-center gap-1.5 bg-zinc-800/80 px-3 py-1.5 rounded-full border border-zinc-700/50"
+                    >
+                        {rephrasingField === 'termsAndConditions' ? (
+                            <ActivityIndicator size="small" color="#FF6B35" />
+                        ) : (
+                            <Wand2 size={12} color="#FF6B35" />
+                        )}
+                        <Text className="text-[#FF6B35] text-[10px] font-black uppercase tracking-wider">
+                            {rephrasingField === 'termsAndConditions' ? 'AI Magic...' : 'Rephrase with AI'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
                 <TextArea
                     rows={4}
                     value={formData.termsAndConditions}

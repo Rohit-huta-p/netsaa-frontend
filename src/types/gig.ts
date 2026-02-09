@@ -84,6 +84,7 @@ export interface Gig {
     viewerContext?: {
         hasApplied: boolean;
     };
+    termsAndConditions?: string;
 }
 
 export interface GigResponse {

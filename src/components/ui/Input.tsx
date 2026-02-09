@@ -30,7 +30,7 @@ export function Input<T extends FieldValues>({
     ...props
 }: InputProps<T>) {
     return (
-        <View className={`mb-4 ${containerClassName || ''}`}>
+        <View className={`mb-4${containerClassName || ''}`}>
             {/* Label: slightly dimmed text for hierarchy */}
             <Text className="text-sm font-medium text-gray-300 mb-2 ml-1">
                 {label}
@@ -47,7 +47,7 @@ export function Input<T extends FieldValues>({
                             px-4 h-14
                             ${error
                                 ? 'border-red-500 bg-red-500/10'
-                                : 'border-white/10 bg-white/5 focus:border-white/20'
+                                : 'border-white/10 bg-white/5 '
                             }
                             ${contentContainerClassName || ''}
                         `}
@@ -55,7 +55,7 @@ export function Input<T extends FieldValues>({
                         {startIcon && <View className="mr-3 opacity-80">{startIcon}</View>}
 
                         <TextInput
-                            className={`flex-1 text-white text-base ${inputClassName || ''}`}
+                            className={`flex-1 text-white text-base  outline-none  ${inputClassName || ''}`}
                             onBlur={onBlur}
                             onChangeText={onChange}
                             value={value as string}

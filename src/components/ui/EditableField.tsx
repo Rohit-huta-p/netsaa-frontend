@@ -29,7 +29,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
                 <View className="relative">
                     <TextInput
                         value={value}
-                        className="w-full bg-white border border-purple-300 rounded-xl px-4 py-3 text-gray-900 pr-10"
+                        className="w-full bg-white border border-purple-300 rounded-xl px-4 py-3 text-gray-900 pr-10 outline-none"
                         placeholderTextColor="#9CA3AF"
                         {...props}
                     />

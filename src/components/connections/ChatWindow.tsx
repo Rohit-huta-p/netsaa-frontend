@@ -515,7 +515,7 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                         onBlur={handleBlur}
                         placeholder="Type a message..."
                         placeholderTextColor="#6b7280"
-                        className="flex-1 bg-white/10 text-white rounded-full px-4 py-3 max-h-24"
+                        className="flex-1 bg-white/10 text-white rounded-full px-4 py-3 max-h-24 outline-none"
                         multiline
                     />
                     <TouchableOpacity

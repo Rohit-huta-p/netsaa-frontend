@@ -57,6 +57,13 @@ export const generateEventShareContent = (event: any): ShareContent => {
 
 // Generate share content for a Profile
 export const generateProfileShareContent = (user: any): ShareContent => {
+    if (!user) {
+        return {
+            title: 'NETSA User',
+            message: 'Check out this profile on NETSA!',
+            url: BASE_URL
+        };
+    }
     const name = user.displayName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Artist';
     const artistType = user.artistType || user.roles?.[0] || 'Creative';
     const bio = user.bio ? user.bio.substring(0, 100) + (user.bio.length > 100 ? '...' : '') : '';

@@ -9,13 +9,11 @@ import {
     DollarSign,
     User,
     Briefcase,
-    Sparkles,
     Layout,
-    Type,
     AlignLeft,
     Eye,
-    Camera,
-    Clock
+    Clock,
+    Pencil
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StepIndicator } from '@/components/common/StepIndicator';
@@ -89,12 +87,12 @@ const formSchema = z.object({
 const StyledTextInput = ({ value, onChangeText, placeholder, icon: Icon, type = 'text', ...props }: any) => (
     <View className="relative">
         {Icon && (
-            <View className="absolute left-3 top-1/2 -translate-y-6 z-10">
+            <View className="absolute left-3 top-[50%] -translate-y-1/2 z-10">
                 <Icon size={18} color="rgba(255, 255, 255, 0.4)" />
             </View>
         )}
         <TextInput
-            className={`w-full bg-zinc-900/50 border border-white/10 rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500 focus:border-[#FF6B35]`}
+            className={`w-full bg-zinc-900/50 border border-white/10 rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500 focus:border-[#FF6B35] outline-none`}
             placeholder={placeholder}
             placeholderTextColor="rgba(255, 255, 255, 0.3)"
             value={value}
@@ -330,7 +328,7 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
 
             <InputGroup label="Gig Title" subtitle="Make it clear and specific">
                 <StyledTextInput
-                    icon={Type}
+                    icon={Pencil}
                     value={formData.title}
                     onChangeText={(val: string) => updateField('title', val)}
                     placeholder="e.g. Need 5 Dancers for Sangeet Performance"

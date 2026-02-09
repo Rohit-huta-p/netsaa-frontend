@@ -478,7 +478,7 @@ export default function LoginScreen() {
     });
 
     return (
-        <View className="flex-1 mb-20" style={{ backgroundColor: '#000000' }}>
+        <View className="flex-1" style={{ backgroundColor: '#000000' }}>
             {/* Animated Background Gradient */}
             <Animated.View
                 style={{
@@ -791,7 +791,7 @@ export default function LoginScreen() {
                         </View>
 
                         {/* Bottom Decoration */}
-                        <View className="items-center pb-6">
+                        <View className="items-center pb-6 mb-6">
                             <View className="flex-row items-center gap-2">
                                 <View className="w-1 h-1 rounded-full bg-purple-500/40" />
                                 <View className="w-1 h-1 rounded-full bg-blue-500/40" />

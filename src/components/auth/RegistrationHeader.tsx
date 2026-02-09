@@ -14,7 +14,7 @@ interface RegistrationHeaderProps {
 export const RegistrationHeader = ({ selectedRole, primaryAccent }: RegistrationHeaderProps) => {
     const gradientColors = (selectedRole === 'artist'
         ? THEME_COLORS.artist.secondary.colors
-        : [THEME_COLORS.organizer.primary.colors[0], THEME_COLORS.organizer.primary.colors[2]]) as readonly [string, string, ...string[]];
+        : [THEME_COLORS.organizer.primary.colors[0], THEME_COLORS.organizer.primary.colors[1]]) as readonly [string, string, ...string[]];
 
     return (
         <>
@@ -28,8 +28,8 @@ export const RegistrationHeader = ({ selectedRole, primaryAccent }: Registration
                     style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
                 >
                     <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: '#22c55e' }} />
-                    <Users size={14} color={primaryAccent} style={{ marginRight: 6 }} />
-                    <Text className="text-xs font-medium text-netsa-text-muted">
+                    {/* <Users size={14} color={primaryAccent} style={{ marginRight: 6 }} /> */}
+                    <Text className="text-xs font-medium text-zinc-300">
                         10K+ artists already here
                     </Text>
                 </LinearGradient>

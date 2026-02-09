@@ -5,6 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Briefcase, Calendar, Users, Heart, LayoutDashboard } from 'lucide-react-native';
 import useAuthStore from '@/stores/authStore';
 
+// Tab bar height constants for consistent bottom padding across the app
+export const TAB_BAR_BASE_HEIGHT = 56; // Icon + label + padding
+export const MOBILE_BREAKPOINT = 768;
+
 /**
  * Mobile bottom tab navigation bar
  * Visible only on mobile screens (< 768px width)
@@ -30,7 +34,24 @@ const baseTabs: TabItem[] = [
 
 const ACTIVE_COLOR = '#ff006e';
 const INACTIVE_COLOR = '#71717a';
-const MOBILE_BREAKPOINT = 768;
+
+/**
+ * Hook to get the mobile tab bar height including safe area insets
+ * Use this to add bottom padding to scrollable content on pages
+ * Returns 0 on desktop (width >= 768px)
+ */
+export function useMobileTabBarHeight() {
+    const insets = useSafeAreaInsets();
+    const { width } = useWindowDimensions();
+
+    if (width >= MOBILE_BREAKPOINT) {
+        return 0; // No tab bar on desktop
+    }
+
+    // TAB_BAR_BASE_HEIGHT + safe area bottom inset (iOS) or 8px (Android)
+    const bottomPadding = Platform.OS === 'ios' ? insets.bottom : 8;
+    return TAB_BAR_BASE_HEIGHT + bottomPadding;
+}
 
 export default function MobileTabBar() {
     const router = useRouter();

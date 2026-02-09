@@ -4,7 +4,6 @@ import noAvatar from "@/assets/no-avatar.jpg";
 import {
     View,
     Text,
-    TextInput,
     TouchableOpacity,
     ScrollView,
     Image,
@@ -29,6 +28,7 @@ import {
 } from "lucide-react-native";
 import { useSearchPreview, useSearchPeople, useSearchGigs, useSearchEvents } from "@/hooks/useSearchQueries";
 import connectionService from "@/services/connectionService";
+import AppScrollView from "@/components/AppScrollView";
 
 
 
@@ -298,10 +298,9 @@ export default function SearchScreen() {
                     </ScrollView>
                 </View>
 
-                {/* 3. CONTENT AREA */}
-                <ScrollView
+                {/* 3. CONTENT AREA - Uses AppScrollView for automatic tab bar padding */}
+                <AppScrollView
                     className="flex-1 px-4 w-[90%] mx-auto"
-                    contentContainerStyle={{ paddingBottom: 100 }}
                     showsVerticalScrollIndicator={false}
                 >
                     {(isLoadingPreview && activeTab === 'All') ||
@@ -391,7 +390,7 @@ export default function SearchScreen() {
                         </>
                     )}
 
-                </ScrollView>
+                </AppScrollView>
             </SafeAreaView>
         </View>
     );

@@ -45,6 +45,9 @@ SplashScreen.preventAutoHideAsync();
 /**
  * Global app layout that shows Navbar + Slot + Footer.
  * To hide the Navbar/Footer for a route, create a nested layout (example below).
+ * 
+ * Note: Bottom spacing for mobile tab bar is handled by AppScrollView/AppFlatList,
+ * not at this layout level, to avoid double-padding issues with scrollable content.
  */
 export default function RootLayout() {
     const { isHydrated, accessToken } = useAuthStore();
@@ -111,11 +114,11 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <QueryClientProvider client={queryClient}>
                 <SafeAreaProvider>
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, backgroundColor: '#09090b' }}>
                         {/* Default Navbar (not transparent) - individual screens can render their own or use a nested layout */}
                         <Navbar />
 
-                        {/* App content */}
+                        {/* App content - bottom padding for mobile tab bar is handled by AppScrollView/AppFlatList */}
                         <Slot />
 
                         {/* Mobile bottom tab bar - only visible on mobile */}

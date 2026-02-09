@@ -52,7 +52,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                     <View className="flex-row gap-2 mb-4">
                         <View className="flex-1 bg-zinc-800/50 border border-white/10 rounded-xl px-4 py-3">
                             <TextInput
-                                className="text-white"
+                                className="text-white outline-none"
                                 placeholder="Enter address..."
                                 placeholderTextColor="#71717a"
                                 value={address}

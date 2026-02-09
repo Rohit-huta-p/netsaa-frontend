@@ -264,7 +264,7 @@ export default function EventsPage() {
                                     <TextInput
                                         placeholder="Search events, cities..."
                                         placeholderTextColor="#71717a"
-                                        className="flex-1 ml-3 text-white text-lg font-light h-full"
+                                        className="flex-1 ml-3 text-white text-lg font-light h-full outline-none"
                                         value={searchState.q}
                                         onChangeText={(text) => setSearchState(prev => ({
                                             ...prev,

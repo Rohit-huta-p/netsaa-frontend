@@ -391,7 +391,7 @@ export default function OrganizerHome() {
                                     showsVerticalScrollIndicator={false}
                                     contentContainerStyle={{ paddingBottom: 24 }}
                                 >
-                                    {dashboardItems.map((item) => (
+                                    {dashboardItems.slice(0, 5).map((item) => (
                                         <ItemCard
                                             key={item.id}
                                             item={item}

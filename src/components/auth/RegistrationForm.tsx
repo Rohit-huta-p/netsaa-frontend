@@ -196,7 +196,7 @@ const FloatingInput = ({
                                             secureTextEntry={secureTextEntry && !showPassword}
                                             keyboardType={keyboardType}
                                             autoCapitalize={autoCapitalize}
-                                            className="text-white text-base pt-3"
+                                            className="text-white text-base pt-3 outline-none"
                                             style={{
                                                 height: 48,
                                                 opacity: shouldFloat ? 1 : 0,

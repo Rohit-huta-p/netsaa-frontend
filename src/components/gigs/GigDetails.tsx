@@ -42,6 +42,9 @@ import { GigHighlightsSection } from './GigHighlightsSection';
 import { OrganizerTrustCard } from './OrganizerTrustCard';
 import { OrganizerDashboardCard } from './OrganizerDashboardCard';
 
+// Tab bar height for dynamic padding
+import { useMobileTabBarHeight } from '@/components/MobileTabBar';
+
 interface GigDetailsProps {
     gig: any;
     isOrganizer?: boolean;
@@ -58,6 +61,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
     showActionFooter = true,
 }) => {
     const { width } = useWindowDimensions();
+    const tabBarHeight = useMobileTabBarHeight();
     const isMobileWidth = width < 768;
 
     const router = useRouter();
@@ -166,7 +170,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
 
     return (
         <View className="flex-1 w-[90%] mx-auto">
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140, marginTop: 20 }}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tabBarHeight > 0 ? tabBarHeight + 100 : 140, marginTop: 20 }}>
                 {/* HERO IMAGE */}
                 <View className="relative w-full overflow-hidden rounded-2xl">
                     {/* <Image

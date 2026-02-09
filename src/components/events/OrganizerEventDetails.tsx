@@ -185,7 +185,7 @@ export const OrganizerEventDetails: React.FC<OrganizerEventDetailsProps> = ({
                                                     newTags[i] = text;
                                                     setFormData({ ...formData, tags: newTags });
                                                 }}
-                                                className="text-white text-xs font-bold min-w-[40px] p-0"
+                                                className="text-white text-xs font-bold min-w-[40px] p-0 outline-none"
                                             />
                                         ) : (
                                             <Text className="text-zinc-400 text-xs">#{tag}</Text>

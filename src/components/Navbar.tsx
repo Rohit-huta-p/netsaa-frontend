@@ -60,7 +60,7 @@ export default function Navbar() {
     // Handle logo press - go to landing if not authenticated, or dashboard if authenticated
     const handleLogoPress = () => {
         if (isAuthenticated) {
-            router.push('/(app)/gigs');
+            router.push('/');
         } else {
             router.push('/');
         }

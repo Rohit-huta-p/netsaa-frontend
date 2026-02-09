@@ -16,7 +16,6 @@ import authService from "@/services/authService";
 
 import useAuthStore from "@/stores/authStore";
 
-// Import shared profile components
 import {
     ProfileHeader,
     ProfileSidebar,
@@ -27,6 +26,8 @@ import {
     ProfileData,
     ProfileStats,
 } from "@/components/profile";
+
+import { ShareBottomSheet } from "@/components/common/ShareBottomSheet";
 import { User } from "@/types/index";
 
 // Import application context components
@@ -49,6 +50,7 @@ export default function UserProfile() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [showContextCard, setShowContextCard] = useState(true);
+    const [shareSheetVisible, setShareSheetVisible] = useState(false);
 
     // Check if viewing from a gig context
     const isFromGig = fromGig === 'true' && gigId && applicationId;
@@ -182,6 +184,7 @@ export default function UserProfile() {
                         stats={stats}
                         isDesktop={isDesktop}
                         isEditable={false}
+                        onSharePress={() => setShareSheetVisible(true)}
                     />
 
                     {/* Main Layout Grid */}
@@ -222,6 +225,14 @@ export default function UserProfile() {
 
                 {/* Footer */}
                 <ProfileFooter />
+
+                {/* Share Bottom Sheet */}
+                <ShareBottomSheet
+                    visible={shareSheetVisible}
+                    onClose={() => setShareSheetVisible(false)}
+                    type="profile"
+                    data={profile}
+                />
             </SafeAreaView>
         </View>
     );

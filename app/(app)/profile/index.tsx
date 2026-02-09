@@ -26,7 +26,6 @@ import { useAuthStore } from "@/stores/authStore";
 import authService from "@/services/authService";
 import { uploadMediaFlow, validateMediaFile, isLargeFile } from "@/utils/upload";
 
-// Import shared profile components
 import {
     ProfileHeader,
     ProfileSidebar,
@@ -37,6 +36,8 @@ import {
     ProfileData,
     ProfileStats,
 } from "@/components/profile";
+
+import { ShareBottomSheet } from "@/components/common/ShareBottomSheet";
 
 // --- TYPES ---
 type ProfileFormData = ProfileData & {
@@ -618,6 +619,7 @@ export default function ProfilePage() {
 
     const [wizardVisible, setWizardVisible] = useState(false);
     const [wizardStep, setWizardStep] = useState(0);
+    const [shareSheetVisible, setShareSheetVisible] = useState(false);
 
     const profileData: ProfileFormData = {
         fullName: user?.displayName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || '',
@@ -701,6 +703,7 @@ export default function ProfilePage() {
                         isDesktop={isDesktop}
                         isEditable={true}
                         onEditPress={() => openWizard(0)}
+                        onSharePress={() => setShareSheetVisible(true)}
                     />
 
                     {/* Main Layout Grid */}
@@ -761,6 +764,14 @@ export default function ProfilePage() {
                         onSave={handleSaveProfile}
                     />
                 )}
+
+                {/* Share Bottom Sheet */}
+                <ShareBottomSheet
+                    visible={shareSheetVisible}
+                    onClose={() => setShareSheetVisible(false)}
+                    type="profile"
+                    data={user}
+                />
             </SafeAreaView>
         </View>
     );

@@ -2,12 +2,13 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Briefcase, Calendar, Users, Heart } from 'lucide-react-native';
+import { Briefcase, Calendar, Users, Heart, LayoutDashboard } from 'lucide-react-native';
+import useAuthStore from '@/stores/authStore';
 
 /**
  * Mobile bottom tab navigation bar
  * Visible only on mobile screens (< 768px width)
- * Shows 4 tabs: Gigs, Events, Connections, Saved
+ * Shows 4-5 tabs based on user role: Dashboard (organizer), Gigs, Events, Network, Saved
  */
 
 interface TabItem {
@@ -15,12 +16,15 @@ interface TabItem {
     label: string;
     icon: React.ComponentType<{ size: number; color: string }>;
     route: string;
+    organizerOnly?: boolean;
+    activeColor?: string;
 }
 
-const tabs: TabItem[] = [
+const baseTabs: TabItem[] = [
+    { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, route: '/(app)/dashboard', organizerOnly: true, activeColor: '#FF6B35' },
     { key: 'gigs', label: 'Gigs', icon: Briefcase, route: '/(app)/gigs' },
     { key: 'events', label: 'Events', icon: Calendar, route: '/(app)/events' },
-    { key: 'connections', label: 'Connections', icon: Users, route: '/(app)/connections' },
+    { key: 'connections', label: 'Network', icon: Users, route: '/(app)/connections' },
     { key: 'saved', label: 'Saved', icon: Heart, route: '/(app)/saved' },
 ];
 
@@ -33,6 +37,12 @@ export default function MobileTabBar() {
     const pathname = usePathname();
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
+    const user = useAuthStore((state) => state.user);
+
+    const isOrganizer = user?.role === 'organizer' || user?.roles?.includes('organizer');
+
+    // Filter tabs based on user role
+    const tabs = baseTabs.filter(tab => !tab.organizerOnly || isOrganizer);
 
     // Hide on desktop (width >= 768px)
     if (width >= MOBILE_BREAKPOINT) {
@@ -69,6 +79,7 @@ export default function MobileTabBar() {
             {tabs.map((tab) => {
                 const active = isActive(tab.route);
                 const IconComponent = tab.icon;
+                const tabActiveColor = tab.activeColor || ACTIVE_COLOR;
 
                 return (
                     <TouchableOpacity
@@ -90,7 +101,7 @@ export default function MobileTabBar() {
                                     top: -8,
                                     width: 32,
                                     height: 3,
-                                    backgroundColor: ACTIVE_COLOR,
+                                    backgroundColor: tabActiveColor,
                                     borderRadius: 2,
                                 }}
                             />
@@ -98,13 +109,13 @@ export default function MobileTabBar() {
 
                         <IconComponent
                             size={22}
-                            color={active ? ACTIVE_COLOR : INACTIVE_COLOR}
+                            color={active ? tabActiveColor : INACTIVE_COLOR}
                         />
                         <Text
                             style={{
                                 fontSize: 11,
                                 marginTop: 4,
-                                color: active ? ACTIVE_COLOR : INACTIVE_COLOR,
+                                color: active ? tabActiveColor : INACTIVE_COLOR,
                                 fontFamily: active ? 'Outfit-SemiBold' : 'Outfit-Regular',
                             }}
                         >

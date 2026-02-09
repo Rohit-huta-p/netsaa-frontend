@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, Platform } from 'react-native';
+import { Text, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { Users } from 'lucide-react-native';
 import Animated, {
     useSharedValue,
@@ -9,6 +9,7 @@ import Animated, {
     withSequence,
     Easing,
 } from 'react-native-reanimated';
+import { usePlatform } from '@/utils/platform';
 
 interface ApplicationsBadgeProps {
     count: number;           // Total applications count
@@ -24,7 +25,9 @@ export const ApplicationsBadge: React.FC<ApplicationsBadgeProps> = ({
     hasNew = false,
 }) => {
     const scale = useSharedValue(1);
-
+    const { isWeb } = usePlatform();
+    const { width } = useWindowDimensions();
+    const isMobileWidth = width < 768;
     useEffect(() => {
         if (pendingCount > 0) {
             // Pulse animation when there are pending applications
@@ -43,17 +46,10 @@ export const ApplicationsBadge: React.FC<ApplicationsBadgeProps> = ({
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
-    }));
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
 
-    const dotAnimatedStyle = useAnimatedStyle(() => ({
-        opacity: withRepeat(
-            withSequence(
-                withTiming(0.3, { duration: 600 }),
-                withTiming(1, { duration: 600 })
-            ),
-            -1,
-            false
-        ),
     }));
 
     const hasPending = pendingCount > 0;
@@ -62,25 +58,11 @@ export const ApplicationsBadge: React.FC<ApplicationsBadgeProps> = ({
         <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
             <Animated.View
                 style={animatedStyle}
-                className={`relative flex-row items-center gap-2 px-4 py-2 rounded-2xl border ${hasPending
-                    ? 'bg-blue-500/10 border-blue-500/20'
-                    : 'bg-zinc-800/50 border-white/10'
-                    }`}
             >
-                <Users size={18} color={hasPending ? '#3B82F6' : '#A1A1AA'} />
-                <Text className={`font-black text-sm ${hasPending ? 'text-blue-400' : 'text-zinc-400'}`}>
-                    {count}
+                <Users size={isMobileWidth ? 16 : 22} color={hasPending ? '#3B82F6' : '#e0e0e0ff'} />
+                <Text className={`font-black ${isMobileWidth ? 'text-sm' : 'text-lg'} ${hasPending ? 'text-blue-400' : 'text-white/70'}`}>
+                    ({count})
                 </Text>
-
-                {/* Pending indicator badge */}
-                {hasPending && (
-                    <Animated.View
-                        style={dotAnimatedStyle}
-                        className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 bg-amber-500 rounded-full border-2 border-black items-center justify-center"
-                    >
-                        <Text className="text-black text-[10px] font-black">{pendingCount}</Text>
-                    </Animated.View>
-                )}
             </Animated.View>
         </TouchableOpacity>
     );

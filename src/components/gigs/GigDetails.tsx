@@ -32,9 +32,15 @@ import { useGigApplications, useUpdateApplicationStatus } from '@/hooks/useGigAp
 import { usePlatform } from '@/utils/platform';
 import { useRouter } from 'expo-router';
 import { FlatList } from 'react-native-gesture-handler';
+import gigService from '@/services/gigService';
 
 // Application Management Components
 import { ApplicationsTab, ApplicationsBadge, ApplicationsBottomSheet } from './applications';
+
+// Gig Highlights Components
+import { GigHighlightsSection } from './GigHighlightsSection';
+import { OrganizerTrustCard } from './OrganizerTrustCard';
+import { OrganizerDashboardCard } from './OrganizerDashboardCard';
 
 interface GigDetailsProps {
     gig: any;
@@ -45,15 +51,17 @@ interface GigDetailsProps {
 
 
 import { AuthPromptModal } from '../common/AuthPromptModal';
+import { ShareBottomSheet } from '../common/ShareBottomSheet';
 
 export const GigDetails: React.FC<GigDetailsProps> = ({
     gig,
     showActionFooter = true,
 }) => {
-    // ... existing hooks ...
-    const router = useRouter();
     const { width } = useWindowDimensions();
-    const { isWeb } = usePlatform();
+    const isMobileWidth = width < 768;
+
+    const router = useRouter();
+    // const { isWeb } = usePlatform();
     const user = useAuthStore((state) => state.user);
     console.log("gig:", gig);
     const isOrganizer = user?._id === gig.organizerId._id;
@@ -66,6 +74,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
     const [activeTab, setActiveTab] = useState<'about' | 'talent' | 'schedule' | 'apply' | 'applications' | 'terms'>('about');
     const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
     const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
+    const [shareSheetVisible, setShareSheetVisible] = useState(false);
 
     // Fetch applications if organizer
     const { data: applications, isLoading: loadingApplications } = useGigApplications(
@@ -91,7 +100,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
     };
 
     const handleShare = () => {
-        Alert.alert('Share', 'Share functionality coming soon!');
+        setShareSheetVisible(true);
     };
 
     const handleViewTerms = () => {
@@ -99,8 +108,24 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
         setActiveTab('terms');
     };
 
-    const handleSave = () => {
-        setIsSaved(!isSaved);
+    const handleSave = async () => {
+        if (!user) {
+            setAuthPromptVisible(true);
+            return;
+        }
+
+        try {
+            setIsSaved(!isSaved); // Optimistic update
+            const response = await gigService.saveGig(gig._id);
+            // The API returns { saved: true/false } to indicate current state
+            if (response.data?.saved !== undefined) {
+                setIsSaved(response.data.saved);
+            }
+        } catch (error) {
+            console.error('Failed to save gig:', error);
+            setIsSaved(isSaved); // Revert on error
+            Alert.alert('Error', 'Failed to save gig. Please try again.');
+        }
     };
 
     const handleUpdateStatus = (appId: string, status: string) => {
@@ -183,14 +208,14 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                             </View>
                         </View>
                         {/* Action Buttons */}
-                        <View className="flex-row gap-3 z-30">
+                        <View className="flex-row items-center gap-3 z-30">
                             {
                                 !isOrganizer && (
                                     <TouchableOpacity
                                         onPress={handleSave}
-                                        className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
+                                        className={`${isMobileWidth ? 'w-8 h-8' : 'w-10 h-10'} rounded-2xl bg-black/50 border border-white/10 items-center justify-center`}
                                     >
-                                        <Heart size={20} color={isSaved ? '#EF4444' : '#FFFFFF'} fill={isSaved ? '#EF4444' : 'none'} />
+                                        <Heart size={isMobileWidth ? 16 : 20} color={isSaved ? '#EF4444' : '#FFFFFF'} fill={isSaved ? '#EF4444' : 'none'} />
                                     </TouchableOpacity>
                                 )
                             }
@@ -204,18 +229,18 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                     />
                                     <TouchableOpacity
                                         onPress={() => setSettingsModalVisible(true)}
-                                        className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
+                                        className={`${isMobileWidth ? 'w-8 h-8' : 'w-10 h-10'} rounded-2xl bg-black/50 border border-white/10 items-center justify-center`}
                                     >
-                                        <Settings2 size={20} color="#FFFFFF" />
+                                        <Settings2 size={isMobileWidth ? 16 : 20} color="#FFFFFF" />
                                     </TouchableOpacity>
                                 </>
                             )}
 
                             <TouchableOpacity
                                 onPress={handleShare}
-                                className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
+                                className={`${isMobileWidth ? 'w-8 h-8' : 'w-10 h-10'} rounded-2xl bg-black/50 border border-white/10 items-center justify-center`}
                             >
-                                <Share2 size={20} color="#FFFFFF" />
+                                <Share2 size={isMobileWidth ? 16 : 20} color="#FFFFFF" />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -223,9 +248,9 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
 
                 <View className="">
                     {/* MAIN CONTENT - TWO COLUMN LAYOUT */}
-                    <View className="items-start md:flex-row md:justify-between  ">
+                    <View className="items-start md:flex-row md:justify-between gap-5">
                         {/* Organizer details */}
-                        <View className='pt-1'>
+                        <View className={`pt-1 ${isMobileWidth ? 'w-full' : 'w-1/2'}`}>
 
                             <View>
                                 <Text className="text-4xl font-black text-white leading-tight mb-4 mt-3">
@@ -237,7 +262,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                         <TouchableOpacity
                                             activeOpacity={0.7}
                                             onPress={() => router.push(`/profile/${gig.organizerId}`)}
-                                            className="flex-row items-center gap-4 mb-8"
+                                            className={`flex-row items-center gap-4 mb-8`}
                                         >
                                             <View className="relative">
                                                 <View className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/10">
@@ -322,12 +347,39 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                 </View>
                             </View>
 
+                            {/* NEW: Gig Highlights Section - For Artists */}
+                            {!isOrganizer && (
+                                <>
+                                    <GigHighlightsSection gig={gig} isOrganizer={isOrganizer} />
+                                    <OrganizerTrustCard
+                                        organizer={{
+                                            _id: gig.organizerId._id || gig.organizerId,
+                                            displayName: gig.organizerSnapshot?.displayName,
+                                            profileImageUrl: gig.organizerSnapshot?.profileImageUrl,
+                                            rating: gig.organizerSnapshot?.rating,
+                                            gigsHosted: gig.organizerSnapshot?.gigsHosted,
+                                        }}
+                                        isOrganizer={isOrganizer}
+                                    />
+                                </>
+                            )}
+
+                            {/* NEW: Organizer Dashboard - For Organizers */}
+                            {isOrganizer && (
+                                <OrganizerDashboardCard
+                                    gig={gig}
+                                    applicationsCount={totalCount}
+                                    onBoostPress={() => Alert.alert('Boost', 'Boost feature coming soon!')}
+                                    onSharePress={handleShare}
+                                    onDuplicatePress={() => Alert.alert('Duplicate', 'Duplicate feature coming soon!')}
+                                />
+                            )}
 
                         </View>
 
                         {/* Compensation Details */}
 
-                        <View className="w-full lg:w-96 mx-auto lg:mx-0 pt-5">
+                        <View className="w-full md:w-80 lg:w-96 mx-auto lg:mx-0 pt-5">
                             <BlurView intensity={20} tint="dark" className="rounded-[2.5rem] overflow-hidden mb-6 border border-white/10">
                                 <View className="p-8 bg-black/40">
                                     <View className="items-center mb-4">
@@ -488,12 +540,15 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
 
 
                     {/* TABS */}
-                    <View className="mb-12 w-full">
+                    <View className="w-full bg-surface">
                         {/* Tab Headers */}
                         <FlatList
                             horizontal
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={{
+                                // backgroundColor: '#171730ff',
+                                paddingVertical: 10,
+                                paddingHorizontal: 20,
                                 width: width >= 1024 ? '100%' : 'auto',
                                 justifyContent: width >= 1024 ? 'space-around' : 'flex-start'
                             }}
@@ -509,7 +564,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                 <TouchableOpacity
                                     key={item.key}
                                     onPress={() => setActiveTab(item.key as any)}
-                                    className={`px-4 py-4 mb-5 bg-black/10 ${activeTab === item.key ? 'border-b-2 border-blue-500' : ''}`}
+                                    className={`px-4 py-4 mb-5  ${activeTab === item.key ? 'border-b-2 border-blue-500 bg-[#171730ff]' : ''}`}
                                 >
                                     <Text
                                         className={`text-[11px] font-black uppercase tracking-[0.15em] ${activeTab === item.key ? 'text-white' : 'text-zinc-500'}`}
@@ -994,6 +1049,14 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                     isLoading={loadingApplications}
                 />
             )}
+
+            {/* Share Bottom Sheet */}
+            <ShareBottomSheet
+                visible={shareSheetVisible}
+                onClose={() => setShareSheetVisible(false)}
+                type="gig"
+                data={gig}
+            />
         </View >
     );
 };

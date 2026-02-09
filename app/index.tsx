@@ -9,8 +9,7 @@ import ArtistShowcase from '@/components/landing/ArtistShowcase';
 import QuoteSection from '@/components/landing/QuoteSection';
 import CategoryMarquee from '@/components/landing/CategoryMarquee';
 import CTASection from '@/components/landing/CTASection';
-import LandingNavbar from '@/components/landing/LandingNavbar';
-import Footer from '@/components/Footer';
+
 import AppScrollView from '@/components/AppScrollView';
 
 // Landing page sections (matching final-landing.tsx)

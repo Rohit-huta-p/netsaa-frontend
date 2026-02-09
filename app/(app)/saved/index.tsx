@@ -23,6 +23,13 @@ const isWeb = Platform.OS === 'web';
 export default function SavedJobsScreen() {
   const [activeTab, setActiveTab] = useState("Saved");
   const { savedItems, appliedItems, upcomingItems, historyItems, isLoading, refetchAll, counts } = useSavedItems();
+  console.log('savedItems', savedItems)
+  console.log('appliedItems', appliedItems)
+  console.log('upcomingItems', upcomingItems)
+  console.log('historyItems', historyItems)
+  console.log('isLoading', isLoading)
+  console.log('refetchAll', refetchAll)
+  console.log('counts', counts)
   const { width, height } = useWindowDimensions();
   const router = useRouter();
 
@@ -188,8 +195,8 @@ export default function SavedJobsScreen() {
                       onPress={() => setActiveTab(tab.key)}
                       activeOpacity={0.8}
                       className={`flex-row items-center px-6 py-3 rounded-2xl border ${isActive
-                          ? 'bg-zinc-100 border-zinc-100'
-                          : 'bg-zinc-900/50 border-white/10'
+                        ? 'bg-zinc-100 border-zinc-100'
+                        : 'bg-zinc-900/50 border-white/10'
                         }`}
                     >
                       <Text className={`text-sm font-bold mr-2 ${isActive ? 'text-black' : 'text-zinc-400'

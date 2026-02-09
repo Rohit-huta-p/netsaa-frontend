@@ -154,7 +154,7 @@ export default function RegisterScreen() {
     // Render
     // ─────────────────────────────────────────────────────────────────────────
     return (
-        <View className="flex-1 bg-netsa-dark">
+        <View className="flex-1 bg-netsa-dark" style={{ overflow: 'hidden' }}>
             {/* Background Effects */}
             <BackgroundEffects
                 primaryAccent={primaryAccent}

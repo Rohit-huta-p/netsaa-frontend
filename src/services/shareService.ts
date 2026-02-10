@@ -7,7 +7,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Platform, Alert } from 'react-native';
 
 // Base URL for deep links (update this for production)
-const BASE_URL = 'https://netsa.onrender.com';
+const BASE_URL = 'https://netsaa.onrender.com';
 
 export interface ShareContent {
     title: string;

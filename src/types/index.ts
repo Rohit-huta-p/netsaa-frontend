@@ -1,4 +1,11 @@
 // src/types/index.ts
+export type ExperienceEntry = {
+  title: string;
+  role?: string;
+  venue?: string;
+  date?: string;
+};
+
 export type User = {
   _id: string;
   firstName?: string;
@@ -16,7 +23,7 @@ export type User = {
   bio?: string;
   location?: string;
   skills?: string[];
-  experience?: string[];
+  experience?: ExperienceEntry[];
   artistType?: string;
   instagramHandle?: string;
   // Physical Attributes

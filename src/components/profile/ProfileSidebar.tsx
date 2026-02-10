@@ -76,18 +76,23 @@ export const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
             </View>
 
             {/* Availability */}
-            <View className="p-8 rounded-2xl bg-zinc-900/40 border border-white/5 space-y-6">
-                <View className="flex-row items-center gap-3">
-                    <Zap size={18} color="#ea698b" fill="#ea698b" />
-                    <Text className="text-pink-500 text-xs font-black uppercase tracking-widest">Availability</Text>
+            <View className="relative overflow-hidden p-8 rounded-2xl bg-zinc-900/40 border border-white/5 space-y-6">
+                <View className="absolute inset-0 bg-black/60 z-10 items-center justify-center">
+                    <Text className="text-white font-black text-xs uppercase tracking-widest border border-white/20 px-4 py-2 rounded-full bg-black/40">Coming Soon</Text>
                 </View>
-                <Text className="text-zinc-400 text-sm">
-                    Next free slot: <Text className="text-white font-bold">Feb 12th, 2026</Text>
-                </Text>
-                <TouchableOpacity className="flex-row items-center gap-2">
-                    <Text className="text-[10px] font-black uppercase tracking-widest text-white">View Calendar</Text>
-                    <ArrowRight size={12} color="white" />
-                </TouchableOpacity>
+                <View className="opacity-30">
+                    <View className="flex-row items-center gap-3">
+                        <Zap size={18} color="#ea698b" fill="#ea698b" />
+                        <Text className="text-pink-500 text-xs font-black uppercase tracking-widest">Availability</Text>
+                    </View>
+                    <Text className="text-zinc-400 text-sm mt-6">
+                        Next free slot: <Text className="text-white font-bold">Feb 12th, 2026</Text>
+                    </Text>
+                    <TouchableOpacity className="flex-row items-center gap-2 mt-6" disabled>
+                        <Text className="text-[10px] font-black uppercase tracking-widest text-white">View Calendar</Text>
+                        <ArrowRight size={12} color="white" />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Socials */}
@@ -102,9 +107,9 @@ export const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
                             <Instagram size={18} color="white" />
                         </TouchableOpacity>
                     )}
-                    <TouchableOpacity className="w-10 h-10 rounded-xl bg-white/5 items-center justify-center border border-white/5">
+                    {/* <TouchableOpacity className="w-10 h-10 rounded-xl bg-white/5 items-center justify-center border border-white/5">
                         <Briefcase size={18} color="white" />
-                    </TouchableOpacity>
+                    </TouchableOpacity> */}
                 </View>
             </View>
         </View>

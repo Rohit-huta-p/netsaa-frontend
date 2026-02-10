@@ -25,14 +25,16 @@ export const ProfessionalHistory: React.FC<ProfessionalHistoryProps> = ({
                         <View className="flex-row items-center gap-6">
                             <Text className="text-[10px] font-black text-zinc-600">0{i + 1}</Text>
                             <View className="flex-col">
-                                <Text className="text-lg font-bold text-white">{exp}</Text>
+                                <Text className="text-lg font-bold text-white">{typeof exp === 'string' ? exp : exp.title}</Text>
                                 <Text className="text-xs text-zinc-500 uppercase font-bold tracking-widest mt-1">
-                                    {isEditable ? 'Event • 2026' : 'Verified Event'}
+                                    {typeof exp === 'string'
+                                        ? 'Event'
+                                        : [exp.role, exp.venue].filter(Boolean).join(' • ') || 'Performance'}
                                 </Text>
                             </View>
                         </View>
                         <Text className="text-xs font-black text-zinc-500 italic">
-                            {isEditable ? 'Jan 2026' : '2026'}
+                            {typeof exp === 'string' ? '' : exp.date || ''}
                         </Text>
                     </View>
                 )) : (

@@ -1,5 +1,12 @@
 // src/components/profile/types.ts
 
+export type ExperienceEntry = {
+    title: string;
+    role?: string;
+    venue?: string;
+    date?: string;
+};
+
 export type ProfileData = {
     fullName: string;
     location: string;
@@ -11,7 +18,7 @@ export type ProfileData = {
     skills: string[];
     bio: string;
     instagramHandle: string;
-    experience: string[];
+    experience: ExperienceEntry[];
     hasPhotos: boolean;
     profileImageUrl?: string;
     galleryUrls?: string[];
@@ -56,7 +63,7 @@ export interface FeaturedWorksProps {
 }
 
 export interface ProfessionalHistoryProps {
-    experience: string[];
+    experience: ExperienceEntry[];
     isEditable?: boolean;
     onEditPress?: () => void;
 }

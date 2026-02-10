@@ -13,6 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, Menu } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import authService from "@/services/authService";
+import connectionService from "@/services/connectionService";
+import { AuthPromptModal } from "@/components/common/AuthPromptModal";
 
 import useAuthStore from "@/stores/authStore";
 
@@ -37,6 +39,7 @@ import { useMobileTabBarHeight } from "@/components/MobileTabBar";
 import { ApplicantContextCard } from "@/components/gigs/applications";
 import { useApplicationContext, useUpdateApplicationStatus } from "@/hooks/useGigApplications";
 import { useGig } from "@/hooks/useGigs";
+import AppScrollView from "@/components/AppScrollView";
 
 export default function UserProfile() {
     const { user } = useAuthStore();
@@ -54,6 +57,9 @@ export default function UserProfile() {
     const [error, setError] = useState("");
     const [showContextCard, setShowContextCard] = useState(true);
     const [shareSheetVisible, setShareSheetVisible] = useState(false);
+    const [connectionStatus, setConnectionStatus] = useState<'none' | 'pending' | 'connected' | 'following'>('none');
+    const [isConnectionLoading, setIsConnectionLoading] = useState(false);
+    const [authModalVisible, setAuthModalVisible] = useState(false);
     const tabBarHeight = useMobileTabBarHeight();
 
     // Check if viewing from a gig context
@@ -97,6 +103,62 @@ export default function UserProfile() {
 
         fetchUser();
     }, [id]);
+
+    useEffect(() => {
+        const checkConnectionStatus = async () => {
+            if (!user || !profile || user._id === profile._id) return;
+
+            try {
+                // Check if already connected
+                const connections = await connectionService.getConnections();
+                const isConnected = connections.some((c: any) =>
+                    (c.requesterId?._id === profile._id || c.recipientId?._id === profile._id)
+                );
+
+                if (isConnected) {
+                    setConnectionStatus('connected');
+                    return;
+                }
+
+                // Check if request sent
+                const sentRequests = await connectionService.getSentConnectionRequests();
+                const isPending = sentRequests.some((r: any) =>
+                    r.recipientId?._id === profile._id || r.recipientId === profile._id
+                );
+
+                if (isPending) {
+                    setConnectionStatus('pending');
+                }
+            } catch (error) {
+                console.error("Failed to check connection status", error);
+            }
+        };
+
+        if (profile) {
+            checkConnectionStatus();
+        }
+    }, [profile, user]);
+
+    const handleConnect = async () => {
+        if (!user) {
+            setAuthModalVisible(true);
+            return;
+        }
+
+        if (connectionStatus !== 'none' || isConnectionLoading) return;
+
+        try {
+            setIsConnectionLoading(true);
+            // Assuming profile._id is the user ID to connect to
+            await connectionService.sendConnectionRequest((profile as any)._id || (profile as any).id);
+            setConnectionStatus('pending');
+        } catch (error) {
+            console.error("Failed to send connection request", error);
+            // Ideally show a toast here
+        } finally {
+            setIsConnectionLoading(false);
+        }
+    };
 
     const handleUpdateStatus = (appId: string, status: string) => {
         updateMutation.mutate({ applicationId: appId, status });
@@ -153,19 +215,20 @@ export default function UserProfile() {
 
                 {/* Navbar */}
                 <View className="flex-row items-center justify-between px-6 py-6 pt-4 bg-transparent z-50">
-                    <TouchableOpacity onPress={() => router.back()} className="flex-row items-center gap-2">
+                    <TouchableOpacity onPress={() => {
+                        if (!user) {
+                            router.replace('/');
+                        } else {
+                            router.back();
+                        }
+                    }} className="flex-row items-center gap-2">
                         <ArrowLeft size={20} color="white" />
                         <Text className="text-white font-bold text-[10px] uppercase tracking-widest">Back</Text>
                     </TouchableOpacity>
 
-                    <View className="flex-row items-center gap-4">
-                        <TouchableOpacity>
-                            <Menu size={24} color="white" />
-                        </TouchableOpacity>
-                    </View>
                 </View>
 
-                <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: tabBarHeight > 0 ? tabBarHeight + 60 : 120, width: '80%', marginLeft: '10%', marginRight: '10%' }}>
+                <AppScrollView className="flex-1" contentContainerStyle={{ paddingBottom: tabBarHeight > 0 ? tabBarHeight + 60 : 120 }}>
 
                     {/* Application Context Card - Shown when organizer views applicant from gig */}
                     {isFromGig && isOrganizer && applicationContext && showContextCard && (
@@ -178,57 +241,61 @@ export default function UserProfile() {
                             onDismiss={() => setShowContextCard(false)}
                         />
                     )}
+                    <View style={{ width: '80%', marginLeft: '10%', marginRight: '10%' }}>
+                        {/* Header Section */}
+                        <ProfileHeader
+                            fullName={profileData.fullName}
+                            artistType={profileData.artistType}
+                            location={profileData.location}
+                            profileImageUrl={profileData.profileImageUrl}
+                            stats={stats}
+                            isDesktop={isDesktop}
+                            isEditable={false}
+                            onSharePress={() => setShareSheetVisible(true)}
+                            connectionStatus={connectionStatus}
+                            isConnectionLoading={isConnectionLoading}
+                            onConnectPress={handleConnect}
+                        />
 
-                    {/* Header Section */}
-                    <ProfileHeader
-                        fullName={profileData.fullName}
-                        artistType={profileData.artistType}
-                        location={profileData.location}
-                        profileImageUrl={profileData.profileImageUrl}
-                        stats={stats}
-                        isDesktop={isDesktop}
-                        isEditable={false}
-                        onSharePress={() => setShareSheetVisible(true)}
-                    />
+                        {/* Main Layout Grid */}
+                        <View className="px-6 py-16">
+                            <View className={`flex-col ${isDesktop ? 'md:flex-row' : ''} gap-16`}>
 
-                    {/* Main Layout Grid */}
-                    <View className="px-6 py-16">
-                        <View className={`flex-col ${isDesktop ? 'md:flex-row' : ''} gap-16`}>
-
-                            {/* SIDEBAR */}
-                            <ProfileSidebar
-                                profileData={profileData}
-                                isDesktop={isDesktop}
-                                isEditable={false}
-                            />
-
-                            {/* MAIN CONTENT */}
-                            <View className="flex-1 space-y-20">
-                                {/* Featured Works */}
-                                <FeaturedWorks
-                                    galleryUrls={profileData.galleryUrls || []}
-                                    videoUrls={profileData.videoUrls || []}
-                                    hasPhotos={profileData.hasPhotos}
+                                {/* SIDEBAR */}
+                                <ProfileSidebar
+                                    profileData={profileData}
                                     isDesktop={isDesktop}
                                     isEditable={false}
                                 />
 
-                                {/* Professional History */}
-                                <ProfessionalHistory
-                                    experience={profileData.experience}
-                                    isEditable={false}
-                                />
+                                {/* MAIN CONTENT */}
+                                <View className="flex-1 space-y-20">
+                                    {/* Featured Works */}
+                                    <FeaturedWorks
+                                        galleryUrls={profileData.galleryUrls || []}
+                                        videoUrls={profileData.videoUrls || []}
+                                        hasPhotos={profileData.hasPhotos}
+                                        isDesktop={isDesktop}
+                                        isEditable={false}
+                                    />
 
-                                {/* Testimonials */}
-                                <Testimonials />
+                                    {/* Professional History */}
+                                    <ProfessionalHistory
+                                        experience={profileData.experience}
+                                        isEditable={false}
+                                    />
+
+                                    {/* Testimonials */}
+                                    <Testimonials />
+                                </View>
                             </View>
                         </View>
                     </View>
 
-                </ScrollView>
+                </AppScrollView>
 
                 {/* Footer */}
-                <ProfileFooter />
+                {/* <ProfileFooter /> */}
 
                 {/* Share Bottom Sheet */}
                 <ShareBottomSheet
@@ -236,6 +303,11 @@ export default function UserProfile() {
                     onClose={() => setShareSheetVisible(false)}
                     type="profile"
                     data={profile}
+                />
+
+                <AuthPromptModal
+                    visible={authModalVisible}
+                    onClose={() => setAuthModalVisible(false)}
                 />
             </SafeAreaView>
         </View>

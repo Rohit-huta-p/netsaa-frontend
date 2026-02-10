@@ -10,7 +10,7 @@ import {
     Alert,
     Platform,
 } from 'react-native';
-import { X, Link, MoreHorizontal } from 'lucide-react-native';
+import { X, Link, MoreHorizontal, MessageCircle } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import shareService, {
     ShareContent,
@@ -37,13 +37,13 @@ const BRAND_COLORS = {
 // Inline SVG-like icon components using View elements for cross-platform support
 const WhatsAppIcon = () => (
     <View className="w-6 h-6 items-center justify-center">
-        <Text style={{ fontSize: 20 }}>📱</Text>
+        <MessageCircle />
     </View>
 );
 
 const InstagramIcon = () => (
     <View className="w-6 h-6 items-center justify-center">
-        <Text style={{ fontSize: 20 }}>📷</Text>
+        <InstagramIcon />
     </View>
 );
 
@@ -209,7 +209,7 @@ export const ShareBottomSheet: React.FC<ShareBottomSheetProps> = ({
 
                     {/* Primary Share Options */}
                     <View className="px-6 py-6">
-                        <View className="flex-row justify-around mb-6">
+                        {/* <View className="flex-row justify-around mb-6">
                             {shareOptions.map((option) => {
                                 const IconComponent = option.icon;
                                 return (
@@ -237,7 +237,7 @@ export const ShareBottomSheet: React.FC<ShareBottomSheetProps> = ({
                                     </TouchableOpacity>
                                 );
                             })}
-                        </View>
+                        </View> */}
 
                         {/* Secondary Options */}
                         <View className="flex-row justify-center gap-8">

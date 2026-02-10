@@ -34,6 +34,9 @@ export interface ProfileHeaderProps {
     isEditable?: boolean;
     onEditPress?: () => void;
     onSharePress?: () => void;
+    connectionStatus?: 'none' | 'pending' | 'connected' | 'following';
+    isConnectionLoading?: boolean;
+    onConnectPress?: () => void;
 }
 
 export interface ProfileSidebarProps {

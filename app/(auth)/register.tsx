@@ -67,6 +67,7 @@ const StepInput = ({ label, value, onChangeText, icon, error, ...props }: {
             <TextInput
                 value={value} onChangeText={onChangeText}
                 placeholderTextColor={C.w15}
+                className="outline-none"
                 style={{ flex: 1, color: C.w80, fontSize: 15, paddingHorizontal: icon ? 8 : 0, height: '100%' }}
                 {...props}
             />

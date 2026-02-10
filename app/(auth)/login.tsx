@@ -47,6 +47,7 @@ const StepInput = ({ label, value, onChangeText, icon, error, ...props }: {
             <TextInput
                 value={value} onChangeText={onChangeText}
                 placeholderTextColor={C.w15}
+                className="outline-none"
                 style={{ flex: 1, color: C.w80, fontSize: 15, paddingHorizontal: icon ? 8 : 0, height: '100%' }}
                 {...props}
             />
@@ -117,7 +118,7 @@ export default function LoginScreen() {
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     style={{ flex: 1 }}
                 >
-                    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                    <TouchableWithoutFeedback onPress={Platform.OS !== 'web' ? Keyboard.dismiss : undefined}>
                         <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}>
 
                             <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideY }] }}>

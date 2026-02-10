@@ -6,11 +6,14 @@ import {
     Text,
     Image,
     TouchableOpacity,
+    ActivityIndicator,
 } from "react-native";
 import {
     MapPin,
     Share2,
     Edit3,
+    UserPlus,
+    Check,
 } from "lucide-react-native";
 import { ProfileHeaderProps } from "./types";
 
@@ -24,17 +27,22 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     isEditable = false,
     onEditPress,
     onSharePress,
+    connectionStatus = 'none',
+    isConnectionLoading = false,
+    onConnectPress,
 }) => {
+    const showConnectButton = !isEditable && onConnectPress;
+
     return (
         <View className="relative pt-12 pb-8 border-b px-6 py-10">
-            <View className={`flex-col ${isDesktop ? 'md:flex-row' : ''} items-start gap-10 bg-zinc-900/80 rounded-2xl py-6 px-4`}>
+            <View className={`flex-col ${isDesktop ? 'md:flex-row' : ''} items-center gap-10 bg-zinc-900/80 rounded-2xl py-6 px-4`}>
                 {/* Avatar */}
                 <View className="relative">
-                    <View className="w-32 h-32 md:w-44 md:h-44 rounded-full overflow-hidden border border-white/10 relative">
+                    <View className=" w-32 h-32 md:w-44 md:h-44 rounded-full overflow-hidden border border-white/10 relative">
                         <Image
                             source={profileImageUrl ? { uri: profileImageUrl } : noAvatar}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' } as any}
-                            className="rounded-full mr-4 bg-gray-800"
+                            className="rounded-full bg-gray-800"
                             resizeMode="cover"
                         />
                     </View>
@@ -68,7 +76,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                     </View>
 
                     {/* Stats Bar */}
-                    <View className="flex-row flex-wrap items-center gap-6 pt-6">
+                    <View className="flex-row flex-wrap items-center md:items-start justify-center md:justify-start gap-6 pt-6">
                         <View>
                             <Text className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Base</Text>
                             <Text className="text-sm text-white font-black italic">
@@ -83,7 +91,34 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 </View>
 
                 {/* Actions */}
-                <View className={`flex-row ${isEditable ? 'absolute right-5 top-4' : ''} gap-2 ${isDesktop ? 'w-auto' : ''}`}>
+                <View className={`flex-row ${isEditable ? 'absolute right-5 top-4' : ''} gap-2 items-center ${isDesktop ? 'w-auto' : ''}`}>
+                    {/* Connect Button - shown on other people's profiles */}
+                    {showConnectButton && (
+                        <TouchableOpacity
+                            onPress={onConnectPress}
+                            disabled={connectionStatus !== 'none' || isConnectionLoading}
+                            className={`flex-row items-center px-4 py-3 rounded-xl border ${connectionStatus === 'connected' || connectionStatus === 'pending'
+                                ? "bg-white/5 border-white/20"
+                                : "bg-white border-white"
+                                }`}
+                        >
+                            {isConnectionLoading ? (
+                                <ActivityIndicator size="small" color={connectionStatus === 'none' ? "black" : "white"} />
+                            ) : connectionStatus === 'connected' ? (
+                                <Text className="text-gray-400 font-bold text-sm">Following</Text>
+                            ) : connectionStatus === 'pending' ? (
+                                <View className="flex-row items-center gap-1">
+                                    <Check size={16} color="#9ca3af" />
+                                    <Text className="text-gray-400 font-bold text-sm">Pending</Text>
+                                </View>
+                            ) : (
+                                <View className="flex-row items-center gap-1">
+                                    <UserPlus size={16} color="black" />
+                                    <Text className="text-black font-bold text-sm">Connect</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                         onPress={onSharePress}
                         className="h-12 w-12 rounded-lg items-center justify-center"

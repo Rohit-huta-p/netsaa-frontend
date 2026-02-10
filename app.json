@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "netsa-mobile",
-    "slug": "netsa-mobile",
+    "name": "NETSA - The Artist's Network",
+    "slug": "netsa",
     "version": "1.0.0",
-    "scheme": "netsa-mobile",
+    "scheme": "netsa",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -30,6 +30,7 @@
       "package": "com.anonymous.netsamobile"
     },
     "web": {
+      "name": "NETSA - Find Gigs, Workshops & Artist Jobs",
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },

@@ -9,6 +9,9 @@ export type User = {
   roles?: string[];
   phoneNumber?: string;
   profileImageUrl?: string;
+  // Registration personalization
+  intent?: 'find_gigs' | 'hire_artists' | 'learn_workshops' | 'host_events';
+  experienceLevel?: 'beginner' | 'intermediate' | 'professional';
   // Profile Fields
   bio?: string;
   location?: string;

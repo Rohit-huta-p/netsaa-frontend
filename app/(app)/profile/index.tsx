@@ -19,10 +19,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from 'expo-image-picker';
 import { Video as ExpoVideo, ResizeMode } from 'expo-av';
-import {
-    Plus, ArrowLeft, Camera, X, Video, Trash2
-} from "lucide-react-native";
+import { Plus, ArrowLeft, Camera, X, Video, Trash2, Calendar, MapPin, User as UserIcon } from "lucide-react-native";
+
 import { useAuthStore } from "@/stores/authStore";
+import { ExperienceEntry } from "@/types/index";
 import authService from "@/services/authService";
 import { uploadMediaFlow, validateMediaFile, isLargeFile } from "@/utils/upload";
 
@@ -116,6 +116,17 @@ const TextInputStyled = (props: any) => (
     />
 );
 
+const StepInput = ({ label, value, onChangeText, placeholder }: { label: string, value: string, onChangeText: (t: string) => void, placeholder: string }) => (
+    <View>
+        <Text className="text-zinc-500 mb-2 font-bold uppercase tracking-widest text-[10px]">{label}</Text>
+        <TextInputStyled
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+        />
+    </View>
+);
+
 // --- PROFILE WIZARD ---
 const ProfileWizard = ({
     initialData,
@@ -133,6 +144,8 @@ const ProfileWizard = ({
     const [step, setStep] = useState(initialStep);
     const [formData, setFormData] = useState<ProfileFormData>(initialData);
     const [uploadingState, setUploadingState] = useState<UploadingState>({});
+    const [newExperience, setNewExperience] = useState<ExperienceEntry>({ title: '', role: '', venue: '', date: '' });
+
 
     const TOTAL_STEPS = 5;
 
@@ -283,7 +296,14 @@ const ProfileWizard = ({
             <View className="space-y-3">
                 {formData.experience.map((exp, i) => (
                     <View key={i} className="flex-row items-center justify-between p-6 bg-white/5 border border-white/10">
-                        <Text className="text-white font-bold text-lg uppercase tracking-wide flex-1">{exp}</Text>
+                        <View className="flex-1">
+                            <Text className="text-white font-bold text-lg uppercase tracking-wide">{typeof exp === 'string' ? exp : exp.title}</Text>
+                            {typeof exp !== 'string' && (
+                                <Text className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-1">
+                                    {[exp.role, exp.venue, exp.date].filter(Boolean).join(' • ')}
+                                </Text>
+                            )}
+                        </View>
                         <TouchableOpacity onPress={() => {
                             const newExp = formData.experience.filter((_, idx) => idx !== i);
                             setFormData({ ...formData, experience: newExp });
@@ -293,15 +313,56 @@ const ProfileWizard = ({
                     </View>
                 ))}
 
-                <TouchableOpacity
-                    onPress={() => {
-                        const newExp = [...formData.experience, `EVENT ${formData.experience.length + 1}`];
-                        setFormData({ ...formData, experience: newExp });
-                    }}
-                    className="p-6 border border-dashed border-white/20 items-center justify-center active:bg-white/5"
-                >
-                    <Text className="text-zinc-500 font-bold uppercase tracking-widest text-xs">+ ADD PERFORMANCE</Text>
-                </TouchableOpacity>
+                {/* Add New Experience Form */}
+                <View className="p-6 bg-white/5 border border-dotted border-white/20 space-y-4">
+                    <Text className="text-zinc-500 font-bold uppercase tracking-widest text-xs mb-2">Add New Performance</Text>
+
+                    <StepInput
+                        label="Event / Show Title"
+                        value={newExperience.title}
+                        onChangeText={(text) => setNewExperience({ ...newExperience, title: text })}
+                        placeholder="e.g. SUMMER JAM 2025"
+                    />
+
+                    <View className="flex-row gap-4">
+                        <View className="flex-1">
+                            <StepInput
+                                label="Role"
+                                value={newExperience.role || ''}
+                                onChangeText={(text) => setNewExperience({ ...newExperience, role: text })}
+                                placeholder="e.g. HEADLINER"
+                            />
+                        </View>
+                        <View className="flex-1">
+                            <StepInput
+                                label="Date"
+                                value={newExperience.date || ''}
+                                onChangeText={(text) => setNewExperience({ ...newExperience, date: text })}
+                                placeholder="e.g. JAN 2025"
+                            />
+                        </View>
+                    </View>
+
+                    <StepInput
+                        label="Venue / Location"
+                        value={newExperience.venue || ''}
+                        onChangeText={(text) => setNewExperience({ ...newExperience, venue: text })}
+                        placeholder="e.g. THE GRAND ARENA"
+                    />
+
+                    <TouchableOpacity
+                        onPress={() => {
+                            if (!newExperience.title.trim()) return;
+                            const newExp = [...formData.experience, { ...newExperience }];
+                            setFormData({ ...formData, experience: newExp });
+                            setNewExperience({ title: '', role: '', venue: '', date: '' });
+                        }}
+                        disabled={!newExperience.title.trim()}
+                        className={`p-4 items-center justify-center border border-white/10 ${!newExperience.title.trim() ? 'opacity-50' : 'bg-white/10 active:bg-white/20'}`}
+                    >
+                        <Text className="text-white font-bold uppercase tracking-widest text-xs">+ ADD TO LIST</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </View>
     );

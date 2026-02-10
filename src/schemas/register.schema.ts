@@ -1,18 +1,22 @@
 // src/schemas/register.schema.ts
-import { z } from "zod";
+// Per-step types and validation for multi-step registration
 
-export const registerSchema = z.object({
-    fullName: z.string().min(2, "Stage name or Full name is required"),
-    email: z.string().email("Invalid email address"),
-    phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    role: z.enum(["artist", "organizer"]),
-});
+/* ── Enums ── */
+export type Role = 'artist' | 'organizer';
+export type Intent = 'find_gigs' | 'hire_artists' | 'learn_workshops' | 'host_events';
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'professional';
 
-export type RegisterFormValues = z.infer<typeof registerSchema>;
-
-export type RoleCardColors = {
-    bg: string;
-    border: string;
-    iconBg: string;
-};
+/* ── Final API payload ── */
+export interface RegisterPayload {
+    name: string;
+    email: string;
+    password: string;
+    phoneNumber: string;
+    location: string;
+    userType: Role;
+    intent?: Intent[]; // Multi-select
+    experienceLevel?: ExperienceLevel;
+    instagramHandle?: string;
+    artistType?: string[]; // Multi-select
+    organizationType?: string[]; // Multi-select
+}

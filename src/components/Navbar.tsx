@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Pressable, ScrollView, Keyboard, Platform } from 'react-native';
+// Reusable Search Result Row Component
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Pressable, ScrollView, Keyboard, Platform, useWindowDimensions, Animated } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { Search, Bell, User, X, MapPin, Calendar, Users, Briefcase, Music, ChevronDown, Settings, LogOut, HelpCircle, Heart, UserCircle, LayoutDashboard } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +26,44 @@ interface SearchPreviewResponse {
     people?: Array<{ id: string; name: string; role?: string }>;
 }
 
+const ICONS_WIDTH = 17; // Bell + Profile + spacing
+
+const SearchResultRow = ({ item, onPress, isLast }: { item: SearchResultItem; onPress: () => void; isLast: boolean }) => {
+    const getResultIcon = (type: string) => {
+        switch (type) {
+            case 'gig': return <Briefcase size={16} color="#ff006e" />;
+            case 'event': return <Calendar size={16} color="#8338ec" />;
+            case 'artist': return <Music size={16} color="#3b82f6" />;
+            case 'organizer': return <Users size={16} color="#10b981" />;
+            default: return <Search size={16} color="#888" />;
+        }
+    };
+
+    return (
+        <TouchableOpacity
+            onPress={onPress}
+            className={`flex-row items-center p-3 ${!isLast ? 'border-b border-white/5' : ''}`}
+        >
+            <View className="mr-3 w-7 h-7 items-center justify-center rounded-md bg-purple-500/15">
+                {getResultIcon(item.type)}
+            </View>
+            <View className="flex-1">
+                <Text className="text-white text-[13px] font-semibold" numberOfLines={1}>
+                    {item.title || item.displayName}
+                </Text>
+                {item.subtitle && (
+                    <Text className="text-gray-500 text-xs mt-0.5" numberOfLines={1}>
+                        {item.subtitle}
+                    </Text>
+                )}
+            </View>
+            <View className="bg-white/5 px-2 py-0.5 rounded text-[10px]">
+                <Text className="text-gray-400 text-[10px] capitalize">{item.type}</Text>
+            </View>
+        </TouchableOpacity>
+    );
+};
+
 export default function Navbar() {
     const router = useRouter();
     const { accessToken, isHydrated, user } = useAuthStore();
@@ -40,6 +79,13 @@ export default function Navbar() {
 
     // Profile dropdown state
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+
+    // Mobile search expansion state
+    const { width } = useWindowDimensions();
+    const isMobile = width < 768;
+    const [isMobileSearchExpanded, setIsMobileSearchExpanded] = useState(false);
+    const mobileSearchAnimation = useRef(new Animated.Value(0)).current;
+    const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Debounce search query (300ms delay)
     const debouncedQuery = useDebouncedValue(searchQuery.trim(), 300);
@@ -107,6 +153,73 @@ export default function Navbar() {
         }
     };
 
+    // Mobile search animation functions
+    const resetCollapseTimeout = useCallback(() => {
+        if (collapseTimeoutRef.current) {
+            clearTimeout(collapseTimeoutRef.current);
+        }
+        collapseTimeoutRef.current = setTimeout(() => {
+            if (searchQuery.length === 0) {
+                collapseMobileSearch();
+            }
+        }, 4000);
+    }, [searchQuery]);
+
+    const animateSearch = (toValue: number, callback?: () => void) => {
+        Animated.spring(mobileSearchAnimation, {
+            toValue,
+            useNativeDriver: false,
+            speed: 22,
+            bounciness: 0,
+        }).start(callback);
+    };
+
+    const expandMobileSearch = () => {
+        setIsMobileSearchExpanded(true);
+        animateSearch(1, () => {
+            searchInputRef.current?.focus();
+        });
+        resetCollapseTimeout();
+    };
+
+    const collapseMobileSearch = () => {
+        Keyboard.dismiss();
+        setSearchQuery('');
+        setIsSearchFocused(false);
+        animateSearch(0, () => {
+            setIsMobileSearchExpanded(false);
+        });
+
+        if (collapseTimeoutRef.current) {
+            clearTimeout(collapseTimeoutRef.current);
+        }
+    };
+
+
+    const handleMobileSearchChange = (text: string) => {
+        setSearchQuery(text);
+        resetCollapseTimeout();
+    };
+
+    // Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (collapseTimeoutRef.current) {
+                clearTimeout(collapseTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    // Interpolated animation values for mobile search
+    const mobileSearchWidth = mobileSearchAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [40, width - ICONS_WIDTH - 360], // expands left
+    });
+    const mobileInputOpacity = mobileSearchAnimation.interpolate({
+        inputRange: [0, 0.5, 1],
+        outputRange: [0, 0, 1],
+    });
+
     // Normalize search results into a flat list
     const normalizeResults = (data: SearchPreviewResponse | undefined): SearchResultItem[] => {
         if (!data) return [];
@@ -152,28 +265,50 @@ export default function Navbar() {
     };
 
     const results = normalizeResults(searchResults);
-    const showDropdown = isSearchFocused && debouncedQuery.length >= 2;
+    const showDropdown =
+        debouncedQuery.length >= 2 &&
+        (isSearchFocused || isMobileSearchExpanded);
 
-    // Get icon for result type
-    const getResultIcon = (type: string) => {
-        switch (type) {
-            case 'gig':
-                return <Briefcase size={16} color="#ff006e" />;
-            case 'event':
-                return <Calendar size={16} color="#8338ec" />;
-            case 'artist':
-                return <Music size={16} color="#3b82f6" />;
-            case 'organizer':
-                return <Users size={16} color="#10b981" />;
-            default:
-                return <Search size={16} color="#888" />;
+    // Shared Dropdown Content
+    const renderDropdownContent = () => {
+        if (isSearching) {
+            return (
+                <View className="p-4 items-center">
+                    <ActivityIndicator size="small" color="#A855F7" />
+                </View>
+            );
         }
+        if (results.length === 0) {
+            return (
+                <View className="p-4 items-center">
+                    <Text className="text-gray-500 text-[13px]">No results found</Text>
+                </View>
+            );
+        }
+        return (
+            <ScrollView keyboardShouldPersistTaps="handled" className="max-h-[320px]">
+                {results.map((item, index) => (
+                    <SearchResultRow
+                        key={`${item.type}-${item.id}`}
+                        item={item}
+                        onPress={() => handleResultClick(item.type, item.id)}
+                        isLast={index === results.length - 1}
+                    />
+                ))}
+                <TouchableOpacity
+                    onPress={handleViewAllResults}
+                    className="p-3 items-center bg-purple-500/10"
+                >
+                    <Text className="text-purple-400 text-xs font-semibold">View all results →</Text>
+                </TouchableOpacity>
+            </ScrollView>
+        );
     };
 
     return (
         <View
             className="bg-[#0a0a0f] border-b border-white/10 px-6 py-4"
-            style={{ paddingTop: insets.top + 16, zIndex: 100 }}
+            style={{ paddingTop: insets.top + 16, zIndex: 999, elevation: 20 }}
         >
             <View className="flex-row items-center justify-between">
                 {/* Logo */}
@@ -240,82 +375,131 @@ export default function Navbar() {
                         </View>
 
                         {/* Search Results Dropdown */}
-                        {showDropdown && (
-                            <View
-                                className="absolute left-0 right-0 bg-[#1a1a24] rounded-2xl border border-white/10 overflow-hidden"
-                                style={{
-                                    top: 56,
-                                    maxHeight: 400,
-                                    shadowColor: '#000',
-                                    shadowOffset: { width: 0, height: 8 },
-                                    shadowOpacity: 0.3,
-                                    shadowRadius: 16,
-                                    elevation: 10,
-                                }}
-                            >
-                                {isSearching ? (
-                                    <View className="p-6 items-center">
-                                        <ActivityIndicator size="small" color="#ff006e" />
-                                        <Text className="text-gray-400 text-sm mt-2 font-outfit">Searching...</Text>
-                                    </View>
-                                ) : isError ? (
-                                    <View className="p-6 items-center">
-                                        <Text className="text-red-400 text-sm font-outfit">Error loading results</Text>
-                                    </View>
-                                ) : results.length === 0 ? (
-                                    <View className="p-6 items-center">
-                                        <Text className="text-gray-400 text-sm font-outfit">No results found for "{debouncedQuery}"</Text>
-                                    </View>
-                                ) : (
-                                    <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
-                                        {results.map((item, index) => {
-                                            console.log(item);
-                                            return (
-                                                <TouchableOpacity
-                                                    key={`${item.type}-${item.id}`}
-                                                    onPress={() => handleResultClick(item.type, item.id)}
-                                                    className="flex-row items-center px-4 py-3 border-b border-white/5"
-                                                    style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                                                >
-                                                    <View className="w-8 h-8 rounded-full bg-white/5 items-center justify-center mr-3">
-                                                        {getResultIcon(item.type)}
-                                                    </View>
-                                                    <View className="flex-1">
-                                                        <Text className="text-white text-sm font-outfit-medium" numberOfLines={1}>
-                                                            {item.title || item.displayName}
-                                                        </Text>
-                                                        {item.subtitle && (
-                                                            <Text className="text-gray-500 text-xs font-outfit" numberOfLines={1}>
-                                                                {item.subtitle}sss
-                                                            </Text>
-                                                        )}
-                                                    </View>
-                                                    <View className="px-2 py-1 rounded-full bg-white/5">
-                                                        <Text className="text-gray-400 text-xs capitalize font-outfit">{item.type}</Text>
-                                                    </View>
-                                                </TouchableOpacity>
-                                            )
-                                        })}
-
-                                        {/* View All Results */}
-                                        <TouchableOpacity
-                                            onPress={handleViewAllResults}
-                                            className="px-4 py-4 items-center border-t border-white/10"
-                                            style={{ backgroundColor: 'rgba(255,0,110,0.05)' }}
-                                        >
-                                            <Text className="text-[#ff006e] text-sm font-outfit-semibold">
-                                                View all results for "{debouncedQuery}" →
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </ScrollView>
-                                )}
+                        {showDropdown && !isMobile && (
+                            <View className="absolute top-14 left-0 right-0 bg-[#1a1a24] rounded-2xl border border-white/10 overflow-hidden shadow-2xl">
+                                {renderDropdownContent()}
                             </View>
                         )}
                     </View>
                 )}
 
                 {/* Right Actions - Different based on auth state */}
-                <View className="flex-row items-center gap-4">
+                <View
+                    style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        position: 'relative',
+                        height: 40,
+                        gap: 10
+                    }}
+                >
+                    {/* 🔍 SEARCH (absolute, grows LEFT) */}
+                    {isAuthenticated && isMobile && (
+                        <View className='relative'>
+                            {/* Collapsed icon */}
+                            {!isMobileSearchExpanded && (
+                                <TouchableOpacity
+                                    onPress={expandMobileSearch}
+                                    style={{
+                                        width: 40,
+                                        height: 40,
+                                        borderRadius: 20,
+                                        backgroundColor: '#1a1a24',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255,255,255,0.1)',
+                                        marginRight: 8,
+                                    }}
+                                >
+                                    <Search size={18} color="#A855F7" />
+                                </TouchableOpacity>
+                            )}
+
+                            {/* Expanded search bar */}
+                            {isMobileSearchExpanded && (
+                                <Animated.View
+                                    style={{
+                                        // position: 'absolute',
+                                        // top: '-50%',
+                                        right: ICONS_WIDTH,
+                                        height: 40,
+                                        width: mobileSearchWidth,
+                                        backgroundColor: '#1a1a24',
+                                        borderRadius: 20,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(168, 85, 247, 0.4)',
+                                        overflow: 'hidden',
+                                        paddingLeft: 12,
+                                    }}
+                                >
+                                    <TextInput
+                                        ref={searchInputRef}
+                                        value={searchQuery}
+                                        onChangeText={(text) => {
+                                            setSearchQuery(text);
+                                            resetCollapseTimeout();
+                                        }}
+                                        placeholder="Search..."
+                                        placeholderTextColor="#666"
+                                        className='outline-none flex-1 text-white font-outfit-regular '
+                                        autoFocus
+                                        returnKeyType="search"
+                                        onFocus={() => {
+                                            setIsSearchFocused(true);
+                                            resetCollapseTimeout();
+                                        }}
+                                        onBlur={() => {
+                                            setTimeout(() => setIsSearchFocused(false), 300);
+                                        }}
+                                        onSubmitEditing={handleViewAllResults}
+                                    />
+
+                                    {/* Close */}
+                                    <TouchableOpacity
+                                        onPress={collapseMobileSearch}
+                                        style={{
+                                            width: 40,
+                                            height: 40,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        <X size={18} color="#A855F7" />
+                                    </TouchableOpacity>
+                                </Animated.View>
+                            )}
+                            {/* ✅ MOBILE SEARCH DROPDOWN */}
+                            {isMobile &&
+                                isMobileSearchExpanded &&
+                                showDropdown && (
+                                    <View
+                                        style={{
+                                            position: 'absolute',
+                                            top: 48,
+                                            right: ICONS_WIDTH,
+                                            width: width - ICONS_WIDTH - 24,
+                                            backgroundColor: '#1a1a24',
+                                            borderRadius: 16,
+                                            borderWidth: 1,
+                                            borderColor: 'rgba(168,85,247,0.3)',
+                                            maxHeight: 320,
+                                            zIndex: 9999,
+                                            elevation: 30,
+                                            overflow: 'hidden',
+                                        }}
+                                    >
+                                        {renderDropdownContent()}
+                                    </View>
+                                )}
+
+                        </View>
+                    )}
+
+
+
                     {isAuthenticated ? (
                         <>
                             {/* Notifications */}
@@ -331,7 +515,7 @@ export default function Navbar() {
                             <View style={{ position: 'relative', zIndex: 60 }}>
                                 <TouchableOpacity
                                     onPress={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                                    className="flex-row items-center gap-2"
+                                    className="flex-row items-center "
                                 >
                                     <View className="w-8 h-8 bg-purple-600 rounded-full items-center justify-center">
                                         <User size={18} color="white" />
@@ -526,7 +710,7 @@ export default function Navbar() {
                                 )}
                             </View>
                         </>
-                    ) : (
+                    ) : !isMobileSearchExpanded ? (
                         <>
                             {/* Login/Signup for unauthenticated users */}
                             <Link href="/(auth)/login">
@@ -539,9 +723,13 @@ export default function Navbar() {
                                 </View>
                             </Link>
                         </>
+                    ) : (
+                        <></>
                     )}
+
                 </View>
+
             </View>
-        </View>
+        </View >
     );
 }

@@ -27,6 +27,7 @@ export const searchService = {
         const { data } = await SEARCH_API.get('/search/preview', {
             params: { q: query },
         });
+        console.log("search query data:", data)
         return data;
     },
 

@@ -38,6 +38,7 @@ import useAuthStore from "@/stores/authStore";
 import { socketService } from "../src/services/socketService";
 import { deepLinkService } from "../src/services/deepLinkService";
 import { notificationService } from "../src/services/notificationService";
+import AppLoadingScreen from "@/components/ui/AppLoadingScreen";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -107,7 +108,7 @@ export default function RootLayout() {
     }, [isHydrated]);
 
     if (!fontsLoaded && !fontError) {
-        return null;
+        return <AppLoadingScreen />;
     }
 
     return (

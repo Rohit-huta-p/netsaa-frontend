@@ -120,6 +120,56 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
     const [rephrasingField, setRephrasingField] = useState<string | null>(null);
 
     // Form State
+    // const [formData, setFormData] = useState({
+    //     title: 'Need 5 dancers ',
+    //     gigType: 'one-time',
+    //     category: 'music_video',
+    //     tags: 'sangeet',
+
+    //     artistType: 'dancer',
+    //     skills: '',
+    //     experienceLevel: 'intermediate',
+    //     gender: 'any',
+    //     minAge: '21',
+    //     maxAge: '28',
+    //     minHeight: '150',
+    //     maxHeight: '200',
+
+    //     compType: 'fixed',
+    //     compStructure: 'fixed', // 'fixed' | 'range' | 'tbd'
+    //     amount: '2500',
+    //     minAmount: '',
+    //     maxAmount: '',
+    //     negotiable: false,
+
+    //     city: 'Pune',
+    //     venue: 'JW Marriott',
+    //     address: 'Pune',
+    //     startDate: '2025-12-21',
+    //     endDate: '2025-12-21',
+    //     timeCommitment: '10 hours',
+
+    //     description: 'Need 5 dancers for sangeet',
+    //     requirements: 'Should be good at dancing',
+    //     benefits: 'Good salary',
+
+    //     mediaHeadshot: false,
+    //     mediaFullBody: false,
+    //     mediaReel: false,
+    //     mediaAudio: false,
+
+    //     maxApplicants: '100',
+    //     deadline: '2025-12-21',
+    //     urgent: false,
+    //     featured: false,
+
+    //     practiceCount: '',
+    //     practicePaid: false,
+    //     practiceExtend: false,
+    //     practiceNotes: '',
+
+    //     termsAndConditions: ''
+    // });
     const [formData, setFormData] = useState({
         title: 'Need 5 dancers ',
         gigType: 'one-time',
@@ -359,6 +409,30 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
                     placeholder="e.g. Need 5 Dancers for Sangeet Performance"
                 />
             </InputGroup>
+            <InputGroup label="Description" subtitle="Paint the full picture">
+                <View className="items-end mb-2">
+                    <TouchableOpacity
+                        onPress={() => handleRephrase('description')}
+                        disabled={!!rephrasingField}
+                        className="flex-row items-center gap-1.5 bg-zinc-800/80 px-3 py-1.5 rounded-full border border-zinc-700/50"
+                    >
+                        {rephrasingField === 'description' ? (
+                            <ActivityIndicator size="small" color="#FF6B35" />
+                        ) : (
+                            <Wand2 size={12} color="#FF6B35" />
+                        )}
+                        <Text className="text-[#FF6B35] text-[10px] font-black uppercase tracking-wider">
+                            {rephrasingField === 'description' ? 'AI Magic...' : 'Rephrase with AI'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+                <TextArea
+                    rows={6}
+                    value={formData.description}
+                    onChangeText={(val: string) => updateField('description', val)}
+                    placeholder="Describe the gig, atmosphere, what makes it special..."
+                />
+            </InputGroup>
 
             <InputGroup label="Gig Type">
                 <View className="flex-row gap-3">
@@ -397,30 +471,7 @@ export const GigForm: React.FC<GigFormProps> = ({ onPublish, onCancel }) => {
                 />
             </InputGroup>
 
-            <InputGroup label="Description" subtitle="Paint the full picture">
-                <View className="items-end mb-2">
-                    <TouchableOpacity
-                        onPress={() => handleRephrase('description')}
-                        disabled={!!rephrasingField}
-                        className="flex-row items-center gap-1.5 bg-zinc-800/80 px-3 py-1.5 rounded-full border border-zinc-700/50"
-                    >
-                        {rephrasingField === 'description' ? (
-                            <ActivityIndicator size="small" color="#FF6B35" />
-                        ) : (
-                            <Wand2 size={12} color="#FF6B35" />
-                        )}
-                        <Text className="text-[#FF6B35] text-[10px] font-black uppercase tracking-wider">
-                            {rephrasingField === 'description' ? 'AI Magic...' : 'Rephrase with AI'}
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-                <TextArea
-                    rows={6}
-                    value={formData.description}
-                    onChangeText={(val: string) => updateField('description', val)}
-                    placeholder="Describe the gig, atmosphere, what makes it special..."
-                />
-            </InputGroup>
+
         </View>
     );
 

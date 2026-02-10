@@ -1,23 +1,36 @@
 // src/stores/registerUiStore.ts
 import { create } from 'zustand';
 
+type PersonalizationData = {
+  intent?: string;
+  artistType?: string;
+  organizationType?: string;
+  experienceLevel?: string;
+  instagramHandle?: string;
+};
+
 type RegisterUiState = {
-  onboardingStep: number;
-  showRoleModal: boolean;
+  currentStep: number; // 0 = account, 1 = personalization
+  personalizationData: PersonalizationData;
 
   setStep: (n: number) => void;
   nextStep: () => void;
   prevStep: () => void;
-  setRoleModal: (v: boolean) => void;
+  setPersonalizationData: (data: Partial<PersonalizationData>) => void;
+  resetRegistration: () => void;
 };
 
 export const useRegisterUiStore = create<RegisterUiState>((set, get) => ({
-  onboardingStep: 0,
-  showRoleModal: false,
-  setStep: (n) => set({ onboardingStep: n }),
-  nextStep: () => set({ onboardingStep: get().onboardingStep + 1 }),
-  prevStep: () => set({ onboardingStep: Math.max(0, get().onboardingStep - 1) }),
-  setRoleModal: (v) => set({ showRoleModal: v }),
+  currentStep: 0,
+  personalizationData: {},
+
+  setStep: (n) => set({ currentStep: Math.max(0, Math.min(1, n)) }),
+  nextStep: () => set({ currentStep: Math.min(1, get().currentStep + 1) }),
+  prevStep: () => set({ currentStep: Math.max(0, get().currentStep - 1) }),
+  setPersonalizationData: (data) =>
+    set({ personalizationData: { ...get().personalizationData, ...data } }),
+  resetRegistration: () =>
+    set({ currentStep: 0, personalizationData: {} }),
 }));
 
 export default useRegisterUiStore;

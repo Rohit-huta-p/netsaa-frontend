@@ -48,7 +48,6 @@ import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 interface GigDetailsProps {
     gig: any;
     isOrganizer?: boolean;
-    showActionFooter?: boolean;
 }
 
 
@@ -58,8 +57,8 @@ import { ShareBottomSheet } from '../common/ShareBottomSheet';
 
 export const GigDetails: React.FC<GigDetailsProps> = ({
     gig,
-    showActionFooter = true,
 }) => {
+    console.log("[GIG DETAILS: ]: ", gig);
     const { width } = useWindowDimensions();
     const tabBarHeight = useMobileTabBarHeight();
     const isMobileWidth = width < 768;
@@ -170,7 +169,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
 
     return (
         <View className="flex-1 w-[90%] mx-auto">
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tabBarHeight > 0 ? tabBarHeight + 100 : 140, marginTop: 20 }}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tabBarHeight > 0 ? tabBarHeight + ((isMobileWidth && !isOrganizer) ? 150 : 100) : 140, marginTop: 20 }}>
                 {/* HERO IMAGE */}
                 <View className="relative w-full overflow-hidden rounded-2xl">
                     {/* <Image
@@ -254,19 +253,21 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                     {/* MAIN CONTENT - TWO COLUMN LAYOUT */}
                     <View className="items-start md:flex-row md:justify-between gap-5">
                         {/* Organizer details */}
-                        <View className={`pt-1 ${isMobileWidth ? 'w-full' : 'w-1/2'}`}>
+                        <View className={`pt-1  ${isMobileWidth ? 'w-full' : 'w-1/2'}`}>
 
                             <View>
-                                <Text className="text-4xl font-black text-white leading-tight mb-4 mt-3">
+                                <Text className="text-4xl font-black text-white leading-tight mb-4 mt-3 mb-5">
                                     {gig.title}
                                 </Text>
+                                <hr className="w-full border-white/10 mb-5" />
 
+                                {/* ORGANIZER DETAILS */}
                                 {
                                     !isOrganizer && (
                                         <TouchableOpacity
                                             activeOpacity={0.7}
-                                            onPress={() => router.push(`/profile/${gig.organizerId}`)}
-                                            className={`flex-row items-center gap-4 mb-8`}
+                                            onPress={() => router.push(`/profile/${gig.organizerId._id}`)}
+                                            className={`flex-row items-center gap-4 mb-5 bg-white/10 py-5 px-1 rounded-2xl`}
                                         >
                                             <View className="relative">
                                                 <View className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/10">
@@ -312,6 +313,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                         </TouchableOpacity>
                                     )
                                 }
+                                <hr className="w-full border-white/10 mb-5" />
                             </View>
 
                             {/* Quick Meta */}
@@ -384,10 +386,9 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                         {/* Compensation Details */}
                         {
                             !isOrganizer && (
-
-                                <View className="w-full md:w-80 lg:w-96 mx-auto lg:mx-0 pt-5">
+                                <View className="hidden bg-zinc-800/10 md:flex w-full md:w-80 lg:w-96 mx-auto lg:mx-0 pt-5">
                                     <BlurView intensity={20} tint="dark" className="rounded-[2.5rem] overflow-hidden mb-6 border border-white/10">
-                                        <View className="p-8 bg-black/40">
+                                        <View className="p-8 bg-zinc-800/10">
                                             <View className="items-center mb-4">
                                                 <View className="flex-row items-center gap-2 mb-2">
                                                     <Zap size={14} color="#3B82F6" />
@@ -422,7 +423,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                                     </View>
                                                     {gig.compensation?.perks && (
                                                         <Text className="text-zinc-400 text-xs mt-2 font-medium">
-                                                            + {gig.compensation.perks.length} benefits
+                                                            {gig.compensation.perks.length === 0 ? '' : `+ ${gig.compensation.perks.length} benefits`}
                                                         </Text>
                                                     )}
                                                 </View>
@@ -445,7 +446,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                                     />
                                                 </View>
                                             </View>
-                                            <TouchableOpacity
+                                            {!isMobileWidth && <TouchableOpacity
                                                 onPress={() => !hasApplied && handleApply()}
                                                 disabled={hasApplied}
                                                 className={`w-full py-3 rounded-2xl items-center justify-center flex-row mb-6 ${hasApplied ? 'bg-zinc-800 border border-white/10' : 'bg-white active:scale-95'
@@ -462,10 +463,10 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                                         <ArrowRight size={20} color="#000000" style={{ marginLeft: 8 }} />
                                                     </>
                                                 )}
-                                            </TouchableOpacity>
+                                            </TouchableOpacity>}
 
                                             {/* Closing Alert */}
-                                            {gig.applicationDeadline && !showActionFooter && !isOrganizer && (
+                                            {gig.applicationDeadline && !isMobileWidth && !isOrganizer && (
                                                 <View className="w-fit self-center gap-3 px-3 py-1 bg-rose-500/10 rounded-2xl border border-rose-500/20 mb-4">
                                                     <View className="flex-row justify-center items-center gap-2">
                                                         <AlertCircle size={10} color="#EF4444" />
@@ -483,17 +484,17 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                             )}
 
                                             {/* Apply Button */}
-                                            {
+                                            {/* {
                                                 !showActionFooter && !isOrganizer && (
                                                     <TouchableOpacity
                                                         onPress={handleApply}
-                                                        className="w-full py-3 rounded-2xl bg-white items-center justify-center flex-row mb-6 active:scale-95"
+                                                        className="w-full py-3 rounded-2xl bg-white items-center justify-center flex-row mb-6 mt active:scale-95"
                                                     >
                                                         <Text className="text-black text-lg font-black">Apply Now</Text>
                                                         <ArrowRight size={20} color="#000000" style={{ marginLeft: 8 }} />
                                                     </TouchableOpacity>
                                                 )
-                                            }
+                                            } */}
 
                                             {/* Trust Footer */}
                                             <View className="space-y-3">
@@ -548,7 +549,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
 
 
                     {/* TABS */}
-                    <View className="w-full bg-surface">
+                    <View className="w-full bg-surface ">
                         {/* Tab Headers */}
                         <FlatList
                             horizontal
@@ -999,13 +1000,14 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                         {activeTab === 'applications' && isOrganizer && (
                             <ApplicationsTab gigId={gig._id} />
                         )}
+
                     </View>
                 </View>
             </ScrollView >
 
             {/* MOBILE ACTION FOOTER */}
             {
-                showActionFooter && !isOrganizer && gig.applicationDeadline ? (
+                isMobileWidth && !isOrganizer && gig.applicationDeadline ? (
                     <View className='absolute bottom-12 left-0 right-0 p-6 bg-black/95 backdrop-blur-xl border-t border-white/10 md:hidden'>
                         <View className="w-fit self-center gap-3 px-3 py-1 bg-rose-500/10 rounded-2xl border border-rose-500/20 mb-4">
                             <View className="flex-row justify-center items-center gap-2">

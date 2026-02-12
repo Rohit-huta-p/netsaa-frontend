@@ -1,9 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
     View,
     Text,
     TouchableOpacity,
-    Platform,
     StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,16 +11,20 @@ import { ChevronLeft, Briefcase, Calendar } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { GigForm, GigFormHandle } from "@/components/create/GigForm";
 import { EventForm, EventFormHandle } from "@/components/create/EventForm";
-
-import { useNavigation } from "expo-router";
+import { useStepBackGuard } from "@/hooks/useStepBackGuard";
 
 export default function CreateListing() {
     const router = useRouter();
     const { gigId } = useLocalSearchParams();
-    const navigation = useNavigation();
     const [activeTab, setActiveTab] = useState<"gig" | "event">("gig");
-    const gigFormRef = React.useRef<GigFormHandle>(null);
-    const eventFormRef = React.useRef<EventFormHandle>(null);
+
+    const gigFormRef = useRef<GigFormHandle>(null);
+    const eventFormRef = useRef<EventFormHandle>(null);
+
+    // Keep activeTab in a ref so handleBack (read via onBackRef inside the hook)
+    // always sees the latest tab without needing useCallback deps.
+    const activeTabRef = useRef(activeTab);
+    activeTabRef.current = activeTab;
 
     const handlePublish = (data: any) => {
         console.log(`Publishing ${activeTab}:`, data);
@@ -30,14 +33,12 @@ export default function CreateListing() {
 
     const handleCancel = () => {
         if (gigId) {
-            // Editing - go back to details
             if (router.canGoBack()) {
                 router.back();
             } else {
                 router.replace(`/gigs/${Array.isArray(gigId) ? gigId[0] : gigId}`);
             }
         } else {
-            // Creating - go back to dashboard
             if (router.canGoBack()) {
                 router.back();
             } else {
@@ -46,42 +47,36 @@ export default function CreateListing() {
         }
     };
 
-    // Intercept back action
-    React.useEffect(() => {
-        const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-            // If we are already navigating away (e.g. via handleCancel), don't intercept
-            const action = e.data.action;
+    /**
+     * Central back handler — called by ALL back sources via useStepBackGuard.
+     *
+     * NOT wrapped in useCallback: the hook always reads it through onBackRef,
+     * so every call to onBackRef.current() gets this fully-fresh function that
+     * reads activeTabRef and the latest ref.current from each form.
+     *
+     * Returns true  → handled (prev step or modal shown), block navigation.
+     * Returns false → allow exit.
+     */
+    const handleBack = (): boolean => {
+        if (activeTabRef.current === 'gig' && gigFormRef.current) {
+            return gigFormRef.current.handleBack();
+        }
+        if (activeTabRef.current === 'event' && eventFormRef.current) {
+            return eventFormRef.current.handleBack();
+        }
+        return false;
+    };
 
-            if (activeTab === 'gig' && gigFormRef.current) {
-                const shouldBlock = gigFormRef.current.handleBack();
-                if (shouldBlock) {
-                    e.preventDefault();
-                }
-            } else if (activeTab === 'event' && eventFormRef.current) {
-                const shouldBlock = eventFormRef.current.handleBack();
-                if (shouldBlock) {
-                    e.preventDefault();
-                }
-            }
-        });
-
-        return unsubscribe;
-    }, [navigation, activeTab]);
+    // Single hook call — covers Android (BackHandler via useFocusEffect),
+    // iOS (navigation.beforeRemove + preventDefault), and Web (popstate).
+    useStepBackGuard(handleBack);
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header & Tabs Row */}
+            {/* Header */}
             <View style={styles.headerRow}>
                 <TouchableOpacity
-                    onPress={() => {
-                        if (activeTab === 'gig' && gigFormRef.current) {
-                            gigFormRef.current.handleBack();
-                        } else if (activeTab === 'event' && eventFormRef.current) {
-                            eventFormRef.current.handleBack();
-                        } else {
-                            router.replace("/dashboard");
-                        }
-                    }}
+                    onPress={handleBack}
                     style={styles.backButton}
                     activeOpacity={0.7}
                 >
@@ -111,9 +106,7 @@ export default function CreateListing() {
                             <Text
                                 style={[
                                     styles.tabText,
-                                    activeTab === "gig"
-                                        ? styles.activeTabText
-                                        : styles.inactiveTabText,
+                                    activeTab === "gig" ? styles.activeTabText : styles.inactiveTabText,
                                 ]}
                             >
                                 Gig
@@ -142,9 +135,7 @@ export default function CreateListing() {
                             <Text
                                 style={[
                                     styles.tabText,
-                                    activeTab === "event"
-                                        ? styles.activeTabText
-                                        : styles.inactiveTabText,
+                                    activeTab === "event" ? styles.activeTabText : styles.inactiveTabText,
                                 ]}
                             >
                                 Event
@@ -162,7 +153,6 @@ export default function CreateListing() {
                         onPublish={handlePublish}
                         onCancel={handleCancel}
                         gigId={Array.isArray(gigId) ? gigId[0] : gigId}
-
                     />
                 ) : (
                     <EventForm
@@ -181,7 +171,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#000000",
     },
-
     headerRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -201,7 +190,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.1)",
     },
-
     tabContainer: {
         flex: 1,
         flexDirection: "row",
@@ -212,7 +200,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.1)",
     },
-
     tab: {
         flex: 1,
         flexDirection: "row",
@@ -222,7 +209,6 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         position: "relative",
     },
-
     tabContent: {
         flexDirection: "row",
         alignItems: "center",
@@ -230,7 +216,6 @@ const styles = StyleSheet.create({
         gap: 8,
         zIndex: 1,
     },
-
     activeTabGradient: {
         position: "absolute",
         top: 0,
@@ -240,22 +225,18 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         opacity: 0.8,
     },
-
     tabText: {
         color: "#71717a",
         fontSize: 14,
         fontWeight: "600",
     },
-
     activeTabText: {
         color: "#FFFFFF",
         fontWeight: "700",
     },
-
     inactiveTabText: {
         color: "#71717A",
     },
-
     content: {
         flex: 1,
     },

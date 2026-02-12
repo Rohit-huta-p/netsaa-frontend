@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, BackHandler, Animated, Dimensions, Platform, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Animated, Dimensions, Platform, ScrollView } from 'react-native';
 import {
     ChevronRight,
     ChevronLeft,
@@ -420,13 +420,12 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
         handleBack: handleBackInternal
     }));
 
-    React.useEffect(() => {
-        const onBackPress = () => {
-            return handleBackInternal();
-        };
-        const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-        return () => subscription.remove();
-    }, [step]);
+    // BackHandler is intentionally NOT registered here.
+    // The parent (create.tsx) uses useStepBackGuard which handles:
+    //   Android → BackHandler
+    //   iOS     → navigation.beforeRemove
+    //   Web     → window popstate
+    // Registering it here too would cause double-fire on Android.
 
 
 

@@ -215,31 +215,26 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
         }
     };
 
-    const handleBackInternal = () => {
-        if (isNavigatingAway.current) return;
+    // Returns true  → event handled (go to prev step OR show modal). Block navigation.
+    // Returns false → allow navigation to exit (only after isNavigatingAway is set).
+    const handleBackInternal = (): boolean => {
+        if (isNavigatingAway.current) return false;
 
         if (step > 0) {
             animateToStep(step - 1);
+            return true;
         } else {
             setLeaveModalVisible(true);
+            return true;
         }
     };
 
     React.useImperativeHandle(ref, () => ({
-        handleBack: () => {
-            if (isNavigatingAway.current) return false;
-
-            if (step > 0) {
-                animateToStep(step - 1);
-                return true;
-            } else {
-                setLeaveModalVisible(true);
-                return true;
-            }
-        }
+        handleBack: handleBackInternal
     }));
 
-    // Removed hardwareBackPress listener to rely on parent controller
+    // BackHandler, beforeRemove, and popstate are all handled by
+    // useStepBackGuard in the parent (create.tsx). Nothing to register here.
 
     // Discard Handler
     const handleDiscard = () => {

@@ -56,6 +56,10 @@ module.exports = {
                     hover: 'rgba(255, 255, 255, 0.12)',
                 },
 
+                buttons: {
+                    apply: '#045be7ff',
+                },
+
                 // Accent colors
                 accent: {
                     urgent: '#FF6B35',

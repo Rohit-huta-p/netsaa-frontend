@@ -175,13 +175,13 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                 <View className="relative w-full overflow-hidden rounded-2xl">
                     {/* <Image
                         source={{
-                            uri: 'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?q=80&w=2000',
+                            uri: gig.organizerSnapshot?.profileImageUrl || 'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?q=80&w=2000',
                         }}
                         style={{ width: '100%', height: '100%' }}
                         resizeMode="cover"
-                    />
-                    <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.3)', '#000000']}
+                    /> */}
+                    {/* <LinearGradient
+                        colors={isOrganizer ? ['rgba(255, 107, 53, 0.15)', 'rgba(0,0,0,0.8)', '#000000'] : ['transparent', 'rgba(0,0,0,0.3)', '#000000']}
                         locations={[0, 0.6, 1]}
                         style={{
                             position: 'absolute',
@@ -382,135 +382,137 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                         </View>
 
                         {/* Compensation Details */}
+                        {
+                            !isOrganizer && (
 
-                        <View className="w-full md:w-80 lg:w-96 mx-auto lg:mx-0 pt-5">
-                            <BlurView intensity={20} tint="dark" className="rounded-[2.5rem] overflow-hidden mb-6 border border-white/10">
-                                <View className="p-8 bg-black/40">
-                                    <View className="items-center mb-4">
-                                        <View className="flex-row items-center gap-2 mb-2">
-                                            <Zap size={14} color="#3B82F6" />
-                                            <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">
-                                                TOTAL COMPENSATION
-                                            </Text>
-                                        </View>
-                                        <View className="items-center">
-                                            <View className="flex-row items-baseline">
-                                                {gig.compensation?.amount ? (
+                                <View className="w-full md:w-80 lg:w-96 mx-auto lg:mx-0 pt-5">
+                                    <BlurView intensity={20} tint="dark" className="rounded-[2.5rem] overflow-hidden mb-6 border border-white/10">
+                                        <View className="p-8 bg-black/40">
+                                            <View className="items-center mb-4">
+                                                <View className="flex-row items-center gap-2 mb-2">
+                                                    <Zap size={14} color="#3B82F6" />
+                                                    <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">
+                                                        TOTAL COMPENSATION
+                                                    </Text>
+                                                </View>
+                                                <View className="items-center">
+                                                    <View className="flex-row items-baseline">
+                                                        {gig.compensation?.amount ? (
+                                                            <>
+                                                                <Text className="text-2xl font-black text-zinc-400 mr-1">₹</Text>
+                                                                <Text className="text-3xl font-black text-white bg-transparent px-2 py-1">
+                                                                    {gig.compensation.amount.toLocaleString()}
+                                                                </Text>
+                                                            </>
+                                                        ) : gig.compensation?.minAmount ? (
+                                                            <>
+                                                                <Text className="text-xl font-black text-zinc-400 mr-1">
+                                                                    {gig.compensation.maxAmount ? '₹' : 'Starts at ₹'}
+                                                                </Text>
+                                                                <Text className="text-2xl font-black text-white bg-transparent px-2 py-1">
+                                                                    {gig.compensation.minAmount.toLocaleString()}
+                                                                    {gig.compensation.maxAmount && ` - ${gig.compensation.maxAmount.toLocaleString()}`}
+                                                                </Text>
+                                                            </>
+                                                        ) : (
+                                                            <Text className="text-2xl font-black text-white bg-transparent px-2 py-1">
+                                                                To Be Discussed
+                                                            </Text>
+                                                        )}
+                                                    </View>
+                                                    {gig.compensation?.perks && (
+                                                        <Text className="text-zinc-400 text-xs mt-2 font-medium">
+                                                            + {gig.compensation.perks.length} benefits
+                                                        </Text>
+                                                    )}
+                                                </View>
+                                            </View>
+
+                                            {/* Progress */}
+                                            <View className="mb-8">
+                                                <View className="flex-row justify-between items-center mb-3">
+                                                    <Text className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                                                        APPLICATIONS / SPOTS
+                                                    </Text>
+                                                    <Text className="text-[8px] font-black text-white">
+                                                        {registered} / {capacity}
+                                                    </Text>
+                                                </View>
+                                                <View className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                                    <View
+                                                        className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                                                        style={{ width: `${(registered / capacity) * 100}%` }}
+                                                    />
+                                                </View>
+                                            </View>
+                                            <TouchableOpacity
+                                                onPress={() => !hasApplied && handleApply()}
+                                                disabled={hasApplied}
+                                                className={`w-full py-3 rounded-2xl items-center justify-center flex-row mb-6 ${hasApplied ? 'bg-zinc-800 border border-white/10' : 'bg-white active:scale-95'
+                                                    }`}
+                                            >
+                                                {hasApplied ? (
                                                     <>
-                                                        <Text className="text-2xl font-black text-zinc-400 mr-1">₹</Text>
-                                                        <Text className="text-3xl font-black text-white bg-transparent px-2 py-1">
-                                                            {gig.compensation.amount.toLocaleString()}
-                                                        </Text>
-                                                    </>
-                                                ) : gig.compensation?.minAmount ? (
-                                                    <>
-                                                        <Text className="text-xl font-black text-zinc-400 mr-1">
-                                                            {gig.compensation.maxAmount ? '₹' : 'Starts at ₹'}
-                                                        </Text>
-                                                        <Text className="text-2xl font-black text-white bg-transparent px-2 py-1">
-                                                            {gig.compensation.minAmount.toLocaleString()}
-                                                            {gig.compensation.maxAmount && ` - ${gig.compensation.maxAmount.toLocaleString()}`}
-                                                        </Text>
+                                                        <CheckCircle2 size={20} color="#10B981" style={{ marginRight: 8 }} />
+                                                        <Text className="text-zinc-400 text-lg font-black">Applied</Text>
                                                     </>
                                                 ) : (
-                                                    <Text className="text-2xl font-black text-white bg-transparent px-2 py-1">
-                                                        To Be Discussed
-                                                    </Text>
+                                                    <>
+                                                        <Text className="text-black text-lg font-black">Apply Now</Text>
+                                                        <ArrowRight size={20} color="#000000" style={{ marginLeft: 8 }} />
+                                                    </>
                                                 )}
-                                            </View>
-                                            {gig.compensation?.perks && (
-                                                <Text className="text-zinc-400 text-xs mt-2 font-medium">
-                                                    + {gig.compensation.perks.length} benefits
-                                                </Text>
-                                            )}
-                                        </View>
-                                    </View>
-
-                                    {/* Progress */}
-                                    <View className="mb-8">
-                                        <View className="flex-row justify-between items-center mb-3">
-                                            <Text className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">
-                                                APPLICANTS
-                                            </Text>
-                                            <Text className="text-[8px] font-black text-white">
-                                                {registered} / {capacity}
-                                            </Text>
-                                        </View>
-                                        <View className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                                            <View
-                                                className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
-                                                style={{ width: `${(registered / capacity) * 100}%` }}
-                                            />
-                                        </View>
-                                    </View>
-                                    <TouchableOpacity
-                                        onPress={() => !hasApplied && handleApply()}
-                                        disabled={hasApplied}
-                                        className={`w-full py-3 rounded-2xl items-center justify-center flex-row mb-6 ${hasApplied ? 'bg-zinc-800 border border-white/10' : 'bg-white active:scale-95'
-                                            }`}
-                                    >
-                                        {hasApplied ? (
-                                            <>
-                                                <CheckCircle2 size={20} color="#10B981" style={{ marginRight: 8 }} />
-                                                <Text className="text-zinc-400 text-lg font-black">Applied</Text>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Text className="text-black text-lg font-black">Apply Now</Text>
-                                                <ArrowRight size={20} color="#000000" style={{ marginLeft: 8 }} />
-                                            </>
-                                        )}
-                                    </TouchableOpacity>
-
-                                    {/* Closing Alert */}
-                                    {gig.applicationDeadline && !showActionFooter && !isOrganizer && (
-                                        <View className="w-fit self-center gap-3 px-3 py-1 bg-rose-500/10 rounded-2xl border border-rose-500/20 mb-4">
-                                            <View className="flex-row justify-center items-center gap-2">
-                                                <AlertCircle size={10} color="#EF4444" />
-                                                <Text className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">
-                                                    DEADLINE:{' '}
-                                                    <Text className="text-white">
-                                                        {new Date(gig.applicationDeadline).toLocaleDateString('en-IN', {
-                                                            day: 'numeric',
-                                                            month: 'short',
-                                                        })}
-                                                    </Text>
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    )}
-
-                                    {/* Apply Button */}
-                                    {
-                                        !showActionFooter && !isOrganizer && (
-                                            <TouchableOpacity
-                                                onPress={handleApply}
-                                                className="w-full py-3 rounded-2xl bg-white items-center justify-center flex-row mb-6 active:scale-95"
-                                            >
-                                                <Text className="text-black text-lg font-black">Apply Now</Text>
-                                                <ArrowRight size={20} color="#000000" style={{ marginLeft: 8 }} />
                                             </TouchableOpacity>
-                                        )
-                                    }
 
-                                    {/* Trust Footer */}
-                                    <View className="space-y-3">
-                                        <View className="flex-row items-center gap-2 justify-center">
-                                            <Lock size={12} color="#71717A" />
-                                            <Text className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-500">
-                                                ENCRYPTED APPLICATION FLOW
-                                            </Text>
+                                            {/* Closing Alert */}
+                                            {gig.applicationDeadline && !showActionFooter && !isOrganizer && (
+                                                <View className="w-fit self-center gap-3 px-3 py-1 bg-rose-500/10 rounded-2xl border border-rose-500/20 mb-4">
+                                                    <View className="flex-row justify-center items-center gap-2">
+                                                        <AlertCircle size={10} color="#EF4444" />
+                                                        <Text className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">
+                                                            DEADLINE:{' '}
+                                                            <Text className="text-white">
+                                                                {new Date(gig.applicationDeadline).toLocaleDateString('en-IN', {
+                                                                    day: 'numeric',
+                                                                    month: 'short',
+                                                                })}
+                                                            </Text>
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            )}
+
+                                            {/* Apply Button */}
+                                            {
+                                                !showActionFooter && !isOrganizer && (
+                                                    <TouchableOpacity
+                                                        onPress={handleApply}
+                                                        className="w-full py-3 rounded-2xl bg-white items-center justify-center flex-row mb-6 active:scale-95"
+                                                    >
+                                                        <Text className="text-black text-lg font-black">Apply Now</Text>
+                                                        <ArrowRight size={20} color="#000000" style={{ marginLeft: 8 }} />
+                                                    </TouchableOpacity>
+                                                )
+                                            }
+
+                                            {/* Trust Footer */}
+                                            <View className="space-y-3">
+                                                <View className="flex-row items-center gap-2 justify-center">
+                                                    <Lock size={12} color="#71717A" />
+                                                    <Text className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-500">
+                                                        ENCRYPTED APPLICATION FLOW
+                                                    </Text>
+                                                </View>
+                                                <Text className="text-center text-[9px] text-zinc-600 leading-relaxed">
+                                                    BY APPLYING, YOU AGREE TO THE{'\n'}
+                                                    <Text className="text-blue-400 underline">NETSA PERFORMANCE CHARTER</Text>
+                                                </Text>
+                                            </View>
                                         </View>
-                                        <Text className="text-center text-[9px] text-zinc-600 leading-relaxed">
-                                            BY APPLYING, YOU AGREE TO THE{'\n'}
-                                            <Text className="text-blue-400 underline">NETSA PERFORMANCE CHARTER</Text>
-                                        </Text>
-                                    </View>
-                                </View>
-                            </BlurView>
+                                    </BlurView>
 
-                            {/* Trust Badges */}
-                            {/* <View className="space-y-4">
+                                    {/* Trust Badges */}
+                                    {/* <View className="space-y-4">
                                     <View className="p-5 rounded-2xl bg-zinc-900/30 border border-white/5 flex-row items-center gap-4">
                                         <View className="w-10 h-10 rounded-xl bg-emerald-500/10 items-center justify-center">
                                             <ShieldCheck size={20} color="#10B981" />
@@ -538,7 +540,9 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                         </View>
                                     </View>
                                 </View> */}
-                        </View>
+                                </View>
+                            )
+                        }
 
                     </View>
 
@@ -706,6 +710,35 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                                 </Text>
                                             </View>
                                         )}
+                                        {/* Height Requirements */}
+                                        {(gig.heightRequirements?.male || gig.heightRequirements?.female) && (
+                                            <View className="flex-row justify-between items-start py-3 border-b border-white/5">
+                                                <Text className="text-sm text-zinc-400 mt-1">Height</Text>
+                                                <View className="items-end">
+                                                    {/* Check if split or same */}
+                                                    {(gig.heightRequirements.male?.min === gig.heightRequirements.female?.min &&
+                                                        gig.heightRequirements.male?.max === gig.heightRequirements.female?.max) ? (
+                                                        <Text className="text-base font-black text-white">
+                                                            {gig.heightRequirements.male?.min || '?'} - {gig.heightRequirements.male?.max || '?'} ft
+                                                        </Text>
+                                                    ) : (
+                                                        <>
+                                                            {gig.heightRequirements.male && (
+                                                                <Text className="text-base font-black text-white">
+                                                                    Male: {gig.heightRequirements.male.min} - {gig.heightRequirements.male.max} ft
+                                                                </Text>
+                                                            )}
+                                                            {gig.heightRequirements.female && (
+                                                                <Text className="text-base font-black text-white">
+                                                                    Female: {gig.heightRequirements.female.min} - {gig.heightRequirements.female.max} ft
+                                                                </Text>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </View>
+                                            </View>
+                                        )}
+
                                         {gig.physicalRequirements && (
                                             <View className="py-3">
                                                 <Text className="text-sm text-zinc-400 mb-2">Other Requirements</Text>

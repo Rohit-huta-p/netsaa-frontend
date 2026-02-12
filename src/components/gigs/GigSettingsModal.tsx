@@ -93,7 +93,6 @@ export const GigSettingsModal: React.FC<GigSettingsModalProps> = ({
     });
 
     const handleEdit = () => {
-        console.log('✏️ Navigating to edit screen');
         onClose();
         router.push({
             pathname: '/(app)/create',

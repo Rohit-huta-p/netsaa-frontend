@@ -427,7 +427,7 @@ export default function OrganizerHome() {
                         </View>
 
                         {/* INSIGHTS SIDEBAR */}
-                        <View style={{ flex: 1 }}>
+                        <View style={{ flex: 1, marginBottom: 120 }}>
                             <View className="bg-zinc-900/40 border border-white/10 rounded-2xl p-6">
                                 <Text className="text-white font-black text-xl tracking-tight mb-6">
                                     Quick Insights

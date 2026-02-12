@@ -65,8 +65,8 @@ export default function MobileTabBar() {
     // Filter tabs based on user role
     const tabs = baseTabs.filter(tab => !tab.organizerOnly || isOrganizer);
 
-    // Hide on desktop (width >= 768px)
-    if (width >= MOBILE_BREAKPOINT) {
+    // Hide on desktop (width >= 768px) OR if on /create page
+    if (width >= MOBILE_BREAKPOINT || pathname.startsWith('/create')) {
         return null;
     }
 

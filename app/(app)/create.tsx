@@ -7,40 +7,88 @@ import {
     StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, Briefcase, Calendar } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { GigForm } from "@/components/create/GigForm";
-import { EventForm } from "@/components/create/EventForm";
+import { GigForm, GigFormHandle } from "@/components/create/GigForm";
+import { EventForm, EventFormHandle } from "@/components/create/EventForm";
+
+import { useNavigation } from "expo-router";
 
 export default function CreateListing() {
     const router = useRouter();
+    const { gigId } = useLocalSearchParams();
+    const navigation = useNavigation();
     const [activeTab, setActiveTab] = useState<"gig" | "event">("gig");
+    const gigFormRef = React.useRef<GigFormHandle>(null);
+    const eventFormRef = React.useRef<EventFormHandle>(null);
 
     const handlePublish = (data: any) => {
         console.log(`Publishing ${activeTab}:`, data);
-        router.back();
-    };
-
-    const handleCancel = () => {
         router.replace("/dashboard");
     };
 
+    const handleCancel = () => {
+        if (gigId) {
+            // Editing - go back to details
+            if (router.canGoBack()) {
+                router.back();
+            } else {
+                router.replace(`/gigs/${Array.isArray(gigId) ? gigId[0] : gigId}`);
+            }
+        } else {
+            // Creating - go back to dashboard
+            if (router.canGoBack()) {
+                router.back();
+            } else {
+                router.replace("/dashboard");
+            }
+        }
+    };
+
+    // Intercept back action
+    React.useEffect(() => {
+        const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+            // If we are already navigating away (e.g. via handleCancel), don't intercept
+            const action = e.data.action;
+
+            if (activeTab === 'gig' && gigFormRef.current) {
+                const shouldBlock = gigFormRef.current.handleBack();
+                if (shouldBlock) {
+                    e.preventDefault();
+                }
+            } else if (activeTab === 'event' && eventFormRef.current) {
+                const shouldBlock = eventFormRef.current.handleBack();
+                if (shouldBlock) {
+                    e.preventDefault();
+                }
+            }
+        });
+
+        return unsubscribe;
+    }, [navigation, activeTab]);
+
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
+            {/* Header & Tabs Row */}
+            <View style={styles.headerRow}>
                 <TouchableOpacity
-                    onPress={() => router.replace("/dashboard")}
+                    onPress={() => {
+                        if (activeTab === 'gig' && gigFormRef.current) {
+                            gigFormRef.current.handleBack();
+                        } else if (activeTab === 'event' && eventFormRef.current) {
+                            eventFormRef.current.handleBack();
+                        } else {
+                            router.replace("/dashboard");
+                        }
+                    }}
                     style={styles.backButton}
                     activeOpacity={0.7}
                 >
-                    <ChevronLeft size={28} color="#FFFFFF" />
+                    <ChevronLeft size={24} color="#FFFFFF" />
                 </TouchableOpacity>
-            </View>
 
-            {/* Tab Switcher */}
-            <View style={styles.tabWrapper}>
+                {/* Tab Switcher */}
                 <View style={styles.tabContainer}>
                     <TouchableOpacity
                         style={styles.tab}
@@ -52,14 +100,13 @@ export default function CreateListing() {
                                 colors={['#b835ff52', '#FF8C42']}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
-                                style={StyleSheet.absoluteFill}
+                                style={styles.activeTabGradient}
                             />
                         )}
                         <View style={styles.tabContent}>
                             <Briefcase
-                                size={16}
+                                size={18}
                                 color={activeTab === "gig" ? "#FFFFFF" : "#71717A"}
-                                strokeWidth={activeTab === "gig" ? 2.5 : 2}
                             />
                             <Text
                                 style={[
@@ -69,7 +116,7 @@ export default function CreateListing() {
                                         : styles.inactiveTabText,
                                 ]}
                             >
-                                Post a Gig
+                                Gig
                             </Text>
                         </View>
                     </TouchableOpacity>
@@ -81,17 +128,16 @@ export default function CreateListing() {
                     >
                         {activeTab === "event" && (
                             <LinearGradient
-                                colors={['#b835ff52', '#FF8C42']}
+                                colors={['#FF6B35', '#FF8C42']}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
-                                style={StyleSheet.absoluteFill}
+                                style={styles.activeTabGradient}
                             />
                         )}
                         <View style={styles.tabContent}>
                             <Calendar
-                                size={16}
+                                size={18}
                                 color={activeTab === "event" ? "#FFFFFF" : "#71717A"}
-                                strokeWidth={activeTab === "event" ? 2.5 : 2}
                             />
                             <Text
                                 style={[
@@ -101,7 +147,7 @@ export default function CreateListing() {
                                         : styles.inactiveTabText,
                                 ]}
                             >
-                                Post an Event
+                                Event
                             </Text>
                         </View>
                     </TouchableOpacity>
@@ -112,11 +158,15 @@ export default function CreateListing() {
             <View style={styles.content}>
                 {activeTab === "gig" ? (
                     <GigForm
+                        ref={gigFormRef}
                         onPublish={handlePublish}
                         onCancel={handleCancel}
+                        gigId={Array.isArray(gigId) ? gigId[0] : gigId}
+
                     />
                 ) : (
                     <EventForm
+                        ref={eventFormRef}
                         onPublish={handlePublish}
                         onCancel={handleCancel}
                     />
@@ -132,40 +182,45 @@ const styles = StyleSheet.create({
         backgroundColor: "#000000",
     },
 
-    header: {
-        paddingHorizontal: 16,
-        paddingTop: Platform.OS === "ios" ? 8 : 12,
-    },
-
-    backButton: {
-        width: 48,
-        height: 48,
-        justifyContent: "center",
+    headerRow: {
+        flexDirection: "row",
         alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        gap: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(255,255,255,0.05)",
     },
-
-    tabWrapper: {
-        paddingHorizontal: 20,
-        paddingBottom: 20,
-        paddingTop: 8,
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.1)",
     },
 
     tabContainer: {
+        flex: 1,
         flexDirection: "row",
-        backgroundColor: "rgba(255, 255, 255, 0.05)",
-        borderRadius: 100,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        borderRadius: 24,
         padding: 4,
+        height: 48,
         borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.1)",
+        borderColor: "rgba(255,255,255,0.1)",
     },
 
     tab: {
         flex: 1,
-        height: 48,
-        borderRadius: 100,
-        overflow: 'hidden',
-        justifyContent: "center",
+        flexDirection: "row",
         alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        borderRadius: 20,
+        position: "relative",
     },
 
     tabContent: {
@@ -176,17 +231,25 @@ const styles = StyleSheet.create({
         zIndex: 1,
     },
 
-    activeTab: {
-        // Handled by Gradient now
+    activeTabGradient: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 20,
+        opacity: 0.8,
     },
 
     tabText: {
-        fontSize: 15,
+        color: "#71717a",
+        fontSize: 14,
         fontWeight: "600",
     },
 
     activeTabText: {
         color: "#FFFFFF",
+        fontWeight: "700",
     },
 
     inactiveTabText: {

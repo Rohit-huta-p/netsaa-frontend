@@ -55,7 +55,7 @@ const gigService = {
 
     updateGig: async (id: string, payload: Partial<Gig>): Promise<GigResponse> => {
         console.log(payload);
-        const res = await API.put(`/gigs/${id}`, payload);
+        const res = await API.patch(`/gigs/${id}`, payload);
         return res.data;
     },
 

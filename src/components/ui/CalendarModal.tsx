@@ -24,11 +24,22 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
     const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(date);
 
     // Sync internal state when modal opens or prop changes
+    // Sync internal state when modal opens or prop changes
     React.useEffect(() => {
         if (visible) {
-            setSelectedDate(date || new Date());
+            // Default to passed date, or minDate if available, or today
+            let defaultDate = date;
+            if (!defaultDate) {
+                const today = new Date();
+                if (minDate && today < minDate) {
+                    defaultDate = minDate;
+                } else {
+                    defaultDate = today;
+                }
+            }
+            setSelectedDate(defaultDate);
         }
-    }, [visible, date]);
+    }, [visible, date, minDate]);
 
     const handleConfirm = () => {
         if (selectedDate) {

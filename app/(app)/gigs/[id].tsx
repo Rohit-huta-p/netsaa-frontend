@@ -17,7 +17,7 @@ export default function GigDetailsPage() {
     const gigId = Array.isArray(id) ? id[0] : id;
     const { data: gig, isLoading, error } = useGig(gigId || '');
     const user = useAuthStore((state) => state.user);
-
+    const isOrganizer = user?.role === 'organizer';
     if (isLoading) {
         return (
             <View className="flex-1 bg-black justify-center items-center">
@@ -28,8 +28,8 @@ export default function GigDetailsPage() {
                         top: 0,
                         width: width,
                         left: '50%',
-                        marginLeft: width * 0.5,
-                        height: height * 0.5,
+                        marginLeft: width * 1.5,
+                        height: height * 1.5,
                     }}
                 >
                     <LinearGradient
@@ -92,16 +92,13 @@ export default function GigDetailsPage() {
                     width: width,
                     left: 0,
                     overflow: 'hidden',
-                    height: height * 0.38,
+                    height: height * 0.98,
                     pointerEvents: 'none',
                 }}
             >
                 <LinearGradient
-                    colors={[
-                        'rgba(59,130,246,0.22)',
-                        'rgba(139,92,246,0.12)',
-                        'transparent',
-                    ]}
+
+                    colors={isOrganizer ? ['rgba(255, 107, 53, 0.15)', 'rgba(0,0,0,0.8)', '#000000'] : ['transparent', 'rgba(0,0,0,0.3)', '#000000']}
                     locations={[0, 0.55, 1]}
                     start={{ x: 0.5, y: 0 }}
                     end={{ x: 0.5, y: 1 }}

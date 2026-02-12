@@ -12,9 +12,10 @@ interface SelectInputProps {
     value: string;
     onChange: (value: string) => void;
     icon?: React.ElementType;
+    error?: string | boolean;
 }
 
-export const SelectInput: React.FC<SelectInputProps> = ({ options, value, onChange, icon: Icon }) => {
+export const SelectInput: React.FC<SelectInputProps> = ({ options, value, onChange, icon: Icon, error }) => {
     const [modalVisible, setModalVisible] = useState(false);
     const selectedLabel = options.find(opt => opt.value === value)?.label || "Select...";
 
@@ -27,7 +28,7 @@ export const SelectInput: React.FC<SelectInputProps> = ({ options, value, onChan
             )}
             <TouchableOpacity
                 onPress={() => setModalVisible(true)}
-                className={`bg-zinc-900/50 border border-zinc-700 rounded-xl py-3 pr-4 flex-row items-center justify-between ${Icon ? 'pl-10' : 'pl-4'}`}
+                className={`bg-zinc-900/50 border ${error ? 'border-red-500' : 'border-zinc-700'} rounded-xl py-3 pr-4 flex-row items-center justify-between ${Icon ? 'pl-10' : 'pl-4'}`}
             >
                 <Text className="text-zinc-100">{selectedLabel}</Text>
                 <ChevronRight size={16} color="#71717a" className="rotate-90" />

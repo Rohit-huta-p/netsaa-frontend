@@ -24,7 +24,8 @@ import {
     Sparkles,
     UserPlus,
     ArrowRight,
-    Zap
+    Zap,
+    UserMinus
 } from "lucide-react-native";
 import connectionService from "@/services/connectionService";
 import { useAuthStore } from "@/stores/authStore";
@@ -114,14 +115,18 @@ const RequestCard = ({
 const ConnectionCard = ({
     connection,
     currentUserId,
+    onGoToProfile,
     onChat,
+    onRemove,
     lastMessage,
     unreadCount = 0,
     isOnline = false
 }: {
     connection: Connection;
     currentUserId?: string;
+    onGoToProfile: () => void;
     onChat: () => void;
+    onRemove?: () => void;
     lastMessage?: string;
     unreadCount?: number;
     isOnline?: boolean;
@@ -133,14 +138,14 @@ const ConnectionCard = ({
     const imageUri = otherUser?.profileImageUrl || "https://via.placeholder.com/80";
 
     return (
-        <TouchableOpacity
-            onPress={onChat}
-            activeOpacity={0.8}
+        <View
+
+
             className="bg-zinc-900/40 border border-white/10 rounded-2xl p-4 mb-3"
         >
             <View className="flex-row items-center">
                 {/* Avatar with Online Status */}
-                <View className="relative mr-4">
+                <TouchableOpacity onPress={onGoToProfile} className="relative mr-4">
 
                     <View className="w-14 h-14 rounded-xl overflow-hidden border border-white/10">
                         <Image
@@ -153,14 +158,14 @@ const ConnectionCard = ({
                     {isOnline && (
                         <View className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full border-2 border-black" />
                     )}
-                </View>
+                </TouchableOpacity>
 
                 {/* Info */}
                 <View className="flex-1">
                     <View className="flex-row items-center gap-2 mb-0.5">
-                        <Text className="text-white font-bold text-base">
+                        <TouchableOpacity onPress={onGoToProfile} className="text-white font-bold text-base hover:underline">
                             {otherUser?.displayName || "Artist"}
-                        </Text>
+                        </TouchableOpacity>
                         {unreadCount > 0 && (
                             <View className="bg-pink-500 px-2 py-0.5 rounded-full">
                                 <Text className="text-white text-[10px] font-black">{unreadCount}</Text>
@@ -180,12 +185,22 @@ const ConnectionCard = ({
                     )}
                 </View>
 
-                {/* Chat Icon */}
-                <View className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 items-center justify-center">
-                    <MessageCircle size={18} color="#fff" />
+                {/* Actions */}
+                <View className="flex-row gap-2">
+                    {onRemove && (
+                        <TouchableOpacity
+                            onPress={onRemove}
+                            className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 items-center justify-center"
+                        >
+                            <UserMinus size={18} color="#ef4444" />
+                        </TouchableOpacity>
+                    )}
+                    <TouchableOpacity onPress={onChat} className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 items-center justify-center">
+                        <MessageCircle size={18} color="#fff" />
+                    </TouchableOpacity>
                 </View>
             </View>
-        </TouchableOpacity>
+        </View>
     );
 };
 
@@ -414,6 +429,15 @@ export default function ConnectionsScreen() {
         }
     };
 
+    const handleRemoveConnection = async (connectionId: string) => {
+        try {
+            await connectionService.removeConnection(connectionId);
+            setConnections(prev => prev.filter(c => c._id !== connectionId));
+        } catch (error) {
+            console.error("Failed to remove connection", error);
+        }
+    };
+
     // Filter connections by search query
     const filteredConnections = connections.filter(conn => {
         if (!searchQuery.trim()) return true;
@@ -542,7 +566,9 @@ export default function ConnectionsScreen() {
                                                             key={conn._id}
                                                             connection={conn}
                                                             currentUserId={currentUserId}
+                                                            onGoToProfile={() => router.push(`/profile/${otherUserId}`)}
                                                             onChat={() => openChat(conn)}
+                                                            onRemove={() => handleRemoveConnection(conn._id)}
                                                             lastMessage={conversationMap[otherUserId]?.lastMessage}
                                                             unreadCount={unreadCounts[conversationMap[otherUserId]?._id]}
                                                             isOnline={onlineUsers.has(otherUserId)}

@@ -23,13 +23,11 @@ import {
     Settings2,
 } from 'lucide-react-native';
 import { MapLinkCard } from '@/components/location/MapLinkCard';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { GigApplyModal } from './GigApplyModal';
 import useAuthStore from '@/stores/authStore';
 import { GigSettingsModal } from './GigSettingsModal';
 import { useGigApplications, useUpdateApplicationStatus } from '@/hooks/useGigApplications';
-import { usePlatform } from '@/utils/platform';
 import { useRouter } from 'expo-router';
 import { FlatList } from 'react-native-gesture-handler';
 import gigService from '@/services/gigService';
@@ -54,6 +52,8 @@ interface GigDetailsProps {
 
 import { AuthPromptModal } from '../common/AuthPromptModal';
 import { ShareBottomSheet } from '../common/ShareBottomSheet';
+import { ProfileCompletionModal } from '../common/ProfileCompletionModal';
+import { meetsMinimumApplyGate, computeOverallScore } from '../profile/ProfileStrengthWidget';
 
 export const GigDetails: React.FC<GigDetailsProps> = ({
     gig,
@@ -66,7 +66,6 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
     const router = useRouter();
     // const { isWeb } = usePlatform();
     const user = useAuthStore((state) => state.user);
-    console.log("gig:", gig);
     const isOrganizer = user?._id === gig.organizerId._id;
     const hasApplied = gig.viewerContext?.hasApplied;
 
@@ -78,6 +77,8 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
     const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
     const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
     const [shareSheetVisible, setShareSheetVisible] = useState(false);
+    const [profileGateVisible, setProfileGateVisible] = useState(false);
+    const [profileGateData, setProfileGateData] = useState<{ score: number; missing: string[] }>({ score: 0, missing: [] });
 
     // Fetch applications if organizer
     const { data: applications, isLoading: loadingApplications } = useGigApplications(
@@ -99,6 +100,18 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
             setAuthPromptVisible(true);
             return;
         }
+
+        // Client-side apply gate — check minimum profile requirements
+        const gate = meetsMinimumApplyGate(user);
+        if (!gate.passes) {
+            setProfileGateData({
+                score: computeOverallScore(user),
+                missing: gate.missing,
+            });
+            setProfileGateVisible(true);
+            return;
+        }
+
         setApplyModalVisible(true);
     };
 
@@ -483,19 +496,6 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                                 </View>
                                             )}
 
-                                            {/* Apply Button */}
-                                            {/* {
-                                                !showActionFooter && !isOrganizer && (
-                                                    <TouchableOpacity
-                                                        onPress={handleApply}
-                                                        className="w-full py-3 rounded-2xl bg-white items-center justify-center flex-row mb-6 mt active:scale-95"
-                                                    >
-                                                        <Text className="text-black text-lg font-black">Apply Now</Text>
-                                                        <ArrowRight size={20} color="#000000" style={{ marginLeft: 8 }} />
-                                                    </TouchableOpacity>
-                                                )
-                                            } */}
-
                                             {/* Trust Footer */}
                                             <View className="space-y-3">
                                                 <View className="flex-row items-center gap-2 justify-center">
@@ -596,7 +596,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                                         GIG OVERVIEW
                                     </Text>
                                     <View className="border-l-4 border-blue-500/30 pl-6">
-                                        <Text className="text-xl text-zinc-300 leading-relaxed font-light">
+                                        <Text className="text-md text-zinc-300 leading-relaxed font-light">
                                             {gig.description || 'No description provided.'}
                                         </Text>
                                     </View>
@@ -1095,6 +1095,18 @@ export const GigDetails: React.FC<GigDetailsProps> = ({
                 onClose={() => setShareSheetVisible(false)}
                 type="gig"
                 data={gig}
+            />
+
+            {/* Profile Completion Gate — blocks apply if profile incomplete */}
+            <ProfileCompletionModal
+                visible={profileGateVisible}
+                onClose={() => setProfileGateVisible(false)}
+                onGoToProfile={() => {
+                    setProfileGateVisible(false);
+                    router.push('/(app)/profile');
+                }}
+                score={profileGateData.score}
+                missing={profileGateData.missing}
             />
         </View >
     );

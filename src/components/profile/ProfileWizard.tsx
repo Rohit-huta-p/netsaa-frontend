@@ -1,0 +1,678 @@
+// src/components/profile/ProfileWizard.tsx
+// Extracted wizard — used ONLY for onboarding flow.
+import React, { useState } from "react";
+
+import {
+    View,
+    Text,
+    ScrollView,
+    Image,
+    TouchableOpacity,
+    Modal,
+    TextInput,
+    KeyboardAvoidingView,
+    Platform,
+    Alert,
+    ActivityIndicator
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import * as ImagePicker from 'expo-image-picker';
+import { Video as ExpoVideo, ResizeMode } from 'expo-av';
+import { Plus, ArrowLeft, Camera, X, Video, Trash2 } from "lucide-react-native";
+
+import { ExperienceEntry } from "@/types/index";
+import { uploadMediaFlow, validateMediaFile, isLargeFile } from "@/utils/upload";
+import { ProfileData } from "./types";
+
+// --- TYPES ---
+export type ProfileFormData = ProfileData & {
+    galleryUrls: string[];
+    videoUrls: string[];
+};
+
+type UploadingState = {
+    [key: string]: { progress: number; uploading: boolean; localUri?: string };
+};
+
+// --- WIZARD SUB-COMPONENTS ---
+
+const ProgressBar = ({ step, total }: { step: number; total: number }) => {
+    const progress = Math.min(((step + 1) / total) * 100, 100);
+    return (
+        <View className="mb-8">
+            <View className="flex-row justify-between mb-2">
+                <Text className="text-pink-500 font-bold text-[10px] uppercase tracking-[0.2em]">
+                    Completion
+                </Text>
+                <Text className="text-white font-black italic">{Math.round(progress)}%</Text>
+            </View>
+            <View className="h-1 bg-white/10 w-full">
+                <View
+                    style={{ width: `${progress}%` }}
+                    className="h-full bg-pink-500 shadow-[0_0_15px_rgba(234,105,139,0.5)]"
+                />
+            </View>
+        </View>
+    );
+};
+
+const SelectionPill = ({ label, isSelected, onPress }: { label: string, isSelected: boolean, onPress: () => void }) => (
+    <TouchableOpacity onPress={onPress} className="mr-3 mb-3">
+        <View
+            style={{
+                backgroundColor: isSelected ? 'rgba(234, 105, 139, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                paddingHorizontal: 20,
+                paddingVertical: 12,
+                borderWidth: 1,
+                borderColor: isSelected ? '#ea698b' : 'rgba(255, 255, 255, 0.1)',
+            }}
+        >
+            <Text style={{
+                color: isSelected ? '#ea698b' : '#a1a1aa',
+                fontWeight: '700',
+                fontSize: 12,
+                textTransform: 'uppercase',
+                letterSpacing: 2
+            }}>
+                {label}
+            </Text>
+        </View>
+    </TouchableOpacity>
+);
+
+const TextInputStyled = (props: any) => (
+    <TextInput
+        {...props}
+        placeholderTextColor="#3f3f46"
+        style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            padding: 24,
+            color: '#fff',
+            fontSize: 18,
+            fontWeight: '500',
+            outline: 'none',
+            ...props.style
+        }}
+    />
+);
+
+const StepInput = ({ label, value, onChangeText, placeholder }: { label: string, value: string, onChangeText: (t: string) => void, placeholder: string }) => (
+    <View>
+        <Text className="text-zinc-500 mb-2 font-bold uppercase tracking-widest text-[10px]">{label}</Text>
+        <TextInputStyled
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+        />
+    </View>
+);
+
+// --- PROFILE WIZARD ---
+export const ProfileWizard = ({
+    initialData,
+    initialStep = 0,
+    userId,
+    onClose,
+    onSave
+}: {
+    initialData: ProfileFormData;
+    initialStep: number;
+    userId: string;
+    onClose: () => void;
+    onSave: (data: ProfileFormData) => void;
+}) => {
+    const [step, setStep] = useState(initialStep);
+    const [formData, setFormData] = useState<ProfileFormData>(initialData);
+    const [uploadingState, setUploadingState] = useState<UploadingState>({});
+    const [newExperience, setNewExperience] = useState<ExperienceEntry>({ title: '', role: '', venue: '', date: '' });
+
+
+    const TOTAL_STEPS = 5;
+
+    const handleNext = () => {
+        if (step < TOTAL_STEPS - 1) setStep(step + 1);
+        else onSave(formData);
+    };
+
+    const handleBack = () => {
+        if (step > 0) setStep(step - 1);
+        else onClose();
+    };
+
+    const renderStep1_Basic = () => (
+        <View className="space-y-8">
+            <View>
+                <Text className="text-5xl font-black text-white uppercase italic tracking-tighter mb-2">Origins</Text>
+                <Text className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Define your baseline.</Text>
+            </View>
+
+            <View>
+                <Text className="text-zinc-500 mb-3 font-bold uppercase tracking-widest text-[10px]">Identity</Text>
+                <TextInputStyled
+                    value={formData.fullName}
+                    onChangeText={(t: string) => setFormData({ ...formData, fullName: t })}
+                    placeholder="STAGE NAME"
+                />
+            </View>
+
+            <View>
+                <Text className="text-zinc-500 mb-3 font-bold uppercase tracking-widest text-[10px]">Base</Text>
+                <TextInputStyled
+                    value={formData.location}
+                    onChangeText={(t: string) => setFormData({ ...formData, location: t })}
+                    placeholder="CITY, COUNTRY"
+                />
+            </View>
+
+            <View className="flex-row gap-4">
+                <View className="flex-1">
+                    <Text className="text-zinc-500 mb-3 font-bold uppercase tracking-widest text-[10px]">Age</Text>
+                    <TextInputStyled
+                        value={formData.age}
+                        onChangeText={(t: string) => setFormData({ ...formData, age: t })}
+                        placeholder="00"
+                        keyboardType="numeric"
+                    />
+                </View>
+                <View className="flex-1">
+                    <Text className="text-zinc-500 mb-3 font-bold uppercase tracking-widest text-[10px]">Stats</Text>
+                    <TextInputStyled
+                        value={formData.height}
+                        onChangeText={(t: string) => setFormData({ ...formData, height: t })}
+                        placeholder="HEIGHT"
+                    />
+                </View>
+            </View>
+            <View>
+                <Text className="text-zinc-500 mb-3 font-bold uppercase tracking-widest text-[10px]">Skin Tone</Text>
+                <TextInputStyled
+                    value={formData.skinTone}
+                    onChangeText={(t: string) => setFormData({ ...formData, skinTone: t })}
+                    placeholder="SKIN TONE"
+                />
+            </View>
+        </View>
+    );
+
+    const renderStep2_Identity = () => (
+        <View className="space-y-8">
+            <View>
+                <Text className="text-5xl font-black text-white uppercase italic tracking-tighter mb-2">Craft</Text>
+                <Text className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Claim your discipline.</Text>
+            </View>
+
+            <View>
+                <Text className="text-zinc-500 mb-4 font-bold uppercase tracking-widest text-[10px]">Primary Role</Text>
+                <View className="flex-row flex-wrap">
+                    {["Actor", "Dancer", "Singer", "Model", "DJ", "Musician"].map(type => (
+                        <SelectionPill
+                            key={type}
+                            label={type}
+                            isSelected={formData.artistType === type}
+                            onPress={() => setFormData({ ...formData, artistType: type })}
+                        />
+                    ))}
+                </View>
+            </View>
+
+            <View>
+                <Text className="text-zinc-500 mb-4 font-bold uppercase tracking-widest text-[10px]">Arsenal (Skills)</Text>
+                <View className="flex-row flex-wrap">
+                    {["Contemporary", "Kathak", "Hip Hop", "Jazz", "Classical", "Folk", "Ballet", "Salsa", "Storytelling", "Choreography"].map(skill => (
+                        <SelectionPill
+                            key={skill}
+                            label={skill}
+                            isSelected={formData.skills.includes(skill)}
+                            onPress={() => {
+                                const newSkills = formData.skills.includes(skill)
+                                    ? formData.skills.filter(s => s !== skill)
+                                    : [...formData.skills, skill];
+                                setFormData({ ...formData, skills: newSkills });
+                            }}
+                        />
+                    ))}
+                </View>
+            </View>
+        </View>
+    );
+
+    const renderStep3_About = () => (
+        <View className="space-y-8">
+            <View>
+                <Text className="text-5xl font-black text-white uppercase italic tracking-tighter mb-2">Manifesto</Text>
+                <Text className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Your story, your words.</Text>
+            </View>
+
+            <View>
+                <TextInputStyled
+                    value={formData.bio}
+                    onChangeText={(t: string) => setFormData({ ...formData, bio: t })}
+                    placeholder="TELL THEM WHO YOU ARE..."
+                    multiline
+                    numberOfLines={6}
+                    textAlignVertical="top"
+                    style={{ minHeight: 200, fontSize: 16, lineHeight: 24 }}
+                />
+            </View>
+
+            <View>
+                <Text className="text-zinc-500 mb-3 font-bold uppercase tracking-widest text-[10px]">Social Links</Text>
+                <TextInputStyled
+                    value={formData.instagramHandle}
+                    onChangeText={(t: string) => setFormData({ ...formData, instagramHandle: t })}
+                    placeholder="@INSTAGRAM"
+                    style={{ marginBottom: 12 }}
+                />
+                <TextInputStyled
+                    value={formData.youtubeUrl || ''}
+                    onChangeText={(t: string) => setFormData({ ...formData, youtubeUrl: t })}
+                    placeholder="YOUTUBE URL"
+                    style={{ marginBottom: 12 }}
+                />
+                <TextInputStyled
+                    value={formData.spotifyUrl || ''}
+                    onChangeText={(t: string) => setFormData({ ...formData, spotifyUrl: t })}
+                    placeholder="SPOTIFY ARTIST URL"
+                    style={{ marginBottom: 12 }}
+                />
+                <TextInputStyled
+                    value={formData.soundcloudUrl || ''}
+                    onChangeText={(t: string) => setFormData({ ...formData, soundcloudUrl: t })}
+                    placeholder="SOUNDCLOUD URL"
+                />
+            </View>
+        </View>
+    );
+
+    const renderStep4_Experience = () => (
+        <View className="space-y-8">
+            <View>
+                <Text className="text-5xl font-black text-white uppercase italic tracking-tighter mb-2">Legacy</Text>
+                <Text className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Where have you performed?</Text>
+            </View>
+
+            <View className="space-y-3">
+                {formData.experience.map((exp, i) => (
+                    <View key={i} className="flex-row items-center justify-between p-6 bg-white/5 border border-white/10">
+                        <View className="flex-1">
+                            <Text className="text-white font-bold text-lg uppercase tracking-wide">{typeof exp === 'string' ? exp : exp.title}</Text>
+                            {typeof exp !== 'string' && (
+                                <Text className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-1">
+                                    {[exp.role, exp.venue, exp.date].filter(Boolean).join(' • ')}
+                                </Text>
+                            )}
+                        </View>
+                        <TouchableOpacity onPress={() => {
+                            const newExp = formData.experience.filter((_, idx) => idx !== i);
+                            setFormData({ ...formData, experience: newExp });
+                        }}>
+                            <X size={20} color="#71717a" />
+                        </TouchableOpacity>
+                    </View>
+                ))}
+
+                {/* Add New Experience Form */}
+                <View className="p-6 bg-white/5 border border-dotted border-white/20 space-y-4">
+                    <Text className="text-zinc-500 font-bold uppercase tracking-widest text-xs mb-2">Add New Performance</Text>
+
+                    <StepInput
+                        label="Event / Show Title"
+                        value={newExperience.title}
+                        onChangeText={(text) => setNewExperience({ ...newExperience, title: text })}
+                        placeholder="e.g. SUMMER JAM 2025"
+                    />
+
+                    <View className="flex-row gap-4">
+                        <View className="flex-1">
+                            <StepInput
+                                label="Role"
+                                value={newExperience.role || ''}
+                                onChangeText={(text) => setNewExperience({ ...newExperience, role: text })}
+                                placeholder="e.g. HEADLINER"
+                            />
+                        </View>
+                        <View className="flex-1">
+                            <StepInput
+                                label="Date"
+                                value={newExperience.date || ''}
+                                onChangeText={(text) => setNewExperience({ ...newExperience, date: text })}
+                                placeholder="e.g. JAN 2025"
+                            />
+                        </View>
+                    </View>
+
+                    <StepInput
+                        label="Venue / Location"
+                        value={newExperience.venue || ''}
+                        onChangeText={(text) => setNewExperience({ ...newExperience, venue: text })}
+                        placeholder="e.g. THE GRAND ARENA"
+                    />
+
+                    <TouchableOpacity
+                        onPress={() => {
+                            if (!newExperience.title.trim()) return;
+                            const newExp = [...formData.experience, { ...newExperience }];
+                            setFormData({ ...formData, experience: newExp });
+                            setNewExperience({ title: '', role: '', venue: '', date: '' });
+                        }}
+                        disabled={!newExperience.title.trim()}
+                        className={`p-4 items-center justify-center border border-white/10 ${!newExperience.title.trim() ? 'opacity-50' : 'bg-white/10 active:bg-white/20'}`}
+                    >
+                        <Text className="text-white font-bold uppercase tracking-widest text-xs">+ ADD TO LIST</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </View>
+    );
+
+    const renderStep5_Gallery = () => {
+        const handlePickMedia = async (type: 'profile' | 'gallery' | 'video', index?: number) => {
+            const mediaType = type === 'video'
+                ? ImagePicker.MediaTypeOptions.Videos
+                : ImagePicker.MediaTypeOptions.Images;
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: mediaType,
+                allowsEditing: type === 'profile',
+                aspect: type === 'profile' ? [1, 1] : [16, 9],
+                quality: 0.8,
+            });
+
+            if (result.canceled) return;
+
+            const asset = result.assets[0];
+            const isVideo = type === 'video';
+
+            const validation = validateMediaFile(asset, isVideo);
+            if (!validation.valid) {
+                Alert.alert('Error', validation.error);
+                return;
+            }
+
+            if (isLargeFile(asset)) {
+                Alert.alert(
+                    'Large File',
+                    'This file is large and may take a while to upload. Continue?',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Continue', onPress: () => performUpload(type, asset, index) }
+                    ]
+                );
+                return;
+            }
+
+            performUpload(type, asset, index);
+        };
+
+        const performUpload = async (
+            type: 'profile' | 'gallery' | 'video',
+            asset: ImagePicker.ImagePickerAsset,
+            index?: number
+        ) => {
+            const uploadKey = type === 'profile' ? 'profile' : `${type}-${index}`;
+
+            setUploadingState(prev => ({
+                ...prev,
+                [uploadKey]: { progress: 0, uploading: true, localUri: asset.uri }
+            }));
+
+            const purpose = type === 'profile'
+                ? 'avatar' as const
+                : type === 'video'
+                    ? 'portfolio' as const
+                    : 'gallery' as const;
+
+            const result = await uploadMediaFlow({
+                asset,
+                entityType: 'user',
+                entityId: userId,
+                purpose,
+                onProgress: (progress) => {
+                    setUploadingState(prev => ({
+                        ...prev,
+                        [uploadKey]: { ...prev[uploadKey], progress, uploading: true }
+                    }));
+                }
+            });
+
+            setUploadingState(prev => ({
+                ...prev,
+                [uploadKey]: { ...prev[uploadKey], progress: 100, uploading: false }
+            }));
+
+            if (result.success && result.url) {
+                if (type === 'profile') {
+                    setFormData(prev => ({ ...prev, profileImageUrl: result.url! }));
+                } else if (type === 'gallery' && index !== undefined) {
+                    setFormData(prev => {
+                        const newUrls = [...prev.galleryUrls];
+                        newUrls[index] = result.url!;
+                        return { ...prev, galleryUrls: newUrls, hasPhotos: true };
+                    });
+                } else if (type === 'video' && index !== undefined) {
+                    setFormData(prev => {
+                        const newUrls = [...prev.videoUrls];
+                        newUrls[index] = result.url!;
+                        return { ...prev, videoUrls: newUrls };
+                    });
+                }
+            } else {
+                Alert.alert('Upload Failed', result.error || 'Unknown error');
+            }
+        };
+
+        const removeMedia = (type: 'gallery' | 'video', index: number) => {
+            if (type === 'gallery') {
+                setFormData(prev => {
+                    const newUrls = [...prev.galleryUrls];
+                    newUrls[index] = '';
+                    return { ...prev, galleryUrls: newUrls };
+                });
+            } else {
+                setFormData(prev => {
+                    const newUrls = [...prev.videoUrls];
+                    newUrls[index] = '';
+                    return { ...prev, videoUrls: newUrls };
+                });
+            }
+        };
+
+        const renderUploadSlot = (
+            type: 'gallery' | 'video',
+            index: number,
+            url: string,
+            aspectRatio: string = 'aspect-square'
+        ) => {
+            const uploadKey = `${type}-${index}`;
+            const state = uploadingState[uploadKey];
+            const isUploading = state?.uploading;
+
+            return (
+                <View key={`${type}-${index}`} className={`${aspectRatio} w-full bg-white/5 border border-white/10 rounded-xl overflow-hidden relative `}>
+                    {url ? (
+                        <>
+                            {type === 'video' ? (
+                                Platform.OS === 'web' ? (
+                                    <video
+                                        src={url}
+                                        controls
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                ) : (
+                                    <ExpoVideo
+                                        source={{ uri: url }}
+                                        style={{ width: '100%', height: '100%' }}
+                                        useNativeControls
+                                        resizeMode={ResizeMode.COVER}
+                                        shouldPlay={false}
+                                        isLooping={false}
+                                    />
+                                )
+                            ) : (
+                                <Image source={{ uri: url }} className="w-full h-full" />
+                            )}
+                            <TouchableOpacity
+                                onPress={() => removeMedia(type, index)}
+                                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 items-center justify-center"
+                            >
+                                <Trash2 size={14} color="#ef4444" />
+                            </TouchableOpacity>
+                        </>
+                    ) : state?.localUri && type !== 'video' ? (
+                        <View className="w-full h-full relative">
+                            <Image source={{ uri: state.localUri }} className="w-full h-full" />
+                            {isUploading && (
+                                <View className="absolute inset-0 items-center justify-center bg-black/40">
+                                    <ActivityIndicator size="small" color="#ea698b" />
+                                    <Text className="text-white text-[10px] mt-2">{state?.progress || 0}%</Text>
+                                </View>
+                            )}
+                        </View>
+                    ) : isUploading ? (
+                        <View className="w-full h-full items-center justify-center bg-black/40">
+                            <ActivityIndicator size="small" color="#ea698b" />
+                            <Text className="text-white text-[10px] mt-2">{state?.progress || 0}%</Text>
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            onPress={() => handlePickMedia(type, index)}
+                            className="w-full h-full items-center justify-center"
+                        >
+                            {type === 'video' ? (
+                                <Video size={24} color="#3f3f46" />
+                            ) : (
+                                <Plus size={24} color="#3f3f46" />
+                            )}
+                            <Text className="text-zinc-600 text-[10px] mt-2 uppercase tracking-widest">
+                                {type === 'video' ? 'Add Video' : 'Add Photo'}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            );
+        };
+
+        const profileState = uploadingState['profile'];
+
+        return (
+            <View className="space-y-20 w-full md:w-[80%] lg:w-[70%] self-center">
+                <View>
+                    <Text className="text-5xl font-black text-white uppercase italic tracking-tighter mb-2">Visuals</Text>
+                    <Text className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Showcase your talent.</Text>
+                </View>
+
+                {/* Profile Image */}
+                <View>
+                    <Text className="text-zinc-500 mb-4 font-bold uppercase tracking-widest text-[10px]">Profile Photo</Text>
+                    <TouchableOpacity
+                        onPress={() => handlePickMedia('profile')}
+                        className="w-32 h-32 rounded-2xl overflow-hidden border-2 border-dashed border-white/20 items-center justify-center"
+                        disabled={profileState?.uploading}
+                    >
+                        {formData.profileImageUrl ? (
+                            <Image source={{ uri: formData.profileImageUrl }} className="w-full h-full" />
+                        ) : profileState?.localUri ? (
+                            <View className="w-full h-full relative">
+                                <Image source={{ uri: profileState.localUri }} className="w-full h-full" />
+                                {profileState?.uploading && (
+                                    <View className="absolute inset-0 items-center justify-center bg-black/40">
+                                        <ActivityIndicator size="small" color="#ea698b" />
+                                        <Text className="text-white text-[10px] mt-2">{profileState?.progress || 0}%</Text>
+                                    </View>
+                                )}
+                            </View>
+                        ) : (
+                            <View className="items-center">
+                                <Camera size={32} color="#3f3f46" />
+                                <Text className="text-zinc-600 text-[10px] mt-2 uppercase">Upload</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                </View>
+
+                {/* Photo Gallery - 5 slots */}
+                <View>
+                    <View className="flex-row items-center justify-between mb-4">
+                        <Text className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Photo Gallery</Text>
+                        <Text className="text-zinc-600 ">{formData.galleryUrls.filter(u => u).length}/5</Text>
+                    </View>
+                    <View className="flex-row flex-wrap gap-3">
+                        {[0, 1, 2, 3, 4].map(i => (
+                            <View key={i} className="w-[30%]">
+                                {renderUploadSlot('gallery', i, formData.galleryUrls[i] || '', 'aspect-square')}
+                            </View>
+                        ))}
+                    </View>
+                </View>
+
+                {/* Video Reels - 3 slots */}
+                <View>
+                    <View className="flex-row items-center justify-between mb-4">
+                        <Text className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Video Reels</Text>
+                        <Text className="text-zinc-600 text-[10px]">{formData.videoUrls.filter(u => u).length}/3</Text>
+                    </View>
+                    <View className="flex-row gap-3">
+                        {[0, 1, 2].map(i => (
+                            <View key={i} className="flex-1">
+                                {renderUploadSlot('video', i, formData.videoUrls[i] || '', 'aspect-[9/16]')}
+                            </View>
+                        ))}
+                    </View>
+                </View>
+            </View>
+        );
+    };
+
+    const stepRenderers = [
+        renderStep1_Basic,
+        renderStep2_Identity,
+        renderStep3_About,
+        renderStep4_Experience,
+        renderStep5_Gallery
+    ];
+
+    return (
+        <Modal visible animationType="slide" presentationStyle="pageSheet">
+            <View className="flex-1 bg-black">
+                <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === "ios" ? "padding" : undefined}
+                        className="flex-1"
+                    >
+                        {/* Header */}
+                        <View className="px-6 py-6 border-b border-white/10 flex-row items-center justify-between">
+                            <TouchableOpacity onPress={handleBack}>
+                                <ArrowLeft size={24} color="#fff" />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={onClose}>
+                                <X size={24} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Content */}
+                        <ScrollView className="flex-1 px-6 py-8" contentContainerStyle={{ paddingBottom: 100 }}>
+                            <ProgressBar step={step} total={TOTAL_STEPS} />
+                            {stepRenderers[step]()}
+                        </ScrollView>
+
+                        {/* Footer */}
+                        <View className="px-6 py-6 border-t border-white/10 bg-black">
+                            <TouchableOpacity
+                                onPress={handleNext}
+                                className="w-full py-5 bg-white items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                            >
+                                <Text className="text-black font-black text-lg uppercase italic tracking-tighter">
+                                    {step === TOTAL_STEPS - 1 ? "PUBLISH PROFILE" : "NEXT STEP"}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </KeyboardAvoidingView>
+                </SafeAreaView>
+            </View>
+        </Modal>
+    );
+};
+
+export default ProfileWizard;

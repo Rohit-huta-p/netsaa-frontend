@@ -7,3 +7,5 @@ export { RoleCard } from './RoleCard';
 export { BackgroundEffects } from './BackgroundEffects';
 export { RegistrationHeader } from './RegistrationHeader';
 export { RegistrationForm } from './RegistrationForm';
+export { StepInput } from './StepInput';
+export { LargeRoleCard, IntentCard, TypeChip, ExpCard } from './SelectionCard';

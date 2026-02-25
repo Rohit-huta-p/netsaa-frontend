@@ -17,13 +17,16 @@ export interface ShareContent {
 
 // Generate share content for a Gig
 export const generateGigShareContent = (gig: any): ShareContent => {
-    const title = gig.title || 'Check out this gig!';
+    const title = gig.title || 'Exciting Gig Opportunity!';
+
     const compensation = gig.compensation?.amount
         ? `₹${gig.compensation.amount.toLocaleString()}`
         : gig.compensation?.minAmount
             ? `₹${gig.compensation.minAmount.toLocaleString()}+`
             : 'Great Pay';
+
     const location = gig.location?.city || 'Remote';
+
     const date = gig.schedule?.startDate
         ? new Date(gig.schedule.startDate).toLocaleDateString('en-IN', {
             day: 'numeric',
@@ -31,7 +34,21 @@ export const generateGigShareContent = (gig: any): ShareContent => {
         })
         : 'Flexible dates';
 
-    const message = `🎭 ${title}\n💰 ${compensation}\n📍 ${location}\n📅 ${date}\n\nApply now on NETSA!`;
+    const message =
+        `Hello 👋
+
+🎭 ${title}
+💰 ${compensation}
+📍 ${location}
+📅 ${date}
+
+Please apply through the link below.  
+After applying, DM me your profile link.
+
+Also, connect with me on NETSA to stay updated on my upcoming gigs and future opportunities. I regularly post new projects there.
+
+Looking forward to working with you!`;
+
     const url = `${BASE_URL}/gigs/${gig._id}`;
 
     return { title, message, url };

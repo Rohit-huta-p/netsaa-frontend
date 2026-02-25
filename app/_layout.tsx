@@ -2,7 +2,7 @@
 import "../global.css";
 import React, { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { Slot, SplashScreen } from "expo-router";
+import { Slot, SplashScreen, usePathname } from "expo-router";
 import { View } from "react-native";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -52,6 +52,8 @@ SplashScreen.preventAutoHideAsync();
  */
 export default function RootLayout() {
     const { isHydrated, accessToken } = useAuthStore();
+    const pathname = usePathname();
+    const isAuthRoute = pathname?.startsWith('/login') || pathname?.startsWith('/register');
     const [fontsLoaded, fontError] = useFonts({
         // Outfit fonts (primary heading/display font)
         'Outfit-Thin': Outfit_100Thin,
@@ -116,14 +118,14 @@ export default function RootLayout() {
             <QueryClientProvider client={queryClient}>
                 <SafeAreaProvider>
                     <View style={{ flex: 1, backgroundColor: '#09090b' }}>
-                        {/* Default Navbar (not transparent) - individual screens can render their own or use a nested layout */}
-                        <Navbar />
+                        {/* Navbar & TabBar hidden on auth screens */}
+                        {!isAuthRoute && <Navbar />}
 
-                        {/* App content - bottom padding for mobile tab bar is handled by AppScrollView/AppFlatList */}
+                        {/* App content */}
                         <Slot />
 
-                        {/* Mobile bottom tab bar - only visible on mobile */}
-                        <MobileTabBar />
+                        {/* Mobile bottom tab bar */}
+                        {!isAuthRoute && <MobileTabBar />}
                     </View>
                 </SafeAreaProvider>
             </QueryClientProvider>

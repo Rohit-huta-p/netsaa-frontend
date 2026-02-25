@@ -13,6 +13,7 @@ type SortOption = 'date' | 'rating' | 'name';
 
 export const ApplicationsTab: React.FC<ApplicationsTabProps> = ({ gigId }) => {
     const { data: applications, isLoading, error } = useGigApplications(gigId);
+
     const updateMutation = useUpdateApplicationStatus();
 
     const [activeFilter, setActiveFilter] = useState<ApplicationStatus>('all');

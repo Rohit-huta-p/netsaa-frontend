@@ -23,7 +23,7 @@ interface SearchResultItem {
 interface SearchPreviewResponse {
     gigs?: Array<{ id: string; title: string; location?: string }>;
     events?: Array<{ id: string; title: string; date?: string }>;
-    people?: Array<{ id: string; name: string; role?: string }>;
+    people?: Array<{ id: string; title: string; role?: string }>;
 }
 
 const ICONS_WIDTH = 17; // Bell + Profile + spacing
@@ -213,7 +213,7 @@ export default function Navbar() {
     // Interpolated animation values for mobile search
     const mobileSearchWidth = mobileSearchAnimation.interpolate({
         inputRange: [0, 1],
-        outputRange: [40, width - ICONS_WIDTH - 360], // expands left
+        outputRange: [40, width - ICONS_WIDTH - 350], // expands left
     });
     const mobileInputOpacity = mobileSearchAnimation.interpolate({
         inputRange: [0, 0.5, 1],
@@ -255,7 +255,7 @@ export default function Navbar() {
                 results.push({
                     id: person.id,
                     type: person.role === 'organizer' ? 'organizer' : 'artist',
-                    title: person.name,
+                    title: person.title,
                     subtitle: person.role,
                 });
             });
@@ -329,7 +329,7 @@ export default function Navbar() {
                         )
                     }
                     <TouchableOpacity onPress={() => router.push('/(app)/gigs')}>
-                        <Text className="text-gray-400 hover:text-white font-outfit-medium">Gigs</Text>
+                        <Text className="text-gray-400 hover:text-white font-outfit-medium">Opportunities</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => router.push('/(app)/events')}>
                         <Text className="text-gray-400 hover:text-white font-outfit-medium">Events</Text>
@@ -432,7 +432,7 @@ export default function Navbar() {
                                         borderWidth: 1,
                                         borderColor: 'rgba(168, 85, 247, 0.4)',
                                         overflow: 'hidden',
-                                        paddingLeft: 12,
+                                        paddingHorizontal: 12,
                                     }}
                                 >
                                     <TextInput
@@ -444,7 +444,7 @@ export default function Navbar() {
                                         }}
                                         placeholder="Search..."
                                         placeholderTextColor="#666"
-                                        className='outline-none flex-1 text-white font-outfit-regular '
+                                        className='outline-none flex-1 text-white font-outfit-regular px-2'
                                         autoFocus
                                         returnKeyType="search"
                                         onFocus={() => {
@@ -461,6 +461,7 @@ export default function Navbar() {
                                     <TouchableOpacity
                                         onPress={collapseMobileSearch}
                                         style={{
+                                            right: 20,
                                             width: 40,
                                             height: 40,
                                             alignItems: 'center',
@@ -479,8 +480,8 @@ export default function Navbar() {
                                         style={{
                                             position: 'absolute',
                                             top: 48,
-                                            right: ICONS_WIDTH,
-                                            width: width - ICONS_WIDTH - 24,
+                                            right: ICONS_WIDTH - 50,
+                                            width: width - ICONS_WIDTH - 304,
                                             backgroundColor: '#1a1a24',
                                             borderRadius: 16,
                                             borderWidth: 1,
@@ -612,7 +613,7 @@ export default function Navbar() {
                                                 >
                                                     <Briefcase size={18} color="#ff006e" />
                                                     <Text className="text-white font-outfit-medium text-sm flex-1">
-                                                        My Gigs
+                                                        Opportunities
                                                     </Text>
                                                 </TouchableOpacity>
 
@@ -627,7 +628,7 @@ export default function Navbar() {
                                                 >
                                                     <Calendar size={18} color="#8338ec" />
                                                     <Text className="text-white font-outfit-medium text-sm flex-1">
-                                                        My Applications
+                                                        My Applications / Saved
                                                     </Text>
                                                 </TouchableOpacity>
 
@@ -646,27 +647,13 @@ export default function Navbar() {
                                                     </Text>
                                                 </TouchableOpacity>
 
-                                                {/* Saved */}
-                                                <TouchableOpacity
-                                                    onPress={() => {
-                                                        setIsProfileDropdownOpen(false);
-                                                        router.push('/(app)/saved');
-                                                    }}
-                                                    className="px-4 py-3 border-b border-white/5 flex-row items-center gap-3"
-                                                    style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                                                >
-                                                    <Heart size={18} color="#f472b6" />
-                                                    <Text className="text-white font-outfit-medium text-sm flex-1">
-                                                        Saved
-                                                    </Text>
-                                                </TouchableOpacity>
 
                                                 {/* Settings */}
-                                                <TouchableOpacity
+                                                {/* <TouchableOpacity
                                                     onPress={() => {
                                                         setIsProfileDropdownOpen(false);
                                                         // You can add a settings route later
-                                                        router.push('/(app)/profile');
+                                                        router.push('/(app)/settings');
                                                     }}
                                                     className="px-4 py-3 border-b border-white/5 flex-row items-center gap-3"
                                                     style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
@@ -675,14 +662,13 @@ export default function Navbar() {
                                                     <Text className="text-white font-outfit-medium text-sm flex-1">
                                                         Settings
                                                     </Text>
-                                                </TouchableOpacity>
+                                                </TouchableOpacity> */}
 
                                                 {/* Help & Support */}
                                                 <TouchableOpacity
                                                     onPress={() => {
                                                         setIsProfileDropdownOpen(false);
-                                                        // You can add a help route later
-                                                        router.push('/(app)/profile');
+                                                        router.push('/(app)/contact');
                                                     }}
                                                     className="px-4 py-3 border-b border-white/5 flex-row items-center gap-3"
                                                     style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}

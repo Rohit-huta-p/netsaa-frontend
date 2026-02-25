@@ -20,20 +20,28 @@ class DeepLinkService {
     private readonly SUPPORTED_ROUTES = [
         /^\/conversations\/[a-zA-Z0-9_-]+$/,           // /conversations/:id
         /^\/(app)\/conversations\/[a-zA-Z0-9_-]+$/,   // /(app)/conversations/:id
-        /^\/gigs\/[a-zA-Z0-9_-]+$/,                    // /gigs/:id
-        /^\/(app)\/gigs\/[a-zA-Z0-9_-]+$/,            // /(app)/gigs/:id
-        /^\/events\/[a-zA-Z0-9_-]+$/,                  // /events/:id
-        /^\/(app)\/events\/[a-zA-Z0-9_-]+$/,          // /(app)/events/:id
-        /^\/contracts\/[a-zA-Z0-9_-]+$/,               // /contracts/:id
-        /^\/(app)\/contracts\/[a-zA-Z0-9_-]+$/,       // /(app)/contracts/:id
         /^\/connections$/,                              // /connections
         /^\/(app)\/connections$/,                       // /(app)/connections
+        /^\/connections\/[a-zA-Z0-9_-]+$/,             // /connections/:id
+        /^\/(app)\/connections\/[a-zA-Z0-9_-]+$/,     // /(app)/connections/:id
+        /^\/gigs\/[a-zA-Z0-9_-]+$/,                    // /gigs/:id
+        /^\/(app)\/gigs\/[a-zA-Z0-9_-]+$/,            // /(app)/gigs/:id
+        /^\/gigs$/,                                     // /gigs
+        /^\/(app)\/gigs$/,                             // /(app)/gigs
+        /^\/events\/[a-zA-Z0-9_-]+$/,                  // /events/:id
+        /^\/(app)\/events\/[a-zA-Z0-9_-]+$/,          // /(app)/events/:id
+        /^\/events$/,                                   // /events
+        /^\/(app)\/events$/,                           // /(app)/events
+        /^\/contracts\/[a-zA-Z0-9_-]+$/,               // /contracts/:id
+        /^\/(app)\/contracts\/[a-zA-Z0-9_-]+$/,       // /(app)/contracts/:id
         /^\/messages$/,                                 // /messages
         /^\/(app)\/messages$/,                          // /(app)/messages
         /^\/notifications$/,                            // /notifications
         /^\/(app)\/notifications$/,                     // /(app)/notifications
         /^\/profile\/[a-zA-Z0-9_-]+$/,                 // /profile/:userId
         /^\/(app)\/profile\/[a-zA-Z0-9_-]+$/,         // /(app)/profile/:userId
+        /^\/profile$/,                                  // /profile
+        /^\/(app)\/profile$/,                          // /(app)/profile
         /^\/network$/,                                  // /network
         /^\/(app)\/network$/,                           // /(app)/network
     ];
@@ -44,8 +52,8 @@ class DeepLinkService {
      * We need to map them to actual app routes like '/(app)/connections'
      */
     private readonly ROUTE_MAP: Record<string, string> = {
-        'connections': '/(app)/network',
-        'chat': '/(app)/messages',
+        'connections': '/(app)/connections',
+        'chat': '/(app)/connections',
         'gig-applications': '/(app)/gigs',
         'gig-details': '/(app)/gigs',
         'event-details': '/(app)/events',

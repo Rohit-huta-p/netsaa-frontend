@@ -39,6 +39,9 @@
       ],
       "@/stores/*": [
         "src/stores/*"
+      ],
+      "@/constants/*": [
+        "src/constants/*"
       ]
     }
   }

@@ -168,7 +168,7 @@ export default function ContactPage() {
                                     variant="white"
                                     size={isMobile ? "md" : "lg"}
                                     icon={<Phone size={20} color={NETSA_COLORS.netsa[10]} />}
-                                    onPress={() => Linking.openURL('whatsapp://send?phone=+919999999999')}
+                                    onPress={() => Linking.openURL('whatsapp://send?phone=+919673390378')}
                                     className="w-full md:w-auto px-8"
                                 />
                                 <Button
@@ -569,7 +569,7 @@ export default function ContactPage() {
 
                                     <TouchableOpacity
                                         activeOpacity={0.8}
-                                        onPress={() => Linking.openURL('https://instagram.com/netsa.app')}
+                                        onPress={() => Linking.openURL('https://instagram.com/netsa.official')}
                                         style={{
                                             borderWidth: 1,
                                             borderColor: 'rgba(236, 72, 153, 0.3)',
@@ -582,7 +582,7 @@ export default function ContactPage() {
                                         }}
                                     >
                                         <Instagram size={18} color="#ec4899" />
-                                        <Text style={{ color: '#ec4899', fontWeight: '700', fontSize: 15 }}>Follow @netsa.app</Text>
+                                        <Text style={{ color: '#ec4899', fontWeight: '700', fontSize: 15 }}>Follow @netsa.official</Text>
                                     </TouchableOpacity>
                                 </View>
 

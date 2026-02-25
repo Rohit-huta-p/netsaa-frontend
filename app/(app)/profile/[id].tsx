@@ -198,6 +198,7 @@ export default function UserProfile() {
         profileImageUrl: profile?.profileImageUrl,
         galleryUrls: (profile as any)?.galleryUrls || [],
         videoUrls: (profile as any)?.videoUrls || [],
+        testimonials: (profile as any)?.testimonials || [],
     };
 
     const stats: ProfileStats = {
@@ -258,7 +259,7 @@ export default function UserProfile() {
                             onDismiss={() => setShowContextCard(false)}
                         />
                     )}
-                    <View style={{ width: '80%', marginLeft: '10%', marginRight: '10%' }}>
+                    <View className="w-full md:w-[80%] md:mx-auto">
                         {/* Header Section */}
                         <ProfileHeader
                             fullName={profileData.fullName}

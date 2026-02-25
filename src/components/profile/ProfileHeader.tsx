@@ -105,9 +105,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                         />
                     </View>
                     {/* Available Tag */}
-                    <View className="absolute -bottom-2 -right-2 bg-green-500 px-2 py-0.5 rounded-lg border-2 border-black">
-                        <Text className="text-black font-black text-[8px] uppercase tracking-tighter">Available</Text>
-                    </View>
+                    {isEditable && (
+                        <View className="absolute -bottom-2 -right-2 bg-green-500 px-2 py-0.5 rounded-lg border-2 border-black">
+                            <Text className="text-black font-black text-[8px] uppercase tracking-tighter">Available</Text>
+                        </View>
+                    )}
                     {/* Photo edit overlay */}
                     {isEditable && (
                         <TouchableOpacity
@@ -211,7 +213,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                                 <View className="flex-row items-center gap-1.5 mt-1">
                                     <MapPin size={18} color="#a1a1aa" />
                                     <Text className="text-lg md:text-xl text-zinc-400 font-medium italic">
-                                        {location || "ADD LOCATION"}
+                                        {location || (isEditable ? "Add Location" : "TBA")}
                                     </Text>
                                 </View>
                             </>

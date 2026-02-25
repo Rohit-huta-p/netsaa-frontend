@@ -258,6 +258,47 @@ const EmptyState = ({
     isSectionActive?: boolean;
     onAdd: () => void;
 }) => {
+    if (!isEditable) {
+        return (
+            <View
+                style={{
+                    height: 180,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.05)",
+                    backgroundColor: "rgba(24,24,27,0.4)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 12,
+                }}
+            >
+                <View
+                    style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 26,
+                        backgroundColor: "rgba(255,255,255,0.03)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                    }}
+                >
+                    {type === "photos" ? <ImageIcon size={24} color="#52525b" /> : <Film size={24} color="#52525b" />}
+                </View>
+                <Text
+                    style={{
+                        color: "#52525b",
+                        fontSize: 11,
+                        fontWeight: "800",
+                        textTransform: "uppercase",
+                        letterSpacing: 1.5,
+                    }}
+                >
+                    {`No ${type === "photos" ? "Photos" : "Videos"} Yet`}
+                </Text>
+            </View>
+        );
+    }
+
     return (
         <TouchableOpacity
             onPress={onAdd}
@@ -329,37 +370,48 @@ export const FeaturedWorks: React.FC<FeaturedWorksProps> = ({
     const columnGap = 20;
     const columnWidth = (contentWidth - columnGap) / 2;
 
+    const displayGalleryUrls = isEditable ? galleryUrls : galleryUrls.filter(Boolean);
+    const displayVideoUrls = isEditable ? videoUrls : videoUrls.filter(Boolean);
+
+    const photoCount = displayGalleryUrls.filter(Boolean).length;
+    const videoCount = displayVideoUrls.filter(Boolean).length;
+
     // Resolve aspect ratios for photos
-    const aspectRatios = useImageAspectRatios(galleryUrls);
+    const aspectRatios = useImageAspectRatios(displayGalleryUrls);
 
     const openPhotoViewer = useCallback(
         (index: number) => {
-            const items: MediaItem[] = galleryUrls.map((uri) => ({
+            const validUrls = displayGalleryUrls.filter(Boolean);
+            const items: MediaItem[] = validUrls.map((uri) => ({
                 uri,
                 type: "photo",
             }));
+            const targetUri = displayGalleryUrls[index];
+            const validIndex = validUrls.indexOf(targetUri);
+
             setViewerItems(items);
-            setViewerIndex(index);
+            setViewerIndex(validIndex >= 0 ? validIndex : 0);
             setViewerVisible(true);
         },
-        [galleryUrls]
+        [displayGalleryUrls]
     );
 
     const openVideoViewer = useCallback(
         (index: number) => {
-            const items: MediaItem[] = videoUrls.map((uri) => ({
+            const validUrls = displayVideoUrls.filter(Boolean);
+            const items: MediaItem[] = validUrls.map((uri) => ({
                 uri,
                 type: "video",
             }));
+            const targetUri = displayVideoUrls[index];
+            const validIndex = validUrls.indexOf(targetUri);
+
             setViewerItems(items);
-            setViewerIndex(index);
+            setViewerIndex(validIndex >= 0 ? validIndex : 0);
             setViewerVisible(true);
         },
-        [videoUrls]
+        [displayVideoUrls]
     );
-
-    const photoCount = galleryUrls.length;
-    const videoCount = videoUrls.length;
 
     return (
         <View
@@ -498,9 +550,9 @@ export const FeaturedWorks: React.FC<FeaturedWorksProps> = ({
 
             {/* Tab Content */}
             {activeTab === "photos" ? (
-                galleryUrls.length > 0 ? (
+                displayGalleryUrls.length > 0 ? (
                     <MasonryGrid
-                        uris={galleryUrls}
+                        uris={displayGalleryUrls}
                         ratios={aspectRatios}
                         columnWidth={columnWidth}
                         gap={columnGap}
@@ -514,9 +566,9 @@ export const FeaturedWorks: React.FC<FeaturedWorksProps> = ({
                         onAdd={() => openSheet("media")}
                     />
                 )
-            ) : videoUrls.length > 0 ? (
+            ) : displayVideoUrls.length > 0 ? (
                 <View>
-                    {videoUrls.map((uri, i) => (
+                    {displayVideoUrls.map((uri, i) => (
                         uri ? (
                             <VideoCard
                                 key={i}

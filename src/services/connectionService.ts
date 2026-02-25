@@ -54,6 +54,14 @@ const connectionService = {
     },
 
     /**
+     * Remove an accepted connection
+     */
+    removeConnection: async (connectionId: string) => {
+        const { data } = await API.delete(`/${connectionId}`);
+        return data;
+    },
+
+    /**
      * Get list of accepted connections
      */
     getConnections: async () => {

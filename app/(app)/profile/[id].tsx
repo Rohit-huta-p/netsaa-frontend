@@ -145,16 +145,30 @@ export default function UserProfile() {
             return;
         }
 
-        if (connectionStatus !== 'none' || isConnectionLoading) return;
+        if (isConnectionLoading || connectionStatus === 'pending') return;
 
         try {
             setIsConnectionLoading(true);
-            // Assuming profile._id is the user ID to connect to
-            await connectionService.sendConnectionRequest((profile as any)._id || (profile as any).id);
-            setConnectionStatus('pending');
+            const targetId = (profile as any)._id || (profile as any).id;
+
+            if (connectionStatus === 'connected') {
+                // To remove a connection, we need the connection ID or handle it via target user ID on the backend
+                // The current API (`removeConnection`) expects a connectionId. Let's find the connectionId first.
+                const connections = await connectionService.getConnections();
+                const connection = connections.find((c: any) =>
+                    c.requesterId?._id === targetId || c.recipientId?._id === targetId
+                );
+
+                if (connection) {
+                    await connectionService.removeConnection(connection._id);
+                    setConnectionStatus('none');
+                }
+            } else {
+                await connectionService.sendConnectionRequest(targetId);
+                setConnectionStatus('pending');
+            }
         } catch (error) {
-            console.error("Failed to send connection request", error);
-            // Ideally show a toast here
+            console.error("Failed to update connection", error);
         } finally {
             setIsConnectionLoading(false);
         }
@@ -176,6 +190,9 @@ export default function UserProfile() {
         skills: (profile as any)?.skills || [],
         bio: (profile as any)?.bio || "",
         instagramHandle: (profile as any)?.instagramHandle || "",
+        youtubeUrl: (profile as any)?.youtubeUrl || "",
+        spotifyUrl: (profile as any)?.spotifyUrl || "",
+        soundcloudUrl: (profile as any)?.soundcloudUrl || "",
         experience: (profile as any)?.experience || [],
         hasPhotos: (profile as any)?.hasPhotos || false,
         profileImageUrl: profile?.profileImageUrl,
@@ -184,9 +201,9 @@ export default function UserProfile() {
     };
 
     const stats: ProfileStats = {
-        connections: (profile as any)?.connections || 234,
-        events: (profile as any)?.events || 47,
-        rating: (profile as any)?.rating || 4.9,
+        connections: (profile as any)?.connections || 0,
+        events: (profile as any)?.events || 0,
+        rating: (profile as any)?.rating || 0,
     };
 
     if (loading) {
@@ -286,7 +303,9 @@ export default function UserProfile() {
                                     />
 
                                     {/* Testimonials */}
-                                    <Testimonials />
+                                    <View className="mb-24">
+                                        <Testimonials testimonials={profileData.testimonials} />
+                                    </View>
                                 </View>
                             </View>
                         </View>

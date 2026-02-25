@@ -14,7 +14,8 @@ import {
     Eye,
     Clock,
     Pencil,
-    Wand2
+    Wand2,
+    IndianRupee
 } from 'lucide-react-native';
 import gigService from '@/services/gigService';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,6 +28,7 @@ import { TagInput } from '@/components/ui/TagInput';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { LeaveGigModal } from './LeaveGigModal';
+import MultiSlider from '@ptomasroos/react-native-multi-slider';
 
 const ARTIST_TYPES = [
     { label: "Dancer", value: "Dancer" },
@@ -702,26 +704,27 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                 {/* Age Range */}
                 <View className="flex-1">
                     <Text className="text-zinc-400 mb-2 font-medium">Age Range (Years)</Text>
-                    <View className="flex-row items-center gap-3">
-                        <View className="flex-1">
-                            <TextInput
-                                className="bg-zinc-900/50 border border-white/10 rounded-xl py-3 px-4 text-white text-center font-bold"
-                                placeholder="Min"
-                                placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                                keyboardType="numeric"
-                                value={formData.minAge}
-                                onChangeText={(val) => updateField('minAge', val)}
-                            />
+                    <View className="bg-zinc-900/50 border border-white/10 rounded-xl py-4 px-4">
+                        <View className="flex-row justify-between mb-2">
+                            <Text className="text-white font-bold">{formData.minAge || '18'}y</Text>
+                            <Text className="text-white font-bold">{formData.maxAge || '60'}y</Text>
                         </View>
-                        <Text className="text-zinc-500 font-medium text-lg">-</Text>
-                        <View className="flex-1">
-                            <TextInput
-                                className="bg-zinc-900/50 border border-white/10 rounded-xl py-3 px-4 text-white text-center font-bold"
-                                placeholder="Max"
-                                placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                                keyboardType="numeric"
-                                value={formData.maxAge}
-                                onChangeText={(val) => updateField('maxAge', val)}
+                        <View className="items-center">
+                            <MultiSlider
+                                values={[parseInt(formData.minAge) || 18, parseInt(formData.maxAge) || 60]}
+                                sliderLength={(Dimensions.get('window').width / 2) - 70}
+                                onValuesChange={(vals) => {
+                                    updateField('minAge', vals[0].toString());
+                                    updateField('maxAge', vals[1].toString());
+                                }}
+                                min={5}
+                                max={100}
+                                step={1}
+                                allowOverlap={false}
+                                snapped
+                                selectedStyle={{ backgroundColor: '#FF6B35' }}
+                                unselectedStyle={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                                markerStyle={{ backgroundColor: '#FF6B35', width: 20, height: 20, borderWidth: 0, marginTop: 4 }}
                             />
                         </View>
                     </View>
@@ -747,26 +750,27 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                     {/* Male / Generic Height Input */}
                     <View className="mb-3">
                         {formData.heightSplit && <Text className="text-zinc-500 text-xs mb-1">Male / Generic</Text>}
-                        <View className="flex-row items-center gap-3">
-                            <View className="flex-1">
-                                <TextInput
-                                    className="bg-zinc-900/50 border border-white/10 rounded-xl py-3 px-4 text-white text-center font-bold"
-                                    placeholder="Min"
-                                    placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                                    keyboardType="numeric"
-                                    value={formData.minHeight}
-                                    onChangeText={(val) => updateField('minHeight', val)}
-                                />
+                        <View className="bg-zinc-900/50 border border-white/10 rounded-xl py-4 px-4">
+                            <View className="flex-row justify-between mb-2">
+                                <Text className="text-white font-bold">{formData.minHeight || '4.0'} ft</Text>
+                                <Text className="text-white font-bold">{formData.maxHeight || '7.0'} ft</Text>
                             </View>
-                            <Text className="text-zinc-500 font-medium text-lg">-</Text>
-                            <View className="flex-1">
-                                <TextInput
-                                    className="bg-zinc-900/50 border border-white/10 rounded-xl py-3 px-4 text-white text-center font-bold"
-                                    placeholder="Max"
-                                    placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                                    keyboardType="numeric"
-                                    value={formData.maxHeight}
-                                    onChangeText={(val) => updateField('maxHeight', val)}
+                            <View className="items-center">
+                                <MultiSlider
+                                    values={[parseFloat(formData.minHeight) || 4.0, parseFloat(formData.maxHeight) || 7.0]}
+                                    sliderLength={(Dimensions.get('window').width / 2) - 70}
+                                    onValuesChange={(vals) => {
+                                        updateField('minHeight', vals[0].toFixed(1));
+                                        updateField('maxHeight', vals[1].toFixed(1));
+                                    }}
+                                    min={3.0}
+                                    max={8.0}
+                                    step={0.1}
+                                    allowOverlap={false}
+                                    snapped
+                                    selectedStyle={{ backgroundColor: '#FF6B35' }}
+                                    unselectedStyle={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                                    markerStyle={{ backgroundColor: '#FF6B35', width: 20, height: 20, borderWidth: 0, marginTop: 4 }}
                                 />
                             </View>
                         </View>
@@ -776,26 +780,27 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                     {formData.heightSplit && (
                         <View>
                             <Text className="text-zinc-500 text-xs mb-1">Female</Text>
-                            <View className="flex-row items-center gap-3">
-                                <View className="flex-1">
-                                    <TextInput
-                                        className="bg-zinc-900/50 border border-white/10 rounded-xl py-3 px-4 text-white text-center font-bold"
-                                        placeholder="Min"
-                                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                                        keyboardType="numeric"
-                                        value={formData.femaleMinHeight}
-                                        onChangeText={(val) => updateField('femaleMinHeight', val)}
-                                    />
+                            <View className="bg-zinc-900/50 border border-white/10 rounded-xl py-4 px-4">
+                                <View className="flex-row justify-between mb-2">
+                                    <Text className="text-white font-bold">{formData.femaleMinHeight || '4.0'} ft</Text>
+                                    <Text className="text-white font-bold">{formData.femaleMaxHeight || '7.0'} ft</Text>
                                 </View>
-                                <Text className="text-zinc-500 font-medium text-lg">-</Text>
-                                <View className="flex-1">
-                                    <TextInput
-                                        className="bg-zinc-900/50 border border-white/10 rounded-xl py-3 px-4 text-white text-center font-bold"
-                                        placeholder="Max"
-                                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                                        keyboardType="numeric"
-                                        value={formData.femaleMaxHeight}
-                                        onChangeText={(val) => updateField('femaleMaxHeight', val)}
+                                <View className="items-center">
+                                    <MultiSlider
+                                        values={[parseFloat(formData.femaleMinHeight) || 4.0, parseFloat(formData.femaleMaxHeight) || 7.0]}
+                                        sliderLength={(Dimensions.get('window').width / 2) - 70}
+                                        onValuesChange={(vals) => {
+                                            updateField('femaleMinHeight', vals[0].toFixed(1));
+                                            updateField('femaleMaxHeight', vals[1].toFixed(1));
+                                        }}
+                                        min={3.0}
+                                        max={8.0}
+                                        step={0.1}
+                                        allowOverlap={false}
+                                        snapped
+                                        selectedStyle={{ backgroundColor: '#FF6B35' }}
+                                        unselectedStyle={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                                        markerStyle={{ backgroundColor: '#FF6B35', width: 20, height: 20, borderWidth: 0, marginTop: 4 }}
                                     />
                                 </View>
                             </View>
@@ -1001,7 +1006,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                 <View className="mt-2">
                     <InputGroup label="Amount (₹)">
                         <StyledTextInput
-                            icon={DollarSign}
+                            icon={IndianRupee}
                             inputMode="numeric"
                             value={formData.amount}
                             onChangeText={(val: string) => updateField('amount', val)}

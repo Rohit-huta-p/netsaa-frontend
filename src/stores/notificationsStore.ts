@@ -2,16 +2,27 @@
 import { create } from 'zustand';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '@/services/api/notificationsApi';
 
-// Notification type definition
+// Notification type definition — mirrors backend INotification
 export type Notification = {
     _id: string;
     userId: string;
-    type: string; // e.g., 'connection_request', 'event_reminder', 'message', etc.
+    actorId?: string | {
+        _id: string;
+        displayName?: string;
+        profileImageUrl?: string;
+        artistType?: string;
+    };
+    type: 'connection' | 'message' | 'gig' | 'event' | 'payment' | 'contract' | 'system';
+    subtype: string;
     title: string;
-    message: string;
+    message: string; // mapped from body on backend
+    body?: string;   // raw field name from backend
+    entityType?: 'gig' | 'event' | 'conversation' | 'contract';
+    entityId?: string;
     data?: {
-        route?: string; // Deep link route for navigation (e.g., '/events/123', '/gigs/456')
-        [key: string]: any; // Additional metadata
+        route?: string;
+        params?: Record<string, any>;
+        [key: string]: any;
     };
     isRead: boolean;
     createdAt: string;

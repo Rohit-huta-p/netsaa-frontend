@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useApplyToGig } from '../../hooks/useGigApplications';
 import { X, Link as LinkIcon, Plus, Trash2, Check } from 'lucide-react-native';
+import { ProfileCompletionModal } from '../common/ProfileCompletionModal';
 
 interface GigApplyModalProps {
     visible: boolean;
@@ -16,8 +18,11 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, 
     const [coverNote, setCoverNote] = useState('');
     const [portfolioLinks, setPortfolioLinks] = useState<string[]>(['']);
     const [termsAccepted, setTermsAccepted] = useState(false);
+    const [profileModalVisible, setProfileModalVisible] = useState(false);
+    const [profileModalData, setProfileModalData] = useState<{ score: number; missing: string[] }>({ score: 0, missing: [] });
 
     const applyMutation = useApplyToGig();
+    const router = useRouter();
 
     const handleLinkChange = (text: string, index: number) => {
         const newLinks = [...portfolioLinks];
@@ -66,7 +71,19 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, 
                     onClose();
                 },
                 onError: (error: any) => {
-                    const message = error.response?.data?.meta?.message || "Failed to submit application";
+                    const meta = error.response?.data?.meta;
+
+                    if (meta?.message === "PROFILE_INCOMPLETE") {
+                        // Surface the profile-completion modal instead of a generic alert
+                        setProfileModalData({
+                            score: meta.score ?? 0,
+                            missing: meta.missing ?? [],
+                        });
+                        setProfileModalVisible(true);
+                        return;
+                    }
+
+                    const message = meta?.message || "Failed to submit application";
                     Alert.alert("Error", message);
                 }
             }
@@ -74,123 +91,138 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, 
     };
 
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={onClose}
-        >
-            <View className="flex-1 justify-end bg-black/50">
-                <View className="bg-card-surface rounded-t-3xl h-[85%] border-t border-white/10">
+        <>
+            <Modal
+                visible={visible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={onClose}
+            >
+                <View className="flex-1 justify-end bg-black/50">
+                    <View className="bg-card-surface rounded-t-3xl h-[85%] border-t border-white/10">
 
-                    {/* Header */}
-                    <View className="flex-row justify-between items-center p-6 border-b border-white/10">
-                        <View>
-                            <Text className="text-white font-satoshi-bold text-xl">Apply for Gig</Text>
-                            <Text className="text-white/50 font-inter text-sm mt-1">{gigTitle}</Text>
-                        </View>
-                        <TouchableOpacity onPress={onClose} className="p-2 bg-white/5 rounded-full">
-                            <X size={24} color="#FFFFFF" />
-                        </TouchableOpacity>
-                    </View>
-
-                    <ScrollView className="flex-1 p-6">
-                        {/* Cover Note */}
-                        <View className="mb-6">
-                            <Text className="text-white font-satoshi-bold mb-3">Cover Note <Text className="text-red-500">*</Text></Text>
-                            <TextInput
-                                multiline
-                                numberOfLines={6}
-                                textAlignVertical="top"
-                                placeholder="Why are you a good fit for this gig?"
-                                placeholderTextColor="#9CA3AF" // gray-400
-                                className="bg-white/5 border border-white/10 rounded-xl p-4 text-white font-inter h-40"
-                                value={coverNote}
-                                onChangeText={setCoverNote}
-                            />
-                        </View>
-
-                        {/* Portfolio Links */}
-                        <View className="mb-8">
-                            <Text className="text-white font-satoshi-bold mb-3">Portfolio Links</Text>
-
-                            {portfolioLinks.map((link, index) => (
-                                <View key={index} className="flex-row items-center mb-3">
-                                    <View className="flex-1 flex-row items-center bg-white/5 border border-white/10 rounded-xl px-4 h-12">
-                                        <LinkIcon size={16} color="#9CA3AF" />
-                                        <TextInput
-                                            placeholder="https://..."
-                                            placeholderTextColor="#9CA3AF"
-                                            className="flex-1 ml-3 text-white font-inter outline-none"
-                                            value={link}
-                                            onChangeText={(text) => handleLinkChange(text, index)}
-                                            autoCapitalize="none"
-                                            keyboardType="url"
-                                        />
-                                    </View>
-
-                                    {portfolioLinks.length > 1 && (
-                                        <TouchableOpacity
-                                            onPress={() => removeLinkField(index)}
-                                            className="ml-3 p-3 bg-red-500/10 rounded-xl"
-                                        >
-                                            <Trash2 size={18} color="#EF4444" />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            ))}
-
-                            <TouchableOpacity
-                                onPress={addLinkField}
-                                className="flex-row items-center justify-center p-3 border border-dashed border-white/20 rounded-xl mt-2"
-                            >
-                                <Plus size={16} color="#A855F7" />
-                                <Text className="text-netsa-accent-purple font-satoshi-bold ml-2">Add Another Link</Text>
+                        {/* Header */}
+                        <View className="flex-row justify-between items-center p-6 border-b border-white/10">
+                            <View>
+                                <Text className="text-white font-satoshi-bold text-xl">Apply for Gig</Text>
+                                <Text className="text-white/50 font-inter text-sm mt-1">{gigTitle}</Text>
+                            </View>
+                            <TouchableOpacity onPress={onClose} className="p-2 bg-white/5 rounded-full">
+                                <X size={24} color="#FFFFFF" />
                             </TouchableOpacity>
                         </View>
 
-                        {/* Terms and Conditions Checkbox */}
-                        {hasTerms && (
-                            <View className="flex-row items-center mb-6">
-                                <TouchableOpacity
-                                    onPress={() => setTermsAccepted(!termsAccepted)}
-                                    className={`w-6 h-6 rounded border items-center justify-center mr-3 ${termsAccepted ? 'bg-netsa-accent-purple border-netsa-accent-purple' : 'border-zinc-500'
-                                        }`}
-                                >
-                                    {termsAccepted && <Check size={14} color="white" />}
-                                </TouchableOpacity>
-                                <View className="flex-1 flex-row flex-wrap">
-                                    <Text className="text-zinc-400 font-inter text-sm">
-                                        I agree to the{' '}
-                                    </Text>
-                                    <TouchableOpacity onPress={onViewTerms}>
-                                        <Text className="text-netsa-accent-purple font-satoshi-bold text-sm underline">
-                                            Terms and Conditions
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
+                        <ScrollView className="flex-1 p-6">
+                            {/* Cover Note */}
+                            <View className="mb-6">
+                                <Text className="text-white font-satoshi-bold mb-3">Cover Note <Text className="text-red-500">*</Text></Text>
+                                <TextInput
+                                    multiline
+                                    numberOfLines={6}
+                                    textAlignVertical="top"
+                                    placeholder="Why are you a good fit for this gig?"
+                                    placeholderTextColor="#9CA3AF" // gray-400
+                                    className="bg-white/5 border border-white/10 rounded-xl p-4 text-white font-inter h-40"
+                                    value={coverNote}
+                                    onChangeText={setCoverNote}
+                                />
                             </View>
-                        )}
-                    </ScrollView>
 
-                    {/* Footer */}
-                    <View className="p-6 border-t border-white/10 safe-area-bottom">
-                        <TouchableOpacity
-                            onPress={handleSubmit}
-                            disabled={applyMutation.isPending}
-                            className={`w-full py-4 rounded-xl flex-row justify-center items-center ${applyMutation.isPending ? 'bg-netsa-accent-purple/50' : 'bg-netsa-accent-purple'
-                                }`}
-                        >
-                            {applyMutation.isPending ? (
-                                <ActivityIndicator color="white" />
-                            ) : (
-                                <Text className="text-white font-satoshi-bold text-lg">Submit Application</Text>
+                            {/* Portfolio Links */}
+                            <View className="mb-8">
+                                <Text className="text-white font-satoshi-bold mb-3">Portfolio Links</Text>
+
+                                {portfolioLinks.map((link, index) => (
+                                    <View key={index} className="flex-row items-center mb-3">
+                                        <View className="flex-1 flex-row items-center bg-white/5 border border-white/10 rounded-xl px-4 h-12">
+                                            <LinkIcon size={16} color="#9CA3AF" />
+                                            <TextInput
+                                                placeholder="https://..."
+                                                placeholderTextColor="#9CA3AF"
+                                                className="flex-1 ml-3 text-white font-inter outline-none"
+                                                value={link}
+                                                onChangeText={(text) => handleLinkChange(text, index)}
+                                                autoCapitalize="none"
+                                                keyboardType="url"
+                                            />
+                                        </View>
+
+                                        {portfolioLinks.length > 1 && (
+                                            <TouchableOpacity
+                                                onPress={() => removeLinkField(index)}
+                                                className="ml-3 p-3 bg-red-500/10 rounded-xl"
+                                            >
+                                                <Trash2 size={18} color="#EF4444" />
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                ))}
+
+                                <TouchableOpacity
+                                    onPress={addLinkField}
+                                    className="flex-row items-center justify-center p-3 border border-dashed border-white/20 rounded-xl mt-2"
+                                >
+                                    <Plus size={16} color="#A855F7" />
+                                    <Text className="text-netsa-accent-purple font-satoshi-bold ml-2">Add Another Link</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Terms and Conditions Checkbox */}
+                            {hasTerms && (
+                                <View className="flex-row items-center mb-6">
+                                    <TouchableOpacity
+                                        onPress={() => setTermsAccepted(!termsAccepted)}
+                                        className={`w-6 h-6 rounded border items-center justify-center mr-3 ${termsAccepted ? 'bg-netsa-accent-purple border-netsa-accent-purple' : 'border-zinc-500'
+                                            }`}
+                                    >
+                                        {termsAccepted && <Check size={14} color="white" />}
+                                    </TouchableOpacity>
+                                    <View className="flex-1 flex-row flex-wrap">
+                                        <Text className="text-zinc-400 font-inter text-sm">
+                                            I agree to the{' '}
+                                        </Text>
+                                        <TouchableOpacity onPress={onViewTerms}>
+                                            <Text className="text-netsa-accent-purple font-satoshi-bold text-sm underline">
+                                                Terms and Conditions
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
                             )}
-                        </TouchableOpacity>
-                    </View>
+                        </ScrollView>
 
+                        {/* Footer */}
+                        <View className="p-6 border-t border-white/10 safe-area-bottom">
+                            <TouchableOpacity
+                                onPress={handleSubmit}
+                                disabled={applyMutation.isPending}
+                                className={`w-full py-4 rounded-xl flex-row justify-center items-center ${applyMutation.isPending ? 'bg-netsa-accent-purple/50' : 'bg-netsa-accent-purple'
+                                    }`}
+                            >
+                                {applyMutation.isPending ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <Text className="text-white font-satoshi-bold text-lg">Submit Application</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+
+                    </View>
                 </View>
-            </View>
-        </Modal>
+            </Modal>
+
+            {/* Profile completion blocker */}
+            <ProfileCompletionModal
+                visible={profileModalVisible}
+                onClose={() => setProfileModalVisible(false)}
+                onGoToProfile={() => {
+                    setProfileModalVisible(false);
+                    onClose();
+                    router.push('/(app)/profile');
+                }}
+                score={profileModalData.score}
+                missing={profileModalData.missing}
+            />
+        </>
     );
 };

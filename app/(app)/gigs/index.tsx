@@ -9,7 +9,7 @@ import { GigCard } from '@/components/gigs/GigCard';
 import { GigDetails } from '@/components/gigs/GigDetails';
 import { BackgroundElements } from '@/components/ui/BackgroundElements';
 import AppScrollView from '@/components/AppScrollView';
-import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
+import AppLoadingScreen from '@/components/ui/AppLoadingScreen';
 import { FilterModal } from '@/components/gigs/FilterModal';
 import { FilterState } from '@/types/filters';
 import { countActiveFilters } from '@/lib/constants/filters';
@@ -52,6 +52,7 @@ export default function GigsListPage() {
     // UI states
     const [selectedGig, setSelectedGig] = useState<any>(null);
     const [showFilterModal, setShowFilterModal] = useState(false);
+    const [isPageReady, setIsPageReady] = useState(false);
 
     // Local input state for controlled TextInput (before debounce)
     const [inputQuery, setInputQuery] = useState('');
@@ -78,6 +79,17 @@ export default function GigsListPage() {
         page: searchState.page,
         pageSize: 20,
     });
+
+    // Handle page ready state
+    React.useEffect(() => {
+        if (!isLoading && !isPageReady && (gigsData || error)) {
+            // Small delay to allow react-native to calculate layout and render
+            const timer = setTimeout(() => {
+                setIsPageReady(true);
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [isLoading, gigsData, error]);
 
     const activeFilterCount = searchState.filters ? countActiveFilters(searchState.filters) : 0;
 
@@ -106,6 +118,10 @@ export default function GigsListPage() {
         }));
     }, []);
 
+    if (!isPageReady) {
+        return <AppLoadingScreen />;
+    }
+
     return (
         <View style={{ flex: 1, backgroundColor: '#000000' }}>
             {/* <BackgroundElements /> */}
@@ -125,7 +141,7 @@ export default function GigsListPage() {
                         </View>
 
                         {/* SEARCH & FILTERS */}
-                        <View className="flex-col md:flex-row gap-4 w-full">
+                        <View className="flex-row gap-4 w-full">
                             {/* Search */}
                             <View className="relative flex-1 lg:w-80">
                                 <View className="absolute left-5 top-1/2 -translate-y-1/2 z-10">
@@ -145,7 +161,7 @@ export default function GigsListPage() {
                                         borderRadius: 12,
                                         color: '#FFFFFF',
                                         fontSize: 16,
-                                        outline: 'none',
+                                        // outline: 'none',
                                     }}
                                     value={inputQuery}
                                     onChangeText={setInputQuery}
@@ -200,20 +216,11 @@ export default function GigsListPage() {
                 {/* BOARD SECTION */}
                 <View className="w-[90%] mx-auto py-12  ">
                     <View className="flex-1">
-                        {isLoading ? (
+                        {isLoading && isPageReady ? (
                             <View className="flex-1 justify-center items-center py-20">
-                                <LoadingAnimation
-                                    source="https://lottie.host/ecebcd4d-d1c9-4e57-915f-d3f61705a717/VFWGhqMAX0.lottie"
-                                    width={300}
-                                    height={300}
-                                />
-                                {/* // {
-                                //     source: "https://lottie.host/feea2e9b-b1c6-492f-bfa3-95feca9f20a0/1NoVsp8rDk.lottie",
-                                //     width: 200,
-                                //     height: 200,
-                                // }, */}
+                                <ActivityIndicator size="large" color="#8B5CF6" />
                                 <Text className="text-zinc-500 mt-4 text-xs font-medium">
-                                    Loading opportunities...
+                                    Updating results...
                                 </Text>
                             </View>
                         ) : error ? (

@@ -24,7 +24,6 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
     const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(date);
 
     // Sync internal state when modal opens or prop changes
-    // Sync internal state when modal opens or prop changes
     React.useEffect(() => {
         if (visible) {
             // Default to passed date, or minDate if available, or today
@@ -75,12 +74,14 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
                                     minDate={minDate}
                                     maxDate={maxDate}
                                     styles={{
-                                        day_label: { color: 'white', fontWeight: '500' },
+                                        day_label: { color: 'white', fontWeight: 'bold' },
                                         selected: { backgroundColor: '#FF6B35', borderRadius: 8 },
                                         selected_label: { color: 'white', fontWeight: 'bold' },
-                                        weekday_label: { color: '#a1a1aa', fontWeight: '500' },
-                                        month_selector_label: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-                                        year_selector_label: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+                                        weekday_label: { color: '#fff', fontWeight: 'bold' },
+                                        month_selector_label: { color: '#fff', fontWeight: 'bold' },
+                                        year_selector_label: { color: '#fff', fontWeight: 'bold' },
+                                        month_label: { color: '#fff', }, // Month list item
+                                        year_label: { color: '#fff' } // Year list item
                                         // today_label: { color: '#FF6B35' } // Optional: Highlight today
                                     }}
                                 />

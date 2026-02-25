@@ -1,162 +1,625 @@
 // src/components/profile/FeaturedWorks.tsx
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     View,
     Text,
     Image,
     TouchableOpacity,
     Platform,
+    useWindowDimensions,
 } from "react-native";
-import { Video as ExpoVideo, ResizeMode } from 'expo-av';
 import { LinearGradient } from "expo-linear-gradient";
 import {
     Camera,
     Play,
+    Edit2,
+    Plus,
+    ImageIcon,
+    Film,
 } from "lucide-react-native";
 import { FeaturedWorksProps } from "./types";
+import { useProfileUiStore } from "@/stores/profileUiStore";
+import { MediaViewerModal, MediaItem } from "./MediaViewerModal";
 
+type TabKey = "photos" | "videos";
+
+// Hook to resolve image aspect ratios
+function useImageAspectRatios(uris: string[]) {
+    const [ratios, setRatios] = useState<Record<string, number>>({});
+
+    useEffect(() => {
+        uris.forEach((uri) => {
+            if (!uri || ratios[uri]) return;
+            Image.getSize(
+                uri,
+                (w, h) => {
+                    setRatios((prev) => ({ ...prev, [uri]: h / w }));
+                },
+                () => {
+                    // fallback to square
+                    setRatios((prev) => ({ ...prev, [uri]: 1 }));
+                }
+            );
+        });
+    }, [uris]);
+
+    return ratios;
+}
+
+// ─── Masonry Grid ──────────────────────────────────────
+const MasonryGrid = ({
+    uris,
+    ratios,
+    columnWidth,
+    gap,
+    onPress,
+    onAdd,
+}: {
+    uris: string[];
+    ratios: Record<string, number>;
+    columnWidth: number;
+    gap: number;
+    onPress: (index: number) => void;
+    onAdd?: () => void;
+}) => {
+    // Distribute items into 2 columns by shortest column
+    const col1: { uri: string; idx: number }[] = [];
+    const col2: { uri: string; idx: number }[] = [];
+    let h1 = 0;
+    let h2 = 0;
+
+    uris.forEach((uri, idx) => {
+        const ratio = ratios[uri] || 1;
+        // Cap extreme portrait images to a max aspect ratio of 1.5 (e.g. 2:3)
+        const displayRatio = Math.min(ratio, 1.5);
+        const itemH = columnWidth * displayRatio;
+        if (h1 <= h2) {
+            col1.push({ uri, idx });
+            h1 += itemH + gap;
+        } else {
+            col2.push({ uri, idx });
+            h2 += itemH + gap;
+        }
+    });
+
+    // Determine which column is shorter (to append the "Add" card)
+    const addToCol1 = h1 <= h2;
+
+    const renderColumn = (items: { uri: string; idx: number }[], showAddCard: boolean) => (
+        <View style={{ width: columnWidth, gap }}>
+            {items.map(({ uri, idx }) => {
+                // If URI is empty/falsy, show a Plus placeholder card
+                if (!uri) {
+                    return (
+                        <TouchableOpacity
+                            key={idx}
+                            activeOpacity={0.7}
+                            onPress={() => onAdd?.()}
+                            style={{
+                                width: columnWidth,
+                                height: columnWidth,
+                                borderRadius: 14,
+                                borderWidth: 2,
+                                borderStyle: "dashed",
+                                borderColor: "rgba(234,105,139,0.25)",
+                                backgroundColor: "rgba(24,24,27,0.4)",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 10,
+                            }}
+                        >
+                            <View
+                                style={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: 22,
+                                    backgroundColor: "rgba(234,105,139,0.1)",
+                                    borderWidth: 1,
+                                    borderColor: "rgba(234,105,139,0.2)",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                }}
+                            >
+                                <Plus size={20} color="#ea698b" />
+                            </View>
+                            <Text
+                                style={{
+                                    color: "#71717a",
+                                    fontSize: 10,
+                                    fontWeight: "800",
+                                    textTransform: "uppercase",
+                                    letterSpacing: 1.5,
+                                }}
+                            >
+                                Add Photo
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                }
+
+                const ratio = ratios[uri] || 1;
+                // Cap extreme portrait images to a max aspect ratio of 1.5 (e.g. 2:3)
+                const displayRatio = Math.min(ratio, 1.5);
+                const itemH = columnWidth * displayRatio;
+                return (
+                    <TouchableOpacity
+                        key={idx}
+                        activeOpacity={0.85}
+                        onPress={() => onPress(idx)}
+                        style={{
+                            width: columnWidth,
+                            height: itemH,
+                            borderRadius: 14,
+                            overflow: "hidden",
+                            backgroundColor: "#18181b",
+                        }}
+                    >
+                        <Image
+                            source={{ uri }}
+                            style={{ width: "100%", height: "100%" }}
+                            // For portrait images, use 'contain' so the image fully fits inside without cropping
+                            resizeMode={"cover"}
+                        />
+                        {/* Subtle bottom gradient for depth */}
+                        <LinearGradient
+                            colors={["transparent", "rgba(0,0,0,0.35)"]}
+                            style={{
+                                position: "absolute",
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                height: 40,
+                            }}
+                        />
+                    </TouchableOpacity>
+                );
+            })}
+
+        </View>
+    );
+
+    return (
+        <View style={{ flexDirection: "row", gap, paddingBottom: 4 }}>
+            {renderColumn(col1, addToCol1)}
+            {renderColumn(col2, !addToCol1)}
+        </View>
+    );
+};
+
+// ─── Video Card ────────────────────────────────────────
+const VideoCard = ({
+    uri,
+    width: cardWidth,
+    onPress,
+}: {
+    uri: string;
+    width: number;
+    onPress: () => void;
+}) => {
+    const cardH = cardWidth * (9 / 16);
+
+    return (
+        <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={onPress}
+            style={{
+                width: cardWidth,
+                height: cardH,
+                borderRadius: 14,
+                backgroundColor: "#18181b",
+                marginBottom: 12,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.08)",
+                alignItems: "center",
+                justifyContent: "center",
+            }}
+        >
+            {/* Play button circle */}
+            <View
+                style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 28,
+                    backgroundColor: "rgba(234, 105, 139, 0.9)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    shadowColor: "#ea698b",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.4,
+                    shadowRadius: 12,
+                    marginBottom: 10,
+                }}
+            >
+                <Play size={24} color="#fff" fill="#fff" />
+            </View>
+            <Text
+                style={{
+                    color: "#71717a",
+                    fontSize: 10,
+                    fontWeight: "800",
+                    textTransform: "uppercase",
+                    letterSpacing: 1.5,
+                }}
+            >
+                Tap to Play
+            </Text>
+        </TouchableOpacity>
+    );
+};
+
+// ─── Empty State ───────────────────────────────────────
+const EmptyState = ({
+    type,
+    isEditable,
+    onAdd,
+}: {
+    type: "photos" | "videos";
+    isEditable: boolean;
+    isSectionActive?: boolean;
+    onAdd: () => void;
+}) => {
+    return (
+        <TouchableOpacity
+            onPress={onAdd}
+            activeOpacity={0.7}
+            style={{
+                height: 180,
+                borderRadius: 16,
+                borderWidth: 2,
+                borderStyle: "dashed",
+                borderColor: "rgba(234,105,139,0.25)",
+                backgroundColor: "rgba(24,24,27,0.4)",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+            }}
+        >
+            <View
+                style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 26,
+                    backgroundColor: "rgba(234,105,139,0.1)",
+                    borderWidth: 1,
+                    borderColor: "rgba(234,105,139,0.2)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                }}
+            >
+                <Plus size={24} color="#ea698b" />
+            </View>
+            <Text
+                style={{
+                    color: "#71717a",
+                    fontSize: 11,
+                    fontWeight: "800",
+                    textTransform: "uppercase",
+                    letterSpacing: 1.5,
+                }}
+            >
+                {`Add ${type === "photos" ? "Photos" : "Videos"}`}
+            </Text>
+        </TouchableOpacity>
+    );
+};
+
+// ─── Main Component ────────────────────────────────────
 export const FeaturedWorks: React.FC<FeaturedWorksProps> = ({
     galleryUrls,
     videoUrls,
     hasPhotos,
     isEditable = false,
     isDesktop,
-    onEditPress,
 }) => {
-    // Ensure arrays have proper length
-    const photos = [...(galleryUrls || []), '', '', '', '', ''].slice(0, 5);
-    const videos = [...(videoUrls || []), '', '', ''].slice(0, 3);
+    const { activeEditSection, setEditSection, openSheet } =
+        useProfileUiStore();
+    const isSectionActive = activeEditSection === "media";
+    const { width: screenWidth } = useWindowDimensions();
+
+    const [activeTab, setActiveTab] = useState<TabKey>("photos");
+
+    // Media Viewer state
+    const [viewerVisible, setViewerVisible] = useState(false);
+    const [viewerItems, setViewerItems] = useState<MediaItem[]>([]);
+    const [viewerIndex, setViewerIndex] = useState(0);
+
+    // Measure actual container width via onLayout (fluid, matches parent)
+    const [containerWidth, setContainerWidth] = useState(0);
+    const contentWidth = containerWidth > 0 ? containerWidth - 28 : screenWidth - 32; // 28 = padding*2 (14 each side)
+    const columnGap = 20;
+    const columnWidth = (contentWidth - columnGap) / 2;
+
+    // Resolve aspect ratios for photos
+    const aspectRatios = useImageAspectRatios(galleryUrls);
+
+    const openPhotoViewer = useCallback(
+        (index: number) => {
+            const items: MediaItem[] = galleryUrls.map((uri) => ({
+                uri,
+                type: "photo",
+            }));
+            setViewerItems(items);
+            setViewerIndex(index);
+            setViewerVisible(true);
+        },
+        [galleryUrls]
+    );
+
+    const openVideoViewer = useCallback(
+        (index: number) => {
+            const items: MediaItem[] = videoUrls.map((uri) => ({
+                uri,
+                type: "video",
+            }));
+            setViewerItems(items);
+            setViewerIndex(index);
+            setViewerVisible(true);
+        },
+        [videoUrls]
+    );
+
+    const photoCount = galleryUrls.length;
+    const videoCount = videoUrls.length;
 
     return (
-        <View className="bg-zinc-900/60 rounded-2xl py-6 px-6">
-            <View className="flex-row items-center justify-between mb-8 border-b border-white/5 pb-4">
-                <Text className="text-2xl font-black text-white italic tracking-tight">FEATURED WORKS</Text>
-                {isEditable && onEditPress ? (
-                    <TouchableOpacity onPress={onEditPress}>
-                        <Text className="text-[10px] font-bold text-pink-400 uppercase tracking-widest">Edit</Text>
+        <View
+            onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+            style={{
+                // backgroundColor: "rgba(24,24,27,0.6)",
+                borderRadius: 16,
+                padding: 14,
+                gap: 16,
+            }}
+        >
+            {/* Header row */}
+            <View
+                style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                }}
+            >
+                <Text
+                    style={{
+                        fontSize: 18,
+                        fontWeight: "900",
+                        fontStyle: "italic",
+                        color: "#a1a1aa",
+                        letterSpacing: -0.5,
+                    }}
+                >
+                    FEATURED WORKS
+                </Text>
+                {isEditable && (
+                    <TouchableOpacity
+                        onPress={() =>
+                            isSectionActive
+                                ? setEditSection(null)
+                                : setEditSection("media")
+                        }
+                        style={{
+                            padding: 8,
+                            borderRadius: 20,
+                            borderWidth: 1,
+                            backgroundColor: isSectionActive
+                                ? "rgba(234,105,139,0.1)"
+                                : "rgba(255,255,255,0.05)",
+                            borderColor: isSectionActive
+                                ? "rgba(234,105,139,0.2)"
+                                : "transparent",
+                        }}
+                    >
+                        <Edit2
+                            size={16}
+                            color={isSectionActive ? "#ea698b" : "#71717a"}
+                        />
                     </TouchableOpacity>
-                ) : (
-                    <Text className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                        View All / {photos.filter(u => u).length + videos.filter(u => u).length}
-                    </Text>
                 )}
             </View>
 
-            {isEditable ? (
-                // Editable Mode - Show slots
-                <View className="space-y-8">
-                    {/* Photo Gallery - 5 slots */}
-                    <View>
-                        <Text className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4">
-                            Photos ({photos.filter(u => u).length}/5)
-                        </Text>
-                        <View className="flex-row flex-wrap gap-3">
-                            {[0, 1, 2, 3, 4].map((index) => {
-                                const url = photos[index];
-                                return (
-                                    <TouchableOpacity
-                                        key={index}
-                                        onPress={onEditPress}
-                                        className="w-[18%] aspect-square rounded-xl overflow-hidden border border-white/10"
-                                        style={{ minWidth: 60 }}
+            {/* Tab Switcher */}
+            <View
+                style={{
+                    flexDirection: "row",
+                    backgroundColor: "rgba(9,9,11,0.6)",
+                    borderRadius: 12,
+                    padding: 4,
+                    gap: 6,
+                }}
+            >
+                {(["photos", "videos"] as TabKey[]).map((tab) => {
+                    const isActive = activeTab === tab;
+                    const count = tab === "photos" ? photoCount : videoCount;
+                    const TabIcon = tab === "photos" ? ImageIcon : Film;
+                    return (
+                        <TouchableOpacity
+                            key={tab}
+                            onPress={() => setActiveTab(tab)}
+                            style={{
+                                flex: 1,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 6,
+                                paddingVertical: 10,
+                                borderRadius: 10,
+                                backgroundColor: isActive
+                                    ? "rgba(234,105,139,0.12)"
+                                    : "transparent",
+                                borderWidth: isActive ? 1 : 0,
+                                borderColor: isActive
+                                    ? "rgba(234,105,139,0.25)"
+                                    : "transparent",
+                            }}
+                        >
+                            <TabIcon
+                                size={14}
+                                color={isActive ? "#ea698b" : "#52525b"}
+                            />
+                            <Text
+                                style={{
+                                    fontSize: 11,
+                                    fontWeight: "800",
+                                    textTransform: "uppercase",
+                                    letterSpacing: 1.5,
+                                    color: isActive ? "#ea698b" : "#52525b",
+                                }}
+                            >
+                                {tab === "photos" ? "Photos" : "Videos"}
+                            </Text>
+                            {count > 0 && (
+                                <View
+                                    style={{
+                                        backgroundColor: isActive
+                                            ? "rgba(234,105,139,0.2)"
+                                            : "rgba(255,255,255,0.06)",
+                                        paddingHorizontal: 7,
+                                        paddingVertical: 2,
+                                        borderRadius: 8,
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            fontSize: 10,
+                                            fontWeight: "900",
+                                            color: isActive
+                                                ? "#ea698b"
+                                                : "#52525b",
+                                        }}
                                     >
-                                        {url ? (
-                                            <Image source={{ uri: url }} className="w-full h-full" />
-                                        ) : (
-                                            <View className="w-full h-full bg-zinc-800/50 items-center justify-center">
-                                                <Camera size={20} color="#52525b" />
-                                                <Text className="text-zinc-600 text-[8px] mt-1 text-center">Add</Text>
-                                            </View>
-                                        )}
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-                    </View>
+                                        {count}
+                                    </Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
 
-                    {/* Video Reels - 3 slots */}
-                    <View>
-                        <Text className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4">
-                            Video Reels ({videos.filter(u => u).length}/3)
-                        </Text>
-                        <View className="flex-row gap-3">
-                            {[0, 1, 2].map((index) => {
-                                const url = videos[index];
-                                return (
-                                    <TouchableOpacity
-                                        key={index}
-                                        onPress={() => !url && onEditPress?.()}
-                                        activeOpacity={url ? 1 : 0.7}
-                                        className="flex-1 aspect-[9/16] rounded-xl overflow-hidden border border-white/10"
-                                        style={{ maxWidth: 120 }}
-                                    >
-                                        {url ? (
-                                            Platform.OS === 'web' ? (
-                                                <video
-                                                    src={url}
-                                                    controls
-                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                />
-                                            ) : (
-                                                <ExpoVideo
-                                                    source={{ uri: url }}
-                                                    style={{ width: '100%', height: '100%' }}
-                                                    useNativeControls
-                                                    resizeMode={ResizeMode.COVER}
-                                                    shouldPlay={false}
-                                                />
-                                            )
-                                        ) : (
-                                            <View className="w-full h-full bg-zinc-800/50 items-center justify-center">
-                                                <Play size={24} color="#52525b" />
-                                                <Text className="text-zinc-600 text-[8px] mt-2 text-center">Add{'\n'}Reel</Text>
-                                            </View>
-                                        )}
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-                    </View>
+            {/* Tab Content */}
+            {activeTab === "photos" ? (
+                galleryUrls.length > 0 ? (
+                    <MasonryGrid
+                        uris={galleryUrls}
+                        ratios={aspectRatios}
+                        columnWidth={columnWidth}
+                        gap={columnGap}
+                        onPress={openPhotoViewer}
+                        onAdd={() => openSheet("media")}
+                    />
+                ) : (
+                    <EmptyState
+                        type="photos"
+                        isEditable={isEditable}
+                        onAdd={() => openSheet("media")}
+                    />
+                )
+            ) : videoUrls.length > 0 ? (
+                <View>
+                    {videoUrls.map((uri, i) => (
+                        uri ? (
+                            <VideoCard
+                                key={i}
+                                uri={uri}
+                                width={contentWidth}
+                                onPress={() => openVideoViewer(i)}
+                            />
+                        ) : (
+                            <TouchableOpacity
+                                key={i}
+                                activeOpacity={0.7}
+                                onPress={() => openSheet("media")}
+                                style={{
+                                    width: contentWidth,
+                                    height: contentWidth * (9 / 16),
+                                    borderRadius: 14,
+                                    borderWidth: 2,
+                                    borderStyle: "dashed",
+                                    borderColor: "rgba(234,105,139,0.25)",
+                                    backgroundColor: "rgba(24,24,27,0.4)",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: 10,
+                                    marginBottom: 12,
+                                }}
+                            >
+                                <View
+                                    style={{
+                                        width: 44,
+                                        height: 44,
+                                        borderRadius: 22,
+                                        backgroundColor: "rgba(234,105,139,0.1)",
+                                        borderWidth: 1,
+                                        borderColor: "rgba(234,105,139,0.2)",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                    }}
+                                >
+                                    <Plus size={20} color="#ea698b" />
+                                </View>
+                                <Text
+                                    style={{
+                                        color: "#71717a",
+                                        fontSize: 10,
+                                        fontWeight: "800",
+                                        textTransform: "uppercase",
+                                        letterSpacing: 1.5,
+                                    }}
+                                >
+                                    Add Video
+                                </Text>
+                            </TouchableOpacity>
+                        )
+                    ))}
+
                 </View>
             ) : (
-                // View-only Mode - Show showcase
-                hasPhotos ? (
-                    <View className="flex-col gap-4">
-                        {/* Item 1 - Wide */}
-                        <View className="w-full aspect-[21/9] bg-zinc-900 rounded-2xl border border-white/10 overflow-hidden relative">
-                            <Image
-                                source={{ uri: photos[0] || "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=600" }}
-                                className="w-full h-full opacity-80"
-                            />
-                            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.9)']} className="absolute inset-0" />
-                            <View className="absolute bottom-6 left-6">
-                                <Text className="text-[10px] font-black text-pink-500 uppercase tracking-[0.2em] mb-1">Performance</Text>
-                                <Text className="text-lg text-white font-black italic uppercase tracking-tight">Featured Work</Text>
-                            </View>
-                        </View>
-
-                        {/* Row of 2 */}
-                        <View className={`flex-row gap-4 ${isDesktop ? '' : 'flex-wrap'}`}>
-                            <View className="flex-1 aspect-square bg-zinc-900 rounded-2xl border border-white/10 overflow-hidden relative">
-                                <Image
-                                    source={{ uri: photos[1] || "https://images.unsplash.com/photo-1547153760-18fc86324498?q=80&w=600" }}
-                                    className="w-full h-full opacity-80"
-                                />
-                            </View>
-                            <View className="flex-1 aspect-square bg-zinc-900 rounded-2xl border border-white/10 overflow-hidden relative">
-                                <Image
-                                    source={{ uri: photos[2] || "https://images.unsplash.com/photo-1535525153412-5a42439a210d?q=80&w=600" }}
-                                    className="w-full h-full opacity-80"
-                                />
-                            </View>
-                        </View>
-                    </View>
-                ) : (
-                    <View className="py-12 border border-dashed border-white/10 items-center justify-center">
-                        <Text className="text-zinc-600 font-bold uppercase tracking-widest text-[10px]">No Portfolio Content</Text>
-                    </View>
-                )
+                <EmptyState
+                    type="videos"
+                    isEditable={isEditable}
+                    onAdd={() => openSheet("media")}
+                />
             )}
+
+            {/* Add Button (visible in edit mode) */}
+            {isSectionActive && isEditable && (
+                <TouchableOpacity
+                    onPress={() => openSheet("media")}
+                    style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        paddingVertical: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderStyle: "dashed",
+                        borderColor: "rgba(234,105,139,0.3)",
+                        backgroundColor: "rgba(234,105,139,0.05)",
+                    }}
+                >
+                    <Plus size={16} color="#ea698b" />
+                    <Text
+                        style={{
+                            color: "#ea698b",
+                            fontSize: 11,
+                            fontWeight: "800",
+                            textTransform: "uppercase",
+                            letterSpacing: 1.5,
+                        }}
+                    >
+                        Upload Media
+                    </Text>
+                </TouchableOpacity>
+            )}
+
+            {/* Media Viewer Modal */}
+            <MediaViewerModal
+                visible={viewerVisible}
+                onClose={() => setViewerVisible(false)}
+                mediaItems={viewerItems}
+                initialIndex={viewerIndex}
+            />
         </View>
     );
 };

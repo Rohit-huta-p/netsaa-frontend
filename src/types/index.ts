@@ -6,6 +6,43 @@ export type ExperienceEntry = {
   date?: string;
 };
 
+/* ── Settings types ── */
+
+export type IPrivacySettings = {
+  profileVisibility: 'public' | 'connections_only' | 'private';
+  showEmail: boolean;
+  showPhone: boolean;
+  showLocation: boolean;
+};
+
+export type INotificationSettings = {
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  allowConnectionRequests: boolean;
+  messages: boolean;
+  gigUpdates: boolean;
+  eventUpdates: boolean;
+  marketing: boolean;
+};
+
+export type IMessagingSettings = {
+  allowMessagesFrom: 'connections' | 'anyone' | 'none';
+  readReceipts: boolean;
+};
+
+export type IAccountSettings = {
+  language: string;
+  timezone: string;
+  currency: string;
+};
+
+export type IUserSettings = {
+  privacy: IPrivacySettings;
+  notifications: INotificationSettings;
+  messaging: IMessagingSettings;
+  account: IAccountSettings;
+};
+
 export type User = {
   _id: string;
   firstName?: string;
@@ -37,6 +74,8 @@ export type User = {
   rating?: number;
   connections?: number;
   events?: number;
+  // Settings
+  settings?: IUserSettings;
 };
 
 export type AuthResponse = {
@@ -45,3 +84,4 @@ export type AuthResponse = {
   user?: User;
   expiresAt?: number | null; // epoch ms
 };
+

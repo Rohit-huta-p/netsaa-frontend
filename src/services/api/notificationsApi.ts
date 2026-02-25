@@ -53,6 +53,19 @@ interface GetNotificationsResponse {
     limit: number;
 }
 
+/**
+ * Map raw backend notification to frontend Notification type
+ * Backend uses: body (string), readAt (Date|null)
+ * Frontend uses: message (string), isRead (boolean)
+ */
+function mapNotification(raw: any): Notification {
+    return {
+        ...raw,
+        message: raw.message || raw.body || '',
+        isRead: raw.isRead ?? !!raw.readAt,
+    };
+}
+
 const notificationsApi = {
     /**
      * Fetch notifications with pagination
@@ -61,8 +74,17 @@ const notificationsApi = {
         const { page = 1, limit = 20 } = params;
         console.log("NOTIFICATIONS API: Fetching notifications...");
         const res = await API.get(`/notifications?page=${page}&limit=${limit}`);
-        console.log(`NOTIFICATIONS API: Fetched ${res.data.data.length} notifications`);
-        return res.data;
+        const raw = res.data;
+        const notifications = (raw.data || raw.notifications || []).map(mapNotification);
+        const pagination = raw.pagination || {};
+        console.log(`NOTIFICATIONS API: Fetched ${notifications.length} notifications`);
+        return {
+            data: notifications,
+            hasMore: pagination.hasMore ?? (notifications.length >= limit),
+            total: pagination.total ?? notifications.length,
+            page: pagination.page ?? page,
+            limit: pagination.limit ?? limit,
+        };
     },
 
     /**

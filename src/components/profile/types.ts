@@ -18,11 +18,19 @@ export type ProfileData = {
     skills: string[];
     bio: string;
     instagramHandle: string;
+    youtubeUrl?: string;
+    spotifyUrl?: string;
+    soundcloudUrl?: string;
     experience: ExperienceEntry[];
     hasPhotos: boolean;
     profileImageUrl?: string;
     galleryUrls?: string[];
     videoUrls?: string[];
+    testimonials?: {
+        text: string;
+        author: string;
+        role: string;
+    }[];
 };
 
 export type ProfileStats = {
@@ -69,9 +77,9 @@ export interface ProfessionalHistoryProps {
 }
 
 export interface TestimonialsProps {
-    testimonial?: {
+    testimonials?: {
         text: string;
         author: string;
         role: string;
-    };
+    }[];
 }

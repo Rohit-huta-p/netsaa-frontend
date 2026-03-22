@@ -56,6 +56,35 @@ export const useLogin = () => {
     });
 };
 
+export const useSendOtp = () => {
+    return useMutation({
+        mutationFn: authService.sendOtp,
+        onError: (error: any) => {
+            Alert.alert('Failed to send OTP', error.response?.data?.message || 'Please check your phone number and try again.');
+        },
+    });
+};
+
+export const useCheckEmail = () => {
+    return useMutation({
+        mutationFn: authService.checkEmail,
+    });
+};
+
+export const useCheckPhone = () => {
+    return useMutation({
+        mutationFn: authService.checkPhone,
+    });
+};
+
+export const useVerifyOtp = () => {
+    return useMutation({
+        mutationFn: authService.verifyOtp,
+        // Navigation and modal logic are handled by the component (login.tsx)
+        // via inline onSuccess/onError callbacks in mutate().
+    });
+};
+
 export const useRegister = () => {
     const router = useRouter();
     const setAuth = useAuthStore((state) => state.setAuth);
@@ -107,5 +136,17 @@ export const useLogout = () => {
             clearAuth();
             router.replace('/');
         },
+    });
+};
+
+export const useForgotPassword = () => {
+    return useMutation({
+        mutationFn: authService.forgotPassword,
+    });
+};
+
+export const useResetPassword = () => {
+    return useMutation({
+        mutationFn: authService.resetPassword,
     });
 };

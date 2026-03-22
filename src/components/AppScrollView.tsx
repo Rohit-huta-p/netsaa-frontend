@@ -41,12 +41,9 @@ export default function AppScrollView(props: ScrollViewProps) {
 
     return (
         <ScrollView
-
-            // sensible defaults: let taps pass through to inputs/buttons
             keyboardShouldPersistTaps="handled"
-            // preserve any props passed by caller
             {...props}
-            // override/merge contentContainerStyle so footer sits after content
+            style={[{ flex: 1 }, props.style]}
             contentContainerStyle={mergedContentContainerStyle}
         >
             {props.children}

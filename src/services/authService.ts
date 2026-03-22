@@ -1,6 +1,6 @@
 // src/services/authService.ts
 import axios from 'axios';
-import type { AuthResponse, User } from '../types';
+import type { AuthResponse, User, VerifyOtpResponse } from '../types';
 
 import { useAuthStore } from '../stores/authStore';
 
@@ -53,6 +53,39 @@ const authService = {
     return res.data;
   },
 
+  sendOtp: async (payload: { phone: string }): Promise<any> => {
+    console.log("AUTH SERVICE: Sending OTP to phone...")
+    const res = await API.post('/auth/send-otp', payload);
+    return res.data;
+  },
+
+  checkEmail: async (payload: { email: string }): Promise<{ exists: boolean }> => {
+    const res = await API.post('/auth/check-email', payload);
+    return res.data;
+  },
+
+  checkPhone: async (payload: { phone: string }): Promise<{ exists: boolean }> => {
+    const res = await API.post('/auth/check-phone', payload);
+    return res.data;
+  },
+
+  verifyOtp: async (payload: { phone: string; otp: string }): Promise<VerifyOtpResponse> => {
+    console.log("AUTH SERVICE: Verifying OTP...");
+    try {
+      const res = await API.post('/auth/verify-otp', payload);
+      console.log("AUTH SERVICE: OTP Verified successfully");
+      return res.data;
+    } catch (error: any) {
+      // Intercept 404 (user not found) and return it as a successful response
+      // so the component can show the new-user modal instead of an error alert.
+      if (error.response?.status === 404 && error.response?.data?.data?.userExists === false) {
+        console.log("AUTH SERVICE: OTP valid but user not found — returning register flow hint");
+        return error.response.data as VerifyOtpResponse;
+      }
+      throw error;
+    }
+  },
+
   getMe: async (): Promise<User> => {
     // GET /auth/me
     console.log("AUTH SERVICE: Getting user...")
@@ -66,6 +99,7 @@ const authService = {
     console.log(`AUTH SERVICE: Getting user ${id}...`)
     // Fallback URL if standard one fails, leveraging existing backend structure assumption
     const res = await API.get(`/users/${id}`);
+    console.log("USER details fetched: ", res.data)
     return res.data;
   },
 
@@ -73,6 +107,13 @@ const authService = {
     console.log("AUTH SERVICE: Updating profile...", data);
     const res = await API.patch('/auth/me', data);
     console.log("AUTH SERVICE: Profile updated successfully");
+    return res.data;
+  },
+
+  updateOrganizer: async (data: any): Promise<any> => {
+    console.log("AUTH SERVICE: Updating organizer...", data);
+    const res = await API.patch('/organizers/me', data);
+    console.log("AUTH SERVICE: Organizer updated successfully");
     return res.data;
   },
 
@@ -86,6 +127,18 @@ const authService = {
       console.log("Failed to log out (api)")
       // ignore network errors on logout
     }
+  },
+
+  forgotPassword: async (payload: { email: string }): Promise<{ msg: string }> => {
+    console.log("AUTH SERVICE: Requesting password reset...");
+    const res = await API.post('/auth/forgot-password', payload);
+    return res.data;
+  },
+
+  resetPassword: async (payload: { email: string; code: string; newPassword: string }): Promise<{ msg: string }> => {
+    console.log("AUTH SERVICE: Resetting password...");
+    const res = await API.post('/auth/reset-password', payload);
+    return res.data;
   },
 };
 

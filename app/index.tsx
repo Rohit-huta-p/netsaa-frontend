@@ -1,107 +1,183 @@
-import React, { useRef } from 'react';
-import { View, ScrollView, Animated, Dimensions, Platform, useWindowDimensions } from 'react-native';
+import React, { useRef, useCallback, useEffect } from 'react';
+import { View, Animated, Platform, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// ── Existing sections ──
 import HeroSection from '@/components/landing/HeroSection';
-import StatsSection from '@/components/landing/StatsSection';
 import FeaturesSection from '@/components/landing/FeaturesSection';
 import ArtistShowcase from '@/components/landing/ArtistShowcase';
 import QuoteSection from '@/components/landing/QuoteSection';
 import CategoryMarquee from '@/components/landing/CategoryMarquee';
 import CTASection from '@/components/landing/CTASection';
+import ParallaxSection from '@/components/landing/ParallaxSection';
+import Footer from '@/components/Footer';
 
-import AppScrollView from '@/components/AppScrollView';
-
-// Landing page sections (matching final-landing.tsx)
-
+// ── New sections (content reference doc) ──
+import ProblemSection from '@/components/landing/ProblemSection';
+import TestimonialsSection from '@/components/landing/TestimonialsSection';
+import HowItWorksSection from '@/components/landing/HowItWorksSection';
+import OrganizerSection from '@/components/landing/OrganizerSection';
+import TrustSection from '@/components/landing/TrustSection';
 
 const isWeb = Platform.OS === 'web';
 
 export default function LandingScreen() {
     const scrollY = useRef(new Animated.Value(0)).current;
-    const { height, width } = useWindowDimensions();
     const insets = useSafeAreaInsets();
 
-    // Use regular ScrollView on web for better performance
-    const ScrollComponent = isWeb ? ScrollView : Animated.ScrollView;
+    // Web: manual scroll handler (useNativeDriver not supported on web)
+    const handleWebScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        scrollY.setValue(e.nativeEvent.contentOffset.y);
+    }, [scrollY]);
+
+    // Inject smooth scrollbar CSS on web
+    useEffect(() => {
+        if (isWeb && typeof document !== 'undefined') {
+            const styleId = 'landing-global-styles';
+            if (!document.getElementById(styleId)) {
+                const style = document.createElement('style');
+                style.id = styleId;
+                style.textContent = `
+                    * { scroll-behavior: smooth; }
+                    ::-webkit-scrollbar { width: 6px; }
+                    ::-webkit-scrollbar-track { background: transparent; }
+                    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+                    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+    }, []);
 
     return (
         <>
             <StatusBar style="light" />
 
-            <View
-                className="flex-1"
-                style={{
-                    backgroundColor: '#000',
-                    overflow: 'hidden',
-                }}
-            >
-                {/* Noise texture overlay (web only) */}
-                {isWeb && (
-                    <View
-                        style={{
-                            position: 'fixed' as any,
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            pointerEvents: 'none',
-                            opacity: 0.03,
-                            zIndex: 100,
-                            backgroundImage: "url('https://grainy-gradients.vercel.app/noise.svg')",
-                        } as any}
-                    />
-                )}
+            <View style={{ flex: 1, backgroundColor: '#000', overflow: 'hidden' }}>
 
-                <AppScrollView
-                    className="flex-1"
+                <Animated.ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{ flexGrow: 1 }}
                     showsVerticalScrollIndicator={false}
                     onScroll={
                         isWeb
-                            ? undefined
+                            ? handleWebScroll
                             : Animated.event(
                                 [{ nativeEvent: { contentOffset: { y: scrollY } } }],
                                 { useNativeDriver: true }
                             )
                     }
                     scrollEventThrottle={16}
-                    // Smooth scrolling props
-                    decelerationRate={isWeb ? undefined : 'normal'}
-                    snapToAlignment="start"
-                    style={isWeb ? { scrollBehavior: 'smooth' } as any : undefined}
-                    // iOS-specific smooth scrolling
                     bounces={true}
                     alwaysBounceVertical={true}
-                    // Android momentum scrolling
                     overScrollMode="always"
+                    keyboardShouldPersistTaps="handled"
                 >
-                    {/* Landing Page Navbar */}
-                    {/* <LandingNavbar /> */}
 
-                    {/* 1. Hero Section - "THE STAGE IS REVOLUTIONIZED" */}
-                    <HeroSection scrollY={scrollY} />
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    {/* SECTION 1 — HERO                                        */}
+                    {/* Aspiration + FOMO — "This is MY platform"              */}
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    <HeroSection scrollY={scrollY} sectionIndex={0} />
 
-                    {/* 2. Market Stats - $3.8B, $7B, 26M */}
-                    <StatsSection />
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    {/* SECTION 2 — PROBLEM AGITATION                          */}
+                    {/* Pain recognition — "They GET my struggle"              */}
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    <ProblemSection scrollY={scrollY} sectionIndex={1} />
 
-                    {/* 3. Features - Professionalizing the Passion */}
-                    <FeaturesSection />
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    {/* SECTION 3 — SOLUTION / FEATURES                        */}
+                    {/* Relief + Hope — "There IS a solution"                  */}
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    <ParallaxSection
+                        scrollY={scrollY}
+                        sectionIndex={2}
+                        bgColor="#000"
+                        blendEdges
+                        blendTopColor="#050505"
+                        blendBottomColor="#000"
+                    >
+                        <FeaturesSection scrollY={scrollY} sectionIndex={2} />
+                    </ParallaxSection>
 
-                    {/* 4. Artist Marquee - Rising Stars Live */}
-                    <ArtistShowcase scrollY={scrollY} />
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    {/* SECTION 4 — SOCIAL PROOF                               */}
+                    {/* Trust + Belonging — "If it worked for them..."         */}
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    <TestimonialsSection scrollY={scrollY} sectionIndex={3} />
 
-                    {/* 5. Quote Section - The NETSA Manifesto */}
-                    <QuoteSection />
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    {/* SECTION 4b — ARTIST SHOWCASE (human faces)             */}
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    <ParallaxSection
+                        scrollY={scrollY}
+                        sectionIndex={4}
+                        bgColor="#000"
+                        blendEdges
+                        blendTopColor="#09090b"
+                        blendBottomColor="#000"
+                    >
+                        <ArtistShowcase scrollY={scrollY} sectionIndex={4} />
+                    </ParallaxSection>
 
-                    {/* 6. Category Marquee - DANCE, MUSIC, THEATER, MODELING */}
-                    <CategoryMarquee />
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    {/* SECTION 5 — HOW IT WORKS                               */}
+                    {/* Achievability — "I can DO this in 3 steps"             */}
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    <HowItWorksSection scrollY={scrollY} sectionIndex={5} />
 
-                    {/* 7. CTA Section - Ready to take center stage? */}
-                    <CTASection />
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    {/* SECTION 6 — ORGANIZER VALUE PROP                       */}
+                    {/* Efficiency — "This saves me TIME"                      */}
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    <OrganizerSection scrollY={scrollY} sectionIndex={6} />
 
-                    {/* 8. Footer */}
-                    {/* <Footer /> */}
-                </AppScrollView >
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    {/* SECTION 7 — TRUST & SECURITY                           */}
+                    {/* Security — "My money is SAFE here"                     */}
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    <TrustSection scrollY={scrollY} sectionIndex={7} />
+
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    {/* MANIFESTO QUOTE — Emotional Peak                       */}
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    <QuoteSection scrollY={scrollY} sectionIndex={8} />
+
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    {/* SECTION 8 — CATEGORIES                                 */}
+                    {/* Inclusivity — "My art form is HERE"                    */}
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    <ParallaxSection
+                        scrollY={scrollY}
+                        sectionIndex={9}
+                        bgColor="#000"
+                    >
+                        <CategoryMarquee scrollY={scrollY} sectionIndex={9} />
+                    </ParallaxSection>
+
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    {/* SECTION 10 — FINAL CTA                                 */}
+                    {/* Commitment — "If I don't act NOW, I'll regret it"      */}
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    <ParallaxSection
+                        scrollY={scrollY}
+                        sectionIndex={10}
+                        bgColor="#000"
+                        blendEdges
+                        blendTopColor="#000"
+                        blendBottomColor="#09090b"
+                    >
+                        <CTASection scrollY={scrollY} sectionIndex={10} />
+                    </ParallaxSection>
+
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    {/* SECTION 11 — FOOTER                                    */}
+                    {/* ═══════════════════════════════════════════════════════ */}
+                    <Footer />
+
+                </Animated.ScrollView>
             </View>
         </>
     );

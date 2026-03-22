@@ -116,7 +116,7 @@ export default function RootLayout() {
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <QueryClientProvider client={queryClient}>
-                <SafeAreaProvider>
+                <SafeAreaProvider style={{ flex: 1 }}>
                     <View style={{ flex: 1, backgroundColor: '#09090b' }}>
                         {/* Navbar & TabBar hidden on auth screens */}
                         {!isAuthRoute && <Navbar />}

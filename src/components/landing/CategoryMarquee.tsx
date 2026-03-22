@@ -6,8 +6,17 @@ const isWeb = Platform.OS === 'web';
 
 // Marquee item component
 const MarqueeContent = ({ isMobile, isTablet }: { isMobile: boolean; isTablet: boolean }) => {
-    const categories = ['DANCE', 'MUSIC', 'THEATER', 'MODELING'];
-    const colors = [NETSA_COLORS.netsa[5], NETSA_COLORS.netsa[10], NETSA_COLORS.netsa[3], NETSA_COLORS.netsa[5]];
+    // All art forms from the content reference doc
+    const categories = ['DANCE', 'MUSIC', 'THEATER', 'ACTING', 'COMEDY', 'CIRCUS', 'CLASSICAL'];
+    const colors = [
+        NETSA_COLORS.netsa[5],
+        NETSA_COLORS.netsa[10],
+        NETSA_COLORS.netsa[3],
+        NETSA_COLORS.netsa[5],
+        NETSA_COLORS.netsa[10],
+        NETSA_COLORS.netsa[3],
+        NETSA_COLORS.netsa[5],
+    ];
 
     // Responsive sizing
     const fontSize = isMobile ? 64 : isTablet ? 120 : isWeb ? 192 : 80;
@@ -116,7 +125,7 @@ const NativeMarquee = ({ isMobile, isTablet }: { isMobile: boolean; isTablet: bo
     );
 };
 
-export default function CategoryMarquee() {
+export default function CategoryMarquee({ scrollY, sectionIndex }: { scrollY?: any; sectionIndex?: number }) {
     const { width } = useWindowDimensions();
     const isMobile = width < 768;
     const isTablet = width >= 768 && width < 1024;

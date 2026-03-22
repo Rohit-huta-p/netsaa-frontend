@@ -22,8 +22,10 @@ export const generateGigShareContent = (gig: any): ShareContent => {
     const compensation = gig.compensation?.amount
         ? `₹${gig.compensation.amount.toLocaleString()}`
         : gig.compensation?.minAmount
-            ? `₹${gig.compensation.minAmount.toLocaleString()}+`
-            : 'Great Pay';
+            ? (gig.compensation.maxAmount && gig.compensation.maxAmount !== gig.compensation.minAmount) 
+                ? `₹${gig.compensation.minAmount.toLocaleString()} - ₹${gig.compensation.maxAmount.toLocaleString()}` 
+                : gig.compensation.maxAmount === gig.compensation.minAmount ? `₹${gig.compensation.minAmount.toLocaleString()}` : `₹${gig.compensation.minAmount.toLocaleString()}+`
+            : gig.compensation?.model === 'unpaid' ? 'Unpaid' : 'Great Pay';
 
     const location = gig.location?.city || 'Remote';
 

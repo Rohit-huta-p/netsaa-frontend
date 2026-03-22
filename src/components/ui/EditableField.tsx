@@ -31,6 +31,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
                         value={value}
                         className="w-full bg-white border border-purple-300 rounded-xl px-4 py-3 text-gray-900 pr-10 outline-none"
                         placeholderTextColor="#9CA3AF"
+                        style={{ outlineStyle: 'none' } as any}
                         {...props}
                     />
                     <View className="absolute right-3 top-3.5">

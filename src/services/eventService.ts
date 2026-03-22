@@ -70,10 +70,8 @@ const eventService = {
         return response.data;
     },
 
-    getEventRegistrations: async (id: string) => {
-        // Need IEventRegistration in types if we want strict typing here, but any implies flexible for now
-        // or import IEventRegistration
-        const response = await API.get<{ data: any[] }>(`/events/${id}/registrations`);
+    getEventRegistrations: async (id: string, params?: { page?: number; limit?: number }) => {
+        const response = await API.get<{ data: any[], meta: any }>(`/events/${id}/registrations`, { params });
         return response.data;
     },
 
@@ -97,12 +95,12 @@ const eventService = {
         return response.data;
     },
 
-    createPaymentIntent: async (eventId: string, payload: { reservationId: string }) => {
+    createPaymentIntent: async (eventId: string, payload: { reservationId: string; attendeeInfo?: any[] }) => {
         const response = await API.post<{ success: boolean; clientSecret?: string; paymentIntentId?: string; message: string }>(`/events/${eventId}/checkout`, payload);
         return response.data;
     },
 
-    finalizeRegistration: async (eventId: string, payload: { reservationId: string; paymentIntentId?: string }) => {
+    finalizeRegistration: async (eventId: string, payload: { reservationId: string; paymentIntentId?: string; attendeeInfo?: { fullName: string; email?: string; phone: string; notes?: string }[] }) => {
         const response = await API.post<{ success: boolean; data: any; message: string }>(`/events/${eventId}/finalize`, payload);
         return response.data;
     },

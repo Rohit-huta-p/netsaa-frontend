@@ -9,27 +9,6 @@ import type {
     Intent, ExperienceLevel, OrganizerTypeCategory,
 } from '@/schemas/register.schema';
 
-/* ── Color palette ── */
-export const REG_COLORS = {
-    primary: '#8B5CF6',
-    secondary: '#3B82F6',
-    bg: '#0a0a0f',
-    w95: 'rgba(255,255,255,0.95)',
-    w80: 'rgba(255,255,255,0.80)',
-    w60: 'rgba(255,255,255,0.60)',
-    w50: 'rgba(255,255,255,0.50)',
-    w40: 'rgba(255,255,255,0.40)',
-    w30: 'rgba(255,255,255,0.30)',
-    w25: 'rgba(255,255,255,0.25)',
-    w15: 'rgba(255,255,255,0.15)',
-    w10: 'rgba(255,255,255,0.10)',
-    w08: 'rgba(255,255,255,0.08)',
-    w06: 'rgba(255,255,255,0.06)',
-    w03: 'rgba(255,255,255,0.03)',
-    activeB: 'rgba(139,92,246,0.6)',
-    activeBg: 'rgba(139,92,246,0.1)',
-} as const;
-
 /* ── Intent options ── */
 export const INTENT_OPTIONS: { id: Intent; label: string; icon: React.ElementType }[] = [
     { id: 'find_gigs', label: 'Find Gigs', icon: Target },
@@ -67,7 +46,7 @@ export const ARTIST_STEPS = [
 ] as const;
 
 export const ORGANIZER_STEPS = [
-    'role', 'identity', 'credentials', 'orgTypeCategory', 'orgProfile', 'primaryContact', 'billing', 'intent', 'social',
+    'role', 'identity', 'credentials', 'orgTypeCategory', 'orgProfile', 'billing', 'intent', 'social',
 ] as const;
 
 export type StepId = (typeof ARTIST_STEPS)[number] | (typeof ORGANIZER_STEPS)[number] | 'completion';

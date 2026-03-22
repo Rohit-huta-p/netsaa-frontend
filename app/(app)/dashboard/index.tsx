@@ -28,6 +28,7 @@ import useAuthStore from "@/stores/authStore";
 import { useOrganizerEvents } from "@/hooks/useEvents";
 import { useOrganizerGigs } from "@/hooks/useGigs";
 import { LoadingAnimation } from "@/components/ui/LoadingAnimation";
+import { Badge } from "@/components/ui/Badge";
 
 /* -------------------------------------------------------------------------- */
 /*                               SKELETON UI                                  */
@@ -53,30 +54,7 @@ const EventSkeleton = () => (
 /*                              COMPONENTS                                    */
 /* -------------------------------------------------------------------------- */
 
-const Badge = ({ status }: any) => {
-    const colors: Record<string, { bg: string; text: string }> = {
-        Open: { bg: "rgba(16, 185, 129, 0.15)", text: "#10B981" },
-        Published: { bg: "rgba(59, 130, 246, 0.15)", text: "#3B82F6" },
-        Draft: { bg: "rgba(161, 161, 170, 0.15)", text: "#A1A1AA" },
-        Closed: { bg: "rgba(239, 68, 68, 0.15)", text: "#EF4444" },
-    };
 
-    const style = colors[status] || colors.Draft;
-
-    return (
-        <View
-            className="px-3 py-1.5 rounded-full self-start"
-            style={{ backgroundColor: style.bg }}
-        >
-            <Text
-                className="text-xs font-bold uppercase tracking-wider"
-                style={{ color: style.text }}
-            >
-                {status}
-            </Text>
-        </View>
-    );
-};
 
 const ItemCard = ({ item, onPress, onOpenApplicants }: any) => {
     const isGig = item.type === "gig";
@@ -101,22 +79,23 @@ const ItemCard = ({ item, onPress, onOpenApplicants }: any) => {
                 </View>
             </View>
 
-            <Text className="text-white text-xl font-black tracking-tight mb-3">
+            <Text className="text-white text-lg font-black tracking-tight mb-3">
                 {item.title}
             </Text>
 
-            <View className="flex-row items-center mb-2">
-                <Clock size={14} color="rgba(255, 255, 255, 0.5)" />
-                <Text className="text-zinc-400 text-sm ml-2 font-light">
-                    {item.date}
-                </Text>
-            </View>
-
-            <View className="flex-row items-center mb-4">
-                <MapPin size={14} color="rgba(255, 255, 255, 0.5)" />
-                <Text className="text-zinc-400 text-sm ml-2 font-light">
-                    {item.location}
-                </Text>
+            <View className="flex-row items-center justify-start gap-4 mb-4">
+                <View className="flex-row items-center">
+                    <MapPin size={14} color="rgba(255, 255, 255, 0.5)" />
+                    <Text className="text-zinc-400 text-sm ml-2 font-light">
+                        {item.location}
+                    </Text>
+                </View>
+                <View className="flex-row items-center">
+                    <Clock size={14} color="rgba(255, 255, 255, 0.5)" />
+                    <Text className="text-zinc-400 text-sm ml-2 font-light">
+                        {item.date}
+                    </Text>
+                </View>
             </View>
 
             <View className="h-px bg-white/10 mb-4" />
@@ -142,18 +121,21 @@ const ItemCard = ({ item, onPress, onOpenApplicants }: any) => {
 };
 
 const StatCard = ({ icon: Icon, label, value, bg, color }: any) => (
-    <View className="flex-row items-center mb-5">
+    <View
+        className="bg-zinc-900/40 border border-white/5 rounded-2xl p-4 flex-1 mb-3 mr-2"
+        style={{ minWidth: "45%" }}
+    >
         <View
-            className="w-12 h-12 rounded-xl items-center justify-center mr-4"
+            className="w-10 h-10 rounded-lg items-center justify-center mb-3"
             style={{ backgroundColor: bg }}
         >
-            <Icon size={20} color={color} />
+            <Icon size={18} color={color} />
         </View>
         <View>
-            <Text className="text-white font-black text-2xl tracking-tight">
+            <Text className="text-white font-black text-xl tracking-tight leading-6">
                 {value}
             </Text>
-            <Text className="text-zinc-500 text-xs font-medium uppercase tracking-wider">
+            <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mt-1">
                 {label}
             </Text>
         </View>
@@ -225,6 +207,23 @@ export default function OrganizerHome() {
 
         if (gigsData) {
             (gigsData as any[]).forEach((gig: any) => {
+                let displayPrice = "Unpaid";
+                if (gig.compensation?.amount) {
+                    displayPrice = `₹${gig.compensation.amount}`;
+                } else if (gig.compensation?.minAmount || gig.compensation?.maxAmount) {
+                    const min = gig.compensation.minAmount;
+                    const max = gig.compensation.maxAmount;
+                    if (min && max && min !== max) {
+                        displayPrice = `₹${min} - ₹${max}`;
+                    } else if (min || max) {
+                        displayPrice = `₹${min || max}`;
+                    }
+                } else if (gig.compensation?.model === "unpaid") {
+                    displayPrice = "Unpaid";
+                } else if (gig.compensation?.model) {
+                    displayPrice = "TBD";
+                }
+
                 items.push({
                     id: gig._id,
                     type: "gig",
@@ -241,9 +240,7 @@ export default function OrganizerHome() {
                     status: gig.status
                         ? gig.status.charAt(0).toUpperCase() + gig.status.slice(1)
                         : "Draft",
-                    price: gig.compensation?.amount
-                        ? `₹${gig.compensation.amount}`
-                        : "Unpaid",
+                    price: displayPrice,
                     applicants: gig.stats?.applications || 0,
                     originalData: gig,
                 });
@@ -354,7 +351,54 @@ export default function OrganizerHome() {
                             </TouchableOpacity>
                         </View>
                     </View>
+                    {/* INSIGHTS SECTION */}
+                    <View style={{ flex: 1 }}>
+                        <Text className="text-white font-black text-xl tracking-tight mb-4">
+                            Quick Insights
+                        </Text>
+                        <View className="flex-row flex-wrap">
+                            <StatCard
+                                icon={Calendar}
+                                label="Total Events"
+                                value={
+                                    dashboardItems.filter((i) => i.type === "event")
+                                        .length
+                                }
+                                bg="rgba(59, 130, 246, 0.15)"
+                                color="#3B82F6"
+                            />
 
+                            <StatCard
+                                icon={Briefcase}
+                                label="Total Gigs"
+                                value={
+                                    dashboardItems.filter((i) => i.type === "gig")
+                                        .length
+                                }
+                                bg="rgba(255, 107, 53, 0.15)"
+                                color="#FF6B35"
+                            />
+
+                            <StatCard
+                                icon={UsersIcon}
+                                label="Total Applicants"
+                                value={dashboardItems.reduce(
+                                    (sum, i) => sum + i.applicants,
+                                    0
+                                )}
+                                bg="rgba(16, 185, 129, 0.15)"
+                                color="#10B981"
+                            />
+
+                            <StatCard
+                                icon={TrendingUp}
+                                label="This Month"
+                                value="₹15,000"
+                                bg="rgba(139, 92, 246, 0.15)"
+                                color="#8B5CF6"
+                            />
+                        </View>
+                    </View>
                     {/* MAIN CONTENT */}
                     <View
                         style={{
@@ -401,6 +445,16 @@ export default function OrganizerHome() {
                                             }}
                                         />
                                     ))}
+                                    {/* View all  */}
+                                    <TouchableOpacity
+                                        onPress={() => router.push("/(app)/events/manage")}
+                                        className="px-6 py-3 rounded-xl"
+                                        style={{ backgroundColor: "rgba(255, 107, 53, 0.15)" }}
+                                    >
+                                        <Text className="text-[#FF6B35] font-bold text-center">
+                                            View All
+                                        </Text>
+                                    </TouchableOpacity>
                                 </ScrollView>
                             ) : (
                                 <View className="bg-zinc-900/40 border border-white/10 rounded-2xl p-12 items-center justify-center">
@@ -426,55 +480,7 @@ export default function OrganizerHome() {
                             )}
                         </View>
 
-                        {/* INSIGHTS SIDEBAR */}
-                        <View style={{ flex: 1, marginBottom: 120 }}>
-                            <View className="bg-zinc-900/40 border border-white/10 rounded-2xl p-6">
-                                <Text className="text-white font-black text-xl tracking-tight mb-6">
-                                    Quick Insights
-                                </Text>
 
-                                <StatCard
-                                    icon={Calendar}
-                                    label="Total Events"
-                                    value={
-                                        dashboardItems.filter((i) => i.type === "event")
-                                            .length
-                                    }
-                                    bg="rgba(59, 130, 246, 0.15)"
-                                    color="#3B82F6"
-                                />
-
-                                <StatCard
-                                    icon={Briefcase}
-                                    label="Total Gigs"
-                                    value={
-                                        dashboardItems.filter((i) => i.type === "gig")
-                                            .length
-                                    }
-                                    bg="rgba(255, 107, 53, 0.15)"
-                                    color="#FF6B35"
-                                />
-
-                                <StatCard
-                                    icon={UsersIcon}
-                                    label="Total Applicants"
-                                    value={dashboardItems.reduce(
-                                        (sum, i) => sum + i.applicants,
-                                        0
-                                    )}
-                                    bg="rgba(16, 185, 129, 0.15)"
-                                    color="#10B981"
-                                />
-
-                                <StatCard
-                                    icon={TrendingUp}
-                                    label="This Month"
-                                    value="₹15,000"
-                                    bg="rgba(139, 92, 246, 0.15)"
-                                    color="#8B5CF6"
-                                />
-                            </View>
-                        </View>
                     </View>
                 </View>
             </AppScrollView>

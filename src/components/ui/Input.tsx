@@ -55,12 +55,13 @@ export function Input<T extends FieldValues>({
                         {startIcon && <View className="mr-3 opacity-80">{startIcon}</View>}
 
                         <TextInput
-                            className={`flex-1 text-white text-base  outline-none  ${inputClassName || ''}`}
+                            className={`flex-1 text-white text-base outline-none ${inputClassName || ''}`}
                             onBlur={onBlur}
                             onChangeText={onChange}
                             value={value as string}
                             placeholderTextColor="rgba(255, 255, 255, 0.3)"
                             selectionColor="#F472B6" // Pink cursor to match the vibe
+                            style={{ outlineStyle: 'none' } as any}
                             {...props}
                         />
 

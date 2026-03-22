@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, Alert, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Image, Alert, FlatList, Dimensions, useWindowDimensions, Linking } from 'react-native';
 import {
     Calendar,
     MapPin,
@@ -12,7 +12,17 @@ import {
     Star,
     Edit2,
     ShieldCheck,
-    User as UserIcon
+    User as UserIcon,
+    Info,
+    ClipboardList,
+    Trophy,
+    Medal,
+    Users,
+    ChevronLeft,
+    ChevronDown,
+    ChevronUp,
+    DoorOpen,
+    Ticket,
 } from 'lucide-react-native';
 import { MapLinkCard } from '@/components/location/MapLinkCard';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,8 +30,7 @@ import useAuthStore from '@/stores/authStore';
 import { usePlatform } from '@/utils/platform';
 import { useRouter } from 'expo-router';
 import { IEvent } from '@/types/event';
-import { EventRegisterModal } from './EventRegisterModal';
-import { useEventRegistrations, useEventTicketTypes, useMyRegistrations } from '@/hooks/useEvents';
+import { useEventTicketTypes, useMyRegistrations } from '@/hooks/useEvents';
 import DiscussionTab from '../common/DiscussionTab';
 import { AuthPromptModal } from '../common/AuthPromptModal';
 import { ShareBottomSheet } from '../common/ShareBottomSheet';
@@ -45,31 +54,33 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
     // const user = useAuthStore((state) => state.user); // Unused for now but kept for consistency
 
     // State
-    const [applyModalVisible, setApplyModalVisible] = useState(false);
     const [authPromptVisible, setAuthPromptVisible] = useState(false);
     const [isSaved, setIsSaved] = useState(false); // TODO: Fetch initial state
     const [activeTab, setActiveTab] = useState<'about' | 'schedule' | 'tickets' | 'venue' | 'host' | 'discussion' | 'registrations'>('about');
+    const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
     const [shareSheetVisible, setShareSheetVisible] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [showFullDescription, setShowFullDescription] = useState(false);
     const tabBarHeight = useMobileTabBarHeight();
+    const { width: screenWidth } = useWindowDimensions();
+    const isLargeScreen = screenWidth >= 1024; // Tailwind lg: breakpoint
 
     // Data Hooks
     const { data: ticketTypes, isLoading: loadingTickets } = useEventTicketTypes(event._id);
-    const { data: myRegistrations } = useEventRegistrations(event._id);
+    const { data: myRegistrations } = useMyRegistrations();
     console.log("event Registrations: ", myRegistrations);
     const isRegistered = myRegistrations?.some((reg: any) => reg.eventId === event._id);
 
     // Derived Data
     const capacity = event.maxParticipants || 100; // Default if missing
 
-    // Calculate registered count based on reservations
-    const registered = myRegistrations?.reduce((acc: number, reg: any) => {
-        if (reg.status === 'reserved' || reg.status === 'paid' || reg.status === 'approved' || reg.status === 'registered') {
-            return acc + (reg.quantity || 1);
-        }
-        return acc;
-    }, 0) || 0;
+    // Calculate registered count based on event field, not myRegistrations.
+    // We check event.registrationsCount (if exists) or event.registered.
+    const hasRegistrationCount = (event as any).registrationsCount !== undefined || event.registered !== undefined;
+    const registered = (event as any).registrationsCount ?? event.registered ?? 0;
 
-    const isFull = registered >= capacity;
+    const isFull = hasRegistrationCount ? registered >= capacity : false;
+    const isDeadlinePassed = event.registrationDeadline ? new Date() > new Date(event.registrationDeadline) : false;
     const showDiscussion = true; // Conditional logic from request
 
     const handleShare = () => {
@@ -88,12 +99,26 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
             setAuthPromptVisible(true);
             return;
         }
-        setApplyModalVisible(true);
+        router.push(`/events/${event._id}/register`);
+    };
+
+    const handleWaitlist = async () => {
+        // Stub for waitlist
+        try {
+            setIsProcessing(true);
+            // await eventService.joinWaitlist(event._id);
+            setTimeout(() => {
+                Alert.alert("Waitlist", "You have joined the waitlist!");
+                setIsProcessing(false);
+            }, 1000);
+        } catch (e) {
+            setIsProcessing(false);
+            console.error(e);
+        }
     };
 
     const tabs = [
-        { key: 'about', label: 'About' },
-        { key: 'tickets', label: 'Tickets' },
+        { key: 'about', label: 'Overview' },
         ...(showDiscussion ? [{ key: 'discussion', label: 'Discussion' }] : []),
         ...(isOrganizer ? [{ key: 'registrations', label: 'Registrations' }] : []),
     ];
@@ -101,446 +126,561 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
     // Helper to format image uri
     const imageUri = event.coverImage || event.image || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1000";
 
-    return (
-        <View className="flex-1 w-[80%] mx-auto">
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tabBarHeight > 0 ? tabBarHeight + 100 : 140, marginTop: 20 }}>
-                {/* HERO IMAGE */}
-                <View className="relative w-full overflow-hidden rounded-2xl aspect-video md:aspect-[21/9] bg-zinc-900 mb-6">
-                    <Image
-                        source={{ uri: imageUri }}
-                        style={{ width: '100%', height: '100%' }}
-                        resizeMode="cover"
-                    />
-                    <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.3)', '#000000']}
-                        locations={[0, 0.6, 1]}
-                        style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                        }}
-                    />
+    const renderCTAButton = () => {
+        // State 2: Processing
+        if (isProcessing) {
+            return (
+                <TouchableOpacity disabled className="flex-1 py-4 rounded-2xl items-center justify-center flex-row bg-zinc-800">
+                    <Text className="text-lg font-black text-zinc-500">Processing...</Text>
+                </TouchableOpacity>
+            );
+        }
 
-                    {/* Hero Content Overlay */}
-                    <View className="absolute bottom-0 left-0 right-0 p-6 flex-row w-full justify-between items-end">
-                        <View className="flex-1 mr-4">
-                            <View className="flex-row gap-2 mb-3">
-                                <View className="bg-blue-600 rounded-full px-4 py-1">
-                                    <Text className="text-white font-black text-[10px] uppercase tracking-[0.2em]">
-                                        {event.eventType || 'EVENT'}
-                                    </Text>
+        // State 3: Registered
+        if (isRegistered) {
+            return (
+                <TouchableOpacity onPress={() => router.push('/saved')} className="flex-1 py-4 px-2 rounded-2xl items-center justify-center flex-row bg-emerald-500 active:scale-95">
+                    <CheckCircle2 size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text className="text-base font-black text-white" numberOfLines={1} adjustsFontSizeToFit>You're In · View Ticket</Text>
+                </TouchableOpacity>
+            );
+        }
+
+        // State 6: Registration Closed
+        if (isDeadlinePassed) {
+            return (
+                <TouchableOpacity disabled className="flex-1 py-4 rounded-2xl items-center justify-center flex-row bg-zinc-800">
+                    <Text className="text-lg font-black text-zinc-500">Registration Closed</Text>
+                </TouchableOpacity>
+            );
+        }
+
+        // States 4 & 5: Sold Out
+        if (isFull) {
+            if (event.allowWaitlist) {
+                // State 5: Waitlist
+                return (
+                    <TouchableOpacity onPress={handleWaitlist} className="flex-1 py-4 rounded-2xl items-center justify-center flex-row bg-amber-500 active:scale-95">
+                        <Text className="text-lg font-black text-white">Join Waitlist</Text>
+                    </TouchableOpacity>
+                );
+            } else {
+                // State 4: Sold Out no waitlist
+                return (
+                    <TouchableOpacity disabled className="flex-1 py-4 rounded-2xl items-center justify-center flex-row bg-zinc-800">
+                        <Text className="text-lg font-black text-zinc-500">Sold Out</Text>
+                    </TouchableOpacity>
+                );
+            }
+        }
+
+        // State 1: Default
+        return (
+            <TouchableOpacity onPress={handleRegister} className="flex-1 py-3.5 px-6 rounded-xl items-center justify-center flex-row bg-purple-600 active:scale-95">
+                <Text className="text-sm font-semibold text-white tracking-wide">
+                    Get Tickets
+                </Text>
+                <ArrowRight size={16} color="#fff" style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+        );
+    };
+
+    const description = event.description || 'No description provided.';
+    const isLongDescription = description.length > 180;
+
+    // Format dates
+    const formatDateTime = (dateStr?: string) => {
+        if (!dateStr) return 'TBD';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    const formatTime = (dateStr?: string) => {
+        if (!dateStr) return 'TBD';
+        return new Date(dateStr).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    };
+
+    const handleLocationPress = () => {
+        if (!event.location) return;
+
+        // Combine available location parts for a more accurate Google Maps search
+        const locationParts = [
+            event.location.venueName,
+            event.location.address,
+            event.location.city
+        ].filter(Boolean);
+
+        const query = locationParts.join(', ');
+        if (!query) return;
+
+        // Encode the query for a Google Maps search URL
+        const encodedQuery = encodeURIComponent(query);
+        const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedQuery}`;
+
+        Linking.openURL(mapsUrl).catch(err => {
+            console.error('Failed to open maps url:', err);
+            Alert.alert('Error', 'Could not open maps. Please try again later.');
+        });
+    };
+
+    return (
+        <View className="flex-1 bg-[#111111]">
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: isLargeScreen ? 40 : (tabBarHeight > 0 ? tabBarHeight + 120 : 160) }}
+            >
+                {/* Responsive two-column grid wrapper */}
+                <View style={isLargeScreen ? { flexDirection: 'row', maxWidth: 1152, alignSelf: 'center', width: '100%', paddingHorizontal: 24, gap: 48 } : undefined}>
+
+                    {/* ── LEFT / MAIN COLUMN ── */}
+                    <View style={isLargeScreen ? { flex: 2 } : undefined}>
+                        {/* HERO IMAGE — Rounded */}
+                        <View className="px-4 pt-14" style={isLargeScreen ? { paddingHorizontal: 0 } : undefined}>
+                            <View style={{ width: '100%', height: 220, position: 'relative', borderRadius: 20, overflow: 'hidden' }}>
+                                <Image
+                                    source={{ uri: imageUri }}
+                                    style={{ width: '100%', height: '100%' }}
+                                    resizeMode="cover"
+                                />
+                                <LinearGradient
+                                    colors={['rgba(0,0,0,0.2)', 'transparent', 'rgba(0,0,0,0.6)']}
+                                    locations={[0, 0.4, 1]}
+                                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                                />
+                                {/* Top Actions */}
+                                <View className="absolute top-4 left-4 right-4 flex-row justify-between items-center z-30">
+                                    <TouchableOpacity
+                                        onPress={() => router.back()}
+                                        className="w-9 h-9 rounded-full bg-black/40 items-center justify-center"
+                                    >
+                                        <ChevronLeft size={20} color="#FFFFFF" />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={handleSave}
+                                        className="w-9 h-9 rounded-full bg-black/40 items-center justify-center"
+                                    >
+                                        <Heart size={18} color={isSaved ? '#EF4444' : '#FFFFFF'} fill={isSaved ? '#EF4444' : 'none'} />
+                                    </TouchableOpacity>
                                 </View>
-                                {event.isOnline && (
-                                    <View className="bg-purple-600 rounded-full px-4 py-1">
-                                        <Text className="text-white font-black text-[10px] uppercase tracking-[0.2em]">
-                                            ONLINE
-                                        </Text>
+                                {/* Category Badge */}
+                                <View className="absolute bottom-4 left-4">
+                                    <View className="flex-row items-center gap-2">
+                                        <View className="bg-[#A3E635] rounded-full px-3 py-1">
+                                            <Text className="text-black font-semibold text-xs">
+                                                {event.eventType || event.category || 'Event'}
+                                            </Text>
+                                        </View>
+                                        {/* Tags next to category */}
+                                        {event.tags && event.tags.length > 0 && event.tags.slice(0, 3).map((tag: string, idx: number) => (
+                                            <View key={idx} className="px-2.5 py-1 bg-black/50 rounded-full border border-white/20">
+                                                <Text className="text-white text-xs">#{tag}</Text>
+                                            </View>
+                                        ))}
                                     </View>
-                                )}
+                                </View>
                             </View>
-                            <Text className="text-3xl md:text-5xl font-black text-white leading-tight mb-2">
+                        </View>
+
+                        {/* CONTENT */}
+                        <View className="px-5 mt-5">
+                            {/* Title */}
+                            <Text className="text-3xl font-black text-white leading-tight mb-2">
                                 {event.title}
                             </Text>
+
+                            {/* Location + Capacity Meta */}
+                            <View className="flex-row items-center flex-wrap gap-x-1 mb-5">
+                                <MapPin size={14} color="#71717a" />
+                                <Text className="text-zinc-500 text-sm">
+                                    {event.location?.venueName || event.location?.city || 'Location TBD'}{event.location?.city ? `, ${event.location.city}` : ''}
+                                </Text>
+                                <Text className="text-zinc-600 text-sm mx-1">·</Text>
+                                <Users size={14} color="#71717a" />
+                                <Text className="text-zinc-500 text-sm">
+                                    {capacity} Capacity
+                                </Text>
+                            </View>
+
+                            {/* Organizer Row */}
+                            <View className="flex-row items-center gap-3 mb-6 pb-6 border-b border-zinc-800">
+                                <View className="w-11 h-11 rounded-full overflow-hidden bg-zinc-800">
+                                    {event.organizerSnapshot?.profileImageUrl ? (
+                                        <Image
+                                            source={{ uri: event.organizerSnapshot.profileImageUrl }}
+                                            style={{ width: '100%', height: '100%' }}
+                                            resizeMode="cover"
+                                        />
+                                    ) : (
+                                        <View className="w-full h-full items-center justify-center bg-zinc-700">
+                                            <Text className="text-white font-bold text-lg">
+                                                {event.organizerSnapshot?.name?.charAt(0) || 'O'}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                                <View className="flex-1">
+                                    <Text className="text-white font-semibold text-sm">
+                                        {event.organizerSnapshot?.name || 'Organizer'}
+                                    </Text>
+                                    <Text className="text-zinc-500 text-xs">Event Organizer</Text>
+                                </View>
+                                <TouchableOpacity
+                                    onPress={() => event.organizerId && router.push(`/profile/${event.organizerId}`)}
+                                    className="px-4 py-1.5 rounded-full border border-purple-500"
+                                >
+                                    <Text className="text-purple-400 text-xs font-semibold">Follow</Text>
+                                </TouchableOpacity>
+                            </View>
+                            {/* Colorful Info Cards - Side by Side */}
+                            <View className="flex-row gap-3">
+                                {/* DATE  Card - Purple/Blue */}
+                                <View className="flex-1 rounded-2xl overflow-hidden " style={{}}>
+                                    <LinearGradient
+                                        colors={['#6366f1', '#818cf8']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={{
+                                            padding: 11, flex: 1, borderRadius: 16, display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center'
+                                            , gap: 10
+                                        }}
+                                    >
+
+                                        <View className="w-9 h-9 rounded-xl bg-white/20 items-center justify-center">
+                                            <Calendar size={18} color="#fff" />
+                                        </View>
+                                        <Text className="text-white font-bold text-xs">
+                                            {formatDateTime(event.schedule?.startDate)}
+                                            {event.schedule?.endDate ? ` - ${formatDateTime(event.schedule.endDate)}` : ''}
+                                        </Text>
+                                    </LinearGradient>
+                                </View>
+
+                                {/* VENUE Card - Pink/Red */}
+                                <TouchableOpacity
+                                    className="flex-1 rounded-2xl overflow-hidden"
+                                    onPress={handleLocationPress}
+                                    activeOpacity={0.9}
+                                >
+                                    <LinearGradient
+                                        colors={['#e11d48', '#f43f5e']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={{
+                                            padding: 11, flex: 1, borderRadius: 16, display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center'
+                                            , gap: 10
+                                        }}
+                                    >
+                                        <View className="w-9 h-9 rounded-xl bg-white/20 items-center justify-center">
+                                            <MapPin size={18} color="#fff" />
+                                        </View>
+
+                                        <View className="flex-1">
+
+                                            <Text className="text-white font-bold text-sm">
+                                                {event.location?.venueName || 'TBD'}
+                                            </Text>
+
+                                            <Text className="text-white/70 text-xs mt-1">
+                                                {event.location?.address || event.location?.city || ''}
+                                            </Text>
+
+
+                                        </View>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                    </View>
 
-                    {/* Top Actions */}
-                    <View className="absolute top-4 right-4 flex-row gap-3 z-30">
-                        <TouchableOpacity
-                            onPress={handleSave}
-                            className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
-                        >
-                            <Heart size={20} color={isSaved ? '#EF4444' : '#FFFFFF'} fill={isSaved ? '#EF4444' : 'none'} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={handleShare}
-                            className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
-                        >
-                            <Share2 size={20} color="#FFFFFF" />
-                        </TouchableOpacity>
-                        {isOrganizer && (
-                            <TouchableOpacity
-                                onPress={() => router.push(`/events/${event._id}/edit`)} // Mock edit route
-                                className="w-10 h-10 rounded-2xl bg-black/50 border border-white/10 items-center justify-center"
-                            >
-                                <Edit2 size={20} color="#FFFFFF" />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                </View>
+                        {/* TABS - INLINE implementation to match GigDetails (FlatList) */}
+                        <View className="mt-8 mb-12 w-full px-5" style={isLargeScreen ? { paddingHorizontal: 0 } : undefined}>
+                            {isWeb ? (
+                                <View className="flex-row w-full border-b border-zinc-800">
+                                    {tabs.map((item) => {
+                                        const isActive = activeTab === item.key;
 
-                {/* MAIN CONTENT */}
-                <View className="md:flex-row md:justify-between items-start">
-                    {/* LEFT COLUMN */}
-                    <View className="flex-1 w-full md:mr-10">
-                        {/* Organizer & Meta Header */}
-                        <View className="mb-8">
-                            <TouchableOpacity
-                                activeOpacity={0.7}
-                                onPress={() => event.organizerId && router.push(`/profile/${event.organizerId}`)}
-                                className="flex-row items-center gap-4 mb-4"
-                            >
-                                <View className="relative">
-                                    <View className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/10">
-                                        {event.organizerSnapshot?.profileImageUrl ? (
-                                            <Image
-                                                source={{ uri: event.organizerSnapshot.profileImageUrl }}
-                                                style={{ width: '100%', height: '100%' }}
-                                                resizeMode="cover"
-                                            />
-                                        ) : (
-                                            <View className="w-full h-full items-center justify-center bg-gradient-to-br from-blue-900 to-purple-900">
-                                                <Text className="text-white font-black text-xl">
-                                                    {event.organizerSnapshot?.name?.charAt(0) || 'O'}
+                                        return (
+                                            <TouchableOpacity
+                                                key={item.key}
+                                                onPress={() => setActiveTab(item.key as any)}
+                                                className={`py-3 mr-6 ${isActive ? 'border-b-2 border-white' : ''}`}
+                                            >
+                                                <Text
+                                                    className={`text-sm font-medium ${isActive ? 'text-white' : 'text-zinc-500'}`}
+                                                >
+                                                    {item.label}
                                                 </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            ) : (
+                                /* MOBILE: horizontal scroll */
+                                <FlatList
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    data={tabs}
+                                    keyExtractor={(item) => item.key}
+                                    contentContainerStyle={{ paddingHorizontal: 0 }}
+                                    renderItem={({ item }) => {
+                                        const isActive = activeTab === item.key;
+
+                                        return (
+                                            <TouchableOpacity
+                                                onPress={() => setActiveTab(item.key as any)}
+                                                className={`py-3 mr-6 ${isActive ? 'border-b-2 border-white' : ''}`}
+                                            >
+                                                <Text
+                                                    className={`text-sm font-medium ${isActive ? 'text-white' : 'text-zinc-500'}`}
+                                                >
+                                                    {item.label}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    }}
+                                />
+                            )}
+
+                            {/* Tab Content */}
+                            <View className="mt-4">
+                                {activeTab === 'about' && (
+                                    <View style={{ gap: 20 }}>
+                                        {/* Description */}
+                                        <View>
+                                            <Text
+                                                className="text-zinc-400 text-sm leading-relaxed"
+                                                numberOfLines={showFullDescription ? undefined : 4}
+                                            >
+                                                {description}
+                                            </Text>
+                                            {isLongDescription && (
+                                                <TouchableOpacity
+                                                    onPress={() => setShowFullDescription(!showFullDescription)}
+                                                    className="flex-row items-center gap-1 mt-3"
+                                                >
+                                                    <Text className="text-white text-sm font-semibold">
+                                                        {showFullDescription ? 'Show less' : 'Read full description'}
+                                                    </Text>
+                                                    <ChevronDown size={14} color="#fff" />
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+
+
+
+                                        {/* PREPARATION REQUIRED Card - Teal */}
+                                        {event.eventConfig?.preparationRequired === true && (
+                                            <View className="rounded-2xl overflow-hidden">
+                                                <LinearGradient
+                                                    colors={['#0d9488', '#14b8a6']}
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 1 }}
+                                                    style={{ padding: 16, borderRadius: 16 }}
+                                                >
+                                                    <View className="flex-row items-center gap-2 mb-3">
+                                                        <View className="w-9 h-9 rounded-xl bg-white/20 items-center justify-center">
+                                                            <ClipboardList size={18} color="#fff" />
+                                                        </View>
+                                                        <Text className="text-white text-xs font-bold uppercase tracking-wider">
+                                                            PREPARATION REQUIRED
+                                                        </Text>
+                                                    </View>
+                                                    <Text className="text-white/90 text-sm leading-relaxed mb-3">
+                                                        {event.eventConfig.preparationNotes || "Check with organizer for details"}
+                                                    </Text>
+                                                    {/* Tags */}
+                                                    <View className="flex-row flex-wrap gap-2">
+                                                        {event.skillLevel && event.skillLevel !== 'all' && (
+                                                            <View className="px-3 py-1 rounded-full border border-white/30">
+                                                                <Text className="text-white text-xs font-medium capitalize">{event.skillLevel} Level</Text>
+                                                            </View>
+                                                        )}
+                                                        {event.eligibleArtistTypes?.map((type, idx) => (
+                                                            <View key={idx} className="px-3 py-1 rounded-full border border-white/30">
+                                                                <Text className="text-white text-xs font-medium">{type}</Text>
+                                                            </View>
+                                                        ))}
+                                                    </View>
+                                                </LinearGradient>
+                                            </View>
+                                        )}
+
+
+                                    </View>
+                                )}
+
+                                {activeTab === 'tickets' && (
+                                    <View className="space-y-4">
+                                        {ticketTypes && ticketTypes.length > 0 ? (
+                                            ticketTypes.map((ticket: any) => (
+                                                <View key={ticket._id} className="p-6 rounded-xl bg-zinc-900/40 border border-white/5">
+                                                    <View className="flex-row justify-between items-start mb-3">
+                                                        <View className="flex-1 mr-4">
+                                                            <Text className="text-white font-bold text-lg">{ticket.name}</Text>
+                                                            {ticket.description && (
+                                                                <Text className="text-zinc-400 text-xs mt-1">{ticket.description}</Text>
+                                                            )}
+                                                        </View>
+                                                        <Text className="text-white font-black text-xl">
+                                                            ₹{ticket.price}
+                                                        </Text>
+                                                    </View>
+
+                                                    <View className="space-y-3 mt-4 border-t border-white/5 pt-4">
+                                                        {/* Sales Window */}
+                                                        {(ticket.salesStartAt || ticket.salesEndAt) && (
+                                                            <View className="flex-row items-center justify-between">
+                                                                <Text className="text-zinc-500 text-xs">Sales Element</Text>
+                                                                <Text className="text-zinc-400 text-xs font-medium text-right flex-1 ml-4">
+                                                                    {ticket.salesStartAt ? new Date(ticket.salesStartAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Now'} → {ticket.salesEndAt ? new Date(ticket.salesEndAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Until Event'}
+                                                                </Text>
+                                                            </View>
+                                                        )}
+
+                                                        <View className="flex-row items-center justify-between">
+                                                            {/* Capacity Info */}
+                                                            <Text className={`text-xs font-bold ${ticket.capacity === 0 ? 'text-red-500' : 'text-zinc-300'}`}>
+                                                                {ticket.capacity === 0 ? 'Sold Out' : `${ticket.capacity} seats available`}
+                                                            </Text>
+
+                                                            {/* Refund Policy */}
+                                                            <View className={`px-2 py-1 rounded-md ${ticket.isRefundable ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+                                                                <Text className={`text-[10px] font-bold ${ticket.isRefundable ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                                    {ticket.isRefundable ? 'Refundable' : 'Non-refundable'}
+                                                                </Text>
+                                                            </View>
+                                                        </View>
+                                                    </View>
+                                                </View>
+                                            ))
+                                        ) : (
+                                            <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
+                                                <Text className="text-zinc-400 text-center">General Entry - {event.ticketPrice ? `₹${event.ticketPrice}` : 'Free'}</Text>
                                             </View>
                                         )}
                                     </View>
-                                    <View className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-600 rounded-full items-center justify-center border-2 border-black">
-                                        <CheckCircle2 size={12} color="white" />
-                                    </View>
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="text-md font-black text-white mb-1">
-                                        {event.organizerSnapshot?.name || 'Organizer'}
-                                    </Text>
-                                    <View className="flex-row items-center gap-3">
-                                        <View className="flex-row items-center gap-1">
-                                            {[1, 2, 3, 4, 5].map((i) => (
-                                                <Star key={i} size={10} color="#EAB308" fill="#EAB308" />
-                                            ))}
-                                            <Text className="text-[10px] font-bold text-zinc-400 ml-1">5.0</Text>
-                                        </View>
-                                        <View className="bg-emerald-500/10 px-2 py-1 rounded">
-                                            <Text className="text-emerald-500 text-[6px] font-black uppercase tracking-widest">
-                                                VERIFIED HOST
-                                            </Text>
-                                        </View>
-                                    </View>
-                                </View>
-                            </TouchableOpacity>
-
-                            {/* Quick Meta */}
-                            <View className="flex-row justify-start gap-8 mb-4">
-                                {/* Location */}
-                                <View className="flex-row items-center gap-2">
-                                    <View className="w-10 h-10 rounded-2xl bg-blue-500/10 items-center justify-center">
-                                        <MapPin size={20} color="#3B82F6" />
-                                    </View>
-                                    <View>
-                                        <Text className="text-[12px] font-bold text-white mb-0.5">
-                                            {event.location?.venueName || event.location?.city || 'TBD'}
-                                        </Text>
-                                        <Text className="text-[10px] text-zinc-400">
-                                            {event.location?.address || 'Location Details'}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                {/* Date */}
-                                <View className="flex-row items-center gap-2">
-                                    <View className="w-10 h-10 rounded-2xl bg-purple-500/10 items-center justify-center">
-                                        <Calendar size={20} color="#A855F7" />
-                                    </View>
-                                    <View>
-                                        <Text className="text-[12px] font-bold text-white mb-0.5">
-                                            {event.schedule?.startDate
-                                                ? new Date(event.schedule.startDate).toLocaleDateString('en-US', {
-                                                    day: 'numeric',
-                                                    month: 'short',
-                                                })
-                                                : "TBD"}
-                                        </Text>
-                                        <Text className="text-[10px] text-zinc-400">
-                                            {event.schedule?.startDate
-                                                ? new Date(event.schedule.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                                : 'Time TBD'}
-                                        </Text>
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* RIGHT COLUMN (Desktop only - floating card) */}
-                    {/* For mobile, this might logically go below or sticking to bottom. GigDetails puts it in column 2. */}
-                    {!isOrganizer && (
-                        <View className="w-full md:w-96 md:pt-0 pt-6">
-                            <View className="p-8 rounded-[2.5rem] bg-zinc-900/50 border border-white/10 mb-6">
-                                <View className="items-center mb-6">
-                                    <View className="flex-row items-center gap-2 mb-2">
-                                        <Zap size={14} color="#3B82F6" />
-                                        <Text className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">
-                                            TICKET PRICE
-                                        </Text>
-                                    </View>
-                                    <View className="flex-row items-baseline">
-                                        <Text className="text-3xl font-black text-white">
-                                            {event.ticketPrice ? `₹${event.ticketPrice}` : 'Free'}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                {/* Progress */}
-                                <View className="mb-8">
-                                    <View className="flex-row justify-between items-center mb-3">
-                                        <Text className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">
-                                            CAPACITY
-                                        </Text>
-                                        <Text className="text-[8px] font-black text-white">
-                                            {registered} / {capacity}
-                                        </Text>
-                                    </View>
-                                    <View className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                                        <View
-                                            className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
-                                            style={{ width: `${(registered / capacity) * 100}%` }}
-                                        />
-                                    </View>
-                                </View>
-
-                                {/* Map Link Card */}
-                                <View className="mb-6">
-                                    <MapLinkCard
-                                        venueName={event.location?.venueName}
-                                        address={event.location?.address || ''}
-                                        city={event.location?.city || ''}
-                                        state={event.location?.state || ''}
-                                        country={event.location?.country || ''}
-                                    />
-                                </View>
-
-                                {/* Apply Button */}
-                                <TouchableOpacity
-                                    onPress={handleRegister}
-                                    disabled={isRegistered || isFull}
-                                    className={`w-full py-4 rounded-2xl items-center justify-center flex-row mb-4 active:scale-95 ${isRegistered ? 'bg-zinc-800' : 'bg-white'}`}
-                                >
-                                    <Text className={`text-lg font-black ${isRegistered ? 'text-zinc-500' : 'text-black'}`}>
-                                        {isRegistered ? 'Registered' : isFull ? 'Sold Out' : (event.ticketPrice ? 'Buy Tickets' : 'Register Free')}
-                                    </Text>
-                                    {!isRegistered && !isFull && <ArrowRight size={20} color="#000000" style={{ marginLeft: 8 }} />}
-                                </TouchableOpacity>
-
-                                {/* Trust Footer */}
-                                <View className="flex-row items-center justify-center gap-2">
-                                    <ShieldCheck size={12} color="#71717A" />
-                                    <Text className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-500">
-                                        SECURE BOOKING
-                                    </Text>
-                                </View>
-                            </View>
-                        </View>
-                    )}
-                </View>
-
-                {/* TABS - INLINE implementation to match GigDetails (FlatList) */}
-                <View className="mt-8 mb-12 w-full">
-                    {isWeb ? (
-                        <View className="flex-row w-full border-b border-white/10">
-                            {tabs.map((item) => {
-                                const isActive = activeTab === item.key;
-
-                                return (
-                                    <TouchableOpacity
-                                        key={item.key}
-                                        onPress={() => setActiveTab(item.key as any)}
-                                        className={`flex-1 items-center py-4 ${isActive ? 'border-b-2 border-blue-500' : ''
-                                            }`}
-                                    >
-                                        <Text
-                                            className={`text-[11px] font-black uppercase tracking-[0.15em] ${isActive ? 'text-white' : 'text-zinc-500'
-                                                }`}
-                                        >
-                                            {item.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-                    ) : (
-                        /* MOBILE: horizontal scroll */
-                        <FlatList
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            data={tabs}
-                            keyExtractor={(item) => item.key}
-                            contentContainerStyle={{ paddingHorizontal: 4 }}
-                            renderItem={({ item }) => {
-                                const isActive = activeTab === item.key;
-
-                                return (
-                                    <TouchableOpacity
-                                        onPress={() => setActiveTab(item.key as any)}
-                                        className={`px-6 py-4 ${isActive ? 'border-b-2 border-blue-500' : ''
-                                            }`}
-                                    >
-                                        <Text
-                                            className={`text-[11px] font-black uppercase tracking-[0.15em] ${isActive ? 'text-white' : 'text-zinc-500'
-                                                }`}
-                                        >
-                                            {item.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            }}
-                        />
-                    )}
-
-                    {/* Tab Content */}
-                    <View className="mt-4">
-                        {activeTab === 'about' && (
-                            <View className="space-y-6">
-                                {/* Description */}
-                                <View>
-                                    <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4">
-                                        EVENT DETAILS
-                                    </Text>
-                                    <View className="border-l-4 border-blue-500/30 pl-6">
-                                        <Text className="text-xl text-zinc-300 leading-relaxed font-light">
-                                            {event.description || 'No description provided.'}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                {/* Schedule Section */}
-                                {/* <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5 space-y-4">
-                                    <View className="flex-row items-center gap-2 mb-2">
-                                        <Clock size={16} color="#F59E0B" />
-                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500">
-                                            SCHEDULE
-                                        </Text>
-                                    </View>
-                                    <View className="flex-row justify-between items-center py-3 border-b border-white/5">
-                                        <Text className="text-sm text-zinc-400">Date</Text>
-                                        <Text className="text-base font-black text-white">
-                                            {event.schedule?.startDate ? new Date(event.schedule.startDate).toLocaleDateString() : 'TBD'}
-                                        </Text>
-                                    </View>
-                                    <View className="flex-row justify-between items-center py-3 border-b border-white/5">
-                                        <Text className="text-sm text-zinc-400">Duration</Text>
-                                        <Text className="text-base font-black text-white">
-                                            {event.duration ? `${event.duration} mins` : 'N/A'}
-                                        </Text>
-                                    </View>
-                                </View> */}
-
-                                {/* Venue Section */}
-                                {/* <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5 space-y-4">
-                                    <View className="flex-row items-center gap-2 mb-2">
-                                        <MapPin size={16} color="#3B82F6" />
-                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">
-                                            VENUE
-                                        </Text>
-                                    </View>
-                                    <Text className="text-white font-bold text-lg">
-                                        {event.location?.venueName || 'Venue TBD'}
-                                    </Text>
-                                    <Text className="text-zinc-400 text-sm">
-                                        {event.location?.address || 'Address TBD'}
-                                    </Text>
-                                    <Text className="text-zinc-400 text-sm">
-                                        {event.location?.city}, {event.location?.state}
-                                    </Text>
-                                </View> */}
-
-                                {/* Host Section */}
-                                {/* <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5 space-y-4">
-                                    <View className="flex-row items-center gap-2 mb-2">
-                                        <UserIcon size={16} color="#10B981" />
-                                        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">
-                                            HOSTED BY
-                                        </Text>
-                                    </View>
-                                    <View className="flex-row gap-4 items-center">
-                                        <View className="w-16 h-16 rounded-full bg-zinc-800 overflow-hidden border border-white/10">
-                                            {event.organizerSnapshot?.profileImageUrl ? (
-                                                <Image
-                                                    source={{ uri: event.organizerSnapshot.profileImageUrl }}
-                                                    className="w-full h-full"
-                                                />
-                                            ) : (
-                                                <View className="w-full h-full items-center justify-center bg-zinc-700">
-                                                    <Text className="text-white font-bold text-xl">{event.organizerSnapshot?.name?.charAt(0)}</Text>
-                                                </View>
-                                            )}
-                                        </View>
-                                        <View>
-                                            <Text className="text-white font-black text-lg">
-                                                {event.organizerSnapshot?.name || 'Organizer'}
-                                            </Text>
-                                            <View className="flex-row items-center gap-1 mt-1">
-                                                <CheckCircle2 size={12} color="#10B981" />
-                                                <Text className="text-emerald-500 text-xs font-bold">Verified Organizer</Text>
-                                            </View>
-                                        </View>
-                                    </View>
-                                </View> */}
-
-                                {/* Tags */}
-                                {event.tags && event.tags.length > 0 && (
-                                    <View>
-                                        <View className="flex-row flex-wrap gap-2">
-                                            {event.tags.map((tag: string, idx: number) => (
-                                                <View
-                                                    key={idx}
-                                                    className="px-3 py-2 bg-zinc-800/50 border border-zinc-700 rounded-lg"
-                                                >
-                                                    <Text className="text-zinc-400 text-xs">#{tag}</Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    </View>
                                 )}
-                            </View>
-                        )}
 
-                        {activeTab === 'tickets' && (
-                            <View className="space-y-4">
-                                {ticketTypes && ticketTypes.length > 0 ? (
-                                    ticketTypes.map((ticket: any) => (
-                                        <View key={ticket._id} className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5 flex-row justify-between items-center">
-                                            <View>
-                                                <Text className="text-white font-black text-lg">{ticket.name}</Text>
-                                                <Text className="text-zinc-500 text-xs">{ticket.description}</Text>
-                                            </View>
-                                            <Text className="text-white font-black text-xl">
-                                                ₹{ticket.price}
-                                            </Text>
-                                        </View>
-                                    ))
-                                ) : (
+                                {activeTab === 'discussion' && (
+                                    <DiscussionTab id={event._id} type="event" />
+                                )}
+
+                                {activeTab === 'registrations' && (
                                     <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
-                                        <Text className="text-zinc-400 text-center">General Entry - {event.ticketPrice ? `₹${event.ticketPrice}` : 'Free'}</Text>
+                                        <Text className="text-zinc-400 text-center">Registrations view managed by Organizer View</Text>
                                     </View>
                                 )}
                             </View>
-                        )}
+                        </View>
+                    </View>{/* end left/main column */}
 
-                        {activeTab === 'discussion' && (
-                            <DiscussionTab id={event._id} type="event" />
-                        )}
+                    {/* ── RIGHT COLUMN: Desktop Sidebar ── */}
+                    {isLargeScreen && !isOrganizer && (
+                        <View style={{ flex: 1, minWidth: 280 }}>
+                            <View style={{ position: 'sticky' as any, top: 96 }}>
+                                <View className="p-6 rounded-3xl bg-zinc-900 border border-zinc-800" style={{ gap: 20 }}>
 
-                        {activeTab === 'registrations' && (
-                            <View className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
-                                <Text className="text-zinc-400 text-center">Registrations view managed by Organizer View</Text>
+                                    {/* Price Header */}
+                                    <View>
+                                        <Text className="text-zinc-500 text-xs font-medium uppercase" style={{ letterSpacing: 1.2, marginBottom: 8 }}>Registration</Text>
+                                        <View className="flex-row items-end gap-2">
+                                            <Text className="text-white text-4xl font-semibold" style={{ letterSpacing: -1 }}>
+                                                {event.ticketPrice ? `₹${event.ticketPrice}` : 'Free'}
+                                            </Text>
+                                            {event.ticketPrice ? <Text className="text-zinc-500 text-sm" style={{ marginBottom: 4 }}>/ person</Text> : null}
+                                        </View>
+                                    </View>
+
+                                    {/* Divider */}
+                                    <View style={{ height: 1, backgroundColor: '#27272a' }} />
+
+                                    {/* Ticket Types */}
+                                    <View style={{ gap: 10 }}>
+                                        {ticketTypes && ticketTypes.length > 0 ? (
+                                            ticketTypes.map((ticket: any) => {
+                                                const isSelected = selectedTicketId === ticket._id;
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={ticket._id}
+                                                        onPress={() => setSelectedTicketId(ticket._id)}
+                                                        disabled={ticket.capacity <= 0}
+                                                        className={`p-4 rounded-xl border-2 ${isSelected
+                                                            ? 'border-zinc-600 bg-zinc-800'
+                                                            : 'border-transparent bg-zinc-950'
+                                                            } ${ticket.capacity <= 0 ? 'opacity-50' : ''}`}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <View className="flex-row justify-between items-start">
+                                                            <View style={{ flex: 1, marginRight: 12 }}>
+                                                                <View className="flex-row items-center gap-2">
+                                                                    <Text className="text-white text-sm font-medium">{ticket.name}</Text>
+                                                                    {ticket.price > 0 && ticket.price !== (event.ticketPrice || 0) && (
+                                                                        <View className="bg-white rounded-sm px-1.5 py-0.5">
+                                                                            <Text className="text-black text-[10px] font-semibold uppercase">+₹{ticket.price - (event.ticketPrice || 0)}</Text>
+                                                                        </View>
+                                                                    )}
+                                                                </View>
+                                                                {ticket.description && (
+                                                                    <Text className="text-zinc-400 text-xs mt-1">{ticket.description}</Text>
+                                                                )}
+                                                                {ticket.capacity <= 0 && (
+                                                                    <Text className="text-red-500 text-xs font-bold mt-1">SOLD OUT</Text>
+                                                                )}
+                                                            </View>
+                                                            <View
+                                                                style={{
+                                                                    width: 20, height: 20, borderRadius: 10,
+                                                                    borderWidth: isSelected ? 4 : 1,
+                                                                    borderColor: isSelected ? '#8b5cf6' : '#52525b',
+                                                                    backgroundColor: 'transparent',
+                                                                }}
+                                                            />
+                                                        </View>
+                                                    </TouchableOpacity>
+                                                );
+                                            })
+                                        ) : (
+                                            <View className="p-4 rounded-xl border-2 border-zinc-600 bg-zinc-800">
+                                                <View className="flex-row justify-between items-start">
+                                                    <View>
+                                                        <Text className="text-white text-sm font-medium">General Admission</Text>
+                                                        <Text className="text-zinc-400 text-xs mt-1">Standard entry ticket</Text>
+                                                    </View>
+                                                    <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 4, borderColor: '#8b5cf6', backgroundColor: 'transparent' }} />
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {/* Checkout CTA */}
+                                    {renderCTAButton()}
+                                    <Text className="text-zinc-500 text-xs font-medium text-center">Secure checkout powered by Stripe</Text>
+                                </View>
                             </View>
-                        )}
-                    </View>
-                </View>
+                        </View>
+                    )}
+
+                </View>{/* end grid wrapper */}
             </ScrollView>
 
-            <EventRegisterModal
-                visible={applyModalVisible}
-                onClose={() => setApplyModalVisible(false)}
-                eventId={event._id}
-                ticketTypes={ticketTypes || []}
-                ticketPrice={event.ticketPrice}
-            />
-
-            <AuthPromptModal
+            {/* Mobile Sticky CTA Footer (hidden on large screens — sidebar handles it) */}
+            {
+                !isLargeScreen && !isOrganizer && (
+                    <View
+                        className="absolute bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 px-4 pt-4"
+                        style={{ paddingBottom: Math.max(tabBarHeight, 24) }}
+                    >
+                        <View className="flex-row items-center justify-between gap-4">
+                            <View className="flex-none">
+                                <Text className="text-zinc-400 text-xs font-medium mb-0.5">Price</Text>
+                                <Text className="text-white text-xl font-semibold" style={{ letterSpacing: -0.5 }}>
+                                    {event.ticketPrice ? `₹${event.ticketPrice}` : 'Free'}
+                                </Text>
+                            </View>
+                            {renderCTAButton()}
+                        </View>
+                    </View>
+                )
+            }            <AuthPromptModal
                 visible={authPromptVisible}
                 onClose={() => setAuthPromptVisible(false)}
             />
@@ -552,6 +692,6 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
                 type="event"
                 data={event}
             />
-        </View>
+        </View >
     );
 };

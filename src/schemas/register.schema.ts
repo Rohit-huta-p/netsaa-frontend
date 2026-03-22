@@ -41,8 +41,10 @@ export interface BillingDetails {
 
 export interface OrganizerProfile {
     organizerTypeCategory: OrganizerTypeCategory;
-    organizationName: string;
-    organizationType?: string[];
+    organizationName?: string;
+    organizationType?: string;
+    isCustomCategory?: boolean;
+    customCategoryLabel?: string;
     bio?: string;
     organizationWebsite?: string;
     logoUrl?: string;

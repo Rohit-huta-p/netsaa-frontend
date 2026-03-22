@@ -93,7 +93,7 @@ export const OrganizerDashboardCard: React.FC<OrganizerDashboardCardProps> = ({
                 </View>
 
                 {/* Quick Actions */}
-                <View className="flex-row p-3 gap-2 bg-white/5">
+                {/* <View className="flex-row p-3 gap-2 bg-white/5">
                     <TouchableOpacity
                         onPress={onBoostPress}
                         className="flex-1 flex-row items-center justify-center gap-2 py-3 bg-blue-500/10 rounded-xl border border-blue-500/20"
@@ -117,7 +117,7 @@ export const OrganizerDashboardCard: React.FC<OrganizerDashboardCardProps> = ({
                         <Copy size={16} color="#A1A1AA" />
                         <Text className="text-zinc-300 text-xs font-bold">Duplicate</Text>
                     </TouchableOpacity>
-                </View>
+                </View> */}
             </View>
         </View>
     );

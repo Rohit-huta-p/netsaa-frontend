@@ -1,19 +1,26 @@
 // src/components/profile/types.ts
 
 export type ExperienceEntry = {
-    title: string;
+    title?: string;
     role?: string;
+    projectName?: string;
+    organization?: string;
     venue?: string;
+    location?: string;
+    description?: string;
     date?: string;
+    mediaLink?: string;
 };
 
 export type ProfileData = {
     fullName: string;
+    headline?: string;
     location: string;
     age: string;
     gender: string;
     height: string;
     skinTone: string;
+    skinToneHex: string;
     artistType: string;
     skills: string[];
     bio: string;
@@ -31,6 +38,15 @@ export type ProfileData = {
         author: string;
         role: string;
     }[];
+    // Organizer-specific fields
+    organizationName?: string;
+    organizationWebsite?: string;
+    organizerTypeCategory?: string;
+    primaryContactName?: string;
+    primaryContactPhone?: string;
+    primaryContactEmail?: string;
+    isCustomCategory?: boolean;
+    customCategoryLabel?: string;
 };
 
 export type ProfileStats = {
@@ -40,8 +56,10 @@ export type ProfileStats = {
 };
 
 export interface ProfileHeaderProps {
-    fullName: string;
-    artistType: string;
+    animatedStyle?: any;
+    fullName?: string;
+    headline?: string;
+    artistType?: string;
     location?: string;
     profileImageUrl?: string;
     stats: ProfileStats;
@@ -52,12 +70,17 @@ export interface ProfileHeaderProps {
     connectionStatus?: 'none' | 'pending' | 'connected' | 'following';
     isConnectionLoading?: boolean;
     onConnectPress?: () => void;
+    // Organizer-specific
+    isOrganizer?: boolean;
+    organizationName?: string;
+    organizationWebsite?: string;
 }
 
 export interface ProfileSidebarProps {
     profileData: ProfileData;
     isDesktop: boolean;
     isEditable?: boolean;
+    isOrganizer?: boolean;
     onEditPress?: (step: number) => void;
 }
 
@@ -67,12 +90,14 @@ export interface FeaturedWorksProps {
     hasPhotos: boolean;
     isEditable?: boolean;
     isDesktop: boolean;
+    isOrganizer?: boolean;
     onEditPress?: () => void;
 }
 
 export interface ProfessionalHistoryProps {
     experience: ExperienceEntry[];
     isEditable?: boolean;
+    isOrganizer?: boolean;
     onEditPress?: () => void;
 }
 

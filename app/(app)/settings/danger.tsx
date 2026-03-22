@@ -31,7 +31,7 @@ function DangerConfirmModal({
     const router = useRouter();
     const clearAuth = useAuthStore((s) => s.clearAuth);
 
-    const [password, setPassword] = useState('');
+    const [inputValue, setInputValue] = useState('');
     const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
     const [isPending, setIsPending] = useState(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -39,7 +39,7 @@ function DangerConfirmModal({
     // Reset state when modal opens
     useEffect(() => {
         if (visible) {
-            setPassword('');
+            setInputValue('');
             setCountdown(COUNTDOWN_SECONDS);
             setIsPending(false);
 
@@ -60,38 +60,64 @@ function DangerConfirmModal({
     }, [visible]);
 
     const handleConfirm = useCallback(async () => {
-        if (!password.trim()) {
-            return Alert.alert('Required', 'Please enter your password to continue.');
+        if (action === 'delete') {
+            if (inputValue.trim().toLowerCase() !== 'delete') {
+                return Alert.alert('Required', 'Please type "delete" to confirm.');
+            }
+        } else {
+            if (!inputValue.trim()) {
+                return Alert.alert('Required', 'Please enter your password to continue.');
+            }
         }
 
         setIsPending(true);
         try {
+            const handleSuccess = async () => {
+                // Clear auth first
+                clearAuth();
+
+                // Allow storage to persist the cleared state
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // Close modal and navigate out
+                onClose();
+                router.replace('/');
+            };
+
             if (action === 'deactivate') {
-                await dangerService.deactivateAccount(password);
+                await dangerService.deactivateAccount(inputValue);
                 Alert.alert(
                     'Account Deactivated',
                     'Your account has been deactivated. You can reactivate by logging back in.',
-                    [{ text: 'OK', onPress: () => { clearAuth(); router.replace('/'); } }],
+                    [{ text: 'OK', onPress: handleSuccess }],
                 );
             } else {
-                await dangerService.deleteAccount(password);
+                await dangerService.deleteAccount(inputValue);
+                router.replace('/(auth)/login');
                 Alert.alert(
                     'Account Deleted',
                     'Your account has been deleted. Financial and contract records are preserved.',
-                    [{ text: 'OK', onPress: () => { clearAuth(); router.replace('/'); } }],
+                    [{ text: 'OK', onPress: handleSuccess }],
                 );
             }
-            onClose();
         } catch (err: any) {
             const message = err?.response?.data?.message || 'Something went wrong. Please try again.';
             Alert.alert('Error', message);
         } finally {
             setIsPending(false);
         }
-    }, [action, password, clearAuth, router, onClose]);
+    }, [action, inputValue, clearAuth, router, onClose]);
 
     const isDeactivate = action === 'deactivate';
-    const canConfirm = countdown === 0 && password.trim().length > 0 && !isPending;
+
+    let canConfirm = false;
+    if (countdown === 0 && !isPending) {
+        if (isDeactivate && inputValue.trim().length > 0) {
+            canConfirm = true;
+        } else if (!isDeactivate && inputValue.trim().toLowerCase() === 'delete') {
+            canConfirm = true;
+        }
+    }
 
     return (
         <Modal visible={visible} transparent animationType="fade">
@@ -122,25 +148,26 @@ function DangerConfirmModal({
                         </Text>
                     </View>
 
-                    {/* Password field */}
+                    {/* Input field */}
                     <Text className="text-zinc-400 text-[13px] font-['SourceSans3-Regular'] mb-1 ml-1">
-                        Confirm Password
+                        {isDeactivate ? 'Confirm Password' : 'Type "delete" to confirm'}
                     </Text>
                     <TextInput
                         className="bg-white/5 rounded-xl px-4 py-3 text-white text-[15px] font-['SourceSans3-Regular'] mb-5"
-                        placeholder="Enter your password"
+                        placeholder={isDeactivate ? "Enter your password" : "Type delete"}
                         placeholderTextColor="#52525b"
-                        secureTextEntry
-                        value={password}
-                        onChangeText={setPassword}
+                        secureTextEntry={isDeactivate}
+                        value={inputValue}
+                        onChangeText={setInputValue}
                         editable={!isPending}
+                        autoCapitalize="none"
                     />
 
                     {/* Confirm button with countdown */}
                     <Pressable
                         className={`rounded-xl py-3.5 items-center ${canConfirm
-                                ? 'bg-red-600 active:opacity-80'
-                                : 'bg-red-600/30'
+                            ? 'bg-red-600 active:opacity-80'
+                            : 'bg-red-600/30'
                             }`}
                         onPress={handleConfirm}
                         disabled={!canConfirm}

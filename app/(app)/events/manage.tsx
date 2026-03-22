@@ -19,35 +19,14 @@ import useAuthStore from "@/stores/authStore";
 import { useOrganizerEvents } from "@/hooks/useEvents";
 import { useOrganizerGigs } from "@/hooks/useGigs";
 import { LoadingAnimation } from "@/components/ui/LoadingAnimation";
+import { Badge } from "@/components/ui/Badge";
+
 
 /* -------------------------------------------------------------------------- */
 /*                              COMPONENTS                                    */
 /* -------------------------------------------------------------------------- */
 
-const Badge = ({ status }: any) => {
-    const colors: Record<string, { bg: string; text: string }> = {
-        Open: { bg: "rgba(16, 185, 129, 0.15)", text: "#10B981" },
-        Published: { bg: "rgba(59, 130, 246, 0.15)", text: "#3B82F6" },
-        Draft: { bg: "rgba(161, 161, 170, 0.15)", text: "#A1A1AA" },
-        Closed: { bg: "rgba(239, 68, 68, 0.15)", text: "#EF4444" },
-    };
 
-    const style = colors[status] || colors.Draft;
-
-    return (
-        <View
-            className="px-3 py-1.5 rounded-full self-start"
-            style={{ backgroundColor: style.bg }}
-        >
-            <Text
-                className="text-xs font-bold uppercase tracking-wider"
-                style={{ color: style.text }}
-            >
-                {status}
-            </Text>
-        </View>
-    );
-};
 
 const ItemCard = ({ item, onPress, onOpenApplicants }: any) => {
     const isGig = item.type === "gig";
@@ -56,55 +35,53 @@ const ItemCard = ({ item, onPress, onOpenApplicants }: any) => {
         <TouchableOpacity
             activeOpacity={0.9}
             onPress={onPress}
-            className="bg-zinc-900/40 border border-white/10 rounded-2xl p-6 mb-4 hover:border-white/20 transition-all"
+            className="bg-zinc-900/40 border border-white/10 rounded-2xl p-3 mb-2 hover:border-white/20 transition-all"
         >
-            <View className="flex-row items-center justify-between mb-3">
-                <Badge status={item.status} />
+            <View className="flex-row items-center justify-between mb-1">
+                <Badge status={item.status} textClassName="text-[8px]" />
                 <View className="flex-row items-center gap-2">
                     {isGig ? (
-                        <Briefcase size={14} color="#FF6B35" />
+                        <Briefcase size={12} color="#FF6B35" />
                     ) : (
-                        <Calendar size={14} color="#FF6B35" />
+                        <Calendar size={12} color="#FF6B35" />
                     )}
-                    <Text className="text-[#FF6B35] text-xs font-black uppercase tracking-wider">
+                    <Text className="text-[#FF6B35] text-[10px] font-black uppercase tracking-wider">
                         {item.type}
                     </Text>
                 </View>
             </View>
 
-            <Text className="text-white text-xl font-black tracking-tight mb-3">
+            <Text className="text-white font-black tracking-tight text-base mb-1">
                 {item.title}
             </Text>
 
-            <View className="flex-row items-center mb-2">
-                <Clock size={14} color="rgba(255, 255, 255, 0.5)" />
-                <Text className="text-zinc-400 text-sm ml-2 font-light">
+            <View className="flex-row items-center mb-1">
+                <Clock size={12} color="rgba(255, 255, 255, 0.5)" />
+                <Text className="text-zinc-400 ml-2 font-light text-xs">
                     {item.date}
                 </Text>
             </View>
 
-            <View className="flex-row items-center mb-4">
-                <MapPin size={14} color="rgba(255, 255, 255, 0.5)" />
-                <Text className="text-zinc-400 text-sm ml-2 font-light">
+            <View className="flex-row items-center mb-1">
+                <MapPin size={12} color="rgba(255, 255, 255, 0.5)" />
+                <Text className="text-zinc-400 ml-2 font-light text-xs">
                     {item.location}
                 </Text>
             </View>
 
-            <View className="h-px bg-white/10 mb-4" />
-
-            <View className="flex-row items-center justify-between">
-                <Text className="text-white font-bold text-lg">
+            <View className="flex-row items-center justify-between mt-1">
+                <Text className="text-white font-bold text-base">
                     {item.price}
                 </Text>
 
                 <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={() => onOpenApplicants(item.id)}
-                    className="px-5 py-3 rounded-xl"
+                    className="px-3 py-1.5 rounded-lg"
                     style={{ backgroundColor: "rgba(255, 107, 53, 0.15)" }}
                 >
-                    <Text className="text-[#FF6B35] font-bold text-sm">
-                        {item.applicants} {isGig ? "Applications" : "Registrations"}
+                    <Text className="text-[#FF6B35] font-bold text-[10px]">
+                        {item.applicants} {isGig ? "Applications" : "Regs"}
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -171,6 +148,23 @@ export default function ManagePosts() {
 
         if (gigsData) {
             (gigsData as any[]).forEach((gig: any) => {
+                let displayPrice = "Unpaid";
+                if (gig.compensation?.amount) {
+                    displayPrice = `₹${gig.compensation.amount}`;
+                } else if (gig.compensation?.minAmount || gig.compensation?.maxAmount) {
+                    const min = gig.compensation.minAmount;
+                    const max = gig.compensation.maxAmount;
+                    if (min && max && min !== max) {
+                        displayPrice = `₹${min} - ₹${max}`;
+                    } else if (min || max) {
+                        displayPrice = `₹${min || max}`;
+                    }
+                } else if (gig.compensation?.model === "unpaid") {
+                    displayPrice = "Unpaid";
+                } else if (gig.compensation?.model) {
+                    displayPrice = "TBD";
+                }
+
                 items.push({
                     id: gig._id,
                     type: "gig",
@@ -188,9 +182,7 @@ export default function ManagePosts() {
                     status: gig.status
                         ? gig.status.charAt(0).toUpperCase() + gig.status.slice(1)
                         : "Draft",
-                    price: gig.compensation?.amount
-                        ? `₹${gig.compensation.amount}`
-                        : "Unpaid",
+                    price: displayPrice,
                     applicants: gig.stats?.applications || 0,
                     originalData: gig,
                 });
@@ -255,14 +247,18 @@ export default function ManagePosts() {
                     </View>
 
                     {/* Filters */}
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ gap: 8 }}
+                    >
                         {['all', 'event', 'gig'].map((type) => (
                             <TouchableOpacity
                                 key={type}
                                 onPress={() => setFilterType(type as any)}
                                 className={`px-4 py-2 rounded-full border ${filterType === type
-                                        ? 'bg-white border-white'
-                                        : 'bg-transparent border-white/20'
+                                    ? 'bg-white border-white'
+                                    : 'bg-transparent border-white/20'
                                     }`}
                             >
                                 <Text className={`text-xs font-bold uppercase ${filterType === type ? 'text-black' : 'text-zinc-400'

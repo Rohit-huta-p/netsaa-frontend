@@ -8,7 +8,9 @@ export type SectionId =
     | 'about'        // bio, socials
     | 'socials'        // bio, socials
     | 'experience'   // experience[]
-    | 'media';       // profileImageUrl, galleryUrls, videoUrls
+    | 'media'        // profileImageUrl, galleryUrls, videoUrls
+    | 'organization' // organizerTypeCategory, organizationWebsite
+    | 'contact';     // primaryContactName, primaryContactPhone, primaryContactEmail
 
 type DirtySections = Partial<Record<SectionId, boolean>>;
 

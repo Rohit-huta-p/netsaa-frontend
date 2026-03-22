@@ -3,16 +3,15 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   ScrollView,
   useWindowDimensions,
   Platform,
   Image,
+  Modal,
 } from "react-native";
-import { Heart, Calendar, MapPin, Users, Sparkles, Clock, ArrowRight, TrendingUp } from "lucide-react-native";
+import { Heart, Calendar, MapPin, Users, Sparkles, Clock, ArrowRight, TrendingUp, Ticket, X, ChevronLeft, ChevronRight, CheckCircle } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useSavedItems, SavedItem } from "../../../src/hooks/useSavedItems";
 import AppScrollView from '@/components/AppScrollView';
 import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
@@ -20,18 +19,125 @@ import { useRouter } from "expo-router";
 
 const isWeb = Platform.OS === 'web';
 
+/* ─────────────── QR Ticket Bottom Sheet ─────────────── */
+
+function TicketBottomSheet({
+  visible,
+  onClose,
+  qrCodes,
+  title,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  qrCodes: string[];
+  title: string;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const { width } = useWindowDimensions();
+
+  const goNext = () => setCurrentIndex((i) => Math.min(i + 1, qrCodes.length - 1));
+  const goPrev = () => setCurrentIndex((i) => Math.max(i - 1, 0));
+
+  if (!qrCodes.length) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View className="flex-1 justify-end bg-black/70">
+        <View className="bg-zinc-900 rounded-t-3xl border-t border-white/10 pb-10 pt-4">
+          {/* Handle */}
+          <View className="w-10 h-1 bg-zinc-600 rounded-full self-center mb-6" />
+
+          {/* Header */}
+          <View className="flex-row justify-between items-center px-6 mb-6">
+            <View>
+              <Text className="text-white font-bold text-lg">{title}</Text>
+              <Text className="text-zinc-500 text-xs mt-0.5">
+                Ticket {currentIndex + 1} of {qrCodes.length}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={onClose}
+              className="w-8 h-8 rounded-full bg-zinc-800 items-center justify-center"
+            >
+              <X size={16} color="#a1a1aa" />
+            </TouchableOpacity>
+          </View>
+
+          {/* QR Card */}
+          <View className="items-center px-6">
+            <View className="bg-white rounded-2xl p-6 items-center" style={{ width: Math.min(width - 80, 320) }}>
+              <Text className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4">
+                Scan to check in
+              </Text>
+              <Image
+                source={{ uri: qrCodes[currentIndex] }}
+                style={{ width: 200, height: 200 }}
+                resizeMode="contain"
+              />
+              <Text className="text-zinc-400 text-[10px] font-mono mt-4">
+                {`Ticket ${currentIndex + 1}`}
+              </Text>
+            </View>
+          </View>
+
+          {/* Navigation arrows */}
+          {qrCodes.length > 1 && (
+            <View className="flex-row justify-center items-center gap-6 mt-6">
+              <TouchableOpacity
+                onPress={goPrev}
+                disabled={currentIndex === 0}
+                className={`w-10 h-10 rounded-full items-center justify-center ${currentIndex === 0 ? 'bg-zinc-800/30' : 'bg-zinc-800'}`}
+              >
+                <ChevronLeft size={20} color={currentIndex === 0 ? '#3f3f46' : '#d4d4d8'} />
+              </TouchableOpacity>
+
+              {/* Dots */}
+              <View className="flex-row gap-1.5">
+                {qrCodes.map((_, i) => (
+                  <View
+                    key={i}
+                    className={`w-2 h-2 rounded-full ${i === currentIndex ? 'bg-white' : 'bg-zinc-700'}`}
+                  />
+                ))}
+              </View>
+
+              <TouchableOpacity
+                onPress={goNext}
+                disabled={currentIndex === qrCodes.length - 1}
+                className={`w-10 h-10 rounded-full items-center justify-center ${currentIndex === qrCodes.length - 1 ? 'bg-zinc-800/30' : 'bg-zinc-800'}`}
+              >
+                <ChevronRight size={20} color={currentIndex === qrCodes.length - 1 ? '#3f3f46' : '#d4d4d8'} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Close button */}
+          <TouchableOpacity
+            onPress={onClose}
+            className="mx-6 mt-6 py-3 rounded-2xl bg-zinc-800 items-center border border-white/5"
+          >
+            <Text className="text-zinc-300 font-bold text-sm">Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+/* ─────────────── Main Screen ─────────────── */
+
 export default function SavedJobsScreen() {
   const [activeTab, setActiveTab] = useState("Saved");
-  const { savedItems, appliedItems, upcomingItems, historyItems, isLoading, refetchAll, counts } = useSavedItems();
-  console.log('savedItems', savedItems)
-  console.log('appliedItems', appliedItems)
-  console.log('upcomingItems', upcomingItems)
-  console.log('historyItems', historyItems)
-  console.log('isLoading', isLoading)
-  console.log('refetchAll', refetchAll)
-  console.log('counts', counts)
+  const [ticketModal, setTicketModal] = useState<{ visible: boolean; qrCodes: string[]; title: string }>({
+    visible: false,
+    qrCodes: [],
+    title: '',
+  });
+  const { savedItems, appliedItems, upcomingItems, historyItems, isLoading, counts } = useSavedItems();
   const { width, height } = useWindowDimensions();
   const router = useRouter();
+
+  const isUpcoming = activeTab === "Upcoming";
 
   // Get data based on active tab
   const getTabData = (): SavedItem[] => {
@@ -69,14 +175,14 @@ export default function SavedJobsScreen() {
         <View className="p-5">
           {/* Header Row */}
           <View className="flex-row justify-between items-start mb-4">
-            <View className="flex-row items-center gap-3">
+            <View className="flex-row items-center gap-3 flex-1">
               <LinearGradient
                 colors={item.imageGradient || ['#3B82F6', '#2563EB']}
                 className="w-12 h-12 rounded-xl items-center justify-center opacity-90"
               >
                 <Text className="text-xl">{item.icon}</Text>
               </LinearGradient>
-              <View>
+              <View className="flex-1">
                 <Text className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-0.5">
                   {item.type}
                 </Text>
@@ -89,9 +195,16 @@ export default function SavedJobsScreen() {
               </View>
             </View>
 
-            <TouchableOpacity className="bg-zinc-800/50 p-2 rounded-full">
-              <Heart size={18} color="#ef4444" fill="#ef4444" />
-            </TouchableOpacity>
+            {/* Hired badge for upcoming gigs */}
+            {isUpcoming && item.type === 'GIG' && item.applicationStatus === 'hired' ? (
+              <View className="bg-emerald-500/15 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                <Text className="text-[10px] text-emerald-400 font-black">Hired 🎉</Text>
+              </View>
+            ) : (
+              <TouchableOpacity className="bg-zinc-800/50 p-2 rounded-full">
+                <Heart size={18} color="#ef4444" fill="#ef4444" />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Meta Info */}
@@ -109,6 +222,24 @@ export default function SavedJobsScreen() {
                 {item.location}
               </Text>
             </View>
+
+            {/* Ticket count for upcoming events */}
+            {isUpcoming && item.type === 'EVENT' && (item.ticketCount ?? 0) > 0 && (
+              <View className="flex-row items-center gap-2">
+                <Ticket size={14} color="#71717a" />
+                <Text className="text-xs text-zinc-400 font-medium">
+                  {item.ticketCount} {item.ticketCount === 1 ? 'ticket' : 'tickets'}
+                </Text>
+              </View>
+            )}
+
+            {/* Checked-in badge for history */}
+            {activeTab === 'History' && item.checkedIn && (
+              <View className="flex-row items-center gap-2">
+                <CheckCircle size={14} color="#10b981" />
+                <Text className="text-xs text-emerald-400 font-medium">Attended</Text>
+              </View>
+            )}
           </View>
 
           {/* Footer Strip */}
@@ -116,17 +247,41 @@ export default function SavedJobsScreen() {
             <View className="flex-row items-center gap-2">
               <Users size={12} color="#71717a" />
               <Text className="text-xs text-zinc-500">
-                <Text className="text-zinc-300 font-bold">{item.attending}</Text> interested
+                <Text className="text-zinc-300 font-bold">{item.attending}</Text>{' '}
+                {item.type === 'EVENT' ? 'registered' : 'interested'}
               </Text>
             </View>
 
-            <View className="flex-row items-center gap-1.5 bg-red-500/10 px-2 py-1 rounded-lg border border-red-500/20">
-              <Clock size={10} color="#f87171" />
-              <Text className="text-[10px] text-red-400 font-bold">
-                EXP: {item.expiresOn}
-              </Text>
-            </View>
+            {isUpcoming ? (
+              <View className="flex-row items-center gap-1.5 bg-blue-500/10 px-2 py-1 rounded-lg border border-blue-500/20">
+                <Calendar size={10} color="#60a5fa" />
+                <Text className="text-[10px] text-blue-400 font-bold">
+                  EVENT DAY: {item.expiresOn}
+                </Text>
+              </View>
+            ) : (
+              <View className="flex-row items-center gap-1.5 bg-red-500/10 px-2 py-1 rounded-lg border border-red-500/20">
+                <Clock size={10} color="#f87171" />
+                <Text className="text-[10px] text-red-400 font-bold">
+                  EXP: {item.expiresOn}
+                </Text>
+              </View>
+            )}
           </View>
+
+          {/* View Tickets CTA for upcoming events */}
+          {isUpcoming && item.type === 'EVENT' && (item.qrCodes?.length ?? 0) > 0 && (
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation?.();
+                setTicketModal({ visible: true, qrCodes: item.qrCodes!, title: item.title });
+              }}
+              className="mt-4 py-3 rounded-2xl bg-white/5 border border-white/10 items-center flex-row justify-center gap-2"
+            >
+              <Ticket size={16} color="#a78bfa" />
+              <Text className="text-violet-400 font-bold text-sm">View Tickets</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </TouchableOpacity>
     </View>
@@ -134,7 +289,7 @@ export default function SavedJobsScreen() {
 
   return (
     <View className="flex-1 bg-black">
-      {/* Spotlight Effect - Matching Gigs/[id] & Index */}
+      {/* Spotlight Effect */}
       <View
         style={{
           position: 'absolute',
@@ -148,8 +303,8 @@ export default function SavedJobsScreen() {
       >
         <LinearGradient
           colors={[
-            'rgba(168, 85, 247, 0.15)', // Purple tint for "Saved"
-            'rgba(236, 72, 153, 0.05)', // Pink secondary
+            'rgba(168, 85, 247, 0.15)',
+            'rgba(236, 72, 153, 0.05)',
             'transparent',
           ]}
           locations={[0, 0.5, 1]}
@@ -160,7 +315,7 @@ export default function SavedJobsScreen() {
       </View>
 
       <AppScrollView className="flex-1">
-        {/* HERO SECTION - COMPACT */}
+        {/* HERO SECTION */}
         <View className="pt-32 pb-8 px-6 border-b border-white/5">
           <View className="container mx-auto max-w-7xl">
             <View className="flex-row items-end justify-between mb-8">
@@ -180,7 +335,7 @@ export default function SavedJobsScreen() {
               </View>
             </View>
 
-            {/* TABS - Horizontal Scroll */}
+            {/* TABS */}
             <View className="w-full">
               <ScrollView
                 horizontal
@@ -269,7 +424,7 @@ export default function SavedJobsScreen() {
                 </View>
 
                 {getTabData().map((item) => (
-                  <React.Fragment key={item.id}>
+                  <React.Fragment key={`${item.type}-${item.id}`}>
                     {renderItem({ item })}
                   </React.Fragment>
                 ))}
@@ -278,6 +433,14 @@ export default function SavedJobsScreen() {
           </View>
         </View>
       </AppScrollView>
+
+      {/* QR Ticket Modal */}
+      <TicketBottomSheet
+        visible={ticketModal.visible}
+        onClose={() => setTicketModal({ visible: false, qrCodes: [], title: '' })}
+        qrCodes={ticketModal.qrCodes}
+        title={ticketModal.title}
+      />
     </View>
   );
 }

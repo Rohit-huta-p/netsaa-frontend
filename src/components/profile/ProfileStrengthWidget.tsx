@@ -192,6 +192,87 @@ export const meetsMinimumApplyGate = (user: any): { passes: boolean; missing: st
     return { passes: missing.length === 0, missing };
 };
 
+/* ───────── organizer section definitions ───────── */
+const ORGANIZER_SECTIONS: Section[] = [
+    {
+        key: "basic",
+        label: "Basic Info",
+        icon: UserIcon,
+        color: "#3B82F6",
+        weight: 25,
+        check: (u) => {
+            const missing: string[] = [];
+            if (!u?.displayName) missing.push("Display Name");
+            if (!u?.location) missing.push("Location");
+            const total = 2;
+            return { filled: total - missing.length, total, missing };
+        },
+    },
+    {
+        key: "organization",
+        label: "Organization",
+        icon: Briefcase,
+        color: "#8B5CF6",
+        weight: 25,
+        check: (u) => {
+            const missing: string[] = [];
+            if (!u?.organizationName) missing.push("Organization Name");
+            const total = 1;
+            return { filled: total - missing.length, total, missing };
+        },
+    },
+    {
+        key: "contact",
+        label: "Primary Contact",
+        icon: Star,
+        color: "#EC4899",
+        weight: 25,
+        check: (u) => {
+            const missing: string[] = [];
+            if (!u?.primaryContactName) missing.push("Contact Name");
+            if (!u?.primaryContactPhone) missing.push("Contact Phone");
+            if (!u?.primaryContactEmail) missing.push("Contact Email");
+            const total = 3;
+            return { filled: total - missing.length, total, missing };
+        },
+    },
+    {
+        key: "about",
+        label: "About / Bio",
+        icon: FileText,
+        color: "#F59E0B",
+        weight: 25,
+        check: (u) => {
+            const missing: string[] = [];
+            const bioLen = u?.bio?.length || 0;
+            if (bioLen < 50) missing.push(`Bio (${bioLen}/50 chars)`);
+            const total = 1;
+            return { filled: total - missing.length, total, missing };
+        },
+    },
+];
+
+/* ───────── organizer compute helpers ───────── */
+export const computeOrganizerSections = (user: any) => {
+    return ORGANIZER_SECTIONS.map((s) => {
+        const result = s.check(user);
+        const sectionPct = result.total > 0 ? (result.filled / result.total) * 100 : 0;
+        return { ...s, ...result, sectionPct };
+    });
+};
+
+export const computeOrganizerScore = (user: any) => {
+    const sections = computeOrganizerSections(user);
+    return Math.round(
+        sections.reduce((acc, s) => acc + (s.sectionPct / 100) * s.weight, 0)
+    );
+};
+
+export const computeOrganizerMissing = (user: any) => {
+    const sections = computeOrganizerSections(user);
+    return sections.flatMap((s) => s.missing);
+};
+
 /* ───────── FAB ring constants ───────── */
 const FAB_RADIUS = 28;
 const FAB_STROKE = 4;

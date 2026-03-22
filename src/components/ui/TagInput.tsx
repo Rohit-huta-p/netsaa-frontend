@@ -61,20 +61,21 @@ export const TagInput: React.FC<TagInputProps> = ({
 
     return (
         <View className="gap-3">
-            <View className={`bg-zinc-900/50 border ${error ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 px-3 flex-row flex-wrap items-center gap-2 focus:border-[#FF6B35]`}>
+            <View className={`bg-zinc-900/50 border ${error ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 px-3 flex-row flex-wrap items-center gap-2`}>
                 {tags.map((tag, index) => (
                     <TouchableOpacity
                         key={`${tag}-${index}`}
                         onPress={() => handleRemoveTag(index)}
                         className="bg-[#FF6B35]/20 border border-[#FF6B35]/30 rounded-full px-3 py-1 flex-row items-center gap-1"
                     >
-                        <Text className="text-[#FF6B35] text-sm font-medium">{tag}</Text>
+                        <Text className="text-[#FF6B35] text-xs font-medium">{tag}</Text>
                         <X size={12} color="#FF6B35" />
                     </TouchableOpacity>
                 ))}
 
                 <TextInput
-                    className="flex-1 min-w-[100px] text-white p-1 text-base placeholder-zinc-500 outline-none"
+                    className="flex-1 min-w-[100px] font-thin text-white p-1 text-xs placeholder-zinc-500 outline-none"
+                    style={{ outlineStyle: 'none' } as any}
                     placeholder={tags.length === 0 ? placeholder : ''}
                     placeholderTextColor="rgba(255, 255, 255, 0.3)"
                     value={inputValue}

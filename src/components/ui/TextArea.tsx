@@ -11,10 +11,10 @@ export const TextArea: React.FC<TextAreaProps> = ({ rows = 4, style, error, ...p
         <TextInput
             multiline
             numberOfLines={rows}
-            className={`w-full bg-zinc-900/50 border ${error ? 'border-red-500' : 'border-zinc-700'} rounded-xl py-3 px-4 text-zinc-100 focus:border-[#FF6B35] outline-none`}
+            className={`w-full bg-zinc-900/50 border ${error ? 'border-red-500' : 'border-zinc-700'} rounded-xl py-3 px-4 text-zinc-100 outline-none`}
             placeholderTextColor="#52525b"
             textAlignVertical="top"
-            style={[{ minHeight: rows * 24 }, style]}
+            style={[{ minHeight: rows * 24, outlineStyle: 'none' as any }, style]}
             {...props}
         />
     );

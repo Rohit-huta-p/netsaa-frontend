@@ -1,19 +1,26 @@
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import eventService from '@/services/eventService';
-import { IEventTicketType } from '@/types/event'; // Need to ensure this exists or use any
+import { IEventTicketType } from '@/types/event';
+import { AttendeeInfo } from '@/components/events/registration/AttendeeInfoStep';
 
-export type RegisterStep = 'TICKET_SELECTION' | 'ORDER_SUMMARY' | 'PAYMENT' | 'SUCCESS';
+export type RegisterStep = 'TICKET_SELECTION' | 'ATTENDEE_INFO' | 'ORDER_SUMMARY' | 'PAYMENT' | 'SUCCESS';
 
 export const useEventRegister = (eventId: string, ticketTypes: any[], onComplete: () => void) => {
     const [step, setStep] = useState<RegisterStep>('TICKET_SELECTION');
     const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
     const [quantity, setQuantity] = useState(1);
 
+    // Attendee Info State
+    const [attendeeInfo, setAttendeeInfo] = useState<AttendeeInfo[]>([
+        { fullName: '', email: '', phone: '', notes: '' },
+    ]);
+
     // Reservation State
     const [reservation, setReservation] = useState<any>(null);
     const [reservationExpiry, setReservationExpiry] = useState<Date | null>(null);
     const [timeLeft, setTimeLeft] = useState<string>('');
+    const [isExpired, setIsExpired] = useState(false);
 
     // Payment State
     const [paymentIntent, setPaymentIntent] = useState<any>(null);
@@ -32,8 +39,9 @@ export const useEventRegister = (eventId: string, ticketTypes: any[], onComplete
 
             if (diff <= 0) {
                 clearInterval(interval);
+                setTimeLeft('0:00');
+                setIsExpired(true);
                 handleExpiry();
-                setTimeLeft('00:00');
             } else {
                 const minutes = Math.floor(diff / 60000);
                 const seconds = Math.floor((diff % 60000) / 1000);
@@ -51,10 +59,24 @@ export const useEventRegister = (eventId: string, ticketTypes: any[], onComplete
         Alert.alert('Session Expired', 'Your reservation has expired. Please try again.');
     };
 
-    const handleReserve = async () => {
+    // Step 1: Ticket Selection → Attendee Info (NO reservation yet)
+    const handleNextFromTicketSelection = () => {
         if (!selectedTicketId && ticketTypes.length > 0) return;
+        setStep('ATTENDEE_INFO');
+    };
+
+    // Step 2: Attendee Info → Reserve tickets → ORDER_SUMMARY (or finalize for free)
+    const handleNextFromAttendeeInfo = async (latestAttendeeInfo?: AttendeeInfo[]) => {
+        if (!selectedTicketId && ticketTypes.length > 0) return;
+
+        // If provided securely from form, update state for subsequent steps
+        if (latestAttendeeInfo) {
+            setAttendeeInfo(latestAttendeeInfo);
+        }
+
         setIsProcessing(true);
         setError(null);
+        setIsExpired(false);
         try {
             const res = await eventService.reserveTickets(eventId, {
                 ticketTypeId: selectedTicketId || undefined,
@@ -64,7 +86,14 @@ export const useEventRegister = (eventId: string, ticketTypes: any[], onComplete
                 setReservation(res.data);
                 const expires = new Date(res.data.expiresAt);
                 setReservationExpiry(expires);
-                setStep('ORDER_SUMMARY');
+
+                // FREE EVENT: finalize immediately
+                if (res.data.totalAmount === 0) {
+                    await finalizeRegistration(res.data._id, undefined, latestAttendeeInfo);
+                } else {
+                    // PAID EVENT: go to ORDER_SUMMARY
+                    setStep('ORDER_SUMMARY');
+                }
             }
         } catch (err: any) {
             setError(err.message || 'Failed to reserve tickets');
@@ -76,18 +105,23 @@ export const useEventRegister = (eventId: string, ticketTypes: any[], onComplete
     const handleProceedToPayment = async () => {
         if (!reservation) return;
 
-        // If Free, skip to finalize
+        // If Free, skip to finalize (safety check)
         if (reservation.totalAmount === 0) {
-            await handleFinalize();
+            await finalizeRegistration(reservation._id);
             return;
         }
 
         setIsProcessing(true);
         try {
-            const res = await eventService.createPaymentIntent(eventId, { reservationId: reservation._id });
+            const res = await eventService.createPaymentIntent(eventId, {
+                reservationId: reservation._id,
+                attendees: attendeeInfo // backend validation error says `attendees.1.phone`, so it likely expects the key to be `attendees`
+            } as any);
             if (res.success) {
                 setPaymentIntent(res);
-                setStep('PAYMENT'); // Move to Stripe specific step
+                // TODO: integrate @stripe/stripe-react-native PaymentSheet here with clientSecret from paymentIntent
+                // For now, finalize immediately after payment intent is created
+                await finalizeRegistration(reservation._id, res.paymentIntentId);
             }
         } catch (err: any) {
             setError(err.message || 'Payment initiation failed');
@@ -96,17 +130,22 @@ export const useEventRegister = (eventId: string, ticketTypes: any[], onComplete
         }
     };
 
-    const handleFinalize = async (paymentIntentId?: string) => {
+    const finalizeRegistration = async (reservationId: string, paymentIntentId?: string, overrideAttendeeInfo?: AttendeeInfo[]) => {
         setIsProcessing(true);
+        console.log("[useEventRegister] Finalizing registration for reservation:", reservationId);
+
+        const payloadAttendeeInfo = overrideAttendeeInfo || attendeeInfo;
+        console.log("[useEventRegister] Sending attendeeInfo payload:", JSON.stringify(payloadAttendeeInfo, null, 2));
+
         try {
             const res = await eventService.finalizeRegistration(eventId, {
-                reservationId: reservation._id,
-                paymentIntentId
+                reservationId,
+                paymentIntentId,
+                attendeeInfo: payloadAttendeeInfo,
             });
             if (res.success) {
                 setStep('SUCCESS');
-                // Cleanup
-                setReservation(null);
+                // Cleanup timer but keep reservation for display
                 setReservationExpiry(null);
             }
         } catch (err: any) {
@@ -114,6 +153,12 @@ export const useEventRegister = (eventId: string, ticketTypes: any[], onComplete
         } finally {
             setIsProcessing(false);
         }
+    };
+
+    // Keep old signature for backward compat
+    const handleFinalize = async (paymentIntentId?: string) => {
+        if (!reservation) return;
+        await finalizeRegistration(reservation._id, paymentIntentId);
     };
 
     // Cleanup on unmount or cancel
@@ -130,15 +175,20 @@ export const useEventRegister = (eventId: string, ticketTypes: any[], onComplete
 
     return {
         step,
+        setStep,
         selectedTicketId,
         setSelectedTicketId,
         quantity,
         setQuantity,
+        attendeeInfo,
+        setAttendeeInfo,
         reservation,
         timeLeft,
+        isExpired,
         error,
         isProcessing,
-        handleReserve,
+        handleNextFromTicketSelection,
+        handleNextFromAttendeeInfo,
         handleProceedToPayment,
         handleFinalize,
         paymentIntent,

@@ -31,8 +31,13 @@ const dangerService = {
     },
 
     /** POST /api/users/me/delete */
-    deleteAccount: async (password: string, reason?: string): Promise<void> => {
-        await API.post('/users/me/delete', { password, reason });
+    deleteAccount: async (confirmationText: string, reason?: string): Promise<void> => {
+        await API.post('/users/me/delete', { confirmationText, reason });
+    },
+
+    /** POST /api/users/me/restore */
+    restoreAccount: async (): Promise<void> => {
+        await API.post('/users/me/restore');
     },
 };
 

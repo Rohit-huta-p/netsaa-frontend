@@ -12,13 +12,11 @@ import {
     MessageCircle,
     UserCog,
     Lock,
-    CreditCard,
     AlertTriangle,
-    Wallet,
     Link2,
     BadgeCheck,
-    Receipt,
     ToggleRight,
+    LogOut,
 } from 'lucide-react-native';
 
 /* ── Types ── */
@@ -44,40 +42,38 @@ type Section = {
  * When new roles are added, just add the role string — no code changes elsewhere.
  */
 const SECTIONS: Section[] = [
+    // {
+    //     title: 'Preferences',
+    //     items: [
+    //         // { key: 'privacy', label: 'Privacy', description: 'Profile visibility & data sharing', icon: Shield, route: '/(app)/settings/privacy' },
+    //         // { key: 'notifications', label: 'Notifications', description: 'Email, push & marketing', icon: Bell, route: '/(app)/settings/notifications' },
+    //         // { key: 'messaging', label: 'Messaging', description: 'Who can message you', icon: MessageCircle, route: '/(app)/settings/messaging' },
+    //         // { key: 'account', label: 'Account', description: 'Language, timezone & currency', icon: UserCog, route: '/(app)/settings/account' },
+    //     ],
+    // },
+    // {
+    //     title: 'Artist',
+    //     items: [
+    //         { key: 'portfolio', label: 'Portfolio Link', description: 'External portfolio or website', icon: Link2, route: '/(app)/settings/account', roles: ['artist'] },
+    //     ],
+    // },
+    // {
+    //     title: 'Organizer',
+    //     items: [
+    //         { key: 'verification', label: 'Business Verification', description: 'Verify your organization', icon: BadgeCheck, route: '/(app)/settings/security', roles: ['organizer'] },
+    //         { key: 'autoclose', label: 'Auto-Close Gigs', description: 'Close gigs after deadline', icon: ToggleRight, route: '/(app)/settings/account', roles: ['organizer'] },
+    //     ],
+    // },
     {
-        title: 'Preferences',
-        items: [
-            { key: 'privacy', label: 'Privacy', description: 'Profile visibility & data sharing', icon: Shield, route: '/(app)/settings/privacy' },
-            { key: 'notifications', label: 'Notifications', description: 'Email, push & marketing', icon: Bell, route: '/(app)/settings/notifications' },
-            { key: 'messaging', label: 'Messaging', description: 'Who can message you', icon: MessageCircle, route: '/(app)/settings/messaging' },
-            { key: 'account', label: 'Account', description: 'Language, timezone & currency', icon: UserCog, route: '/(app)/settings/account' },
-        ],
-    },
-    {
-        title: 'Artist',
-        items: [
-            { key: 'payout', label: 'Payout Setup', description: 'Configure payout method & bank', icon: Wallet, route: '/(app)/settings/payments', roles: ['artist'] },
-            { key: 'portfolio', label: 'Portfolio Link', description: 'External portfolio or website', icon: Link2, route: '/(app)/settings/account', roles: ['artist'] },
-        ],
-    },
-    {
-        title: 'Organizer',
-        items: [
-            { key: 'verification', label: 'Business Verification', description: 'Verify your organization', icon: BadgeCheck, route: '/(app)/settings/security', roles: ['organizer'] },
-            { key: 'gst', label: 'GST Settings', description: 'GST number & invoicing', icon: Receipt, route: '/(app)/settings/payments', roles: ['organizer'] },
-            { key: 'autoclose', label: 'Auto-Close Gigs', description: 'Close gigs after deadline', icon: ToggleRight, route: '/(app)/settings/account', roles: ['organizer'] },
-        ],
-    },
-    {
-        title: 'Security & Payments',
+        title: 'Security',
         items: [
             { key: 'security', label: 'Security', description: 'Password & two-factor auth', icon: Lock, route: '/(app)/settings/security' },
-            { key: 'payments', label: 'Payments', description: 'Payment methods & billing', icon: CreditCard, route: '/(app)/settings/payments' },
         ],
     },
     {
         title: 'Account Actions',
         items: [
+            { key: 'logout', label: 'Sign Out', description: 'Log out of your account', icon: LogOut, route: '', danger: true },
             { key: 'danger', label: 'Danger Zone', description: 'Deactivate or delete account', icon: AlertTriangle, route: '/(app)/settings/danger', danger: true },
         ],
     },
@@ -131,7 +127,14 @@ export default function SettingsIndex() {
                                             label={item.label}
                                             description={item.description}
                                             icon={<item.icon size={20} color={item.danger ? '#f87171' : '#a78bfa'} />}
-                                            onPress={() => router.push(item.route as any)}
+                                            onPress={() => {
+                                                if (item.key === 'logout') {
+                                                    useAuthStore.getState().clearAuth();
+                                                    router.push('/');
+                                                } else {
+                                                    router.push(item.route as any);
+                                                }
+                                            }}
                                         />
                                     ))}
                                 </View>

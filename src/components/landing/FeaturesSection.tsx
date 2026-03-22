@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, Platform, useWindowDimensions, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Zap, ShieldCheck, Users } from 'lucide-react-native';
+import { Search, Zap, Shield } from 'lucide-react-native';
 import { NETSA_COLORS } from '@/hooks/useThemeColors';
+import { useParallax } from '@/hooks/useParallax';
 
 const isWeb = Platform.OS === 'web';
 
@@ -10,23 +11,29 @@ interface FeatureCardProps {
     icon: any;
     title: string;
     description: string;
+    cardAnim?: { opacity: Animated.AnimatedInterpolation<number>; translateY: Animated.AnimatedInterpolation<number>; scale: Animated.AnimatedInterpolation<number> };
 }
 
-const FeatureCard = ({ icon: Icon, title, description }: FeatureCardProps) => {
+const FeatureCard = ({ icon: Icon, title, description, cardAnim }: FeatureCardProps) => {
     const { width } = useWindowDimensions();
     const isMobile = width < 768;
 
     return (
-        <View
+        <Animated.View
             style={{
                 flex: 1,
                 minWidth: isMobile ? '100%' : isWeb ? 300 : '100%',
-                padding: isMobile ? 24 : 32,
-                borderRadius: isMobile ? 24 : 32,
+                padding: isMobile ? 36 : 48,
+                borderRadius: isMobile ? 28 : 36,
                 backgroundColor: 'rgba(24, 24, 27, 0.5)',
                 borderWidth: 1,
                 borderColor: 'rgba(255, 255, 255, 0.05)',
                 overflow: 'hidden',
+                opacity: cardAnim ? cardAnim.opacity : 1,
+                transform: cardAnim ? [
+                    { translateY: cardAnim.translateY },
+                    { scale: cardAnim.scale },
+                ] : undefined,
             }}
         >
             {/* Background icon (decorative) */}
@@ -53,7 +60,7 @@ const FeatureCard = ({ icon: Icon, title, description }: FeatureCardProps) => {
                     borderRadius: isMobile ? 12 : 16,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: isMobile ? 24 : 32,
+                    marginBottom: isMobile ? 32 : 48,
                 }}
             >
                 <Icon size={isMobile ? 24 : 28} color="#fff" />
@@ -75,43 +82,43 @@ const FeatureCard = ({ icon: Icon, title, description }: FeatureCardProps) => {
                 style={{
                     fontSize: isMobile ? 14 : 16,
                     color: '#a1a1aa',
-                    lineHeight: isMobile ? 22 : 26,
+                    lineHeight: isMobile ? 24 : 30,
                 }}
             >
                 {description}
             </Text>
-        </View>
+        </Animated.View>
     );
 };
 
-export default function FeaturesSection() {
+export default function FeaturesSection({ scrollY, sectionIndex }: { scrollY?: any; sectionIndex?: number }) {
     const { width } = useWindowDimensions();
     const isMobile = width < 768;
     const isTablet = width >= 768 && width < 1024;
 
     const features = [
         {
+            icon: Search,
+            title: 'Discover Every Opportunity',
+            description: 'Every workshop, concert, corporate event, and competition in India — real-time updates, location-based alerts, genre & skill matching. No more \'I wish I\'d known about that.\'',
+        },
+        {
             icon: Zap,
-            title: 'Centralized Discovery',
-            description: 'Stop hunting in WhatsApp groups. Access a curated marketplace of gigs, workshops, and competitions in one place.',
+            title: 'Apply Direct. Get Hired Faster.',
+            description: 'Your portfolio goes straight to the organizer\'s inbox. Zero intermediaries. Keep 95% of your fee — just a 5% platform fee on bookings.',
         },
         {
-            icon: ShieldCheck,
-            title: 'Escrow Payments',
-            description: 'Secure agreements and guaranteed payments. We hold funds so you never have to chase a payment again.',
-        },
-        {
-            icon: Users,
-            title: 'Verified Ecosystem',
-            description: 'No more scams. Verified profiles for artists and organizers with a transparent rating system for every gig.',
+            icon: Shield,
+            title: 'Get Paid. Always.',
+            description: 'Money held in escrow until your gig is completed. No more chasing, no more excuses. Automatic release, dispute protection, 24hr support.',
         },
     ];
 
     return (
         <View
             style={{
-                paddingVertical: isMobile ? 64 : isTablet ? 96 : 128,
-                paddingHorizontal: isMobile ? 16 : 24,
+                paddingVertical: isMobile ? 96 : isTablet ? 128 : 176,
+                paddingHorizontal: isMobile ? 20 : 24,
                 backgroundColor: '#000',
                 overflow: 'hidden',
             }}
@@ -127,7 +134,7 @@ export default function FeaturesSection() {
                 <View
                     style={{
                         alignItems: 'center',
-                        marginBottom: isMobile ? 48 : isTablet ? 64 : 80,
+                        marginBottom: isMobile ? 72 : isTablet ? 96 : 120,
                         maxWidth: isMobile ? '100%' : 700,
                         alignSelf: 'center',
                     }}
@@ -140,10 +147,9 @@ export default function FeaturesSection() {
                             textAlign: 'center',
                             marginBottom: isMobile ? 16 : 24,
                             letterSpacing: -2,
-                            fontStyle: 'italic',
                         }}
                     >
-                        Professionalizing the Passion.
+                        Welcome to NETSA.{'\n'}Where Artists Control Their Careers.
                     </Text>
                     <Text
                         style={{
@@ -155,7 +161,7 @@ export default function FeaturesSection() {
                             paddingHorizontal: isMobile ? 8 : 0,
                         }}
                     >
-                        For too long, Indian artists have struggled with fragmented networks, unfair pay, and lack of respect. NETSA is here to build the infrastructure you deserve.
+                        No middlemen. No missed gigs. No more paying you in exposure. NETSA connects you directly with verified organizers across India.
                     </Text>
                 </View>
 
@@ -163,7 +169,7 @@ export default function FeaturesSection() {
                 <View
                     style={{
                         flexDirection: isMobile ? 'column' : 'row',
-                        gap: isMobile ? 16 : 32,
+                        gap: isMobile ? 24 : 48,
                     }}
                 >
                     {features.map((feature, index) => (

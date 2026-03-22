@@ -3,3 +3,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 
+ * Fix Chrome Web autofill turning inputs white/yellow.
+ * Mobile inputs are unaffected, but web browsers forcefully inject styles.
+ * The transition delay hack makes it transparent indefinitely.
+ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    transition: background-color 5000s ease-in-out 0s !important;
+    -webkit-text-fill-color: white !important;
+}

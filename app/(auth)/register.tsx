@@ -1,32 +1,37 @@
 // app/(auth)/register.tsx — Multi-step registration (orchestration only)
 import React, { useState, useRef, useCallback, useMemo } from "react";
-import { View, Text, TouchableOpacity, Animated, Platform } from "react-native";
-import { router } from "expo-router";
+import { View, Text, TouchableOpacity, Animated, Platform, ScrollView } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
     Sparkles, Mic2, Calendar, Instagram, ChevronLeft, ArrowRight,
     MapPin, Check, Building2, Globe, Phone, Mail, User, Receipt,
-    Youtube, Music2, Headphones,
+    Youtube, Music2, Headphones, HelpCircle, PenLine,
 } from "lucide-react-native";
+import { TextInput } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import useAuthStore from "@/stores/authStore";
-import { useRegister } from "@/hooks/useAuthQueries";
+import { useRegister, useCheckEmail, useCheckPhone } from "@/hooks/useAuthQueries";
 import type { Role, Intent, ExperienceLevel, OrganizerTypeCategory } from "@/schemas/register.schema";
 
 // Extracted modules
 import {
-    REG_COLORS as C,
     INTENT_OPTIONS, ARTIST_TYPES, EXP_LEVELS, ORG_TYPE_CATEGORIES,
     ARTIST_STEPS, ORGANIZER_STEPS,
 } from "@/constants/registration";
-import { StepInput, LargeRoleCard, IntentCard, TypeChip, ExpCard } from "@/components/auth";
+import { Colors } from "@/constants/Colors";
+const C = Colors.auth;
+import { StepInput, LargeRoleCard, IntentCard, TypeChip, ExpCard, CountryCodePicker } from "@/components/auth";
 
 /* ════════════════════════════════════════════════════ */
 /*  MAIN SCREEN                                        */
 /* ════════════════════════════════════════════════════ */
 
 export default function RegisterScreen() {
+    const routeParams = useLocalSearchParams<{ phone?: string; email?: string }>();
     const registerMutation = useRegister();
+    const checkEmailMutation = useCheckEmail();
+    const checkPhoneMutation = useCheckPhone();
 
     /* ── Step state ── */
     const [step, setStep] = useState(0);
@@ -36,8 +41,25 @@ export default function RegisterScreen() {
     const [role, setRole] = useState<Role | null>(null);
     const [fullName, setFullName] = useState("");
     const [location, setLocation] = useState("");
-    const [email, setEmail] = useState("");
-    const [phone, setPhone] = useState("");
+    const [email, setEmail] = useState(routeParams.email ?? "");
+    const [countryCode, setCountryCode] = useState(() => {
+        // Pre-fill from route params if phone was passed from OTP verification
+        if (routeParams.phone) {
+            const p = routeParams.phone;
+            // Extract country code (starts with +, followed by 1-3 digits)
+            const match = p.match(/^(\+\d{1,3})(.*)$/);
+            return match ? match[1] : '+91';
+        }
+        return '+91';
+    });
+    const [phone, setPhone] = useState(() => {
+        if (routeParams.phone) {
+            const p = routeParams.phone;
+            const match = p.match(/^\+\d{1,3}(.*)$/);
+            return match ? match[1].replace(/[^0-9]/g, '') : '';
+        }
+        return '';
+    });
     const [password, setPassword] = useState("");
     const [intent, setIntent] = useState<Intent[]>([]);
     const [instagram, setInstagram] = useState("");
@@ -48,14 +70,14 @@ export default function RegisterScreen() {
     /* ── Artist-specific state ── */
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [expLevel, setExpLevel] = useState<ExperienceLevel | null>(null);
+    const [marketingConsent, setMarketingConsent] = useState(false);
 
     /* ── Organizer-specific state ── */
     const [organizerTypeCategory, setOrganizerTypeCategory] = useState<OrganizerTypeCategory | null>(null);
+    const [isCustomCategory, setIsCustomCategory] = useState(false);
+    const [customCategoryLabel, setCustomCategoryLabel] = useState("");
     const [organizationName, setOrganizationName] = useState("");
     const [organizationWebsite, setOrganizationWebsite] = useState("");
-    const [primaryContactName, setPrimaryContactName] = useState("");
-    const [primaryContactPhone, setPrimaryContactPhone] = useState("");
-    const [primaryContactEmail, setPrimaryContactEmail] = useState("");
     const [legalBusinessName, setLegalBusinessName] = useState("");
     const [gstNumber, setGstNumber] = useState("");
     const [billingAddress, setBillingAddress] = useState("");
@@ -63,17 +85,21 @@ export default function RegisterScreen() {
     const [pincode, setPincode] = useState("");
     const [country, setCountry] = useState("");
 
+    /* ── Derived: is this an individual organizer? ── */
+    const isIndividual = organizerTypeCategory === 'individual';
+
     /* ── Derived ── */
     const isOrganizer = role === 'organizer';
     const isArtist = role === 'artist';
 
     const steps = useMemo(() => {
         if (!isOrganizer) return ARTIST_STEPS;
-        if (organizerTypeCategory === 'individual') {
-            return ORGANIZER_STEPS.filter(s => s !== 'billing');
+        if (isIndividual) {
+            // Individuals skip orgProfile (no org name/website) and billing
+            return ORGANIZER_STEPS.filter(s => s !== 'orgProfile' && s !== 'billing');
         }
         return ORGANIZER_STEPS;
-    }, [isOrganizer, organizerTypeCategory]);
+    }, [isOrganizer, isIndividual]);
 
     const totalDataSteps = steps.length;
     const completionStep = totalDataSteps;
@@ -147,14 +173,16 @@ export default function RegisterScreen() {
                 return socialErrors.length > 0 ? socialErrors[0] : null;
             }
             case 'orgTypeCategory':
+                if (isCustomCategory) {
+                    return !customCategoryLabel.trim() ? "Please enter your category" : null;
+                }
                 return !organizerTypeCategory ? "Please select your organizer type" : null;
             case 'orgProfile':
-                if (!organizationName.trim() || organizationName.trim().length < 2) return "Organization name is required";
+                // Individual skips this step entirely; for others, org name required
+                if (!isIndividual && (!organizationName.trim() || organizationName.trim().length < 2)) {
+                    return "Organization name is required";
+                }
                 return null;
-            case 'primaryContact':
-                if (!primaryContactName.trim()) return "Contact name is required";
-                if (!primaryContactPhone.trim() || primaryContactPhone.trim().length < 10) return "Valid phone number is required";
-                if (!primaryContactEmail.trim() || !/\S+@\S+\.\S+/.test(primaryContactEmail)) return "Valid email is required";
                 return null;
             case 'billing':
                 // Optional now, validation only if fields are partially filled if we wanted strictly consistent data, 
@@ -196,15 +224,40 @@ export default function RegisterScreen() {
         }
         setStepError(null);
 
-        if (isLastDataStep) {
-            submitRegistration(skip);
-            return;
+        const proceed = () => {
+            if (isLastDataStep) {
+                submitRegistration(skip);
+                return;
+            }
+            animateToStep(step + 1);
+        };
+
+        // If we are currently on the credentials step AND we are moving forward without skipping,
+        // we should verify the email and phone are currently available on the backend
+        if (currentStepId === 'credentials' && !skip) {
+            const formattedPhone = `${countryCode}${phone.replace(/[^0-9]/g, '')}`;
+
+            Promise.all([
+                checkEmailMutation.mutateAsync({ email }),
+                checkPhoneMutation.mutateAsync({ phone: formattedPhone })
+            ]).then(([emailData, phoneData]) => {
+                if (emailData.exists) {
+                    setStepError("This email is already registered.");
+                } else if (phoneData.exists) {
+                    setStepError("This phone number is already registered.");
+                } else {
+                    proceed();
+                }
+            }).catch(() => {
+                setStepError("Could not verify details. Please try again later.");
+            });
+        } else {
+            proceed();
         }
-        animateToStep(step + 1);
-    }, [step, role, fullName, location, email, phone, password, intent, selectedTypes,
+    }, [step, role, fullName, location, email, countryCode, phone, password, intent, selectedTypes,
         youtube, spotify, soundcloud,
-        organizerTypeCategory, organizationName, primaryContactName, primaryContactPhone,
-        primaryContactEmail, legalBusinessName, isLastDataStep]);
+        organizerTypeCategory, organizationName,
+        legalBusinessName, isLastDataStep]);
 
     const handleBack = () => {
         if (step > 0 && step < completionStep) {
@@ -215,28 +268,22 @@ export default function RegisterScreen() {
 
     /* ── Submission ── */
     const submitRegistration = (skipSocial = false) => {
+        const formattedPhone = `${countryCode}${phone.replace(/[^0-9]/g, '')}`;
+
         if (isOrganizer) {
             const payload: any = {
                 user: {
                     displayName: fullName, email, password,
-                    phoneNumber: phone, role: 'organizer',
+                    phoneNumber: formattedPhone, role: 'organizer',
+                    marketingConsent,
                 },
                 organizerProfile: {
-                    organizerTypeCategory, organizationName,
-                    organizationWebsite: organizationWebsite.trim() || undefined,
-                    primaryContact: {
-                        fullName: primaryContactName,
-                        phone: primaryContactPhone,
-                        email: primaryContactEmail,
-                    },
-                    // Only include billing details if they provided at least a legal business name 
-                    // or if we want to send what they have. 
-                    // Since it's optional, we send it only if legalBusinessName is there? 
-                    // Or if they didn't skip? 
-                    // If they clicked Skip (skipSocial=true passed to submit? No, handleNext call submitRegistration(skip)).
-                    // So if skip is true, we should probably ignore billing?
-                    // Actually submitRegistration takes 'skipSocial' which acts as a generic 'skip' flag for the current step if it's the last one.
-                    // If billing is the last step, 'skip' argument will be true.
+                    organizerTypeCategory: organizerTypeCategory!,
+                    organizationType: isIndividual ? 'individual' : 'company',
+                    organizationName: isIndividual ? undefined : (organizationName.trim() || undefined),
+                    organizationWebsite: isIndividual ? undefined : (organizationWebsite.trim() || undefined),
+                    isCustomCategory,
+                    customCategoryLabel: isCustomCategory ? customCategoryLabel.trim() : undefined,
                     billingDetails: (!skipSocial && legalBusinessName.trim()) ? {
                         legalBusinessName: legalBusinessName.trim() || undefined,
                         gstNumber: gstNumber.trim() || undefined,
@@ -264,7 +311,8 @@ export default function RegisterScreen() {
             const payload: any = {
                 user: {
                     displayName: fullName, email, password,
-                    phoneNumber: phone, role: 'artist',
+                    phoneNumber: formattedPhone, role: 'artist',
+                    marketingConsent,
                 },
             };
             if (intent.length > 0) payload.user.intent = intent;
@@ -305,13 +353,32 @@ export default function RegisterScreen() {
         setStepError(null);
     };
 
-    /* ── Helper for Primary Contact fill ── */
-    const fillPrimaryContactFromIdentity = () => {
-        setPrimaryContactName(fullName);
-        setPrimaryContactPhone(phone);
-        setPrimaryContactEmail(email);
+    /* ── Category selection with state reset ── */
+    const selectOrgCategory = (catId: OrganizerTypeCategory) => {
+        setOrganizerTypeCategory(catId);
+        setIsCustomCategory(false);
+        setCustomCategoryLabel("");
+        // Reset org-specific fields when switching categories
+        setOrganizationName("");
+        setOrganizationWebsite("");
+        setLegalBusinessName("");
+        setGstNumber("");
+        setBillingAddress("");
+        setBillingState("");
+        setPincode("");
+        setCountry("");
         setStepError(null);
     };
+
+    const selectCustomCategory = () => {
+        setOrganizerTypeCategory('individual');  // fallback enum for backend
+        setIsCustomCategory(true);
+        setCustomCategoryLabel("");
+        setOrganizationName("");
+        setOrganizationWebsite("");
+        setStepError(null);
+    };
+
 
     /* ════════════════════════════════════════════════ */
     /*  STEP RENDERERS                                 */
@@ -366,8 +433,14 @@ export default function RegisterScreen() {
                         </Text>
                         <StepInput label="Email" value={email} onChangeText={(v) => { setEmail(v); setStepError(null); }}
                             placeholder="your@email.com" keyboardType="email-address" autoCapitalize="none" />
-                        <StepInput label="Phone Number" value={phone} onChangeText={(v) => { setPhone(v); setStepError(null); }}
-                            placeholder="+91 98765 43210" keyboardType="phone-pad" />
+                        <StepInput
+                            label="Phone Number"
+                            value={phone}
+                            onChangeText={(v) => { setPhone(v.replace(/[^0-9]/g, '')); setStepError(null); }}
+                            placeholder="9876543210"
+                            keyboardType="phone-pad"
+                            prefix={<CountryCodePicker selectedCode={countryCode} onSelect={setCountryCode} />}
+                        />
                         <StepInput label="Password" value={password} onChangeText={(v) => { setPassword(v); setStepError(null); }}
                             placeholder="Min 8 characters" secureTextEntry />
                     </View>
@@ -393,26 +466,26 @@ export default function RegisterScreen() {
 
             case 'social':
                 return (
-                    <View>
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, lineHeight: 36 }}>
-                            Want to add{'\n'}credibility?
+                    <View style={{ gap: 4 }}>
+                        <Text style={{ fontSize: 24, fontWeight: '800', color: C.w95, lineHeight: 32 }}>
+                            Want to add credibility?
                         </Text>
-                        <Text style={{ fontSize: 14, color: C.w30, marginTop: 8, marginBottom: 32 }}>
+                        <Text style={{ fontSize: 13, color: C.w30, marginTop: 4, marginBottom: 18 }}>
                             Your social links help build trust with others.{'\n'}
                             <Text style={{ color: C.w15 }}>All fields are optional.</Text>
                         </Text>
                         <StepInput label="Instagram Handle" value={instagram} onChangeText={setInstagram}
                             placeholder="@yourhandle" autoCapitalize="none"
-                            icon={<Instagram size={16} color={C.w25} />} />
+                            icon={<Instagram size={15} color={C.w25} />} />
                         <StepInput label="YouTube" value={youtube} onChangeText={setYoutube}
-                            placeholder="https://youtube.com/@yourchannel" autoCapitalize="none"
-                            icon={<Youtube size={16} color={C.w25} />} />
+                            placeholder="your channel URL" autoCapitalize="none"
+                            icon={<Youtube size={15} color={C.w25} />} />
                         <StepInput label="Spotify" value={spotify} onChangeText={setSpotify}
-                            placeholder="https://open.spotify.com/artist/..." autoCapitalize="none"
-                            icon={<Music2 size={16} color={C.w25} />} />
+                            placeholder="artist URL" autoCapitalize="none"
+                            icon={<Music2 size={15} color={C.w25} />} />
                         <StepInput label="SoundCloud" value={soundcloud} onChangeText={setSoundcloud}
-                            placeholder="https://soundcloud.com/yourprofile" autoCapitalize="none"
-                            icon={<Headphones size={16} color={C.w25} />} />
+                            placeholder="profile URL" autoCapitalize="none"
+                            icon={<Headphones size={15} color={C.w25} />} />
                     </View>
                 );
 
@@ -466,10 +539,10 @@ export default function RegisterScreen() {
                         <View style={{ gap: 8 }}>
                             {ORG_TYPE_CATEGORIES.map((cat) => {
                                 const Icon = cat.icon;
-                                const sel = organizerTypeCategory === cat.id;
+                                const sel = !isCustomCategory && organizerTypeCategory === cat.id;
                                 return (
                                     <TouchableOpacity key={cat.id} activeOpacity={0.7}
-                                        onPress={() => { setOrganizerTypeCategory(cat.id); setStepError(null); }}
+                                        onPress={() => selectOrgCategory(cat.id)}
                                         style={{
                                             flexDirection: 'row', alignItems: 'center', gap: 12,
                                             paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14,
@@ -490,11 +563,61 @@ export default function RegisterScreen() {
                                     </TouchableOpacity>
                                 );
                             })}
+
+                            {/* ── "None of the above?" option ── */}
+                            <TouchableOpacity activeOpacity={0.7}
+                                onPress={selectCustomCategory}
+                                style={{
+                                    flexDirection: 'row', alignItems: 'center', gap: 12,
+                                    paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14,
+                                    borderWidth: 1,
+                                    borderColor: isCustomCategory ? 'rgba(251,191,36,0.5)' : C.w08,
+                                    backgroundColor: isCustomCategory ? 'rgba(251,191,36,0.08)' : C.w03,
+                                    borderStyle: 'dashed',
+                                }}>
+                                <View style={{
+                                    width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+                                    backgroundColor: isCustomCategory ? 'rgba(251,191,36,0.15)' : C.w06,
+                                }}>
+                                    <HelpCircle size={16} color={isCustomCategory ? '#FBBF24' : C.w30} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ fontSize: 15, fontWeight: '600', color: isCustomCategory ? '#FBBF24' : C.w60 }}>None of the above?</Text>
+                                    <Text style={{ fontSize: 11, color: isCustomCategory ? C.w50 : C.w25, marginTop: 1 }}>Tell us what you do</Text>
+                                </View>
+                                {isCustomCategory && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FBBF24' }} />}
+                            </TouchableOpacity>
+
+                            {/* Custom category text input */}
+                            {isCustomCategory && (
+                                <View style={{ marginTop: 8 }}>
+                                    <View style={{
+                                        flexDirection: 'row', alignItems: 'center', gap: 10,
+                                        borderWidth: 1, borderColor: 'rgba(251,191,36,0.3)',
+                                        backgroundColor: 'rgba(251,191,36,0.05)',
+                                        borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
+                                    }}>
+                                        <PenLine size={16} color="#FBBF24" />
+                                        <TextInput
+                                            value={customCategoryLabel}
+                                            onChangeText={(v) => { setCustomCategoryLabel(v); setStepError(null); }}
+                                            placeholder="e.g. Wedding Planner, Promoter..."
+                                            placeholderTextColor={C.w25}
+                                            style={{
+                                                flex: 1, color: '#fff', fontSize: 15, fontWeight: '500',
+                                                outlineStyle: 'none',
+                                            } as any}
+                                            autoCapitalize="words"
+                                        />
+                                    </View>
+                                </View>
+                            )}
                         </View>
                     </View>
                 );
 
             case 'orgProfile':
+                // This step is skipped entirely for 'individual' via the steps filter
                 return (
                     <View>
                         <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, lineHeight: 36 }}>
@@ -514,46 +637,6 @@ export default function RegisterScreen() {
                     </View>
                 );
 
-            case 'primaryContact':
-                return (
-                    <View>
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, lineHeight: 36 }}>
-                            Who should artists{'\n'}reach out to?
-                        </Text>
-                        <Text style={{ fontSize: 14, color: C.w30, marginTop: 8, marginBottom: 20 }}>
-                            Primary contact for bookings & communication.
-                        </Text>
-
-                        <TouchableOpacity
-                            onPress={fillPrimaryContactFromIdentity}
-                            activeOpacity={0.7}
-                            style={{
-                                flexDirection: 'row', alignItems: 'center',
-                                backgroundColor: C.w06, padding: 12, borderRadius: 12, marginBottom: 24,
-                                borderWidth: 1, borderColor: C.w10
-                            }}>
-                            <View style={{ padding: 6, backgroundColor: C.w08, borderRadius: 8, marginRight: 12 }}>
-                                <User size={16} color={C.primary} />
-                            </View>
-                            <Text style={{ fontSize: 14, color: C.primary, fontWeight: '600' }}>
-                                Use my details (Same as Identity)
-                            </Text>
-                        </TouchableOpacity>
-
-                        <StepInput label="Contact Name" value={primaryContactName}
-                            onChangeText={(v) => { setPrimaryContactName(v); setStepError(null); }}
-                            placeholder="Full name" autoCapitalize="words"
-                            icon={<User size={16} color={C.w25} />} />
-                        <StepInput label="Contact Phone" value={primaryContactPhone}
-                            onChangeText={(v) => { setPrimaryContactPhone(v); setStepError(null); }}
-                            placeholder="+91 98765 43210" keyboardType="phone-pad"
-                            icon={<Phone size={16} color={C.w25} />} />
-                        <StepInput label="Contact Email" value={primaryContactEmail}
-                            onChangeText={(v) => { setPrimaryContactEmail(v); setStepError(null); }}
-                            placeholder="contact@org.com" keyboardType="email-address" autoCapitalize="none"
-                            icon={<Mail size={16} color={C.w25} />} />
-                    </View>
-                );
 
             case 'billing':
                 return (
@@ -661,14 +744,55 @@ export default function RegisterScreen() {
 
                 {/* ═══ ANIMATED CONTENT ═══ */}
                 <Animated.View style={{
-                    flex: 1, justifyContent: 'center', paddingHorizontal: 24,
+                    flex: 1, paddingHorizontal: 24,
                     opacity: fadeAnim, transform: [{ translateX: slideX }],
                 }}>
-                    {renderStep()}
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 20 }}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {renderStep()}
+                    </ScrollView>
                 </Animated.View>
 
                 {/* ═══ CTA AREA ═══ */}
-                <View style={{ paddingHorizontal: 24, paddingBottom: Platform.OS === 'android' ? 24 : 16, marginBottom: 64 }}>
+                <View style={{ paddingHorizontal: 24, paddingBottom: Platform.OS === 'android' ? 24 : 0, marginBottom: 44 }}>
+
+                    {/* Marketing consent — shown only on the final step, above submit */}
+                    {isLastDataStep && (
+                        <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => setMarketingConsent(v => !v)}
+                            style={{
+                                flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+                                marginBottom: 16,
+                                paddingVertical: 12, paddingHorizontal: 12,
+                                borderRadius: 12, borderWidth: 1,
+                                borderColor: marketingConsent ? C.activeB : C.w08,
+                                backgroundColor: marketingConsent ? C.activeBg : C.w03,
+                            }}
+                        >
+                            {/* Checkbox */}
+                            <View style={{
+                                width: 18, height: 18, borderRadius: 6, marginTop: 1,
+                                borderWidth: 1.5,
+                                borderColor: marketingConsent ? C.primary : C.w30,
+                                backgroundColor: marketingConsent ? C.primary : 'transparent',
+                                alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                            }}>
+                                {marketingConsent && <Check size={12} color="#fff" strokeWidth={3} />}
+                            </View>
+
+                            {/* Text block */}
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 12, color: C.w60, lineHeight: 17 }}>
+                                    I agree to receive updates, opportunities, and announcements from NETSA.
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    )}
+
                     {stepError && (
                         <View style={{
                             backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1,

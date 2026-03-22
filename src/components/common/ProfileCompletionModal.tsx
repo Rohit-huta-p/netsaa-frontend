@@ -22,6 +22,7 @@ interface ProfileCompletionModalProps {
     missing: string[];
     onClose: () => void;
     onGoToProfile: () => void;
+    role?: 'artist' | 'organizer';
 }
 
 /* ── circular progress constants ── */
@@ -47,7 +48,9 @@ export const ProfileCompletionModal: React.FC<ProfileCompletionModalProps> = ({
     missing,
     onClose,
     onGoToProfile,
+    role = 'artist',
 }) => {
+    const isOrganizer = role === 'organizer';
     if (!visible) return null;
 
     const clamped = Math.min(100, Math.max(0, score));
@@ -124,10 +127,12 @@ export const ProfileCompletionModal: React.FC<ProfileCompletionModalProps> = ({
                         {/* Title */}
                         <Text className="text-white text-sm font-black tracking-tight text-center mb-1">
                             <span>Complete Your Profile</span>
-                            <span className="block text-[10px] text-gray-400">to increase your chances of getting hired</span>
+                            <span className="block text-[10px] text-gray-400">
+                                {isOrganizer ? 'to start posting gigs & events' : 'to increase your chances of getting hired'}
+                            </span>
                         </Text>
                         <Text className="text-zinc-500 text-[11px] mb-4 text-center">
-                            {missing.length} item{missing.length !== 1 ? "s" : ""} needed to apply for gigs
+                            {missing.length} item{missing.length !== 1 ? "s" : ""} {isOrganizer ? 'needed to post gigs' : 'needed to apply for gigs'}
                         </Text>
 
                         {/* Missing items — vertical list */}
@@ -210,11 +215,12 @@ export const ProfileCompletionModal: React.FC<ProfileCompletionModalProps> = ({
 
                         {/* Title + subtitle */}
                         <Text className="text-white text-2xl font-black text-center mb-2 tracking-tight">
-                            Complete Your Profile to Apply
+                            {isOrganizer ? 'Complete Your Profile to Post' : 'Complete Your Profile to Apply'}
                         </Text>
                         <Text className="text-zinc-400 text-center text-sm leading-6 px-2 font-medium mb-6">
-                            Organizers prefer complete profiles. Finish the missing sections below to
-                            unlock applications.
+                            {isOrganizer
+                                ? 'Artists prefer working with verified organizers. Finish the missing sections below to start posting.'
+                                : 'Organizers prefer complete profiles. Finish the missing sections below to unlock applications.'}
                         </Text>
 
                         {/* Score ring */}

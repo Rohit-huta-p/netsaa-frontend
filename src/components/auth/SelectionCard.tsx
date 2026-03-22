@@ -2,7 +2,8 @@
 // Reusable selection cards for registration steps
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { REG_COLORS as C } from '@/constants/registration';
+import { Colors } from '@/constants/Colors';
+const C = Colors.auth;
 
 /* ═══════════════════════════════════════════ */
 /*  LargeRoleCard — icon + title + subtitle   */

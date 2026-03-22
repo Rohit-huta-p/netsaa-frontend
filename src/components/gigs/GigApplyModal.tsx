@@ -122,7 +122,8 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, 
                                     textAlignVertical="top"
                                     placeholder="Why are you a good fit for this gig?"
                                     placeholderTextColor="#9CA3AF" // gray-400
-                                    className="bg-white/5 border border-white/10 rounded-xl p-4 text-white font-inter h-40"
+                                    className="bg-white/5 border border-white/10 rounded-xl p-4 text-white font-inter h-40 outline-none"
+                                    style={{ outlineStyle: 'none' } as any}
                                     value={coverNote}
                                     onChangeText={setCoverNote}
                                 />
@@ -140,6 +141,7 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, 
                                                 placeholder="https://..."
                                                 placeholderTextColor="#9CA3AF"
                                                 className="flex-1 ml-3 text-white font-inter outline-none"
+                                                style={{ outlineStyle: 'none' } as any}
                                                 value={link}
                                                 onChangeText={(text) => handleLinkChange(text, index)}
                                                 autoCapitalize="none"

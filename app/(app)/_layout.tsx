@@ -2,46 +2,75 @@ import { Stack, useRouter } from "expo-router";
 import { View } from "react-native";
 import useAuthStore from "@/stores/authStore";
 import ProfileCompletionModal from "@/components/common/ProfileCompletionModal";
-import { computeOverallScore, computeMissing } from "@/components/profile/ProfileStrengthWidget";
+import AccountDeletionScheduledModal from "@/components/settings/AccountDeletionScheduledModal";
+import { computeOverallScore, computeMissing, computeOrganizerScore, computeOrganizerMissing } from "@/components/profile/ProfileStrengthWidget";
 import { useState, useEffect } from "react";
 
 /**
- * App Layout - All routes under (app) are now publicly accessible.
- * Protected actions (apply, save, connect) are guarded at the action level using requireAuth().
+ * App Layout - All routes under (app) require authentication.
+ * Unauthenticated users are redirected to "/" (landing page).
  */
 export default function AppLayout() {
-    const { isHydrated, isAuthLoading, user } = useAuthStore();
+    const { isHydrated, isAuthLoading, user, accessToken } = useAuthStore();
     const router = useRouter();
     const [showProfileModal, setShowProfileModal] = useState(false);
+    const [showDeletionModal, setShowDeletionModal] = useState(false);
 
     const isArtist = user?.roles?.includes("artist") || user?.role === "artist";
-    const score = isArtist && user ? computeOverallScore(user) : 100;
-    const missing = isArtist && user ? computeMissing(user) : [];
+    const isOrganizer = user?.roles?.includes("organizer") || user?.role === "organizer";
+
+    const score = user
+        ? isArtist ? computeOverallScore(user)
+            : isOrganizer ? computeOrganizerScore(user)
+                : 100 : 100;
+    const missing = user
+        ? isArtist ? computeMissing(user)
+            : isOrganizer ? computeOrganizerMissing(user)
+                : [] : [];
+
+    const userRole: 'artist' | 'organizer' = isOrganizer ? 'organizer' : 'artist';
+
+    // Redirect unauthenticated users to login page
+    useEffect(() => {
+        if (isHydrated && !isAuthLoading && !accessToken) {
+            router.replace('/(auth)/login');
+        }
+    }, [isHydrated, isAuthLoading, accessToken]);
 
     useEffect(() => {
-        if (isHydrated && !isAuthLoading && isArtist && missing.length > 0) {
-            setShowProfileModal(true);
+        if (isHydrated && !isAuthLoading && user) {
+            // Check for deletion scheduling first
+            if (user.accountStatus === 'scheduled_for_deletion') {
+                setShowDeletionModal(true);
+            } else if ((isArtist || isOrganizer) && missing.length > 0) {
+                // Otherwise check profile completion
+                setShowProfileModal(true);
+            }
         }
-    }, [isHydrated, isAuthLoading]);
+    }, [isHydrated, isAuthLoading, user?.accountStatus]);
 
     // Wait for auth state to hydrate before rendering
     if (!isHydrated || isAuthLoading) {
         return null; // Or a loading spinner
     }
 
-    // No auth redirect - pages are publicly accessible
-    // Protected actions use requireAuth() utility
+    // If not authenticated, don't render protected routes (redirect will fire)
+    if (!accessToken) {
+        return null;
+    }
+
     return (
         <View className="flex-1">
             <Stack screenOptions={{ headerShown: false }} />
 
-            {/* Profile completion modal — artists with incomplete profiles */}
+            {/* Profile completion modal — artists/organizers with incomplete profiles */}
             {showProfileModal && (
                 <ProfileCompletionModal
                     index={true}
                     visible={true}
                     score={score}
                     missing={missing}
+                    role={userRole}
                     onClose={() => { setShowProfileModal(false); }}
                     onGoToProfile={() => {
                         setShowProfileModal(false);
@@ -49,7 +78,14 @@ export default function AppLayout() {
                     }}
                 />
             )}
+
+            {/* Deletion scheduled warning modal */}
+            {showDeletionModal && (
+                <AccountDeletionScheduledModal
+                    visible={showDeletionModal}
+                    onClose={() => setShowDeletionModal(false)}
+                />
+            )}
         </View>
     );
 }
-

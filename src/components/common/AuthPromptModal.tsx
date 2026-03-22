@@ -60,9 +60,7 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({ visible, onClo
                                     <Lock size={32} color="white" />
                                 </LinearGradient>
                             </View>
-                            <View className="absolute -top-1 -right-2 bg-yellow-500/20 p-2 rounded-full border border-yellow-500/30">
-                                <Sparkles size={14} color="#EAB308" fill="#EAB308" />
-                            </View>
+
                         </View>
 
                         {/* Text Content */}

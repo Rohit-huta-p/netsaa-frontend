@@ -21,6 +21,12 @@ interface OrganizerTrustCardProps {
         gigsHosted?: number;
         verificationStatus?: string;
         isVerified?: boolean;
+        testimonials?: {
+            text: string;
+            author: string;
+            role?: string;
+            rating?: number;
+        }[];
     };
     isOrganizer: boolean;
 }
@@ -67,12 +73,16 @@ export const OrganizerTrustCard: React.FC<OrganizerTrustCardProps> = ({
     const avgRating = organizer.rating ?? 0;
     const isVerified = organizer.isVerified || organizer.verificationStatus === 'approved';
 
-    // Mock testimonial (in production, fetch from API)
-    const testimonial = {
-        text: "Great organizer! Professional setup and always pays on time.",
-        author: "Verified Artist",
-        rating: 5,
-    };
+    // Get testimonials from organizer object or fallback to a default mock if empty for visual parity
+    const testimonials = organizer.testimonials && organizer.testimonials.length > 0 
+        ? organizer.testimonials 
+        : [
+            {
+                text: "Great organizer! Professional setup and always pays on time.",
+                author: "Verified Artist",
+                rating: 5,
+            }
+        ];
 
     return (
         <View className="mb-6">
@@ -114,34 +124,39 @@ export const OrganizerTrustCard: React.FC<OrganizerTrustCardProps> = ({
                     </View>
                 </View>
 
-                {/* Testimonial */}
-                <View className="p-4">
-                    <View className="flex-row items-start gap-3">
-                        <View className="w-8 h-8 rounded-lg bg-blue-500/10 items-center justify-center mt-1">
-                            <Quote size={14} color="#3B82F6" />
-                        </View>
-                        <View className="flex-1">
-                            <Text className="text-zinc-300 text-sm leading-relaxed mb-2" numberOfLines={2}>
-                                "{testimonial.text}"
-                            </Text>
-                            <View className="flex-row items-center gap-2">
-                                <View className="flex-row">
-                                    {[1, 2, 3, 4, 5].map((i) => (
-                                        <Star
-                                            key={i}
-                                            size={10}
-                                            color={i <= testimonial.rating ? "#EAB308" : "#3F3F46"}
-                                            fill={i <= testimonial.rating ? "#EAB308" : "none"}
-                                        />
-                                    ))}
-                                </View>
-                                <Text className="text-zinc-500 text-[10px] font-medium">
-                                    — {testimonial.author}
+                {/* Testimonials */}
+                {testimonials.slice(0, 2).map((testimonial, idx) => (
+                    <View key={idx} className={`p-4 ${idx > 0 ? 'border-t border-white/5' : ''}`}>
+                        <View className="flex-row items-start gap-3">
+                            <View className="w-8 h-8 rounded-lg bg-blue-500/10 items-center justify-center mt-1">
+                                <Quote size={14} color="#3B82F6" />
+                            </View>
+                            <View className="flex-1">
+                                <Text className="text-zinc-300 text-sm leading-relaxed mb-2" numberOfLines={2}>
+                                    "{testimonial.text}"
                                 </Text>
+                                <View className="flex-row items-center gap-2">
+                                    <View className="flex-row">
+                                        {[1, 2, 3, 4, 5].map((i) => {
+                                            const rating = testimonial.rating || 5;
+                                            return (
+                                                <Star
+                                                    key={i}
+                                                    size={10}
+                                                    color={i <= rating ? "#EAB308" : "#3F3F46"}
+                                                    fill={i <= rating ? "#EAB308" : "none"}
+                                                />
+                                            );
+                                        })}
+                                    </View>
+                                    <Text className="text-zinc-500 text-[10px] font-medium">
+                                        — {testimonial.author}{testimonial.role ? `, ${testimonial.role}` : ''}
+                                    </Text>
+                                </View>
                             </View>
                         </View>
                     </View>
-                </View>
+                ))}
 
                 {/* View Profile CTA */}
                 <View className="flex-row items-center justify-between px-4 py-3 bg-white/5">

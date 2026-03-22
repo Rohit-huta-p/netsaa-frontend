@@ -106,7 +106,7 @@ export const GigCard: React.FC<GigCardProps> = ({ gig, onPress, isSelected }) =>
                         alignItems: 'center',
                     }}>
                         <Text style={{
-                            fontSize: 12,
+                            fontSize: 8,
                             fontWeight: '500',
                             color: '#8B5CF6',
                             textTransform: 'uppercase',
@@ -126,7 +126,7 @@ export const GigCard: React.FC<GigCardProps> = ({ gig, onPress, isSelected }) =>
                         alignItems: 'center',
                     }}>
                         <Text style={{
-                            fontSize: 12,
+                            fontSize: 8,
                             fontWeight: '500',
                             color: 'rgba(255, 255, 255, 0.7)',
                             textTransform: 'uppercase',
@@ -155,7 +155,7 @@ export const GigCard: React.FC<GigCardProps> = ({ gig, onPress, isSelected }) =>
             {/* ===== TITLE ===== */}
             <Text
                 style={{
-                    fontSize: 24,
+                    fontSize: 18,
                     fontWeight: '700',
                     letterSpacing: -0.5,
                     lineHeight: 28,

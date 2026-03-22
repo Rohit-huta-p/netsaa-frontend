@@ -157,7 +157,7 @@ export default function DiscussionTab({ id, type }: DiscussionTabProps) {
             ) : (
                 <View className="space-y-4 mb-6">
                     {messages.length === 0 ? (
-                        <Text className="text-netsa-text-muted italic text-center py-4">
+                        <Text className="text-gray-500 italic text-center py-4">
                             No comments yet. Be the first!
                         </Text>
                     ) : (
@@ -199,6 +199,7 @@ export default function DiscussionTab({ id, type }: DiscussionTabProps) {
                     value={inputText}
                     onChangeText={setInputText}
                     multiline
+                    style={{ outlineStyle: 'none' } as any}
                 />
                 <TouchableOpacity
                     onPress={handleSend}

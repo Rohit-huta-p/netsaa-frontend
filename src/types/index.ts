@@ -1,9 +1,14 @@
 // src/types/index.ts
 export type ExperienceEntry = {
-  title: string;
+  title?: string;
   role?: string;
+  projectName?: string;
+  organization?: string;
   venue?: string;
+  location?: string;
+  description?: string;
   date?: string;
+  mediaLink?: string;
 };
 
 /* ── Settings types ── */
@@ -51,12 +56,14 @@ export type User = {
   email: string;
   role?: string;
   roles?: string[];
+  accountStatus?: 'active' | 'deactivated' | 'scheduled_for_deletion';
   phoneNumber?: string;
   profileImageUrl?: string;
   // Registration personalization
   intent?: 'find_gigs' | 'hire_artists' | 'learn_workshops' | 'host_events';
   experienceLevel?: 'beginner' | 'intermediate' | 'professional';
   // Profile Fields
+  headline?: string;
   bio?: string;
   location?: string;
   skills?: string[];
@@ -68,14 +75,25 @@ export type User = {
   gender?: string;
   height?: string;
   skinTone?: string;
+  skinToneHex?: string;
   hasPhotos?: boolean;
   galleryUrls?: string[];
   videoUrls?: string[];
+  // Organizer-specific fields
+  organizationName?: string;
+  organizationWebsite?: string;
+  organizerTypeCategory?: string;
+  primaryContactName?: string;
+  primaryContactPhone?: string;
+  primaryContactEmail?: string;
   rating?: number;
   connections?: number;
   events?: number;
   // Settings
   settings?: IUserSettings;
+  // Attached sub-documents from auth login
+  organizerDetails?: any;
+  artistDetails?: any;
 };
 
 export type AuthResponse = {
@@ -83,5 +101,17 @@ export type AuthResponse = {
   refreshToken?: string | null;
   user?: User;
   expiresAt?: number | null; // epoch ms
+};
+
+/** Envelope returned by POST /auth/verify-otp */
+export type VerifyOtpResponse = {
+  meta: { status: number; message: string };
+  data: {
+    userExists: boolean;
+    token?: string;
+    user?: User;
+    phoneNumber?: string;
+  };
+  errors: any[];
 };
 

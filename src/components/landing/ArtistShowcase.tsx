@@ -105,7 +105,7 @@ const MarqueeRow = ({ reverse = false, isMobile }: { reverse?: boolean; isMobile
     );
 };
 
-export default function ArtistShowcase({ scrollY }: { scrollY: any }) {
+export default function ArtistShowcase({ scrollY, sectionIndex }: { scrollY: any; sectionIndex?: number }) {
     const router = useRouter();
     const { width } = useWindowDimensions();
     const isMobile = width < 768;
@@ -114,7 +114,7 @@ export default function ArtistShowcase({ scrollY }: { scrollY: any }) {
     return (
         <View
             style={{
-                paddingVertical: isMobile ? 48 : isTablet ? 72 : 96,
+                paddingVertical: isMobile ? 80 : isTablet ? 112 : 144,
                 backgroundColor: '#000',
                 borderTopWidth: 1,
                 borderBottomWidth: 1,
@@ -125,8 +125,8 @@ export default function ArtistShowcase({ scrollY }: { scrollY: any }) {
             {/* Header */}
             <View
                 style={{
-                    paddingHorizontal: isMobile ? 16 : 24,
-                    marginBottom: isMobile ? 32 : 48,
+                    paddingHorizontal: isMobile ? 20 : 24,
+                    marginBottom: isMobile ? 48 : 72,
                     flexDirection: isMobile ? 'column' : 'row',
                     alignItems: isMobile ? 'flex-start' : 'center',
                     justifyContent: 'space-between',

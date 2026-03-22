@@ -517,6 +517,7 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                         placeholderTextColor="#6b7280"
                         className="flex-1 bg-white/10 text-white rounded-full px-4 py-3 max-h-24 outline-none"
                         multiline
+                        style={{ outlineStyle: 'none' } as any}
                     />
                     <TouchableOpacity
                         onPress={handleSend}

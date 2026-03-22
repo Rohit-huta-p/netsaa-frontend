@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { Ticket, Users } from 'lucide-react-native';
+import { Ticket, Users, MapPin, Calendar } from 'lucide-react-native';
+import { IEvent } from '@/types/event';
 
 interface TicketSelectionStepProps {
     ticketTypes: any[];
@@ -11,6 +12,8 @@ interface TicketSelectionStepProps {
     onNext: () => void;
     loading: boolean;
     ticketPrice?: number;
+    isFreeEvent?: boolean;
+    event?: IEvent;
 }
 
 export const TicketSelectionStep: React.FC<TicketSelectionStepProps> = ({
@@ -21,7 +24,9 @@ export const TicketSelectionStep: React.FC<TicketSelectionStepProps> = ({
     onQuantityChange,
     onNext,
     loading,
-    ticketPrice
+    ticketPrice,
+    isFreeEvent,
+    event
 }) => {
     // Auto-select if only one ticket type
     React.useEffect(() => {
@@ -36,30 +41,39 @@ export const TicketSelectionStep: React.FC<TicketSelectionStepProps> = ({
             ? { price: ticketPrice, capacity: 'Open', name: 'General Entry' }
             : null;
 
-    // Simplified UI for Single Ticket Type
-    if (singleTicket) {
+    // FREE EVENT — simple confirmation screen
+    if (isFreeEvent) {
         return (
-            <View className="flex-1">
-                <Text className="text-white text-xl font-bold mb-6">Complete Registration</Text>
-
-                <View className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
-                    <View className="flex-row justify-between items-center mb-8">
-                        <View>
-                            <Text className="text-zinc-400 mb-1">Price per person</Text>
-                            <Text className="text-white text-2xl font-bold">
-                                {singleTicket.price === 0 ? 'Free' : `₹${singleTicket.price}`}
+            <View style={{ flex: 1 }}>
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
+                    {/* Event Summary Card */}
+                    {event && (
+                        <View className="bg-zinc-900/50 p-5 rounded-2xl border border-zinc-800 mb-6">
+                            <Text className="text-white text-lg font-bold mb-3" numberOfLines={1}>
+                                {event.title}
                             </Text>
-                        </View>
-                        {singleTicket.capacity !== 'Open' && (
-                            <View className="items-end">
-                                <Text className="text-zinc-400 mb-1">Seats Available</Text>
-                                <Text className="text-white font-bold">{singleTicket.capacity}</Text>
+                            <View className="gap-2">
+                                <View className="flex-row items-center gap-2">
+                                    <Calendar size={14} color="#A1A1AA" />
+                                    <Text className="text-zinc-400 text-sm">
+                                        {event.schedule?.startDate
+                                            ? new Date(event.schedule.startDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                                            : 'TBD'}
+                                    </Text>
+                                </View>
+                                <View className="flex-row items-center gap-2">
+                                    <MapPin size={14} color="#A1A1AA" />
+                                    <Text className="text-zinc-400 text-sm" numberOfLines={1}>
+                                        {event.location?.venueName || event.location?.city || 'TBD'}
+                                    </Text>
+                                </View>
                             </View>
-                        )}
-                    </View>
+                        </View>
+                    )}
 
-                    <View>
-                        <Text className="text-zinc-400 mb-4">Select Quantity</Text>
+                    {/* Quantity Selector */}
+                    <View className="bg-zinc-900/50 p-5 rounded-2xl border border-zinc-800">
+                        <Text className="text-zinc-400 mb-4">How many seats?</Text>
                         <View className="flex-row items-center justify-between bg-zinc-800 p-2 rounded-xl">
                             <TouchableOpacity
                                 onPress={() => onQuantityChange(Math.max(1, quantity - 1))}
@@ -76,23 +90,17 @@ export const TicketSelectionStep: React.FC<TicketSelectionStepProps> = ({
                             </TouchableOpacity>
                         </View>
                     </View>
+                </ScrollView>
 
-                    <View className="mt-8 pt-6 border-t border-white/10 flex-row justify-between items-center">
-                        <Text className="text-zinc-400">Total Amount</Text>
-                        <Text className="text-netsa-accent-purple text-3xl font-bold">
-                            {singleTicket.price === 0 ? 'Free' : `₹${singleTicket.price * quantity}`}
-                        </Text>
-                    </View>
-                </View>
-
-                <View className="mt-auto pt-4 border-t border-white/10">
+                {/* CTA — always pinned at bottom */}
+                <View style={{ paddingTop: 16 }}>
                     <TouchableOpacity
                         onPress={onNext}
                         disabled={loading}
-                        className={`w-full py-4 rounded-xl items-center justify-center ${loading ? 'bg-zinc-800' : 'bg-netsa-accent-purple'}`}
+                        className={`w-full py-4 rounded-xl items-center justify-center ${loading ? 'bg-zinc-800' : 'bg-white'}`}
                     >
-                        <Text className="font-bold text-lg text-white">
-                            {loading ? 'Processing...' : 'Continue'}
+                        <Text className={`font-bold text-lg ${loading ? 'text-zinc-500' : 'text-black'}`}>
+                            {loading ? 'Processing...' : `Register Free · ${quantity} ${quantity === 1 ? 'seat' : 'seats'}`}
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -100,11 +108,77 @@ export const TicketSelectionStep: React.FC<TicketSelectionStepProps> = ({
         );
     }
 
+    // PAID EVENT — Single ticket type
+    if (singleTicket) {
+        return (
+            <View style={{ flex: 1 }}>
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
+                    <View className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
+                        <View className="flex-row justify-between items-center mb-8">
+                            <View>
+                                <Text className="text-zinc-400 mb-1">Price per person</Text>
+                                <Text className="text-white text-2xl font-bold">
+                                    ₹{singleTicket.price}
+                                </Text>
+                            </View>
+                            {singleTicket.capacity !== 'Open' && (
+                                <View className="items-end">
+                                    <Text className="text-zinc-400 mb-1">Seats Available</Text>
+                                    <Text className="text-white font-bold">{singleTicket.capacity}</Text>
+                                </View>
+                            )}
+                        </View>
+
+                        <View>
+                            <Text className="text-zinc-400 mb-4">Select Quantity</Text>
+                            <View className="flex-row items-center justify-between bg-zinc-800 p-2 rounded-xl">
+                                <TouchableOpacity
+                                    onPress={() => onQuantityChange(Math.max(1, quantity - 1))}
+                                    className="w-12 h-12 rounded-lg bg-zinc-700 items-center justify-center active:bg-zinc-600"
+                                >
+                                    <Text className="text-white text-2xl font-medium">-</Text>
+                                </TouchableOpacity>
+                                <Text className="text-white text-3xl font-bold">{quantity}</Text>
+                                <TouchableOpacity
+                                    onPress={() => onQuantityChange(Math.min(10, quantity + 1))}
+                                    className="w-12 h-12 rounded-lg bg-zinc-700 items-center justify-center active:bg-zinc-600"
+                                >
+                                    <Text className="text-white text-2xl font-medium">+</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View className="mt-8 pt-6 border-t border-white/10 flex-row justify-between items-center">
+                            <Text className="text-zinc-400">Total Amount</Text>
+                            <Text className="text-netsa-accent-purple text-3xl font-bold">
+                                ₹{singleTicket.price * quantity}
+                            </Text>
+                        </View>
+                    </View>
+                </ScrollView>
+
+                {/* CTA — always pinned at bottom */}
+                <View style={{ paddingTop: 16 }}>
+                    <TouchableOpacity
+                        onPress={onNext}
+                        disabled={loading}
+                        className={`w-full py-4 rounded-xl items-center justify-center ${loading ? 'bg-zinc-800' : 'bg-netsa-accent-purple'}`}
+                    >
+                        <Text className="font-bold text-lg text-white">
+                            {loading ? 'Reserving...' : 'Continue → Order Summary'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }
+
+    // PAID EVENT — Multiple ticket types
     return (
-        <View className="flex-1">
+        <View style={{ flex: 1 }}>
             <Text className="text-white text-xl font-bold mb-4">Select Ticket</Text>
 
-            <ScrollView className="flex-1">
+            <ScrollView style={{ flex: 1 }}>
                 <View className="gap-3">
                     {ticketTypes.map((ticket) => {
                         const isSelected = selectedId === ticket._id;
@@ -120,7 +194,7 @@ export const TicketSelectionStep: React.FC<TicketSelectionStepProps> = ({
                                 <View className="flex-row justify-between items-center mb-1">
                                     <Text className="text-white font-bold text-lg">{ticket.name}</Text>
                                     <Text className="text-netsa-accent-purple font-bold">
-                                        {ticket.price === 0 ? 'Free' : `₹${ticket.price}`}
+                                        ₹{ticket.price}
                                     </Text>
                                 </View>
                                 <View className="flex-row items-center gap-4">
@@ -156,14 +230,15 @@ export const TicketSelectionStep: React.FC<TicketSelectionStepProps> = ({
                 )}
             </ScrollView>
 
-            <View className="mt-4 pt-4 border-t border-white/10">
+            {/* CTA — always pinned at bottom */}
+            <View style={{ paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
                 <TouchableOpacity
                     onPress={onNext}
                     disabled={!selectedId || loading}
                     className={`w-full py-4 rounded-xl items-center justify-center ${!selectedId || loading ? 'bg-zinc-800' : 'bg-netsa-accent-purple'}`}
                 >
                     <Text className={`font-bold text-lg ${!selectedId ? 'text-zinc-500' : 'text-white'}`}>
-                        {loading ? 'Reserving...' : 'Continue'}
+                        {loading ? 'Reserving...' : 'Continue → Order Summary'}
                     </Text>
                 </TouchableOpacity>
             </View>

@@ -200,7 +200,8 @@ const FloatingInput = ({
                                             style={{
                                                 height: 48,
                                                 opacity: shouldFloat ? 1 : 0,
-                                            }}
+                                                outlineStyle: 'none'
+                                            } as any}
                                             selectionColor="#F472B6"
                                             cursorColor="#F472B6"
                                         />

@@ -57,6 +57,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                                 placeholderTextColor="#71717a"
                                 value={address}
                                 onChangeText={setAddress}
+                                style={{ outlineStyle: 'none' } as any}
                             />
                         </View>
                     </View>

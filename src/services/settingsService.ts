@@ -37,20 +37,20 @@ API.interceptors.response.use(
  * State management is handled exclusively by React Query (useSettings hook).
  */
 const settingsService = {
-    /** GET /api/users/me/settings */
+    /** GET /users/me/settings */
     getSettings: async (): Promise<IUserSettings> => {
-        const res = await API.get('/api/users/me/settings');
+        const res = await API.get('/users/me/settings');
         return res.data.data.settings;
     },
 
-    /** PATCH /api/users/me/settings — partial update */
+    /** PATCH /users/me/settings — partial update */
     updateSettings: async (data: Partial<{
         privacy: Partial<IUserSettings['privacy']>;
         notifications: Partial<IUserSettings['notifications']>;
         messaging: Partial<IUserSettings['messaging']>;
         account: Partial<IUserSettings['account']>;
     }>): Promise<IUserSettings> => {
-        const res = await API.patch('/api/users/me/settings', data);
+        const res = await API.patch('/users/me/settings', data);
         return res.data.data.settings;
     },
 };

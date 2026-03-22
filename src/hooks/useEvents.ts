@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import eventService from '../services/eventService';
 import { searchService } from '../services/searchService';
 import { CreateEventDTO, IEvent } from '../types/event';
@@ -131,10 +131,16 @@ export const useRegisterForEvent = () => {
     });
 };
 
-export const useEventRegistrations = (id: string) => {
-    return useQuery({
+export const useEventRegistrations = (id: string, limit: number = 20) => {
+    return useInfiniteQuery({
         queryKey: [...eventKeys.detail(id), 'registrations'],
-        queryFn: () => eventService.getEventRegistrations(id).then(res => res.data),
+        queryFn: ({ pageParam = 1 }) => eventService.getEventRegistrations(id, { page: pageParam, limit }),
+        getNextPageParam: (lastPage) => {
+            if (!lastPage.meta?.pagination) return undefined;
+            const { page, pages } = lastPage.meta.pagination;
+            return page < pages ? page + 1 : undefined;
+        },
+        initialPageParam: 1,
         enabled: !!id,
     });
 };

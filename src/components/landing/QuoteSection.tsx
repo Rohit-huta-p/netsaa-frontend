@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const isWeb = Platform.OS === 'web';
 
-export default function QuoteSection() {
+export default function QuoteSection({ scrollY, sectionIndex }: { scrollY?: any; sectionIndex?: number }) {
     const { width } = useWindowDimensions();
     const isMobile = width < 768;
     const isTablet = width >= 768 && width < 1024;
@@ -12,7 +12,7 @@ export default function QuoteSection() {
     return (
         <View
             style={{
-                paddingVertical: isMobile ? 96 : isTablet ? 128 : 192,
+                paddingVertical: isMobile ? 128 : isTablet ? 192 : 240,
                 backgroundColor: '#fff',
                 position: 'relative',
             }}
@@ -25,7 +25,7 @@ export default function QuoteSection() {
                     top: 0,
                     left: 0,
                     right: 0,
-                    height: isMobile ? 64 : 128,
+                    height: isMobile ? 96 : 192,
                 }}
             />
 
@@ -44,7 +44,7 @@ export default function QuoteSection() {
                         textAlign: 'center',
                         lineHeight: isMobile ? 44 : isTablet ? 72 : isWeb ? 140 : 52,
                         letterSpacing: isMobile ? -1 : -3,
-                        marginBottom: isMobile ? 24 : 32,
+                        marginBottom: isMobile ? 40 : 56,
                     }}
                 >
                     "PERFORMING ART IS{'\n'}NOT JUST A HOBBY."
@@ -72,7 +72,7 @@ export default function QuoteSection() {
                     bottom: 0,
                     left: 0,
                     right: 0,
-                    height: isMobile ? 64 : 128,
+                    height: isMobile ? 96 : 192,
                 }}
             />
         </View>

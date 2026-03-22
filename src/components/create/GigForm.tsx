@@ -1,5 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Animated, Dimensions, Platform, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Animated, Dimensions, Platform, ScrollView, useWindowDimensions } from 'react-native';
+import { Typography, getLineHeight } from '@/constants/Typography';
+const T = Typography;
 import {
     ChevronRight,
     ChevronLeft,
@@ -19,11 +21,8 @@ import {
 } from 'lucide-react-native';
 import gigService from '@/services/gigService';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StepIndicator } from '@/components/common/StepIndicator';
 import { InputGroup } from '@/components/ui/InputGroup';
-import { SelectInput } from '@/components/ui/SelectInput';
 import { TextArea } from '@/components/ui/TextArea';
-import { Chip } from '@/components/ui/Chip';
 import { TagInput } from '@/components/ui/TagInput';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -122,14 +121,16 @@ const StyledTextInput = ({ value, onChangeText, placeholder, icon: Icon, error, 
             </View>
         )}
         <TextInput
-            className={`w-full bg-zinc-900/50 border ${error ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500 focus:border-[#FF6B35] outline-none`}
+            type={type}
+            className={`w-full bg-zinc-900/50  border ${error ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500 outline-none`}
+            style={{ outlineStyle: 'none', fontSize: T.size.xs, lineHeight: getLineHeight('body') } as any}
             placeholder={placeholder}
             placeholderTextColor="rgba(255, 255, 255, 0.3)"
             value={value}
             onChangeText={onChangeText}
             {...props}
         />
-        {error && <Text className="text-red-500 text-xs mt-1 ml-1">{error}</Text>}
+        {error && <Text style={{ color: '#ef4444', fontSize: T.size.xs, marginTop: 4, marginLeft: 4 }}>{error}</Text>}
     </View>
 );
 
@@ -144,6 +145,10 @@ export interface GigFormHandle {
 }
 
 export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublish, onCancel, gigId }, ref) => {
+    const { width: windowWidth } = useWindowDimensions();
+    const [containerWidth, setContainerWidth] = useState(windowWidth - 120);
+    const sliderWidth = Math.max(containerWidth - 40, 100); // 40px for inner padding within the slider container
+
     const createGigMutation = useCreateGig();
     const updateGigMutation = useUpdateGig();
     const { data: existingGig, isLoading: isGigLoading } = useGig(gigId || '');
@@ -313,13 +318,37 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
     const [step, setStep] = useState(0);
     const [stepError, setStepError] = useState<string | null>(null);
     const scrollViewRef = useRef<ScrollView>(null);
+    const stepScrollRef = useRef<ScrollView>(null);
+    const [isScrollEnabled, setIsScrollEnabled] = useState(true);
+
+    // Animated scale for each step dot
+    const dotScaleAnims = useRef<Animated.Value[]>(
+        Array.from({ length: 10 }, (_, i) => new Animated.Value(i === 0 ? 1.4 : 1))
+    ).current;
 
     /* ── Animation ── */
     const slideX = useRef(new Animated.Value(0)).current;
     const fadeAnim = useRef(new Animated.Value(1)).current;
+    const headerScrollY = useRef(new Animated.Value(0)).current;
+
+    const STEP_ITEM_WIDTH = 84; // px — roughly 4.5 steps visible on a 375px screen
 
     const animateToStep = useCallback((newStep: number) => {
         const dir = newStep > step ? 1 : -1;
+
+        // Animate dot scales: shrink old, grow new
+        Animated.parallel([
+            Animated.spring(dotScaleAnims[step], { toValue: 1, stiffness: 300, damping: 20, useNativeDriver: true }),
+            Animated.spring(dotScaleAnims[newStep], { toValue: 1.45, stiffness: 300, damping: 20, useNativeDriver: true }),
+        ]).start();
+
+        // Auto-scroll step indicator so active step is always well visible
+        const scrollTarget = Math.max(0, newStep * STEP_ITEM_WIDTH - STEP_ITEM_WIDTH * 1.5);
+        stepScrollRef.current?.scrollTo({ x: scrollTarget, animated: true });
+
+        // Reset header collapse on step change
+        headerScrollY.setValue(0);
+
         Animated.parallel([
             Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
             Animated.timing(slideX, { toValue: dir * -180, duration: 120, useNativeDriver: true }),
@@ -331,7 +360,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                 Animated.spring(slideX, { toValue: 0, stiffness: 300, damping: 30, mass: 1, useNativeDriver: true }),
             ]).start();
         });
-    }, [step, fadeAnim, slideX]);
+    }, [step, fadeAnim, slideX, dotScaleAnims, headerScrollY]);
 
     const steps = [
         { title: "Gig Identity", subtitle: "What is this gig?" },
@@ -598,7 +627,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                                 : 'bg-zinc-900/50 border-white/10'
                                 }`}
                         >
-                            <Text className={`text-center font-bold capitalize ${formData.gigType === type ? 'text-[#FF6B35]' : 'text-zinc-400'
+                            <Text className={`text-center text-xs  capitalize ${formData.gigType === type ? 'text-[#FF6B35]' : 'text-zinc-400'
                                 }`}>
                                 {type.replace('-', ' ')}
                             </Text>
@@ -631,7 +660,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
     /*                                 STEP 1: Talent                             */
     /* -------------------------------------------------------------------------- */
     const renderStep1 = () => (
-        <ScrollView className="gap-6">
+        <View className="gap-6">
             <InputGroup label="Artist Type" subtitle="Primary performer role">
                 <SearchableSelect
                     options={ARTIST_TYPES}
@@ -664,7 +693,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                                 : 'bg-zinc-900/50 border-white/10'
                                 }`}
                         >
-                            <Text className={`text-center font-bold capitalize ${formData.experienceLevel === level ? 'text-[#FF6B35]' : 'text-zinc-400'
+                            <Text className={`text-center text-[10px] font-bold capitalize ${formData.experienceLevel === level ? 'text-[#FF6B35]' : 'text-zinc-400'
                                 }`}>
                                 {level}
                             </Text>
@@ -672,7 +701,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                     ))}
                 </View>
             </InputGroup>
-        </ScrollView>
+        </View>
     );
 
     /* -------------------------------------------------------------------------- */
@@ -691,7 +720,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                                 : 'bg-zinc-900/50 border-white/10'
                                 }`}
                         >
-                            <Text className={`text-center font-bold capitalize ${formData.gender === gen.toLowerCase() ? 'text-[#FF6B35]' : 'text-zinc-400'
+                            <Text className={`text-center text-[10px] font-bold capitalize ${formData.gender === gen.toLowerCase() ? 'text-[#FF6B35]' : 'text-zinc-400'
                                 }`}>
                                 {gen}
                             </Text>
@@ -700,19 +729,24 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                 </View>
             </InputGroup>
 
-            <View className="flex-row gap-4">
+            <View
+                className="flex-col gap-4"
+                onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+            >
                 {/* Age Range */}
-                <View className="flex-1">
+                <View>
                     <Text className="text-zinc-400 mb-2 font-medium">Age Range (Years)</Text>
                     <View className="bg-zinc-900/50 border border-white/10 rounded-xl py-4 px-4">
                         <View className="flex-row justify-between mb-2">
-                            <Text className="text-white font-bold">{formData.minAge || '18'}y</Text>
-                            <Text className="text-white font-bold">{formData.maxAge || '60'}y</Text>
+                            <Text style={{ color: '#fff', fontWeight: T.weight.bold as any, fontSize: T.size.xs }}>{formData.minAge || '18'}y</Text>
+                            <Text style={{ color: '#fff', fontWeight: T.weight.bold as any, fontSize: T.size.xs }}>{formData.maxAge || '60'}y</Text>
                         </View>
                         <View className="items-center">
                             <MultiSlider
                                 values={[parseInt(formData.minAge) || 18, parseInt(formData.maxAge) || 60]}
-                                sliderLength={(Dimensions.get('window').width / 2) - 70}
+                                sliderLength={sliderWidth}
+                                onValuesChangeStart={() => setIsScrollEnabled(false)}
+                                onValuesChangeFinish={() => setIsScrollEnabled(true)}
                                 onValuesChange={(vals) => {
                                     updateField('minAge', vals[0].toString());
                                     updateField('maxAge', vals[1].toString());
@@ -724,41 +758,47 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                                 snapped
                                 selectedStyle={{ backgroundColor: '#FF6B35' }}
                                 unselectedStyle={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
-                                markerStyle={{ backgroundColor: '#FF6B35', width: 20, height: 20, borderWidth: 0, marginTop: 4 }}
+                                markerStyle={{ backgroundColor: '#FF6B35', width: 13, height: 13, borderWidth: 0, marginTop: 4 }}
                             />
                         </View>
                     </View>
                 </View>
 
                 {/* Height Range */}
-                <View className="flex-1">
-                    <Text className="text-zinc-400 mb-2 font-medium">Height (ft)</Text>
+                <View className="mt-4">
+                    <View className='flex-row justify-between'>
+                        <Text className="text-zinc-400 mb-2 font-medium">
+                            Height (ft)
+                        </Text>
 
-                    {/* Different Requirements Toggle (Only for 'Any' or 'Other') */}
-                    {(formData.gender === 'any' || formData.gender === 'other') && (
-                        <TouchableOpacity
-                            onPress={() => updateField('heightSplit', !formData.heightSplit)}
-                            className="flex-row items-center gap-2 mb-3"
-                        >
-                            <View className={`w-4 h-4 rounded border ${formData.heightSplit ? 'bg-[#FF6B35] border-[#FF6B35]' : 'border-zinc-500'} items-center justify-center`}>
-                                {formData.heightSplit && <Check size={10} color="#fff" />}
-                            </View>
-                            <Text className="text-zinc-400 text-xs">Different for Male/Female?</Text>
-                        </TouchableOpacity>
-                    )}
+                        {/* Different Requirements Toggle (Only for 'Any' or 'Other') */}
+                        {(formData.gender === 'any' || formData.gender === 'other') && (
+                            <TouchableOpacity
+                                onPress={() => updateField('heightSplit', !formData.heightSplit)}
+                                className="flex-row items-center gap-2 mb-3"
+                            >
+                                <View className={`w-3 h-3 rounded border ${formData.heightSplit ? 'bg-[#FF6B35] border-[#FF6B35]' : 'border-zinc-500'} items-center justify-center`}>
+                                    {formData.heightSplit && <Check size={10} color="#fff" />}
+                                </View>
+                                <Text className="text-zinc-400 text-[10px]">Different for Male/Female?</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
 
                     {/* Male / Generic Height Input */}
                     <View className="mb-3">
                         {formData.heightSplit && <Text className="text-zinc-500 text-xs mb-1">Male / Generic</Text>}
                         <View className="bg-zinc-900/50 border border-white/10 rounded-xl py-4 px-4">
                             <View className="flex-row justify-between mb-2">
-                                <Text className="text-white font-bold">{formData.minHeight || '4.0'} ft</Text>
-                                <Text className="text-white font-bold">{formData.maxHeight || '7.0'} ft</Text>
+                                <Text style={{ color: '#fff', fontWeight: T.weight.bold as any, fontSize: T.size.xs }} className="text-white font-bold text-xs">{formData.minHeight || '4.0'} ft</Text>
+                                <Text style={{ color: '#fff', fontWeight: T.weight.bold as any, fontSize: T.size.xs }} className="text-white font-bold text-xs">{formData.maxHeight || '7.0'} ft</Text>
                             </View>
                             <View className="items-center">
                                 <MultiSlider
                                     values={[parseFloat(formData.minHeight) || 4.0, parseFloat(formData.maxHeight) || 7.0]}
-                                    sliderLength={(Dimensions.get('window').width / 2) - 70}
+                                    sliderLength={sliderWidth}
+                                    onValuesChangeStart={() => setIsScrollEnabled(false)}
+                                    onValuesChangeFinish={() => setIsScrollEnabled(true)}
                                     onValuesChange={(vals) => {
                                         updateField('minHeight', vals[0].toFixed(1));
                                         updateField('maxHeight', vals[1].toFixed(1));
@@ -770,7 +810,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                                     snapped
                                     selectedStyle={{ backgroundColor: '#FF6B35' }}
                                     unselectedStyle={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
-                                    markerStyle={{ backgroundColor: '#FF6B35', width: 20, height: 20, borderWidth: 0, marginTop: 4 }}
+                                    markerStyle={{ backgroundColor: '#FF6B35', width: 13, height: 13, borderWidth: 0, marginTop: 4 }}
                                 />
                             </View>
                         </View>
@@ -788,7 +828,9 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                                 <View className="items-center">
                                     <MultiSlider
                                         values={[parseFloat(formData.femaleMinHeight) || 4.0, parseFloat(formData.femaleMaxHeight) || 7.0]}
-                                        sliderLength={(Dimensions.get('window').width / 2) - 70}
+                                        sliderLength={sliderWidth}
+                                        onValuesChangeStart={() => setIsScrollEnabled(false)}
+                                        onValuesChangeFinish={() => setIsScrollEnabled(true)}
                                         onValuesChange={(vals) => {
                                             updateField('femaleMinHeight', vals[0].toFixed(1));
                                             updateField('femaleMaxHeight', vals[1].toFixed(1));
@@ -812,10 +854,10 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
     );
 
     /* -------------------------------------------------------------------------- */
-    /*                                 STEP 3: Location                           */
+    /*                                 STEP 3: Gig Location                           */
     /* -------------------------------------------------------------------------- */
     const renderStep3 = () => (
-        <View className="gap-6">
+        <View className="">
             <InputGroup label="City">
                 <StyledTextInput
                     icon={MapPin}
@@ -956,12 +998,12 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                         <TouchableOpacity
                             key={type}
                             onPress={() => updateField('compType', type)}
-                            className={`flex-1 px-4 py-3 rounded-xl border ${formData.compType === type
+                            className={`flex-1 px-4 py-3  rounded-xl border ${formData.compType === type
                                 ? 'bg-[#FF6B35]/15 border-[#FF6B35]'
                                 : 'bg-zinc-900/50 border-white/10'
                                 }`}
                         >
-                            <Text className={`text-center font-bold capitalize ${formData.compType === type ? 'text-[#FF6B35]' : 'text-zinc-400'
+                            <Text className={`text-center text-[12px] font-bold capitalize ${formData.compType === type ? 'text-[#FF6B35]' : 'text-zinc-400'
                                 }`}>
                                 {type.replace('-', ' ')}
                             </Text>
@@ -993,8 +1035,14 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                                 : 'bg-zinc-900/50 border-white/10'
                                 }`}
                         >
-                            <Text className={`text-center text-xs font-bold ${formData.compStructure === struct.id ? 'text-[#FF6B35]' : 'text-zinc-400'
-                                }`}>
+                            <Text
+                                style={{
+                                    textAlign: 'center',
+                                    fontSize: T.size.xs,
+                                    fontWeight: T.weight.bold as any,
+                                    color: formData.compStructure === struct.id ? '#FF6B35' : '#a1a1aa'
+                                }}
+                            >
                                 {struct.label}
                             </Text>
                         </TouchableOpacity>
@@ -1133,7 +1181,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                         onPress={() => updateField(item.key, !formData[item.key as keyof typeof formData])}
                         className="flex-row items-center justify-between p-4 rounded-xl bg-zinc-900/50 border border-white/5"
                     >
-                        <Text className="text-zinc-300 font-medium">{item.label}</Text>
+                        <Text style={{ color: '#d1d1d6', fontSize: T.size.body, fontWeight: T.weight.medium as any }}>{item.label}</Text>
                         <View className={`w-6 h-6 rounded-full border items-center justify-center ${formData[item.key as keyof typeof formData]
                             ? 'bg-[#FF6B35] border-[#FF6B35]'
                             : 'border-zinc-600'
@@ -1181,22 +1229,22 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                         className="flex-row items-center gap-2 flex-1 p-3 rounded-lg bg-zinc-900/50"
                         onPress={() => updateField('urgent', !formData.urgent)}
                     >
-                        <View className={`w-5 h-5 rounded border items-center justify-center ${formData.urgent ? 'bg-red-500 border-red-500' : 'border-zinc-500'
+                        <View className={`w-4 h-4 rounded border items-center justify-center ${formData.urgent ? 'bg-red-500 border-red-500' : 'border-zinc-500'
                             }`}>
-                            {formData.urgent && <Check size={12} color="#fff" />}
+                            {formData.urgent && <Check size={10} color="#fff" />}
                         </View>
-                        <Text className="text-zinc-300 text-sm font-bold text-red-400">Mark Urgent</Text>
+                        <Text className="text-zinc-300 text-xs font-bold text-red-400">Mark Urgent</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         className="flex-row items-center gap-2 flex-1 p-3 rounded-lg bg-zinc-900/50"
                         onPress={() => updateField('featured', !formData.featured)}
                     >
-                        <View className={`w-5 h-5 rounded border items-center justify-center ${formData.featured ? 'bg-yellow-500 border-yellow-500' : 'border-zinc-500'
+                        <View className={`w-4 h-4 rounded border items-center justify-center ${formData.featured ? 'bg-yellow-500 border-yellow-500' : 'border-zinc-500'
                             }`}>
                             {formData.featured && <Check size={12} color="#fff" />}
                         </View>
-                        <Text className="text-zinc-300 text-sm font-bold text-yellow-400">Featured</Text>
+                        <Text className="text-zinc-300 text-xs font-bold text-yellow-400">Featured</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -1213,7 +1261,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                         ) : (
                             <Wand2 size={12} color="#FF6B35" />
                         )}
-                        <Text className="text-[#FF6B35] text-[10px] font-black uppercase tracking-wider">
+                        <Text className="text-[#FF6B35] text-[8px] font-black uppercase tracking-wider">
                             {rephrasingField === 'termsAndConditions' ? 'AI Magic...' : 'Rephrase with AI'}
                         </Text>
                     </TouchableOpacity>
@@ -1237,7 +1285,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                 colors={['#FF6B35', '#FF8C42']}
                 start={[0, 0]}
                 end={[1, 0]}
-                className="rounded-2xl p-6 mb-2"
+                className="rounded-2xl px-3 py-2 mb-2"
                 style={{
                     shadowColor: '#FF6B35',
                     shadowOffset: { width: 0, height: 8 },
@@ -1246,12 +1294,27 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                 }}
             >
                 <View className="flex-row items-center mb-2">
-                    <Eye size={20} color="#fff" />
-                    <Text className="text-white font-black text-sm ml-2 uppercase tracking-wider">
+                    <Eye size={16} color="#fff" />
+                    <Text
+                        style={{
+                            color: '#fff',
+                            fontWeight: T.weight.black as any,
+                            fontSize: T.size.xs,
+                            marginLeft: 8,
+                            textTransform: 'uppercase',
+                            letterSpacing: 1
+                        }}
+                    >
                         Final Review
                     </Text>
                 </View>
-                <Text className="text-white/90 text-sm font-light">
+                <Text
+                    style={{
+                        color: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: T.size.xs,
+                        fontWeight: T.weight.light as any
+                    }}
+                >
                     Almost there! Review and publish your gig
                 </Text>
             </LinearGradient>
@@ -1323,65 +1386,173 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
             </View>
 
             <View className="flex-1 px-6 pt-6">
-                {/* Step Header */}
-                <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateX: slideX }] }}>
-                    <View className="mb-6">
-                        <Text className="text-[#FF6B35] font-bold text-xs uppercase tracking-widest mb-2">
-                            Step {step + 1} of {TOTAL_STEPS}
-                        </Text>
-                        <Text className="text-3xl font-black text-white tracking-tight leading-8 mb-2">
-                            {steps[step].title}
-                        </Text>
-                        <Text className="text-zinc-400 text-base font-light">
-                            {steps[step].subtitle}
-                        </Text>
-                    </View>
-
-                    {/* Step Content */}
+                <View style={{ height: 42, marginBottom: 12 }}>
                     <ScrollView
-                        ref={scrollViewRef}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingBottom: 120 }}
+                        ref={stepScrollRef}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={{ flex: 1 }}
+                        contentContainerStyle={{ paddingHorizontal: 8 }}
                     >
-                        {step === 0 && renderStep0()}
-                        {step === 1 && renderStep1()}
-                        {step === 2 && renderStep2()}
-                        {step === 3 && renderStep3()}
-                        {step === 4 && renderStep4()}
-                        {/* Step 5 removed */}
-                        {step === 5 && renderStep6()}
-                        {step === 6 && renderStep7()}
-                        {step === 7 && renderStep8()}
-                        {step === 8 && renderStep9()}
-                        {step === 9 && renderStep10()}
+                        {steps.map((s, idx) => {
+                            const isCurrent = idx === step;
+                            const isCompleted = idx < step;
+
+                            return (
+                                <TouchableOpacity
+                                    key={idx}
+                                    onPress={() => animateToStep(idx)}
+                                    activeOpacity={0.7}
+                                    style={{
+                                        width: STEP_ITEM_WIDTH,
+                                        alignItems: 'center',
+                                        paddingVertical: 4,
+                                    }}
+                                >
+                                    {/* Animated dot */}
+                                    <Animated.View
+                                        style={[
+                                            {
+                                                width: 10,
+                                                height: 10,
+                                                borderRadius: 5,
+                                                marginBottom: 6,
+                                                transform: [{ scale: dotScaleAnims[idx] }],
+                                            },
+                                            isCurrent
+                                                ? {
+                                                    backgroundColor: '#FF6B35',
+                                                    shadowColor: '#FF6B35',
+                                                    shadowOpacity: 0.7,
+                                                    shadowRadius: 6,
+                                                    elevation: 6,
+                                                }
+                                                : isCompleted
+                                                    ? { backgroundColor: 'rgba(255,107,53,0.35)' }
+                                                    : { backgroundColor: '#27272a' },
+                                        ]}
+                                    />
+                                    {/* Full label */}
+                                    <Text
+                                        numberOfLines={1}
+                                        style={{
+                                            fontSize: 8,
+                                            color: isCurrent ? '#fff' : isCompleted ? '#71717a' : '#3f3f46',
+                                            fontWeight: isCurrent ? '900' : '400',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: 0.5,
+                                            textAlign: 'center',
+                                        }}
+                                    >
+                                        {s.title}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
                     </ScrollView>
+                </View>
+
+                {/* Step Header — collapses on scroll */}
+
+                {/* Static title — never re-renders on scroll */}
+                <View style={{ marginBottom: 4 }}>
+                    <Text style={{
+                        color: '#FF6B35',
+                        fontSize: T.size.tiny,
+                        textTransform: 'uppercase',
+                        letterSpacing: 1.5,
+                        marginBottom: 6,
+                    }}>
+                        Step {step + 1} of {TOTAL_STEPS}
+                    </Text>
+                    <Text style={{
+                        fontSize: T.size.h2,
+                        fontWeight: T.weight.black as any,
+                        color: '#fff',
+                        letterSpacing: -0.5,
+                        lineHeight: getLineHeight('h1', 'tight'),
+                        marginBottom: 4,
+                    }}>
+                        {steps[step].title}
+                    </Text>
+                </View>
+
+                {/* Only the subtitle collapses — much less visual impact if it flickers */}
+                <Animated.View style={{
+                    overflow: 'hidden',
+                    maxHeight: headerScrollY.interpolate({
+                        inputRange: [0, 60],
+                        outputRange: [40, 0],
+                        extrapolate: 'clamp',
+                    }),
+                    opacity: headerScrollY.interpolate({
+                        inputRange: [0, 40],
+                        outputRange: [1, 0],
+                        extrapolate: 'clamp',
+                    }),
+                }}>
+                    <Text style={{
+                        fontSize: T.size.secondary,
+                        color: '#a1a1aa',
+                        fontWeight: T.weight.light as any,
+                        lineHeight: getLineHeight('body', 'relaxed'),
+                        marginBottom: 8,
+                    }}>
+                        {steps[step].subtitle}
+                    </Text>
                 </Animated.View>
+
+                {/* Step Content */}
+                <ScrollView
+                    ref={scrollViewRef}
+                    showsVerticalScrollIndicator={false}
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{ paddingBottom: 120 }}
+                    onScroll={Animated.event(
+                        [{ nativeEvent: { contentOffset: { y: headerScrollY } } }],
+                        { useNativeDriver: false }
+                    )}
+                    scrollEventThrottle={16}
+                    scrollEnabled={isScrollEnabled}
+                >
+                    {step === 0 && renderStep0()}
+                    {step === 1 && renderStep1()}
+                    {step === 2 && renderStep2()}
+                    {step === 3 && renderStep3()}
+                    {step === 4 && renderStep4()}
+                    {/* Step 5 removed */}
+                    {step === 5 && renderStep6()}
+                    {step === 6 && renderStep7()}
+                    {step === 7 && renderStep8()}
+                    {step === 8 && renderStep9()}
+                    {step === 9 && renderStep10()}
+                </ScrollView>
             </View>
 
             {/* Footer Navigation (Pinned Bottom) */}
-            <View className="absolute bottom-0 left-0 right-0 p-6 bg-black/90 border-t border-white/10" style={{ paddingBottom: Platform.OS === 'ios' ? 40 : 24 }}>
+            <View className="absolute bottom-0 left-0 right-0 p-2 bg-black/90 border-t border-white/10" style={{ paddingBottom: Platform.OS === 'ios' ? 40 : 24 }}>
                 <View className="flex-row justify-between items-center gap-4">
                     {step > 0 && (
                         <TouchableOpacity
                             onPress={handleBackInternal}
-                            className="w-12 h-12 rounded-full bg-zinc-900 border border-white/10 items-center justify-center"
+                            className="w-12 h-10 rounded-full bg-zinc-900 border border-white/10 items-center justify-center"
                         >
-                            <ChevronLeft size={24} color="#fff" />
+                            <ChevronLeft size={20} color="#fff" />
                         </TouchableOpacity>
                     )}
-
-                    <View className="flex-1">
+                    <View className='w-32'></View>
+                    <View className="flex-1  ">
                         {step === TOTAL_STEPS - 1 ? (
-                            <View className="flex-row gap-2">
+                            <View className="flex-row items-center justify-center gap-2">
                                 <TouchableOpacity
-                                    className="flex-1 py-4 bg-zinc-800 rounded-xl items-center"
+                                    className="flex-1 py- px-2 bg-zinc-800 rounded-xl items-center"
                                     onPress={() => handleSubmit(true)}
                                     disabled={isLoading}
                                 >
                                     <Text className="text-white font-bold">Draft</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    className="flex-[2] py-4 bg-[#FF6B35] rounded-xl items-center flex-row justify-center gap-2"
+                                    className="flex-[2] py-1 px-2 bg-[#FF6B35] rounded-xl items-center flex-row justify-center gap-2"
                                     onPress={() => handleSubmit(false)}
                                     disabled={isLoading}
                                 >
@@ -1390,7 +1561,6 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                                             <Text className="text-white font-black text-lg">
                                                 {gigId ? 'Update' : 'Publish'}
                                             </Text>
-                                            <Check size={20} color="#fff" />
                                         </>
                                     )}
                                 </TouchableOpacity>
@@ -1400,7 +1570,16 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                                 onPress={handleNext}
                                 className="w-full py-4 bg-[#FF6B35] rounded-xl items-center flex-row justify-center gap-2 shadow-lg shadow-orange-500/20"
                             >
-                                <Text className="text-white font-black text-lg tracking-wide">Next</Text>
+                                <Text
+                                    style={{
+                                        color: '#fff',
+                                        fontWeight: T.weight.black as any,
+                                        fontSize: T.size.body,
+                                        letterSpacing: 0.5
+                                    }}
+                                >
+                                    Next
+                                </Text>
                                 <ChevronRight size={20} color="#fff" />
                             </TouchableOpacity>
                         )}

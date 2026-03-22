@@ -84,7 +84,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                 onPress={() => setModalVisible(true)}
                 className={`bg-zinc-900/50 border ${error ? 'border-red-500' : 'border-zinc-700'} rounded-xl py-3 pr-4 flex-row items-center justify-between ${Icon ? 'pl-10' : 'pl-4'}`}
             >
-                <Text className={`${value ? 'text-zinc-100' : 'text-zinc-500'}`}>{getDisplayLabel()}</Text>
+                <Text className={`${value ? 'text-zinc-100' : 'text-zinc-500'} font-thin`}>{getDisplayLabel()}</Text>
                 <ChevronRight size={16} color="#71717a" className="rotate-90" />
             </TouchableOpacity>
 

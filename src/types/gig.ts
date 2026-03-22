@@ -25,6 +25,10 @@ export interface Gig {
 
     genderPreference?: 'any' | 'male' | 'female' | 'other';
     physicalRequirements?: string;
+    heightRequirements?: {
+        male?: { min?: string | number; max?: string | number };
+        female?: { min?: string | number; max?: string | number };
+    };
 
     location: {
         city: string;

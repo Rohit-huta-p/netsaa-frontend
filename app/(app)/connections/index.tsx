@@ -32,6 +32,7 @@ import { useAuthStore } from "@/stores/authStore";
 import AppScrollView from "@/components/AppScrollView";
 
 import { ChatWindow, UserBasic } from "@/components/connections/ChatWindow";
+import { AuthPromptModal } from "@/components/common/AuthPromptModal";
 import { Connection, ConnectionRequest } from "@/types/connection";
 import conversationService, { PopulatedConversation } from "@/services/conversationService";
 import { socketService } from "@/services/socketService";
@@ -205,7 +206,7 @@ const ConnectionCard = ({
 };
 
 // Empty State Component
-const EmptyState = () => (
+const EmptyState = ({ onDiscover }: { onDiscover: () => void }) => (
     <View className="items-center justify-center py-20 px-8">
         <View className="w-24 h-24 rounded-full bg-zinc-800/50 items-center justify-center mb-6">
             <Users size={40} color="#71717a" />
@@ -216,7 +217,7 @@ const EmptyState = () => (
         <Text className="text-zinc-500 text-center text-base mb-8 max-w-xs">
             Start building your network by connecting with other artists in the community.
         </Text>
-        <TouchableOpacity className="bg-white px-8 py-4 rounded-2xl flex-row items-center gap-2">
+        <TouchableOpacity onPress={onDiscover} className="bg-white px-8 py-4 rounded-2xl flex-row justify-center items-center self-center gap-2">
             <Sparkles size={18} color="#000" />
             <Text className="text-black font-black uppercase tracking-wide">
                 Discover Artists
@@ -231,7 +232,9 @@ export default function ConnectionsScreen() {
     const router = useRouter();
     const { width } = useWindowDimensions();
     const isDesktop = width >= 1024;
+    const { user } = useAuthStore();
 
+    const [showAuthModal, setShowAuthModal] = useState(false);
     const [invitations, setInvitations] = useState<ConnectionRequest[]>([]);
     const [connections, setConnections] = useState<Connection[]>([]);
     const [conversationMap, setConversationMap] = useState<Record<string, PopulatedConversation>>({});
@@ -547,7 +550,11 @@ export default function ConnectionsScreen() {
                                             </View>
 
                                             {filteredConnections.length === 0 && connections.length === 0 ? (
-                                                <EmptyState />
+                                                <EmptyState onDiscover={() => {
+                                                    if (!user) {
+                                                        setShowAuthModal(true);
+                                                    }
+                                                }} />
                                             ) : filteredConnections.length === 0 ? (
                                                 <View className="py-12 items-center">
                                                     <Text className="text-zinc-500 text-center">
@@ -595,6 +602,8 @@ export default function ConnectionsScreen() {
                     )}
                 </View>
             </SafeAreaView>
+
+            <AuthPromptModal visible={showAuthModal} onClose={() => setShowAuthModal(false)} />
         </View>
     );
 }

@@ -1,7 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Animated, BackHandler, ScrollView } from 'react-native';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Animated, ScrollView } from 'react-native';
 import {
     ChevronRight,
     ChevronLeft,
@@ -13,23 +11,25 @@ import {
     Layout,
     Type,
     Eye,
+    Wand2,
 } from 'lucide-react-native';
 import { InputGroup } from '@/components/ui/InputGroup';
-import { SelectInput } from '@/components/ui/SelectInput';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { TextArea } from '@/components/ui/TextArea';
 import { TagInput } from '@/components/ui/TagInput';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { LeaveEventModal } from './LeaveEventModal';
 import { MapLinkCard } from '@/components/location/MapLinkCard';
+import { LinearGradient } from 'expo-linear-gradient';
+import gigService from '@/services/gigService';
 
-import { eventSchema, EventFormData } from '@/schemas/eventSchema';
 import { useCreateEvent, usePublishEvent } from '@/hooks/useEvents';
 import { useAuthStore } from '@/stores/authStore';
 import { CreateEventDTO } from '@/types/event';
 import { useCreateEventStore } from '@/stores/createEventStore';
 
 // NETSA Organizer-themed TextInput (Matches GigForm)
-const StyledTextInput = ({ value, onChangeText, placeholder, icon: Icon, type = 'text', error, ...props }: any) => (
+const StyledTextInput = ({ value, onChangeText, placeholder, icon: Icon, error, type = 'text', ...props }: any) => (
     <View className="relative">
         {Icon && (
             <View className="absolute left-3 top-[50%] -translate-y-1/2 z-10">
@@ -37,7 +37,8 @@ const StyledTextInput = ({ value, onChangeText, placeholder, icon: Icon, type = 
             </View>
         )}
         <TextInput
-            className={`w-full bg-zinc-900/50 border outline-none ${error ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500 focus:border-[#FF6B35]`}
+            className={`w-full bg-zinc-900/50 border outline-none ${error ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500`}
+            style={{ outlineStyle: 'none' } as any}
             placeholder={placeholder}
             placeholderTextColor="rgba(255, 255, 255, 0.3)"
             value={value}
@@ -56,17 +57,15 @@ const toLocalDateString = (date: Date) => {
 interface EventFormProps {
     onPublish: (data: any) => void;
     onCancel: () => void;
+    eventId?: string;
 }
 
 export interface EventFormHandle {
     handleBack: () => boolean;
 }
 
-export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ onPublish, onCancel }, ref) => {
-    // Persistent State
+export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ onPublish, onCancel, eventId }, ref) => {
     const {
-        currentStep: storedStep,
-        setStep: setStoredStep,
         completedSteps,
         setCompletedSteps,
         formData: storedData,
@@ -77,14 +76,37 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
     const createEventMutation = useCreateEvent();
     const publishEventMutation = usePublishEvent();
     const { user } = useAuthStore();
+    const isLoading = createEventMutation.isPending || publishEventMutation.isPending;
 
-    // Modal State
     const [leaveModalVisible, setLeaveModalVisible] = useState(false);
     const isNavigatingAway = useRef(false);
 
     const [addingTicket, setAddingTicket] = useState(false);
+    const [rephrasingField, setRephrasingField] = useState<string | null>(null);
 
-    // Temporary state for the new ticket form
+    const [formData, setFormData] = useState({
+        title: storedData.title || '',
+        eventType: storedData.eventType || '',
+        category: storedData.category || '',
+        tags: storedData.tags || '',
+        skillLevel: storedData.skillLevel || 'all',
+        maxParticipants: storedData.maxParticipants || '',
+        city: storedData.city || '',
+        venue: storedData.venue || '',
+        address: storedData.address || '',
+        startDate: storedData.startDate || '',
+        endDate: storedData.endDate || '',
+        pricingMode: storedData.pricingMode || 'simple',
+        ticketPrice: storedData.ticketPrice || '',
+        ticketTypes: storedData.ticketTypes || [],
+        description: storedData.description || '',
+        deadline: storedData.deadline || '',
+        urgent: storedData.urgent || false,
+        featured: storedData.featured || false,
+    });
+
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
     const [newTicket, setNewTicket] = useState({
         name: '',
         price: '',
@@ -95,59 +117,14 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
         salesEndAt: '',
     });
 
-    const handleAddTicket = (currentTypes: any[], onChange: (val: any) => void) => {
-        if (!newTicket.name || !newTicket.price || !newTicket.capacity || !newTicket.salesStartAt || !newTicket.salesEndAt) {
-            Alert.alert('Error', 'Please fill all required fields');
-            return;
-        }
-
-        const tick = {
-            name: newTicket.name,
-            price: Number(newTicket.price),
-            capacity: Number(newTicket.capacity),
-            currency: 'INR',
-            salesStartAt: newTicket.salesStartAt,
-            salesEndAt: newTicket.salesEndAt,
-            isRefundable: newTicket.isRefundable,
-            refundPolicyNotes: newTicket.refundPolicyNotes
-        };
-
-        onChange([...(currentTypes || []), tick]);
-        setNewTicket({ name: '', price: '', capacity: '', isRefundable: false, refundPolicyNotes: '', salesStartAt: '', salesEndAt: '' });
-        setAddingTicket(false);
-    };
-
-    const { control, handleSubmit, formState: { errors }, trigger, watch, getValues } = useForm({
-        resolver: zodResolver(eventSchema),
-        defaultValues: storedData as EventFormData,
-        mode: 'onBlur'
-    });
-
-    // Auto-save form data to store on change
-    const formData = watch();
+    // Sync formData to store when it changes
     useEffect(() => {
-        const subscription = watch((value) => {
-            updateFormData(value as Partial<EventFormData>);
-        });
-        return () => subscription.unsubscribe();
-    }, [watch, updateFormData]);
+        updateFormData(formData as any);
+    }, [formData, updateFormData]);
 
-    // 9 Steps Structure (Matches User Requirement)
-    const steps = [
-        { title: "Identity", subtitle: "What is this event?" },
-        { title: "Audience", subtitle: "Who is this for?" },
-        { title: "Location", subtitle: "Where will it happen?" },
-        { title: "Schedule", subtitle: "When is it happening?" },
-        { title: "Pricing", subtitle: "How much does it cost?" },
-        { title: "The Pitch", subtitle: "Why should people attend?" },
-        { title: "Registration", subtitle: "How should registrations work?" },
-        { title: "Visibility", subtitle: "How visible should this be?" },
-        { title: "Review", subtitle: "Final check" },
-    ];
-
-    const TOTAL_STEPS = steps.length;
+    const TOTAL_STEPS = 9;
     const [step, setStep] = useState(0);
-    const [pricingMode, setPricingMode] = useState<'simple' | 'types'>(storedData.pricingMode || 'simple');
+    const scrollViewRef = useRef<ScrollView>(null);
 
     /* ── Animation ── */
     const slideX = useRef(new Animated.Value(0)).current;
@@ -168,58 +145,73 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
         });
     }, [step, fadeAnim, slideX]);
 
+    const steps = [
+        { title: "Identity", subtitle: "What is this event?" },
+        { title: "Audience", subtitle: "Who is this for?" },
+        { title: "Location", subtitle: "Where will it happen?" },
+        { title: "Schedule", subtitle: "When is it happening?" },
+        { title: "Pricing", subtitle: "How much does it cost?" },
+        { title: "The Pitch", subtitle: "Why should people attend?" },
+        { title: "Registration", subtitle: "How should registrations work?" },
+        { title: "Visibility", subtitle: "How visible should this be?" },
+        { title: "Review", subtitle: "Final check" },
+    ];
 
-    // Sync local state to store
-    useEffect(() => {
-        updateFormData({ pricingMode } as any);
-    }, [pricingMode]);
-
-    const validateStep = async (stepIndex: number) => {
-        let fieldsToValidate: (keyof EventFormData)[] = [];
-        switch (stepIndex) {
-            case 0: fieldsToValidate = ['title', 'eventType', 'category', 'tags']; break;
-            case 1: fieldsToValidate = ['skillLevel', 'maxParticipants']; break;
-            case 2: fieldsToValidate = ['city', 'venue', 'address']; break;
-            case 3: fieldsToValidate = ['startDate', 'endDate']; break;
-            case 4:
-                fieldsToValidate = pricingMode === 'simple' ? ['ticketPrice'] : ['ticketTypes'];
-                break;
-            case 5: fieldsToValidate = ['description']; break;
-            case 6: fieldsToValidate = ['deadline']; break;
-            case 7: break; // No required fields for Visibility
-        }
-
-        const result = await trigger(fieldsToValidate);
-
-        // Manual check for ticket types
-        if (stepIndex === 4 && pricingMode === 'types') {
-            const types = getValues('ticketTypes');
-            if (!types || types.length === 0) {
-                Alert.alert('Required', 'Please add at least one ticket type.');
-                return false;
-            }
-        }
-
-        return result;
-    }
-
-    const handleNext = async () => {
-        const isValid = await validateStep(step);
-        if (isValid) {
-            if (!completedSteps.includes(step)) {
-                setCompletedSteps([...completedSteps, step]);
-            }
-            if (step < TOTAL_STEPS - 1) {
-                animateToStep(step + 1);
-            }
+    const updateField = (field: string, value: any) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+        if (errors[field]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[field];
+                return newErrors;
+            });
         }
     };
 
-    // Returns true  → event handled (go to prev step OR show modal). Block navigation.
-    // Returns false → allow navigation to exit (only after isNavigatingAway is set).
+    const handleNext = () => {
+        let newErrors: Record<string, string> = {};
+        let hasError = false;
+
+        if (step === 0) {
+            if (!formData.title?.trim()) { newErrors.title = "Event Title is required"; hasError = true; }
+            if (!formData.eventType?.trim()) { newErrors.eventType = "Format is required"; hasError = true; }
+            if (!formData.category?.trim()) { newErrors.category = "Category is required"; hasError = true; }
+        } else if (step === 2) {
+            if (!formData.city?.trim()) { newErrors.city = "City is required"; hasError = true; }
+        } else if (step === 3) {
+            if (!formData.startDate) {
+                newErrors.startDate = "Start Date is required";
+                hasError = true;
+            }
+        } else if (step === 4) {
+            if (formData.pricingMode === 'types' && (!formData.ticketTypes || formData.ticketTypes.length === 0)) {
+                Alert.alert('Required', 'Please add at least one ticket type.');
+                return; // Stop here, using alert instead of field error for ticket array
+            }
+        } else if (step === 5) {
+            if (!formData.description?.trim() || formData.description.length < 5) {
+                newErrors.description = "Event Description is required";
+                hasError = true;
+            }
+        }
+
+        if (hasError) {
+            setErrors(newErrors);
+            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+            return;
+        }
+
+        if (!completedSteps.includes(step)) {
+            setCompletedSteps([...completedSteps, step]);
+        }
+        if (step < TOTAL_STEPS - 1) {
+            setErrors({});
+            animateToStep(step + 1);
+        }
+    };
+
     const handleBackInternal = (): boolean => {
         if (isNavigatingAway.current) return false;
-
         if (step > 0) {
             animateToStep(step - 1);
             return true;
@@ -233,62 +225,96 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
         handleBack: handleBackInternal
     }));
 
-    // BackHandler, beforeRemove, and popstate are all handled by
-    // useStepBackGuard in the parent (create.tsx). Nothing to register here.
-
-    // Discard Handler
     const handleDiscard = () => {
         setLeaveModalVisible(false);
         isNavigatingAway.current = true;
-        resetForm(); // Clear persisted data
+        resetForm();
         onCancel();
     };
 
-    const onSubmit = async (data: EventFormData, isDraft: boolean = false) => {
+    const handleRephrase = async (field: 'description') => {
+        const text = formData[field];
+        if (!text || text.length < 5) {
+            Alert.alert("Input Required", "Please enter some text to rephrase.");
+            return;
+        }
+
+        setRephrasingField(field);
+        try {
+            const result = await gigService.rephraseText(text);
+            if (result && result.rephrased) {
+                updateField(field, result.rephrased);
+            }
+        } catch (error: any) {
+            console.error("Rephrase failed:", error);
+            Alert.alert("Error", "Failed to rephrase text. Please try again.");
+        } finally {
+            setRephrasingField(null);
+        }
+    };
+
+    const handleAddTicket = () => {
+        if (!newTicket.name || !newTicket.price || !newTicket.capacity || !newTicket.salesStartAt || !newTicket.salesEndAt) {
+            Alert.alert('Error', 'Please fill all required fields');
+            return;
+        }
+
+        const tick = {
+            name: newTicket.name,
+            price: Number(newTicket.price),
+            capacity: Number(newTicket.capacity),
+            currency: 'INR',
+            salesStartAt: newTicket.salesStartAt,
+            salesEndAt: newTicket.salesEndAt,
+            isRefundable: newTicket.isRefundable,
+            refundPolicyNotes: newTicket.refundPolicyNotes
+        };
+
+        updateField('ticketTypes', [...(formData.ticketTypes || []), tick]);
+        setNewTicket({ name: '', price: '', capacity: '', isRefundable: false, refundPolicyNotes: '', salesStartAt: '', salesEndAt: '' });
+        setAddingTicket(false);
+    };
+
+    const handleSubmit = async (isDraft: boolean = false) => {
         isNavigatingAway.current = true;
 
-        // Map form data to backend DTO structure
         const eventPayload: CreateEventDTO = {
-            title: data.title,
-            description: data.description,
-            eventType: data.eventType as any,
-            category: data.category,
-            tags: typeof data.tags === 'string' ? data.tags.split(',').map((t: string) => t.trim()) : data.tags,
-            skillLevel: data.skillLevel as any,
-            eligibleArtistTypes: [], // TODO: Add field to form
+            title: formData.title,
+            description: formData.description,
+            eventType: formData.eventType as any,
+            category: formData.category,
+            tags: typeof formData.tags === 'string' ? formData.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : formData.tags,
+            skillLevel: formData.skillLevel as any,
+            eligibleArtistTypes: [],
 
-            // Ticket Logic
-            ticketPrice: pricingMode === 'simple' ? (Number(data.ticketPrice) || 0) :
-                (data.ticketTypes?.length ? Math.min(...data.ticketTypes.map((t: any) => Number(t.price))) : 0),
+            ticketPrice: formData.pricingMode === 'simple' ? (Number(formData.ticketPrice) || 0) :
+                (formData.ticketTypes?.length ? Math.min(...formData.ticketTypes.map((t: any) => Number(t.price))) : 0),
+            ticketTypes: formData.pricingMode === 'types' ? formData.ticketTypes : [],
 
-            ticketTypes: pricingMode === 'types' ? data.ticketTypes : [],
-
-            // Construct nested objects
             schedule: {
-                startDate: new Date(data.startDate).toISOString(),
-                endDate: new Date(data.endDate).toISOString(),
+                startDate: new Date(formData.startDate).toISOString(),
+                endDate: formData.endDate ? new Date(formData.endDate).toISOString() : new Date(formData.startDate).toISOString(),
                 totalDurationMinutes: 120,
                 dayBreakdown: [{
-                    date: new Date(data.startDate).toISOString(),
+                    date: new Date(formData.startDate).toISOString(),
                     durationMinutes: 120
                 }]
             },
 
             location: {
                 type: 'physical',
-                city: data.city,
-                venueName: data.venue,
-                address: data.address,
+                city: formData.city,
+                venueName: formData.venue,
+                address: formData.address,
                 state: 'State',
                 country: 'India'
             },
 
-            maxParticipants: Number(data.maxParticipants),
-            registrationDeadline: data.deadline ? new Date(data.deadline).toISOString() : undefined,
+            maxParticipants: formData.maxParticipants ? Number(formData.maxParticipants) : 0,
+            registrationDeadline: formData.deadline ? new Date(formData.deadline).toISOString() : undefined,
             allowWaitlist: false,
             registered: 0,
-
-            isFeatured: data.featured,
+            isFeatured: formData.featured,
 
             organizerId: user?._id,
             organizerSnapshot: {
@@ -330,227 +356,164 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
     /*                             RENDER STEPS                                   */
     /* -------------------------------------------------------------------------- */
 
-    // Step 0: Identity
     const renderStep0 = () => (
         <View className="gap-6">
-            <Controller
-                control={control}
-                name="title"
-                render={({ field: { onChange, value } }) => (
-                    <InputGroup label="Event Title" required subtitle="Make it catchy and clear" error={errors.title?.message}>
-                        <StyledTextInput
-                            icon={Type}
-                            value={value}
-                            onChangeText={onChange}
-                            placeholder="e.g. Summer Dance Workshop 2024"
-                            error={errors.title?.message}
-                        />
-                    </InputGroup>
-                )}
-            />
+            <InputGroup label="Event Title" required subtitle="Make it catchy and clear" error={errors.title}>
+                <StyledTextInput
+                    icon={Type}
+                    value={formData.title}
+                    onChangeText={(val: string) => updateField('title', val)}
+                    placeholder="e.g. Summer Dance Workshop 2024"
+                    error={errors.title}
+                />
+            </InputGroup>
 
             <View className="flex-col md:flex-row gap-4">
-                <Controller
-                    control={control}
-                    name="eventType"
-                    render={({ field: { onChange, value } }) => (
-                        <InputGroup label="Format" required error={errors.eventType?.message}>
-                            <SelectInput
-                                icon={Layout}
-                                options={[
-                                    { label: 'Workshop', value: 'workshop' },
-                                    { label: 'Battle', value: 'competition' },
-                                    { label: 'Show/Performance', value: 'showcase' },
-                                    { label: 'Meetup', value: 'meetup' },
-                                ]}
-                                value={value}
-                                onChange={onChange}
-                            />
-                        </InputGroup>
-                    )}
-                />
+                <InputGroup label="Format" required error={errors.eventType}>
+                    <SearchableSelect
+                        icon={Layout}
+                        options={[
+                            { label: 'Workshop', value: 'workshop' },
+                            { label: 'Battle', value: 'competition' },
+                            { label: 'Show/Performance', value: 'showcase' },
+                            { label: 'Meetup', value: 'meetup' },
+                        ]}
+                        value={formData.eventType}
+                        onChange={(val: string) => updateField('eventType', val)}
+                        placeholder="Select Format"
+                        allowCustom={true}
+                        label="Select Format"
+                    />
+                </InputGroup>
 
-                <Controller
-                    control={control}
-                    name="category"
-                    render={({ field: { onChange, value } }) => (
-                        <InputGroup label="Creative Category" required error={errors.category?.message}>
-                            <SelectInput
-                                icon={Briefcase}
-                                options={[
-                                    { label: 'Dance', value: 'dance' },
-                                    { label: 'Music', value: 'music' },
-                                    { label: 'Art', value: 'art' }
-                                ]}
-                                value={value}
-                                onChange={onChange}
-                            />
-                        </InputGroup>
-                    )}
-                />
+                <InputGroup label="Creative Category" required error={errors.category}>
+                    <SearchableSelect
+                        icon={Briefcase}
+                        options={[
+                            { label: 'Dance', value: 'dance' },
+                            { label: 'Music', value: 'music' },
+                            { label: 'Art', value: 'art' }
+                        ]}
+                        value={formData.category}
+                        onChange={(val: string) => updateField('category', val)}
+                        placeholder="Select Category"
+                        allowCustom={true}
+                        label="Select Category"
+                    />
+                </InputGroup>
             </View>
 
-            <Controller
-                control={control}
-                name="tags"
-                render={({ field: { onChange, value } }) => (
-                    <InputGroup label="Tags" subtitle="Type comma or enter to add tags" error={errors.tags?.message}>
-                        <TagInput
-                            value={Array.isArray(value) ? value.join(', ') : value}
-                            onChangeTags={onChange}
-                            placeholder="e.g. hip-hop, contemporary, workshop"
-                        />
-                    </InputGroup>
-                )}
-            />
+            <InputGroup label="Tags" subtitle="Type comma or enter to add tags" error={errors.tags}>
+                <TagInput
+                    value={Array.isArray(formData.tags) ? formData.tags.join(', ') : formData.tags}
+                    onChangeTags={(val: string) => updateField('tags', val)}
+                    placeholder="e.g. hip-hop, contemporary, workshop"
+                />
+            </InputGroup>
         </View>
     );
 
-    // Step 1: Audience
     const renderStep1 = () => (
         <View className="gap-6">
-            <Controller
-                control={control}
-                name="skillLevel"
-                render={({ field: { onChange, value } }) => (
-                    <InputGroup label="Skill Level" error={errors.skillLevel?.message}>
-                        <View className="flex-row gap-3">
-                            {['All', 'Beginner', 'Intermediate', 'Advanced'].map(level => (
-                                <TouchableOpacity
-                                    key={level}
-                                    onPress={() => onChange(level.toLowerCase())}
-                                    className={`flex-1 px-3 py-3 rounded-xl border ${value?.toLowerCase() === level.toLowerCase()
-                                        ? 'bg-[#FF6B35]/15 border-[#FF6B35]'
-                                        : 'bg-zinc-900/50 border-white/10'
-                                        }`}
-                                >
-                                    <Text className={`text-center font-bold text-xs capitalize ${value?.toLowerCase() === level.toLowerCase() ? 'text-[#FF6B35]' : 'text-zinc-400'
-                                        }`}>
-                                        {level}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </InputGroup>
-                )}
-            />
+            <InputGroup label="Skill Level" error={errors.skillLevel}>
+                <View className="flex-row gap-3">
+                    {['All', 'Beginner', 'Intermediate', 'Advanced'].map(level => (
+                        <TouchableOpacity
+                            key={level}
+                            onPress={() => updateField('skillLevel', level.toLowerCase())}
+                            className={`flex-1 px-3 py-3 rounded-xl border ${formData.skillLevel?.toLowerCase() === level.toLowerCase()
+                                ? 'bg-[#FF6B35]/15 border-[#FF6B35]'
+                                : 'bg-zinc-900/50 border-white/10'
+                                }`}
+                        >
+                            <Text className={`text-center font-bold text-xs capitalize ${formData.skillLevel?.toLowerCase() === level.toLowerCase() ? 'text-[#FF6B35]' : 'text-zinc-400'
+                                }`}>
+                                {level}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </InputGroup>
 
-            <Controller
-                control={control}
-                name="maxParticipants"
-                render={({ field: { onChange, value } }) => (
-                    <InputGroup label="Capacity" error={errors.maxParticipants?.message}>
-                        <StyledTextInput
-                            inputMode="numeric"
-                            icon={Users}
-                            value={String(value || '')}
-                            onChangeText={onChange}
-                            placeholder="e.g. 50"
-                            error={errors.maxParticipants?.message}
-                            subtitle="Leave empty for unlimited"
-                        />
-                    </InputGroup>
-                )}
-            />
+            <InputGroup label="Capacity" error={errors.maxParticipants}>
+                <StyledTextInput
+                    inputMode="numeric"
+                    icon={Users}
+                    value={String(formData.maxParticipants || '')}
+                    onChangeText={(val: string) => updateField('maxParticipants', val)}
+                    placeholder="e.g. 50"
+                    error={errors.maxParticipants}
+                    subtitle="Leave empty for unlimited"
+                />
+            </InputGroup>
         </View>
     );
 
-    // Step 2: Location
     const renderStep2 = () => (
         <View className="gap-6">
-            <Controller
-                control={control}
-                name="city"
-                render={({ field: { onChange, value } }) => (
-                    <InputGroup label="City" required error={errors.city?.message}>
-                        <StyledTextInput
-                            value={value}
-                            onChangeText={onChange}
-                            placeholder="e.g. Mumbai"
-                            error={errors.city?.message}
+            <InputGroup label="City" required error={errors.city}>
+                <StyledTextInput
+                    value={formData.city}
+                    onChangeText={(val: string) => updateField('city', val)}
+                    placeholder="e.g. Mumbai"
+                    error={errors.city}
+                />
+            </InputGroup>
+            <InputGroup label="Venue Name">
+                <StyledTextInput
+                    value={formData.venue}
+                    onChangeText={(val: string) => updateField('venue', val)}
+                    placeholder="e.g. The Royal Opera House"
+                />
+            </InputGroup>
+            <InputGroup label="Complete Address">
+                <View className="flex-col gap-3">
+                    <StyledTextInput
+                        value={formData.address}
+                        onChangeText={(val: string) => updateField('address', val)}
+                        placeholder="Street, Area, Landmark"
+                    />
+                    {formData.venue && (
+                        <MapLinkCard
+                            venueName={formData.venue}
+                            address={formData.address || ''}
+                            city={formData.city}
+                            state={'State'}
+                            country={'India'}
                         />
-                    </InputGroup>
-                )}
-            />
-            <Controller
-                control={control}
-                name="venue"
-                render={({ field: { onChange, value } }) => (
-                    <InputGroup label="Venue Name">
-                        <StyledTextInput
-                            value={value}
-                            onChangeText={onChange}
-                            placeholder="e.g. The Royal Opera House"
-                        />
-                    </InputGroup>
-                )}
-            />
-            <Controller
-                control={control}
-                name="address"
-                render={({ field: { onChange, value } }) => (
-                    <InputGroup label="Complete Address">
-                        <View className="flex-col gap-3">
-                            <StyledTextInput
-                                value={value}
-                                onChangeText={onChange}
-                                placeholder="Street, Area, Landmark"
-                            />
-                            {/* Location Preview */}
-                            <MapLinkCard
-                                venueName={watch('venue')}
-                                address={watch('address') || ''}
-                                city={watch('city')}
-                                state={'State'}
-                                country={'India'}
-                            />
-                        </View>
-                    </InputGroup>
-                )}
-            />
+                    )}
+                </View>
+            </InputGroup>
         </View>
     );
 
-    // Step 3: Schedule
     const renderStep3 = () => (
         <View className="gap-6">
             <View className="flex-1">
-                <Controller
-                    control={control}
-                    name="startDate"
-                    render={({ field: { onChange, value } }) => (
-                        <DatePickerInput
-                            label="Start Date"
-                            required
-                            value={value}
-                            onChange={(date) => onChange(toLocalDateString(date))}
-                            error={errors.startDate?.message}
-                            placeholder="Select Date"
-                            minimumDate={new Date()}
-                        />
-                    )}
+                <DatePickerInput
+                    label="Start Date"
+                    required
+                    value={formData.startDate}
+                    onChange={(date) => updateField('startDate', toLocalDateString(date))}
+                    error={errors.startDate}
+                    placeholder="Select Date"
+                    minimumDate={new Date()}
                 />
             </View>
             <View className="flex-1">
-                <Controller
-                    control={control}
-                    name="endDate"
-                    render={({ field: { onChange, value } }) => (
-                        <DatePickerInput
-                            label="End Date"
-                            value={value}
-                            onChange={(date) => onChange(toLocalDateString(date))}
-                            error={errors.endDate?.message}
-                            placeholder="Select Date"
-                            minimumDate={watch('startDate') ? new Date(watch('startDate')) : new Date()}
-                        />
-                    )}
+                <DatePickerInput
+                    label="End Date"
+                    value={formData.endDate}
+                    onChange={(date) => updateField('endDate', toLocalDateString(date))}
+                    error={errors.endDate}
+                    placeholder="Select Date"
+                    minimumDate={formData.startDate ? new Date(formData.startDate) : new Date()}
                 />
             </View>
         </View>
     );
 
-    const renderTicketForm = (onChange: (val: any) => void, currentTypes: any[]) => (
+    const renderTicketForm = () => (
         <View className="gap-4 p-4 rounded-xl bg-zinc-900/50 border border-white/10">
             <Text className="text-white font-bold mb-2">New Ticket Type</Text>
             <View className="gap-4">
@@ -618,7 +581,7 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
                 </TouchableOpacity>
                 <TouchableOpacity
                     className="flex-1 py-3 bg-indigo-600 rounded-xl items-center"
-                    onPress={() => handleAddTicket(currentTypes, onChange)}
+                    onPress={handleAddTicket}
                 >
                     <Text className="text-white font-bold">Add Ticket</Text>
                 </TouchableOpacity>
@@ -626,203 +589,220 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
         </View>
     );
 
-    // Step 4: Pricing
     const renderStep4 = () => (
         <View className="gap-6">
             <View className="bg-zinc-900/50 p-1 rounded-xl flex-row mb-2 border border-white/10">
                 <TouchableOpacity
-                    onPress={() => setPricingMode('simple')}
-                    className={`flex-1 py-2 rounded-lg items-center ${pricingMode === 'simple' ? 'bg-[#FF6B35]/20' : ''}`}
+                    onPress={() => {
+                        updateField('pricingMode', 'simple');
+                        updateField('ticketTypes', []);
+                    }}
+                    className={`flex-1 py-2 rounded-lg items-center ${formData.pricingMode === 'simple' ? 'bg-[#FF6B35]/20' : ''}`}
                 >
-                    <Text className={`font-medium ${pricingMode === 'simple' ? 'text-[#FF6B35]' : 'text-zinc-400'}`}>Fixed Price</Text>
+                    <Text className={`font-medium ${formData.pricingMode === 'simple' ? 'text-[#FF6B35]' : 'text-zinc-400'}`}>Fixed Price</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    onPress={() => setPricingMode('types')}
-                    className={`flex-1 py-2 rounded-lg items-center ${pricingMode === 'types' ? 'bg-[#FF6B35]/20' : ''}`}
+                    onPress={() => {
+                        updateField('pricingMode', 'types');
+                        updateField('ticketPrice', '');
+                    }}
+                    className={`flex-1 py-2 rounded-lg items-center ${formData.pricingMode === 'types' ? 'bg-[#FF6B35]/20' : ''}`}
                 >
-                    <Text className={`font-medium ${pricingMode === 'types' ? 'text-[#FF6B35]' : 'text-zinc-400'}`}>Ticket Types</Text>
+                    <Text className={`font-medium ${formData.pricingMode === 'types' ? 'text-[#FF6B35]' : 'text-zinc-400'}`}>Ticket Types</Text>
                 </TouchableOpacity>
             </View>
 
-            {pricingMode === 'simple' ? (
-                <Controller
-                    control={control}
-                    name="ticketPrice"
-                    render={({ field: { onChange, value } }) => (
-                        <InputGroup label="Entry Fee (₹)" error={errors.ticketPrice?.message}>
-                            <StyledTextInput
-                                inputMode="numeric"
-                                value={String(value === undefined ? '' : value)}
-                                onChangeText={onChange}
-                                placeholder="0 or Free"
-                                error={errors.ticketPrice?.message}
-                            />
-                        </InputGroup>
-                    )}
-                />
+            {formData.pricingMode === 'simple' ? (
+                <InputGroup label="Entry Fee (₹)" error={errors.ticketPrice}>
+                    <StyledTextInput
+                        inputMode="numeric"
+                        value={String(formData.ticketPrice === undefined ? '' : formData.ticketPrice)}
+                        onChangeText={(val: string) => updateField('ticketPrice', val)}
+                        placeholder="0 or Free"
+                        error={errors.ticketPrice}
+                    />
+                </InputGroup>
             ) : (
                 <View className="flex-1">
                     <Text className="text-zinc-400 mb-2 font-medium">Ticket Types</Text>
-                    <Controller
-                        control={control}
-                        name="ticketTypes"
-                        render={({ field: { onChange, value } }) => (
-                            <View className="gap-3 relative">
-                                {addingTicket ? (
-                                    renderTicketForm(onChange, value || [])
-                                ) : (
-                                    <>
-                                        {/* List of added ticket types */}
-                                        {value && value.map((ticket: any, index: number) => (
-                                            <View key={index} className="bg-zinc-900/50 p-3 rounded-lg border border-white/10 flex-row justify-between items-center">
-                                                <View>
-                                                    <Text className="text-white font-medium">{ticket.name}</Text>
-                                                    <Text className="text-zinc-400 text-xs">
-                                                        ₹{ticket.price} • {ticket.capacity} seats • {ticket.isRefundable ? 'Refundable' : 'Non-refundable'}
-                                                    </Text>
-                                                </View>
-                                                <TouchableOpacity
-                                                    onPress={() => {
-                                                        const newTypes = [...value];
-                                                        newTypes.splice(index, 1);
-                                                        onChange(newTypes);
-                                                    }}
-                                                    className="p-2 bg-zinc-800 rounded-full"
-                                                >
-                                                    <Text className="text-zinc-400 font-bold">✕</Text>
-                                                </TouchableOpacity>
-                                            </View>
-                                        ))}
-
+                    <View className="gap-3 relative">
+                        {addingTicket ? (
+                            renderTicketForm()
+                        ) : (
+                            <>
+                                {/* List of added ticket types */}
+                                {formData.ticketTypes && formData.ticketTypes.map((ticket: any, index: number) => (
+                                    <View key={index} className="bg-zinc-900/50 p-3 rounded-lg border border-white/10 flex-row justify-between items-center">
+                                        <View>
+                                            <Text className="text-white font-medium">{ticket.name}</Text>
+                                            <Text className="text-zinc-400 text-xs">
+                                                ₹{ticket.price} • {ticket.capacity} seats • {ticket.isRefundable ? 'Refundable' : 'Non-refundable'}
+                                            </Text>
+                                        </View>
                                         <TouchableOpacity
-                                            onPress={() => setAddingTicket(true)}
-                                            className="flex-row items-center justify-center p-4 border border-dashed border-zinc-700 rounded-xl bg-[#FF6B35]/5"
+                                            onPress={() => {
+                                                const newTypes = [...(formData.ticketTypes || [])];
+                                                newTypes.splice(index, 1);
+                                                updateField('ticketTypes', newTypes);
+                                            }}
+                                            className="p-2 bg-zinc-800 rounded-full"
                                         >
-                                            <View className="bg-[#FF6B35]/20 p-1 rounded mr-2">
-                                                <Text className="text-[#FF6B35] font-bold text-lg leading-none">+</Text>
-                                            </View>
-                                            <Text className="text-zinc-300 font-medium">Add Ticket Type</Text>
+                                            <Text className="text-zinc-400 font-bold">✕</Text>
                                         </TouchableOpacity>
-                                        {errors.ticketTypes && <Text className="text-red-500 text-xs">{errors.ticketTypes.message}</Text>}
-                                    </>
-                                )}
-                            </View>
+                                    </View>
+                                ))}
+
+                                <TouchableOpacity
+                                    onPress={() => setAddingTicket(true)}
+                                    className="flex-row items-center justify-center p-4 border border-dashed border-zinc-700 rounded-xl bg-[#FF6B35]/5"
+                                >
+                                    <View className="bg-[#FF6B35]/20 p-1 rounded mr-2">
+                                        <Text className="text-[#FF6B35] font-bold text-lg leading-none">+</Text>
+                                    </View>
+                                    <Text className="text-zinc-300 font-medium">Add Ticket Type</Text>
+                                </TouchableOpacity>
+                                {errors.ticketTypes && <Text className="text-red-500 text-xs">{errors.ticketTypes}</Text>}
+                            </>
                         )}
-                    />
+                    </View>
                 </View>
             )}
         </View>
     );
 
-    // Step 5: The Pitch
     const renderStep5 = () => (
         <View className="gap-6">
-            <Controller
-                control={control}
-                name="description"
-                render={({ field: { onChange, value } }) => (
-                    <InputGroup label="Event Description" required subtitle="Tell people what to expect" error={errors.description?.message}>
-                        <TextArea
-                            rows={6}
-                            value={value}
-                            onChangeText={onChange}
-                            placeholder="Describe the event, the vibe, special guests..."
-                            error={errors.description?.message}
-                        />
-                    </InputGroup>
-                )}
-            />
+            <InputGroup label="Event Description" required subtitle="Tell people what to expect" error={errors.description}>
+                <View className="items-end mb-2">
+                    <TouchableOpacity
+                        onPress={() => handleRephrase('description')}
+                        disabled={!!rephrasingField}
+                        className="flex-row items-center gap-1.5 bg-zinc-800/80 px-3 py-1.5 rounded-full border border-zinc-700/50"
+                    >
+                        {rephrasingField === 'description' ? (
+                            <ActivityIndicator size="small" color="#FF6B35" />
+                        ) : (
+                            <Wand2 size={12} color="#FF6B35" />
+                        )}
+                        <Text className="text-[#FF6B35] text-[10px] font-black uppercase tracking-wider">
+                            {rephrasingField === 'description' ? 'AI Magic...' : 'Rephrase with AI'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+                <TextArea
+                    rows={6}
+                    value={formData.description}
+                    onChangeText={(val: string) => updateField('description', val)}
+                    placeholder="Describe the event, the vibe, special guests..."
+                    error={errors.description}
+                />
+            </InputGroup>
         </View>
     );
 
-    // Step 6: Registration
     const renderStep6 = () => (
         <View className="gap-6">
-            <Controller
-                control={control}
-                name="deadline"
-                render={({ field: { onChange, value } }) => (
-                    <DatePickerInput
-                        label="Registration Closes"
-                        value={value}
-                        onChange={(date) => onChange(toLocalDateString(date))}
-                        placeholder="Select Deadline"
-                        minimumDate={new Date()}
-                        maximumDate={watch('startDate') ? new Date(watch('startDate')) : undefined}
-                        subtitle="When do sales/registrations close?"
-                    />
-                )}
+            <DatePickerInput
+                label="Registration Closes"
+                value={formData.deadline}
+                onChange={(date) => updateField('deadline', toLocalDateString(date))}
+                placeholder="Select Deadline"
+                minimumDate={new Date()}
+                maximumDate={formData.startDate ? new Date(formData.startDate) : undefined}
+                subtitle="When do sales/registrations close?"
             />
         </View>
     );
 
-    // Step 7: Visibility
     const renderStep7 = () => (
         <View className="gap-6">
-            <Controller
-                control={control}
-                name="urgent"
-                render={({ field: { onChange, value } }) => (
-                    <TouchableOpacity
-                        className="flex-row items-center space-x-3 p-3 rounded-xl bg-zinc-800/50 border border-white/10"
-                        onPress={() => onChange(!value)}
-                    >
-                        <View className={`w-6 h-6 rounded-md border items-center justify-center ${value ? 'bg-orange-500 border-orange-500' : 'border-zinc-600'}`}>
-                            {value && <Check size={14} color="#fff" />}
-                        </View>
-                        <View>
-                            <Text className="text-zinc-200 font-medium h-full align-middle pt-1 ml-2">Urgent Event</Text>
-                            <Text className="text-xs text-zinc-500 ml-2">Adds an "Urgent" badge</Text>
-                        </View>
-                    </TouchableOpacity>
-                )}
-            />
+            <TouchableOpacity
+                className="flex-row items-center space-x-3 p-3 rounded-xl bg-zinc-800/50 border border-white/10"
+                onPress={() => updateField('urgent', !formData.urgent)}
+            >
+                <View className={`w-6 h-6 rounded-md border items-center justify-center ${formData.urgent ? 'bg-orange-500 border-orange-500' : 'border-zinc-600'}`}>
+                    {formData.urgent && <Check size={14} color="#fff" />}
+                </View>
+                <View>
+                    <Text className="text-zinc-200 font-medium h-full align-middle pt-1 ml-2">Urgent Event</Text>
+                    <Text className="text-xs text-zinc-500 ml-2">Adds an "Urgent" badge</Text>
+                </View>
+            </TouchableOpacity>
 
-            <Controller
-                control={control}
-                name="featured"
-                render={({ field: { onChange, value } }) => (
-                    <TouchableOpacity
-                        className="flex-row items-center space-x-3 p-3 rounded-xl bg-zinc-800/50 border border-white/10"
-                        onPress={() => onChange(!value)}
-                    >
-                        <View className={`w-6 h-6 rounded-md border items-center justify-center ${value ? 'bg-[#FF6B35] border-[#FF6B35]' : 'border-zinc-600'}`}>
-                            {value && <Check size={14} color="#fff" />}
-                        </View>
-                        <View>
-                            <Text className="text-zinc-200 font-medium h-full align-middle pt-1 ml-2">Feature this Event</Text>
-                            <Text className="text-xs text-zinc-500 ml-2">Pin to top (+$15.00)</Text>
-                        </View>
-                    </TouchableOpacity>
-                )}
-            />
+            <TouchableOpacity
+                className="flex-row items-center space-x-3 p-3 rounded-xl bg-zinc-800/50 border border-white/10"
+                onPress={() => updateField('featured', !formData.featured)}
+            >
+                <View className={`w-6 h-6 rounded-md border items-center justify-center ${formData.featured ? 'bg-[#FF6B35] border-[#FF6B35]' : 'border-zinc-600'}`}>
+                    {formData.featured && <Check size={14} color="#fff" />}
+                </View>
+                <View>
+                    <Text className="text-zinc-200 font-medium h-full align-middle pt-1 ml-2">Feature this Event</Text>
+                    <Text className="text-xs text-zinc-500 ml-2">Pin to top (+$15.00)</Text>
+                </View>
+            </TouchableOpacity>
         </View>
     );
 
-    // Step 8: Review
     const renderStep8 = () => (
-        <View className="gap-4">
-            <View className="bg-[#FF6B35]/10 border border-[#FF6B35]/30 rounded-2xl p-6">
-                <Text className="text-[#FF6B35] font-semibold mb-4 flex-row items-center">
-                    <Eye size={18} color="#FF6B35" /> Summary
+        <View className="gap-6">
+            <LinearGradient
+                colors={['#FF6B35', '#FF8C42']}
+                start={[0, 0]}
+                end={[1, 0]}
+                className="rounded-2xl p-6 mb-2"
+                style={{
+                    shadowColor: '#FF6B35',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                }}
+            >
+                <View className="flex-row items-center mb-2">
+                    <Eye size={20} color="#fff" />
+                    <Text className="text-white font-black text-sm ml-2 uppercase tracking-wider">
+                        Final Review
+                    </Text>
+                </View>
+                <Text className="text-white/90 text-sm font-light">
+                    Almost there! Review and publish your event
                 </Text>
-                <View className="gap-2">
-                    <View className="flex-row justify-between items-start">
-                        <View className="flex-1 mr-2">
-                            <View className="flex-row gap-2 mb-2">
-                                <Text className="bg-zinc-800 text-zinc-300 text-xs px-2 py-0.5 rounded capitalize overflow-hidden">{formData.eventType}</Text>
+            </LinearGradient>
+
+            <View className="bg-zinc-900 border border-white/10 rounded-2xl overflow-hidden">
+                {/* Preview Header */}
+                <View className="p-5 border-b border-white/10 bg-zinc-800/50">
+                    <View className="flex-row gap-2 mb-3">
+                        {formData.urgent && (
+                            <View className="bg-red-500/20 px-2 py-1 rounded">
+                                <Text className="text-red-400 text-[10px] font-black uppercase">URGENT</Text>
                             </View>
-                            <Text className="text-xl font-bold text-white mb-1">{formData.title}</Text>
-                            <Text className="text-zinc-400 text-sm flex-row items-center">
-                                <MapPin size={12} color="#a1a1aa" /> {formData.city} • <Calendar size={12} color="#a1a1aa" /> {formData.startDate}
-                            </Text>
-                        </View>
-                        <View className="items-end">
-                            <Text className="text-xl font-bold text-white">{formData.ticketPrice && Number(formData.ticketPrice) > 0 ? `₹${formData.ticketPrice}` : 'Free'}</Text>
+                        )}
+                        <View className="bg-zinc-700 px-2 py-1 rounded">
+                            <Text className="text-zinc-300 text-[10px] font-bold uppercase">{formData.eventType || 'Event'}</Text>
                         </View>
                     </View>
-                    <View className="h-[1px] bg-[#FF6B35]/20 my-2" />
-                    <Text className="text-zinc-300 text-sm italic" numberOfLines={3}>"{formData.description}"</Text>
+                    <Text className="text-white text-xl font-black leading-tight mb-1">{formData.title}</Text>
+                    <Text className="text-zinc-400 text-sm flex-row items-center">
+                        <MapPin size={12} color="#a1a1aa" /> {formData.city} • <Calendar size={12} color="#a1a1aa" /> {formData.startDate}
+                    </Text>
+                </View>
+
+                {/* Preview Body */}
+                <View className="p-5 gap-4">
+                    <View>
+                        <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-1">Pricing</Text>
+                        {formData.pricingMode === 'simple' ? (
+                            <Text className="text-white text-lg font-black">{formData.ticketPrice && Number(formData.ticketPrice) > 0 ? `₹${formData.ticketPrice}` : 'Free'}</Text>
+                        ) : (
+                            <Text className="text-white text-lg font-black">{formData.ticketTypes?.length ? `${formData.ticketTypes.length} Ticket Types` : 'TBA'}</Text>
+                        )}
+                    </View>
+
+                    <View>
+                        <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-1">Description</Text>
+                        <Text className="text-zinc-300 text-sm" numberOfLines={3}>{formData.description}</Text>
+                    </View>
                 </View>
             </View>
 
@@ -835,21 +815,6 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
             )}
         </View>
     );
-
-    const renderCurrentStep = () => {
-        switch (step) {
-            case 0: return renderStep0();
-            case 1: return renderStep1();
-            case 2: return renderStep2();
-            case 3: return renderStep3();
-            case 4: return renderStep4();
-            case 5: return renderStep5();
-            case 6: return renderStep6();
-            case 7: return renderStep7();
-            case 8: return renderStep8();
-            default: return null;
-        }
-    };
 
     return (
         <View className="flex-1 bg-black">
@@ -885,10 +850,19 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
                     </View>
 
                     <ScrollView
+                        ref={scrollViewRef}
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={{ paddingBottom: 120 }}
                     >
-                        {renderCurrentStep()}
+                        {step === 0 && renderStep0()}
+                        {step === 1 && renderStep1()}
+                        {step === 2 && renderStep2()}
+                        {step === 3 && renderStep3()}
+                        {step === 4 && renderStep4()}
+                        {step === 5 && renderStep5()}
+                        {step === 6 && renderStep6()}
+                        {step === 7 && renderStep7()}
+                        {step === 8 && renderStep8()}
                     </ScrollView>
                 </Animated.View>
             </View>
@@ -897,7 +871,7 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
                 <View className="flex-row justify-between items-center">
                     <TouchableOpacity
                         onPress={handleBackInternal}
-                        disabled={createEventMutation.isPending}
+                        disabled={isLoading}
                         className="w-12 h-12 rounded-full bg-zinc-900 border border-white/10 items-center justify-center"
                     >
                         {step === 0 ? <Text className="text-zinc-400 font-bold">✕</Text> : <ChevronLeft size={24} color="#a1a1aa" />}
@@ -908,17 +882,17 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
                             <View className="flex-row gap-2">
                                 <TouchableOpacity
                                     className="flex-1 py-4 bg-zinc-800 rounded-xl items-center"
-                                    onPress={handleSubmit((data) => onSubmit(data, true))}
-                                    disabled={createEventMutation.isPending}
+                                    onPress={() => handleSubmit(true)}
+                                    disabled={isLoading}
                                 >
                                     <Text className="text-white font-bold">Draft</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     className="flex-[2] py-4 bg-[#FF6B35] rounded-xl items-center flex-row justify-center gap-2"
-                                    onPress={handleSubmit((data) => onSubmit(data, false))}
-                                    disabled={createEventMutation.isPending}
+                                    onPress={() => handleSubmit(false)}
+                                    disabled={isLoading}
                                 >
-                                    {createEventMutation.isPending ? <ActivityIndicator color="#fff" /> : (
+                                    {isLoading ? <ActivityIndicator color="#fff" /> : (
                                         <>
                                             <Text className="text-white font-black text-lg">
                                                 Publish

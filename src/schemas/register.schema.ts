@@ -83,6 +83,8 @@ export interface RegisterPayload {
         email: string;
         password: string;
         phoneNumber?: string;
+        /** ISO 8601 date string. Drives age-gate; optional at signup. */
+        dateOfBirth?: string;
         intent?: Intent[];
         marketingConsent?: boolean;
     };

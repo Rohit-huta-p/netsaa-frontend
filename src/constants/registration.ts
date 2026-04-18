@@ -114,11 +114,12 @@ export const HIRER_CLIENT_TYPES: { id: HirerClientType; label: string; sub: stri
 export const STEPS = [
     'entry',         // Step 1: email + phone (both)
     'identity',      // Step 2: fullName, displayName
-    'credentials',   // Step 3: password (Google OAuth deferred)
-    'intent',        // Step 4: "What brings you to NETSA?" (emotional center)
-    'artistProfile', // Step 5: artist type + experience + city (skippable)
-    'hirerProfile',  // Step 6: client type + city (conditional on hire intent)
-    'social',        // Step 7: optional social handles
+    'dob',           // Step 3: date of birth (age-gate per Indian Contract Act §11)
+    'credentials',   // Step 4: password (Google OAuth deferred)
+    'intent',        // Step 5: "What brings you to NETSA?" (emotional center)
+    'artistProfile', // Step 6: artist type + experience + city (skippable)
+    'hirerProfile',  // Step 7: client type + city (conditional on hire intent)
+    'social',        // Step 8: optional social handles
 ] as const;
 
 export type StepId = (typeof STEPS)[number] | 'completion';
@@ -140,8 +141,17 @@ export const SOFT_STEPS: ReadonlySet<StepId> = new Set<StepId>([
 export const BLOCKING_STEPS: ReadonlySet<StepId> = new Set<StepId>([
     'entry',
     'identity',
+    'dob',
     'credentials',
 ]);
+
+/**
+ * Age thresholds driving the dob step UI + backend age-gate.
+ * Under 13: blocked (DPDP Act, COPPA-ish). 13-17: allowed but flagged minor
+ * and needs guardian co-sign on contracts (Indian Contract Act §11).
+ */
+export const MIN_REGISTRATION_AGE = 13;
+export const MAJORITY_AGE = 18;
 
 /* ═════════════════════════════════════════════════════════════
  *  Legacy re-exports

@@ -1,10 +1,12 @@
-import React from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert, Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CheckCircle, XCircle, FileText, MapPin, Calendar, DollarSign, ShieldAlert } from 'lucide-react-native';
-import { useContract, useDeclineContract } from '@/hooks/usePayments';
+import { CheckCircle, XCircle, FileText, MapPin, Calendar, DollarSign, ShieldAlert, Zap, HandCoins, Pencil, X } from 'lucide-react-native';
+import { useContract, useDeclineContract, useSwitchContractPaymentMethod } from '@/hooks/usePayments';
 import useAuthStore from '@/stores/authStore';
+import PaymentMethodSelector from '@/components/payments/PaymentMethodSelector';
+import type { ContractPaymentMethod } from '@/services/paymentService';
 
 export default function ContractDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -12,6 +14,10 @@ export default function ContractDetailScreen() {
     const userId = useAuthStore((s) => s.user as any)?.id || useAuthStore((s) => s.user as any)?._id;
     const { data, isLoading } = useContract(id || '');
     const declineMutation = useDeclineContract();
+    const switchMutation = useSwitchContractPaymentMethod();
+
+    const [methodModalOpen, setMethodModalOpen] = useState(false);
+    const [pendingMethod, setPendingMethod] = useState<ContractPaymentMethod>('on_platform');
 
     const contract = data?.data;
 
@@ -23,6 +29,32 @@ export default function ContractDetailScreen() {
     const canSign = isArtist && contract.status === 'sent';
     const canPay = isHirer && contract.status === 'accepted';
     const awaitingGuardian = contract.status === 'pending_guardian_cosign';
+
+    const currentMethod: ContractPaymentMethod = contract.paymentMethod ?? 'on_platform';
+    const switchableStatuses = ['draft', 'sent', 'pending_artist_signature'];
+    const methodEditable = isHirer && !contract.artistSignature && switchableStatuses.includes(contract.status);
+
+    const openMethodModal = () => {
+        setPendingMethod(currentMethod);
+        setMethodModalOpen(true);
+    };
+
+    const confirmSwitchMethod = () => {
+        if (pendingMethod === currentMethod) {
+            setMethodModalOpen(false);
+            return;
+        }
+        switchMutation.mutate(
+            { id: contract._id, paymentMethod: pendingMethod },
+            {
+                onSuccess: () => setMethodModalOpen(false),
+                onError: (err: any) => {
+                    const msg = err?.response?.data?.message || 'Could not switch payment method';
+                    Alert.alert('Error', msg);
+                },
+            }
+        );
+    };
 
     const handleSign = () => {
         // Full ceremony (scroll-to-bottom + double-confirm + audit capture) lives on
@@ -112,6 +144,44 @@ export default function ContractDetailScreen() {
                 )}
             </View>
 
+            {/* Payment Method */}
+            <View style={styles.section}>
+                <Text style={styles.sectionLabel}>PAYMENT METHOD</Text>
+                <View style={styles.methodCard}>
+                    <View style={[
+                        styles.methodIconCircle,
+                        currentMethod === 'on_platform' ? { backgroundColor: 'rgba(249,115,22,0.15)' } : { backgroundColor: 'rgba(139,92,246,0.15)' },
+                    ]}>
+                        {currentMethod === 'on_platform' ? (
+                            <Zap size={18} color="#F97316" />
+                        ) : (
+                            <HandCoins size={18} color="#8B5CF6" />
+                        )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.methodTitle}>
+                            {currentMethod === 'on_platform' ? 'On-platform' : 'Off-platform'}
+                        </Text>
+                        <Text style={styles.methodSub}>
+                            {currentMethod === 'on_platform'
+                                ? 'Razorpay Route · instant split'
+                                : 'Cash · UPI · bank · recorded later'}
+                        </Text>
+                    </View>
+                    {methodEditable && (
+                        <Pressable onPress={openMethodModal} style={styles.changeBtn}>
+                            <Pencil size={12} color="#C4B8E3" />
+                            <Text style={styles.changeBtnText}>Change</Text>
+                        </Pressable>
+                    )}
+                </View>
+                {!methodEditable && isHirer && contract.artistSignature && (
+                    <Text style={styles.methodLockedNote}>
+                        Payment method is locked after the artist signs.
+                    </Text>
+                )}
+            </View>
+
             {/* Signatures */}
             <View style={styles.section}>
                 <Text style={styles.sectionLabel}>SIGNATURES</Text>
@@ -177,6 +247,52 @@ export default function ContractDetailScreen() {
                     </Pressable>
                 </View>
             )}
+
+            <Modal
+                visible={methodModalOpen}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setMethodModalOpen(false)}
+            >
+                <View style={styles.modalBackdrop}>
+                    <View style={styles.modalSheet}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Change payment method</Text>
+                            <Pressable onPress={() => setMethodModalOpen(false)} hitSlop={12}>
+                                <X size={20} color="#8F8B9E" />
+                            </Pressable>
+                        </View>
+                        <Text style={styles.modalSub}>
+                            You can switch until the artist signs. After that it&apos;s locked.
+                        </Text>
+                        <PaymentMethodSelector
+                            value={pendingMethod}
+                            onChange={setPendingMethod}
+                            disabled={switchMutation.isPending}
+                        />
+                        <Pressable
+                            onPress={confirmSwitchMethod}
+                            disabled={switchMutation.isPending}
+                            style={({ pressed }) => [pressed && { opacity: 0.9 }]}
+                        >
+                            <LinearGradient
+                                colors={['#EC4899', '#F97316']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={[styles.primaryBtn, { marginTop: 16 }]}
+                            >
+                                {switchMutation.isPending ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.primaryBtnText}>
+                                        {pendingMethod === currentMethod ? 'Close' : 'Confirm change'}
+                                    </Text>
+                                )}
+                            </LinearGradient>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
         </ScrollView>
     );
 }
@@ -235,4 +351,63 @@ const styles = StyleSheet.create({
     },
     guardianTitle: { fontFamily: 'Outfit-SemiBold', fontSize: 14, color: '#F59E0B', marginBottom: 2 },
     guardianSub: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#D1B37A', lineHeight: 18 },
+    methodCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        padding: 14,
+        borderRadius: 12,
+        backgroundColor: '#121018',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.06)',
+    },
+    methodIconCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    methodTitle: { fontFamily: 'Outfit-SemiBold', fontSize: 14, color: '#F0ECE6' },
+    methodSub: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#8F8B9E', marginTop: 2 },
+    changeBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(196,184,227,0.2)',
+    },
+    changeBtnText: { fontFamily: 'Outfit-Medium', fontSize: 11, color: '#C4B8E3' },
+    methodLockedNote: {
+        fontFamily: 'Outfit-Regular',
+        fontSize: 11,
+        color: '#6B6878',
+        marginTop: 8,
+        fontStyle: 'italic',
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'flex-end',
+    },
+    modalSheet: {
+        backgroundColor: '#0E0C14',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 20,
+        paddingBottom: 36,
+        borderTopWidth: 1,
+        borderColor: 'rgba(255,255,255,0.06)',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 6,
+    },
+    modalTitle: { fontFamily: 'Outfit-SemiBold', fontSize: 17, color: '#F0ECE6' },
+    modalSub: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#8F8B9E', marginBottom: 16 },
 });

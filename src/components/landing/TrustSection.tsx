@@ -1,203 +1,232 @@
 import React from 'react';
-import { View, Text, Platform, useWindowDimensions } from 'react-native';
-import { CheckCircle, Lock, MessageCircle, Shield } from 'lucide-react-native';
-import { NETSA_COLORS } from '@/hooks/useThemeColors';
+import { View, Text, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ArrowRight } from 'lucide-react-native';
+import { LANDING } from '@/constants/landingTheme';
 
-const isWeb = Platform.OS === 'web';
+const COMPARE = [
+  { before: 'WhatsApp chaos', after: 'Professional profile' },
+  { before: 'Cash payments', after: 'Instant bank pay' },
+  { before: 'No portfolio', after: 'Video portfolio' },
+  { before: 'Invisible to hirers', after: 'Hirers find you' },
+  { before: 'No proof of work', after: 'Every gig on record' },
+];
 
-interface PillarProps {
-    icon: any;
-    title: string;
-    description: string;
-    accentColor: string;
-    isMobile: boolean;
-}
+const TIERS = [
+  { name: 'New', color: LANDING.trust.new, benefit: '2 active gigs' },
+  { name: 'Rising', color: LANDING.trust.rising, benefit: 'Full marketplace access' },
+  { name: 'Trusted', color: LANDING.trust.trusted, benefit: 'Priority in search' },
+  { name: 'Verified', color: LANDING.trust.verified, benefit: 'Lower fees, featured' },
+];
 
-const Pillar = ({ icon: Icon, title, description, accentColor, isMobile }: PillarProps) => (
-    <View
-        style={{
-            flex: 1,
-            minWidth: isMobile ? '100%' : 260,
-            padding: isMobile ? 28 : 36,
-            borderRadius: isMobile ? 20 : 24,
-            backgroundColor: 'rgba(24,24,27,0.5)',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.06)',
-        }}
-    >
-        {/* Icon badge */}
-        <View
-            style={{
-                width: isMobile ? 48 : 56,
-                height: isMobile ? 48 : 56,
-                borderRadius: isMobile ? 14 : 16,
-                backgroundColor: `${accentColor}15`,
-                borderWidth: 1,
-                borderColor: `${accentColor}30`,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: isMobile ? 16 : 20,
-            }}
-        >
-            <Icon size={isMobile ? 22 : 26} color={accentColor} />
-        </View>
-
-        <Text
-            style={{
-                fontSize: isMobile ? 17 : 19,
-                fontWeight: '700',
-                color: '#fff',
-                marginBottom: 10,
-                letterSpacing: -0.3,
-            }}
-        >
-            {title}
-        </Text>
-
-        <Text
-            style={{
-                fontSize: isMobile ? 13 : 14,
-                color: '#71717a',
-                lineHeight: isMobile ? 20 : 24,
-            }}
-        >
-            {description}
-        </Text>
+function Ornament() {
+  return (
+    <View style={styles.ornament}>
+      <View style={styles.ornamentLine} />
+      <View style={styles.ornamentDiamond} />
+      <View style={styles.ornamentLine} />
     </View>
-);
-
-export default function TrustSection({ scrollY, sectionIndex }: { scrollY?: any; sectionIndex?: number }) {
-    const { width } = useWindowDimensions();
-    const isMobile = width < 768;
-    const isTablet = width >= 768 && width < 1024;
-
-    const pillars = [
-        {
-            icon: CheckCircle,
-            title: 'Verification',
-            description: 'Every organizer is ID-verified. Every artist profile is human-reviewed. Zero fake listings.',
-            accentColor: '#22c55e',
-        },
-        {
-            icon: Lock,
-            title: 'Escrow',
-            description: 'Payments held until work delivered. Automated release or dispute resolution. 100% fraud protection.',
-            accentColor: NETSA_COLORS.netsa[10],
-        },
-        {
-            icon: MessageCircle,
-            title: 'Support',
-            description: '24/7 artist support team. Response time: <2 hours. Dedicated account managers for every user.',
-            accentColor: '#60a5fa',
-        },
-        {
-            icon: Shield,
-            title: 'Privacy',
-            description: 'Bank-grade encryption. GDPR-compliant data handling. Your data is never sold — ever.',
-            accentColor: '#a855f7',
-        },
-    ];
-
-    const badges = ['🔐  SSL Secured', '✓  PCI Compliant', '🛡️  GDPR Ready'];
-
-    return (
-        <View
-            style={{
-                paddingVertical: isMobile ? 96 : isTablet ? 128 : 160,
-                paddingHorizontal: isMobile ? 20 : 24,
-                backgroundColor: '#09090b',
-            }}
-        >
-            <View
-                style={{
-                    maxWidth: 1200,
-                    alignSelf: 'center',
-                    width: '100%',
-                }}
-            >
-                {/* Section header */}
-                <View
-                    style={{
-                        alignItems: 'center',
-                        marginBottom: isMobile ? 64 : 96,
-                        maxWidth: isMobile ? '100%' : 680,
-                        alignSelf: 'center',
-                    }}
-                >
-                    <Text
-                        style={{
-                            fontSize: isMobile ? 10 : 12,
-                            color: '#22c55e',
-                            fontWeight: '700',
-                            textTransform: 'uppercase',
-                            letterSpacing: 4,
-                            marginBottom: 16,
-                        }}
-                    >
-                        Trust & Safety
-                    </Text>
-                    <Text
-                        style={{
-                            fontSize: isMobile ? 34 : isWeb ? 52 : 38,
-                            fontWeight: '900',
-                            color: '#fff',
-                            textAlign: 'center',
-                            letterSpacing: -1.5,
-                            lineHeight: isMobile ? 40 : isWeb ? 60 : 44,
-                        }}
-                    >
-                        Your Safety is Our Priority
-                    </Text>
-                </View>
-
-                {/* 2×2 Pillar grid */}
-                <View
-                    style={{
-                        flexDirection: 'row',
-                        flexWrap: 'wrap',
-                        gap: isMobile ? 16 : 24,
-                        marginBottom: isMobile ? 48 : 72,
-                    }}
-                >
-                    {pillars.map((p) => (
-                        <Pillar key={p.title} {...p} isMobile={isMobile} />
-                    ))}
-                </View>
-
-                {/* Trust badge strip */}
-                <View
-                    style={{
-                        flexDirection: 'row',
-                        justifyContent: 'center',
-                        gap: isMobile ? 16 : 32,
-                        flexWrap: 'wrap',
-                    }}
-                >
-                    {badges.map((badge) => (
-                        <View
-                            key={badge}
-                            style={{
-                                backgroundColor: 'rgba(34,197,94,0.08)',
-                                borderWidth: 1,
-                                borderColor: 'rgba(34,197,94,0.2)',
-                                borderRadius: 20,
-                                paddingHorizontal: isMobile ? 16 : 24,
-                                paddingVertical: 10,
-                            }}
-                        >
-                            <Text
-                                style={{
-                                    fontSize: isMobile ? 12 : 14,
-                                    color: '#22c55e',
-                                    fontWeight: '600',
-                                }}
-                            >
-                                {badge}
-                            </Text>
-                        </View>
-                    ))}
-                </View>
-            </View>
-        </View>
-    );
+  );
 }
+
+export default function TrustSection() {
+  return (
+    <>
+      <Ornament />
+      <View style={styles.section}>
+        <Text style={styles.label}>TRUST</Text>
+        <Text style={styles.heading}>
+          Your reputation <Text style={{ color: LANDING.accent.green }}>grows with every gig.</Text>
+        </Text>
+
+        {/* Before/After Header */}
+        <View style={styles.compareHeader}>
+          <View style={[styles.compareHeaderLabel, { justifyContent: 'flex-end' }]}>
+            <View style={[styles.headerDot, { backgroundColor: LANDING.gradient.orange }]} />
+            <Text style={[styles.headerLabelText, { color: LANDING.gradient.orange }]}>Before</Text>
+          </View>
+          <View style={{ width: 32 }} />
+          <View style={styles.compareHeaderLabel}>
+            <View style={[styles.headerDot, { backgroundColor: LANDING.accent.green }]} />
+            <Text style={[styles.headerLabelText, { color: LANDING.accent.green }]}>With NETSA</Text>
+          </View>
+        </View>
+
+        {/* Compare Rows */}
+        {COMPARE.map((row, i) => (
+          <View key={i} style={[styles.compareRow, i === COMPARE.length - 1 && { borderBottomWidth: 0 }]}>
+            <Text style={styles.beforeText}>{row.before}</Text>
+            <View style={styles.arrowWrap}>
+              <ArrowRight size={16} color={LANDING.accent.green} strokeWidth={2} />
+            </View>
+            <Text style={styles.afterText}>{row.after}</Text>
+          </View>
+        ))}
+
+        {/* Trust Tiers */}
+        <View style={styles.tierTrack}>
+          {/* Gradient line behind */}
+          <LinearGradient
+            colors={TIERS.map(t => t.color)}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.tierLine}
+          />
+          {TIERS.map((tier, i) => (
+            <View key={i} style={styles.tier}>
+              <View style={[styles.tierDot, { backgroundColor: tier.color }]}>
+                <View style={[styles.tierDotRing, { borderColor: tier.color }]} />
+              </View>
+              <Text style={[styles.tierName, { color: tier.color }]}>{tier.name}</Text>
+              <Text style={styles.tierBenefit}>{tier.benefit}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  section: {
+    paddingVertical: LANDING.spacing.sectionVertical,
+    paddingHorizontal: LANDING.spacing.px,
+    backgroundColor: LANDING.bg.primary,
+  },
+  label: {
+    fontFamily: LANDING.fonts.sansMedium,
+    fontSize: 11,
+    letterSpacing: 4,
+    color: LANDING.accent.green,
+    marginBottom: 24,
+  },
+  heading: {
+    fontFamily: LANDING.fonts.serif,
+    fontSize: 28,
+    lineHeight: 34,
+    color: LANDING.text.primary,
+    marginBottom: 40,
+  },
+  compareHeader: {
+    flexDirection: 'row',
+    paddingBottom: 16,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  compareHeaderLabel: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  headerLabelText: {
+    fontFamily: LANDING.fonts.sansMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  compareRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
+  },
+  beforeText: {
+    flex: 1,
+    fontFamily: LANDING.fonts.sans,
+    fontSize: 14,
+    color: LANDING.text.dim,
+    textAlign: 'right',
+    paddingRight: 12,
+    textDecorationLine: 'line-through',
+    textDecorationColor: 'rgba(249,115,22,0.3)',
+  },
+  arrowWrap: {
+    width: 32,
+    alignItems: 'center',
+  },
+  afterText: {
+    flex: 1,
+    fontFamily: LANDING.fonts.sansSemiBold,
+    fontSize: 14,
+    color: LANDING.text.primary,
+    paddingLeft: 12,
+  },
+  tierTrack: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 48,
+    paddingTop: 40,
+    position: 'relative',
+  },
+  tierLine: {
+    position: 'absolute',
+    top: 49,
+    left: 30,
+    right: 30,
+    height: 3,
+    borderRadius: 2,
+    opacity: 0.3,
+  },
+  tier: {
+    flex: 1,
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  tierDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  tierDotRing: {
+    position: 'absolute',
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 14,
+    borderWidth: 2,
+    opacity: 0.2,
+  },
+  tierName: {
+    fontFamily: LANDING.fonts.sansBold,
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  tierBenefit: {
+    fontFamily: LANDING.fonts.sans,
+    fontSize: 10,
+    color: LANDING.text.dim,
+    textAlign: 'center',
+    lineHeight: 15,
+  },
+  ornament: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    paddingHorizontal: LANDING.spacing.px,
+    backgroundColor: LANDING.bg.primary,
+  },
+  ornamentLine: {
+    flex: 1,
+    maxWidth: 200,
+    height: 1,
+    backgroundColor: LANDING.border.default,
+  },
+  ornamentDiamond: {
+    width: 6,
+    height: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    transform: [{ rotate: '45deg' }],
+  },
+});

@@ -15,8 +15,26 @@ API.interceptors.request.use((config) => {
 
 // ── Contracts ──
 
+export type ContractPaymentMethod = 'on_platform' | 'off_platform';
+
+export interface SignContractPayload {
+    deviceInfo?: string;
+    otpVerified?: boolean;
+    /** ISO 8601 timestamp when the signer reached the bottom of the terms scroller. */
+    scrollEndedAt?: string;
+    /** ISO 8601 timestamp when the double-confirm tap happened. */
+    doubleConfirmedAt?: string;
+    /** Phase 2 biometric check timestamp. */
+    biometricPassedAt?: string;
+}
+
 export const contractService = {
-    create: async (data: { gigId: string; artistId: string; terms: any }) => {
+    create: async (data: {
+        gigId: string;
+        artistId: string;
+        terms: any;
+        paymentMethod?: ContractPaymentMethod;
+    }) => {
         const res = await API.post('/contracts', data);
         return res.data;
     },
@@ -28,12 +46,16 @@ export const contractService = {
         const res = await API.get('/users/me/contracts', { params });
         return res.data;
     },
-    sign: async (id: string, data?: { deviceInfo?: string; otpVerified?: boolean }) => {
+    sign: async (id: string, data?: SignContractPayload) => {
         const res = await API.patch(`/contracts/${id}/sign`, data || {});
         return res.data;
     },
     decline: async (id: string) => {
         const res = await API.patch(`/contracts/${id}/decline`);
+        return res.data;
+    },
+    switchPaymentMethod: async (id: string, paymentMethod: ContractPaymentMethod) => {
+        const res = await API.patch(`/contracts/${id}/payment-method`, { paymentMethod });
         return res.data;
     },
     amend: async (id: string, data: { changes: Record<string, any>; reason: string }) => {

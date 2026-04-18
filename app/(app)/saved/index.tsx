@@ -16,6 +16,7 @@ import { useSavedItems, SavedItem } from "../../../src/hooks/useSavedItems";
 import AppScrollView from '@/components/AppScrollView';
 import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import { useRouter } from "expo-router";
+import { TopRightIcons } from "@/components/common/TopRightIcons";
 
 const isWeb = Platform.OS === 'web';
 
@@ -289,6 +290,7 @@ export default function SavedJobsScreen() {
 
   return (
     <View className="flex-1 bg-black">
+      <TopRightIcons />
       {/* Spotlight Effect */}
       <View
         style={{

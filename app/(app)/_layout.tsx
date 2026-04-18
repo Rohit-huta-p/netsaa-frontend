@@ -16,19 +16,16 @@ export default function AppLayout() {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [showDeletionModal, setShowDeletionModal] = useState(false);
 
-    const isArtist = user?.roles?.includes("artist") || user?.role === "artist";
-    const isOrganizer = user?.roles?.includes("organizer") || user?.role === "organizer";
+    // Two-context model: every user is both artist AND hirer
+    // Context is determined by the page, not a role field
+    const isArtist = true; // Always true in two-context model
+    const isOrganizer = true; // Always true (hirer context)
 
-    const score = user
-        ? isArtist ? computeOverallScore(user)
-            : isOrganizer ? computeOrganizerScore(user)
-                : 100 : 100;
-    const missing = user
-        ? isArtist ? computeMissing(user)
-            : isOrganizer ? computeOrganizerMissing(user)
-                : [] : [];
+    // Profile completion uses artist score (primary context for most users)
+    const score = user ? computeOverallScore(user) : 100;
+    const missing = user ? computeMissing(user) : [];
 
-    const userRole: 'artist' | 'organizer' = isOrganizer ? 'organizer' : 'artist';
+    const userRole: 'artist' | 'organizer' = 'artist'; // Default context for profile completion
 
     // Redirect unauthenticated users to login page
     useEffect(() => {
@@ -74,7 +71,7 @@ export default function AppLayout() {
                     onClose={() => { setShowProfileModal(false); }}
                     onGoToProfile={() => {
                         setShowProfileModal(false);
-                        router.push("/(app)/profile");
+                        router.push("/(app)/profile?highlight=true");
                     }}
                 />
             )}

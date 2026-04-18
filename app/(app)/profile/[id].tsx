@@ -5,14 +5,14 @@ import { ProfileScreen } from '@/features/profile/ProfileScreen';
 
 export default function UserProfile() {
     const { user } = useAuthStore();
-    const { id, gigId, applicationId, fromGig } = useLocalSearchParams<{
+    const { id: paramId, gigId, applicationId, fromGig } = useLocalSearchParams<{
         id: string;
         gigId?: string;
         applicationId?: string;
         fromGig?: string;
     }>();
 
-    const resolvedId = Array.isArray(id) ? id[0] : id;
+    const resolvedId = Array.isArray(paramId) ? paramId[0] : paramId;
     const isOwner = resolvedId === user?._id;
 
     console.log('[ProfileRoute /profile/:id] id:', resolvedId, '| isOwner:', isOwner);

@@ -57,6 +57,7 @@ export type ProfileStats = {
 
 export interface ProfileHeaderProps {
     animatedStyle?: any;
+    isOwner: boolean;
     fullName?: string;
     headline?: string;
     artistType?: string;

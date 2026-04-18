@@ -26,6 +26,9 @@ interface ProfileUiState {
     // ─── Bottom Sheet Control ───
     activeSheet: SectionId | null;
 
+    // ─── Highlight Missing Fields ───
+    highlightMissing: string[];
+
     // ─── Saving State ───
     savingSection: SectionId | null;
     sectionErrors: Partial<Record<SectionId, string>>;
@@ -45,6 +48,9 @@ interface ProfileUiState {
     openSheet: (section: SectionId) => void;
     closeSheet: () => void;
 
+    setHighlightMissing: (items: string[]) => void;
+    clearHighlightMissing: () => void;
+
     setSaving: (section: SectionId | null) => void;
     setSectionError: (section: SectionId, error: string | null) => void;
 
@@ -58,6 +64,7 @@ export const useProfileUiStore = create<ProfileUiState>((set, get) => ({
     dirtySections: {},
     sectionDrafts: {},
     activeSheet: null,
+    highlightMissing: [],
     savingSection: null,
     sectionErrors: {},
 
@@ -103,7 +110,10 @@ export const useProfileUiStore = create<ProfileUiState>((set, get) => ({
     }),
 
     openSheet: (section) => set({ activeSheet: section }),
-    closeSheet: () => set({ activeSheet: null }),
+    closeSheet: () => set({ activeSheet: null, highlightMissing: [] }),
+
+    setHighlightMissing: (items) => set({ highlightMissing: items }),
+    clearHighlightMissing: () => set({ highlightMissing: [] }),
 
     setSaving: (section) => set({ savingSection: section }),
     setSectionError: (section, error) => set(state => ({

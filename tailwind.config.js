@@ -12,7 +12,16 @@ module.exports = {
     darkMode: 'class',
     theme: {
         extend: {
-            colors: themeColors,
+            colors: {
+                // Flatten themeColors for Tailwind usage
+                ...themeColors,
+                // Shorthand brand colors for quick access
+                'brand-pink': themeColors.netsa.pink,
+                'brand-orange': themeColors.netsa.orange,
+                'brand-gold': themeColors.netsa.gold,
+                'brand-cyan': themeColors.accent.cyan,
+                'brand-green': themeColors.accent.green,
+            },
             // Spacing scale (8px grid)
             spacing: {
                 'xs': '8px',
@@ -22,17 +31,16 @@ module.exports = {
                 'xl': '48px',
                 'xxl': '64px',
             },
-            // Box shadows with purple glow
+            // Box shadows — Palette 18 glows
             boxShadow: {
-                'glow': '0 0 20px rgba(139, 92, 246, 0.15)',
-                'glow-hover': '0 0 40px rgba(139, 92, 246, 0.25)',
-                'glow-lg': '0 0 60px rgba(139, 92, 246, 0.3)',
-                'glow-organizer': '0 0 20px rgba(255, 107, 53, 0.2)',
-                'glow-organizer-hover': '0 0 40px rgba(255, 107, 53, 0.3)',
-                'glow-organizer-lg': '0 0 60px rgba(255, 107, 53, 0.35)',
+                'glow': '0 0 20px rgba(249, 115, 22, 0.15)',
+                'glow-hover': '0 0 40px rgba(249, 115, 22, 0.25)',
+                'glow-lg': '0 0 60px rgba(249, 115, 22, 0.3)',
+                'glow-pink': '0 0 20px rgba(236, 72, 153, 0.2)',
+                'glow-cyan': '0 0 20px rgba(6, 182, 212, 0.15)',
             },
             fontFamily: {
-                // Outfit - Primary display/heading font
+                // Outfit — Primary display/heading font
                 outfit: ['Outfit-Regular', 'sans-serif'],
                 'outfit-thin': ['Outfit-Thin', 'sans-serif'],
                 'outfit-extralight': ['Outfit-ExtraLight', 'sans-serif'],
@@ -43,7 +51,10 @@ module.exports = {
                 'outfit-extrabold': ['Outfit-ExtraBold', 'sans-serif'],
                 'outfit-black': ['Outfit-Black', 'sans-serif'],
 
-                // Source Sans 3 - Body font
+                // DM Serif Display — Serif headlines (landing page)
+                'serif': ['DMSerifDisplay_400Regular', 'serif'],
+
+                // Source Sans 3 — Body font
                 'source-sans': ['SourceSans3-Regular', 'sans-serif'],
                 'source-sans-medium': ['SourceSans3-Medium', 'sans-serif'],
                 'source-sans-semibold': ['SourceSans3-SemiBold', 'sans-serif'],

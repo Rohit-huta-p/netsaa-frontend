@@ -11,15 +11,16 @@ import { usePlatform } from '@/utils/platform';
 import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import AppScrollView from '@/components/AppScrollView';
 
-// --- VISUAL COMPONENTS (Inlined to match eventv2.tsx design exactly) ---
-
 const VisualEventCard = ({ event, onPress }: { event: any; onPress: () => void }) => {
     // Map data fields from backend to design expectations if needed
     // Assuming backend 'coverImage' map to design 'image'
     // Assuming backend 'price' exists or default to free
     console.log("event", event);
-    const imageUri = event.coverImage || event.image || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1000";
-    const priceDisplay = event.ticketPrice ? `₹ ${event.ticketPrice}` : "Free";
+    const imageUri = event.coverImage || event.image;
+    const hasProvidedImage = !!imageUri;
+    const priceDisplay = event.ticketPrice > 0
+        ? (event.pricingMode === 'ticketed' ? `Starts at ₹${event.ticketPrice}` : `₹${event.ticketPrice}`)
+        : 'Free';
     const category = event.eventType || "Event";
     const attendees = event.attendeesCount || event.attendees || 0;
     const rating = event.rating || 4.9; // Default if missing, per design mockup
@@ -39,10 +40,27 @@ const VisualEventCard = ({ event, onPress }: { event: any; onPress: () => void }
         >
             {/* Image Section */}
             <View className="relative w-full aspect-[4/3] overflow-hidden">
-                <Image
-                    source={{ uri: imageUri }}
-                    className="w-full h-full opacity-90"
-                    resizeMode="cover"
+                {hasProvidedImage ? (
+                    <Image
+                        source={{ uri: imageUri }}
+                        className="w-full h-full opacity-90"
+                        resizeMode="cover"
+                    />
+                ) : (
+                    <View className="w-full h-full justify-center items-center bg-black">
+                        <Image
+                            source={require('@/assets/netsaa.png')}
+                            style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.6 }}
+                            resizeMode="cover"
+                            blurRadius={20}
+                        />
+                    </View>
+                )}
+
+                <LinearGradient
+                    colors={['rgba(0,0,0,0.2)', 'transparent', 'rgba(0,0,0,0.6)']}
+                    locations={[0, 0.4, 1]}
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                 />
 
                 {/* Category Badge (Top Left) */}
@@ -117,7 +135,6 @@ const VisualEventCard = ({ event, onPress }: { event: any; onPress: () => void }
 };
 
 
-// --- MAIN PAGE ---
 
 // --- MAIN PAGE ---
 
@@ -127,6 +144,7 @@ import { INITIAL_EVENT_FILTERS, countActiveEventFilters, EVENT_CATEGORIES } from
 import { Filter } from 'lucide-react-native';
 
 import { useDebounce } from '@/hooks/useDebounce';
+import { TopRightIcons } from '@/components/common/TopRightIcons';
 
 export default function EventsPage() {
     const { isWeb } = usePlatform();
@@ -184,7 +202,7 @@ export default function EventsPage() {
     // Client-side filtering block removed to avoid filtering out paged results.
     const filteredEvents = eventsList;
 
-
+    console.log("filteredEvents", filteredEvents);
     const handleEventPress = (id: string) => {
         console.log('Event pressed:', id);
         if (isWeb) {
@@ -223,10 +241,17 @@ export default function EventsPage() {
     };
 
     return (
-        <View className="flex-1 bg-black">
-            {/* Background Ambient Effects (Simulated) */}
-            <View className="absolute top-[10%] -left-[10%] w-[600px] h-[600px] bg-rose-900/20 rounded-full opacity-50 blur-3xl pointer-events-none" />
-            <View className="absolute bottom-[10%] -right-[10%] w-[500px] h-[500px] bg-orange-900/10 rounded-full opacity-30 blur-3xl pointer-events-none" />
+        <View className="flex-1 bg-black" style={{ overflow: 'hidden' }}>
+            <TopRightIcons />
+            {/* Background Ambient Effects (Responsive) */}
+            <View
+                style={{ width: width * 1.2, height: width * 1.2, top: '5%', left: '-20%' }}
+                className="absolute bg-rose-900/20 rounded-full opacity-50 blur-3xl pointer-events-none"
+            />
+            <View
+                style={{ width: width * 1.0, height: width * 1.0, bottom: '10%', right: '-20%' }}
+                className="absolute bg-orange-900/10 rounded-full opacity-30 blur-3xl pointer-events-none"
+            />
 
             <SafeAreaView className="flex-1 " edges={['top']}>
 
@@ -302,12 +327,12 @@ export default function EventsPage() {
                                         <TouchableOpacity
                                             key={filter}
                                             onPress={() => handleCategoryPillPress(filter)}
-                                            className={`h-14 px-6 rounded-2xl items-center justify-center border ${isActive
-                                                ? "bg-white border-transparent"
+                                            className={`px-4 py-2 rounded-2xl items-center justify-center border ${isActive
+                                                ? "bg-[#f43f5e]/60 border-transparent"
                                                 : "bg-transparent border-white/10"
                                                 }`}
                                         >
-                                            <Text className={`text-[10px] font-black uppercase tracking-widest ${isActive ? "text-black" : "text-zinc-500"
+                                            <Text className={`text-[10px] font-black uppercase tracking-widest ${isActive ? "text-white" : "text-zinc-500"
                                                 }`}>
                                                 {filter}
                                             </Text>

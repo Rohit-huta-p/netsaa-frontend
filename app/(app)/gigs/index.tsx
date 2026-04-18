@@ -13,6 +13,7 @@ import AppLoadingScreen from '@/components/ui/AppLoadingScreen';
 import { FilterModal } from '@/components/gigs/FilterModal';
 import { FilterState } from '@/types/filters';
 import { countActiveFilters } from '@/lib/constants/filters';
+import { TopRightIcons } from '@/components/common/TopRightIcons';
 
 const isWeb = Platform.OS === 'web';
 
@@ -124,6 +125,7 @@ export default function GigsListPage() {
 
     return (
         <View style={{ flex: 1, backgroundColor: '#000000' }}>
+            <TopRightIcons />
             {/* <BackgroundElements /> */}
             <AppScrollView className="flex-1">
                 {/* HERO SECTION - COMPACT */}

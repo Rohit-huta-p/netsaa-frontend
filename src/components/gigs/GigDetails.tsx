@@ -74,7 +74,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig }) => {
         pendingCount, totalCount,
         // Handlers
         handleApply, handleShare, handleViewTerms,
-        handleSave, handleUpdateStatus,
+        handleSave, handleUpdateStatus, isDeadlinePassed,
         // Edit Modal states
         editModalVisible, setEditModalVisible,
         editTargetTab, setEditTargetTab,
@@ -248,6 +248,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig }) => {
                     hasApplied={hasApplied}
                     onApply={handleApply}
                     applicationDeadline={gig.applicationDeadline}
+                    isDeadlinePassed={isDeadlinePassed}
                 />
             )}
 
@@ -257,6 +258,9 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig }) => {
                 onClose={() => setApplyModalVisible(false)}
                 gigId={gig._id}
                 gigTitle={gig.title}
+                gigAmount={gig.compensation?.amount || gig.compensation?.minAmount || 0}
+                isNegotiable={gig.compensation?.negotiable || false}
+                termsAndConditions={gig.termsAndConditions}
                 onViewTerms={handleViewTerms}
                 hasTerms={!!gig.termsAndConditions}
             />

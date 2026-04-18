@@ -124,7 +124,9 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
     ];
 
     // Helper to format image uri
-    const imageUri = event.coverImage || event.image || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1000";
+    const hasProvidedImage = !!(event.coverImage || event.image);
+    const imageUri = hasProvidedImage ? (event.coverImage || event.image) : null;
+    const fallbackLogo = require('../../../assets/netsaa.png');
 
     const renderCTAButton = () => {
         // State 2: Processing
@@ -237,11 +239,27 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
                         {/* HERO IMAGE — Rounded */}
                         <View className="px-4 pt-14" style={isLargeScreen ? { paddingHorizontal: 0 } : undefined}>
                             <View style={{ width: '100%', height: 220, position: 'relative', borderRadius: 20, overflow: 'hidden' }}>
-                                <Image
-                                    source={{ uri: imageUri }}
-                                    style={{ width: '100%', height: '100%' }}
-                                    resizeMode="cover"
-                                />
+                                {hasProvidedImage ? (
+                                    <Image
+                                        source={{ uri: imageUri! }}
+                                        style={{ width: '100%', height: '100%' }}
+                                        resizeMode="cover"
+                                    />
+                                ) : (
+                                    <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
+                                        <Image
+                                            source={fallbackLogo}
+                                            style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.6 }}
+                                            resizeMode="cover"
+                                            blurRadius={20}
+                                        />
+                                        {/* <Image
+                                            source={fallbackLogo}
+                                            style={{ width: '60%', height: '60%' }}
+                                            resizeMode="contain"
+                                        /> */}
+                                    </View>
+                                )}
                                 <LinearGradient
                                     colors={['rgba(0,0,0,0.2)', 'transparent', 'rgba(0,0,0,0.6)']}
                                     locations={[0, 0.4, 1]}
@@ -304,23 +322,23 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
                             {/* Organizer Row */}
                             <View className="flex-row items-center gap-3 mb-6 pb-6 border-b border-zinc-800">
                                 <View className="w-11 h-11 rounded-full overflow-hidden bg-zinc-800">
-                                    {event.organizerSnapshot?.profileImageUrl ? (
+                                    {event.organizer?.profileImageUrl ? (
                                         <Image
-                                            source={{ uri: event.organizerSnapshot.profileImageUrl }}
+                                            source={{ uri: event.organizer.profileImageUrl }}
                                             style={{ width: '100%', height: '100%' }}
                                             resizeMode="cover"
                                         />
                                     ) : (
                                         <View className="w-full h-full items-center justify-center bg-zinc-700">
                                             <Text className="text-white font-bold text-lg">
-                                                {event.organizerSnapshot?.name?.charAt(0) || 'O'}
+                                                {event.organizer?.name?.charAt(0) || 'O'}
                                             </Text>
                                         </View>
                                     )}
                                 </View>
                                 <View className="flex-1">
                                     <Text className="text-white font-semibold text-sm">
-                                        {event.organizerSnapshot?.name || 'Organizer'}
+                                        {event.organizer?.name || 'Organizer'}
                                     </Text>
                                     <Text className="text-zinc-500 text-xs">Event Organizer</Text>
                                 </View>
@@ -584,9 +602,11 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
                                         <Text className="text-zinc-500 text-xs font-medium uppercase" style={{ letterSpacing: 1.2, marginBottom: 8 }}>Registration</Text>
                                         <View className="flex-row items-end gap-2">
                                             <Text className="text-white text-4xl font-semibold" style={{ letterSpacing: -1 }}>
-                                                {event.ticketPrice ? `₹${event.ticketPrice}` : 'Free'}
+                                                {event.ticketPrice > 0
+                                                    ? (event.pricingMode === 'ticketed' ? `Starts at ₹${event.ticketPrice}` : `₹${event.ticketPrice}`)
+                                                    : 'Free'}
                                             </Text>
-                                            {event.ticketPrice ? <Text className="text-zinc-500 text-sm" style={{ marginBottom: 4 }}>/ person</Text> : null}
+                                            {event.ticketPrice > 0 ? <Text className="text-zinc-500 text-sm" style={{ marginBottom: 4 }}>/ person</Text> : null}
                                         </View>
                                     </View>
 
@@ -673,7 +693,9 @@ export const EventDetails: React.FC<EventDetailsProps> = ({
                             <View className="flex-none">
                                 <Text className="text-zinc-400 text-xs font-medium mb-0.5">Price</Text>
                                 <Text className="text-white text-xl font-semibold" style={{ letterSpacing: -0.5 }}>
-                                    {event.ticketPrice ? `₹${event.ticketPrice}` : 'Free'}
+                                    {event.ticketPrice > 0
+                                        ? (event.pricingMode === 'ticketed' ? `Starts at ₹${event.ticketPrice}` : `₹${event.ticketPrice}`)
+                                        : 'Free'}
                                 </Text>
                             </View>
                             {renderCTAButton()}

@@ -48,8 +48,18 @@ export function useGigActions(gig: any) {
 
     const totalCount = applications?.length || 0;
 
+    // Deadline check
+    const isDeadlinePassed = gig.applicationDeadline
+        ? new Date(gig.applicationDeadline) < new Date()
+        : false;
+
     // Handlers
     const handleApply = () => {
+        if (isDeadlinePassed) {
+            Alert.alert('Deadline Passed', 'The application deadline for this gig has passed.');
+            return;
+        }
+
         if (!user) {
             setAuthPromptVisible(true);
             return;
@@ -136,6 +146,7 @@ export function useGigActions(gig: any) {
         handleViewTerms,
         handleSave,
         handleUpdateStatus,
+        isDeadlinePassed,
 
         // Edit Modal
         editModalVisible,

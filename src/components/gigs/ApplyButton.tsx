@@ -1,35 +1,47 @@
 import React from 'react';
 import { Text, TouchableOpacity } from 'react-native';
-import { CheckCircle2, ArrowRight } from 'lucide-react-native';
+import { CheckCircle2, ArrowRight, Clock } from 'lucide-react-native';
 
 interface ApplyButtonProps {
     hasApplied: boolean;
     onApply: () => void;
-    /** 'mobile' for full-width sticky footer style, 'desktop' for sidebar style */
     variant?: 'mobile' | 'desktop';
+    deadlinePassed?: boolean;
 }
 
-/**
- * Shared Apply / Applied button used in both desktop sidebar and mobile footer.
- */
 export const ApplyButton: React.FC<ApplyButtonProps> = ({
     hasApplied,
     onApply,
     variant = 'desktop',
+    deadlinePassed = false,
 }) => {
     const isMobile = variant === 'mobile';
+    const isDisabled = hasApplied || deadlinePassed;
 
     return (
         <TouchableOpacity
-            onPress={() => !hasApplied && onApply()}
-            disabled={hasApplied}
+            onPress={() => !isDisabled && onApply()}
+            disabled={isDisabled}
             className={`${isMobile ? 'w-[80%] self-center py-4' : 'w-full py-3'} rounded-2xl items-center justify-center flex-row ${
-                hasApplied
-                    ? 'bg-zinc-800 border border-white/10'
-                    : 'bg-white active:scale-95'
+                deadlinePassed
+                    ? 'bg-zinc-900 border border-zinc-700'
+                    : hasApplied
+                        ? 'bg-zinc-800 border border-white/10'
+                        : 'bg-white active:scale-95'
             }`}
         >
-            {hasApplied ? (
+            {deadlinePassed ? (
+                <>
+                    <Clock size={18} color="#6B7280" style={{ marginRight: 8 }} />
+                    <Text
+                        className={`text-zinc-500 ${isMobile ? 'text-md' : 'text-lg'} font-black ${
+                            isMobile ? 'uppercase tracking-widest' : ''
+                        }`}
+                    >
+                        Closed
+                    </Text>
+                </>
+            ) : hasApplied ? (
                 <>
                     <CheckCircle2 size={20} color="#10B981" style={{ marginRight: 8 }} />
                     <Text

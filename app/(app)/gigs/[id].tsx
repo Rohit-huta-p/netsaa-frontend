@@ -9,7 +9,6 @@ import { OrganizerGigControls } from '@/components/gigs/OrganizerGigControls';
 import useAuthStore from '@/stores/authStore';
 import { Sparkles } from 'lucide-react-native';
 
-const { width, height } = Dimensions.get('window');
 
 export default function GigDetailsPage() {
     const { width, height } = useWindowDimensions();

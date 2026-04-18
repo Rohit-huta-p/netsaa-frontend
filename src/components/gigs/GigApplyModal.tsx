@@ -1,57 +1,102 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, Modal, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useApplyToGig } from '../../hooks/useGigApplications';
-import { X, Link as LinkIcon, Plus, Trash2, Check } from 'lucide-react-native';
+import { X, Link as LinkIcon, Plus, Trash2, Check, ChevronDown, ChevronUp, Shield, FileText } from 'lucide-react-native';
 import { ProfileCompletionModal } from '../common/ProfileCompletionModal';
+
+/**
+ * PRD v4 Gig Application Flow — Stage 1: Artist Applies
+ *
+ * Three-tiered contract ceremony based on gig amount:
+ * - Quick (<Rs.10K): Single checkbox, one tap
+ * - Standard (Rs.10K-1L): Scrollable terms + explicit agreement
+ * - Premium (>Rs.1L): Full terms, must scroll to bottom, explicit agreement
+ *   (OTP verification happens at Stage 3 when artist confirms booking)
+ *
+ * Fields: Cover note, portfolio links, proposed rate (if negotiable)
+ * Output: Application with status "Applied (Terms Acknowledged)"
+ */
+
+type ContractTier = 'quick' | 'standard' | 'premium';
+
+function getContractTier(amount: number): ContractTier {
+    if (amount < 10000) return 'quick';
+    if (amount <= 100000) return 'standard';
+    return 'premium';
+}
+
+function getTierLabel(tier: ContractTier): string {
+    return tier === 'quick' ? 'Quick Agreement' : tier === 'standard' ? 'Standard Agreement' : 'Premium Agreement';
+}
 
 interface GigApplyModalProps {
     visible: boolean;
     onClose: () => void;
     gigId: string;
     gigTitle: string;
+    gigAmount?: number;
+    isNegotiable?: boolean;
+    termsAndConditions?: string;
     onViewTerms?: () => void;
     hasTerms?: boolean;
 }
 
-export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, gigId, gigTitle, onViewTerms, hasTerms }) => {
+export const GigApplyModal: React.FC<GigApplyModalProps> = ({
+    visible, onClose, gigId, gigTitle,
+    gigAmount = 0, isNegotiable = false,
+    termsAndConditions, onViewTerms, hasTerms
+}) => {
+    const [step, setStep] = useState<1 | 2>(1); // 1 = form, 2 = terms
     const [coverNote, setCoverNote] = useState('');
     const [portfolioLinks, setPortfolioLinks] = useState<string[]>(['']);
+    const [proposedRate, setProposedRate] = useState('');
     const [termsAccepted, setTermsAccepted] = useState(false);
+    const [termsExpanded, setTermsExpanded] = useState(false);
+    const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
     const [profileModalVisible, setProfileModalVisible] = useState(false);
     const [profileModalData, setProfileModalData] = useState<{ score: number; missing: string[] }>({ score: 0, missing: [] });
 
     const applyMutation = useApplyToGig();
     const router = useRouter();
 
+    const tier = useMemo(() => getContractTier(gigAmount), [gigAmount]);
+
     const handleLinkChange = (text: string, index: number) => {
-        const newLinks = [...portfolioLinks];
-        newLinks[index] = text;
-        setPortfolioLinks(newLinks);
+        const updated = [...portfolioLinks];
+        updated[index] = text;
+        setPortfolioLinks(updated);
     };
 
-    const addLinkField = () => {
-        setPortfolioLinks([...portfolioLinks, '']);
-    };
+    const addLinkField = () => setPortfolioLinks([...portfolioLinks, '']);
 
     const removeLinkField = (index: number) => {
-        const newLinks = [...portfolioLinks];
-        newLinks.splice(index, 1);
-        setPortfolioLinks(newLinks);
+        const updated = [...portfolioLinks];
+        updated.splice(index, 1);
+        setPortfolioLinks(updated);
+    };
+
+    const handleNext = () => {
+        if (!coverNote.trim()) {
+            Alert.alert('Required', 'Please add a cover note to introduce yourself.');
+            return;
+        }
+        setStep(2);
     };
 
     const handleSubmit = () => {
-        if (!coverNote.trim()) {
-            Alert.alert("Required", "Please add a cover note to introduce yourself.");
+        if (!termsAccepted) {
+            Alert.alert('Required', 'Please agree to the booking terms to apply.');
             return;
         }
 
-        if (hasTerms && !termsAccepted) {
-            Alert.alert("Required", "Please agree to the Terms and Conditions to apply.");
+        // For premium tier, user must scroll to bottom first
+        if (tier === 'premium' && !hasScrolledToBottom) {
+            Alert.alert('Please Read Terms', 'Scroll to the bottom of the terms to continue.');
             return;
         }
 
-        // Filter out empty links
         const validLinks = portfolioLinks.filter(link => link.trim() !== '');
 
         applyMutation.mutate(
@@ -59,172 +104,616 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({ visible, onClose, 
                 gigId,
                 payload: {
                     coverNote,
-                    portfolioLinks: validLinks
+                    portfolioLinks: validLinks,
+                    proposedRate: proposedRate ? parseInt(proposedRate) : undefined,
+                    termsAcknowledged: true,
+                    contractTier: tier,
                 }
             },
             {
                 onSuccess: () => {
-                    Alert.alert("Success", "Your application has been submitted!");
-                    setCoverNote('');
-                    setPortfolioLinks(['']);
-                    setTermsAccepted(false);
-                    onClose();
+                    Alert.alert(
+                        'Application Submitted',
+                        'Your application has been sent. The hirer will review it and you\'ll be notified when they respond.',
+                        [{ text: 'OK', onPress: resetAndClose }]
+                    );
                 },
                 onError: (error: any) => {
                     const meta = error.response?.data?.meta;
-
-                    if (meta?.message === "PROFILE_INCOMPLETE") {
-                        // Surface the profile-completion modal instead of a generic alert
-                        setProfileModalData({
-                            score: meta.score ?? 0,
-                            missing: meta.missing ?? [],
-                        });
+                    if (meta?.message === 'PROFILE_INCOMPLETE') {
+                        setProfileModalData({ score: meta.score ?? 0, missing: meta.missing ?? [] });
                         setProfileModalVisible(true);
                         return;
                     }
-
-                    const message = meta?.message || "Failed to submit application";
-                    Alert.alert("Error", message);
+                    Alert.alert('Error', meta?.message || 'Failed to submit application');
                 }
             }
         );
     };
 
+    const resetAndClose = () => {
+        setCoverNote('');
+        setPortfolioLinks(['']);
+        setProposedRate('');
+        setTermsAccepted(false);
+        setHasScrolledToBottom(false);
+        setStep(1);
+        onClose();
+    };
+
+    const handleTermsScroll = (event: any) => {
+        const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+        const isBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 40;
+        if (isBottom) setHasScrolledToBottom(true);
+    };
+
+    // Default terms if hirer didn't set custom ones
+    const displayTerms = termsAndConditions || `By applying to this gig, you acknowledge:\n\n` +
+        `1. The agreed compensation is Rs. ${gigAmount.toLocaleString('en-IN')}${isNegotiable ? ' (negotiable)' : ''}.\n\n` +
+        `2. Cancellation by either party must follow the cancellation policy.\n\n` +
+        `3. This agreement becomes binding once both parties confirm the booking.`;
+
     return (
         <>
-            <Modal
-                visible={visible}
-                animationType="slide"
-                transparent={true}
-                onRequestClose={onClose}
-            >
-                <View className="flex-1 justify-end bg-black/50">
-                    <View className="bg-card-surface rounded-t-3xl h-[85%] border-t border-white/10">
+            <Modal visible={visible} animationType="slide" transparent onRequestClose={resetAndClose}>
+                <View style={styles.overlay}>
+                    <View style={styles.sheet}>
 
                         {/* Header */}
-                        <View className="flex-row justify-between items-center p-6 border-b border-white/10">
-                            <View>
-                                <Text className="text-white font-satoshi-bold text-xl">Apply for Gig</Text>
-                                <Text className="text-white/50 font-inter text-sm mt-1">{gigTitle}</Text>
+                        <View style={styles.header}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.headerTitle}>
+                                    {step === 1 ? 'Apply for Gig' : getTierLabel(tier)}
+                                </Text>
+                                <Text style={styles.headerSub} numberOfLines={1}>{gigTitle}</Text>
                             </View>
-                            <TouchableOpacity onPress={onClose} className="p-2 bg-white/5 rounded-full">
-                                <X size={24} color="#FFFFFF" />
+                            {/* Step indicator */}
+                            <View style={styles.stepIndicator}>
+                                <View style={[styles.stepDot, step >= 1 && styles.stepDotActive]} />
+                                <View style={[styles.stepDot, step >= 2 && styles.stepDotActive]} />
+                            </View>
+                            <TouchableOpacity onPress={resetAndClose} style={styles.closeBtn}>
+                                <X size={20} color="#F0ECE6" />
                             </TouchableOpacity>
                         </View>
 
-                        <ScrollView className="flex-1 p-6">
-                            {/* Cover Note */}
-                            <View className="mb-6">
-                                <Text className="text-white font-satoshi-bold mb-3">Cover Note <Text className="text-red-500">*</Text></Text>
-                                <TextInput
-                                    multiline
-                                    numberOfLines={6}
-                                    textAlignVertical="top"
-                                    placeholder="Why are you a good fit for this gig?"
-                                    placeholderTextColor="#9CA3AF" // gray-400
-                                    className="bg-white/5 border border-white/10 rounded-xl p-4 text-white font-inter h-40 outline-none"
-                                    style={{ outlineStyle: 'none' } as any}
-                                    value={coverNote}
-                                    onChangeText={setCoverNote}
-                                />
-                            </View>
+                        {step === 1 ? (
+                            /* ═══════ STEP 1: Application Form ═══════ */
+                            <>
+                                <ScrollView style={styles.body} contentContainerStyle={{ paddingBottom: 20 }}>
+                                    {/* Cover Note */}
+                                    <Text style={styles.label}>Cover Note <Text style={{ color: '#EF4444' }}>*</Text></Text>
+                                    <Text style={styles.hint}>Tell the hirer why you're a great fit for this gig</Text>
+                                    <TextInput
+                                        multiline
+                                        numberOfLines={5}
+                                        textAlignVertical="top"
+                                        placeholder="I have 5 years of experience in Kathak and have performed at 50+ sangeet events..."
+                                        placeholderTextColor="#4A4656"
+                                        style={styles.textArea}
+                                        value={coverNote}
+                                        onChangeText={setCoverNote}
+                                    />
 
-                            {/* Portfolio Links */}
-                            <View className="mb-8">
-                                <Text className="text-white font-satoshi-bold mb-3">Portfolio Links</Text>
-
-                                {portfolioLinks.map((link, index) => (
-                                    <View key={index} className="flex-row items-center mb-3">
-                                        <View className="flex-1 flex-row items-center bg-white/5 border border-white/10 rounded-xl px-4 h-12">
-                                            <LinkIcon size={16} color="#9CA3AF" />
-                                            <TextInput
-                                                placeholder="https://..."
-                                                placeholderTextColor="#9CA3AF"
-                                                className="flex-1 ml-3 text-white font-inter outline-none"
-                                                style={{ outlineStyle: 'none' } as any}
-                                                value={link}
-                                                onChangeText={(text) => handleLinkChange(text, index)}
-                                                autoCapitalize="none"
-                                                keyboardType="url"
-                                            />
+                                    {/* Proposed Rate (if negotiable) */}
+                                    {isNegotiable && (
+                                        <View style={{ marginTop: 20 }}>
+                                            <Text style={styles.label}>Your Proposed Rate</Text>
+                                            <Text style={styles.hint}>
+                                                Listed: Rs. {gigAmount.toLocaleString('en-IN')} (negotiable). Suggest your rate.
+                                            </Text>
+                                            <View style={styles.rateInput}>
+                                                <Text style={styles.ratePrefix}>Rs.</Text>
+                                                <TextInput
+                                                    placeholder={gigAmount.toLocaleString('en-IN')}
+                                                    placeholderTextColor="#4A4656"
+                                                    style={styles.rateField}
+                                                    keyboardType="numeric"
+                                                    value={proposedRate}
+                                                    onChangeText={setProposedRate}
+                                                />
+                                            </View>
                                         </View>
+                                    )}
 
-                                        {portfolioLinks.length > 1 && (
-                                            <TouchableOpacity
-                                                onPress={() => removeLinkField(index)}
-                                                className="ml-3 p-3 bg-red-500/10 rounded-xl"
-                                            >
-                                                <Trash2 size={18} color="#EF4444" />
-                                            </TouchableOpacity>
+                                    {/* Portfolio Links */}
+                                    <View style={{ marginTop: 20 }}>
+                                        <Text style={styles.label}>Portfolio Links</Text>
+                                        <Text style={styles.hint}>YouTube, Instagram, or personal website</Text>
+
+                                        {portfolioLinks.map((link, i) => (
+                                            <View key={i} style={styles.linkRow}>
+                                                <View style={styles.linkInput}>
+                                                    <LinkIcon size={14} color="#6B6878" />
+                                                    <TextInput
+                                                        placeholder="https://..."
+                                                        placeholderTextColor="#4A4656"
+                                                        style={styles.linkField}
+                                                        value={link}
+                                                        onChangeText={(t) => handleLinkChange(t, i)}
+                                                        autoCapitalize="none"
+                                                        keyboardType="url"
+                                                    />
+                                                </View>
+                                                {portfolioLinks.length > 1 && (
+                                                    <TouchableOpacity onPress={() => removeLinkField(i)} style={styles.removeLink}>
+                                                        <Trash2 size={16} color="#EF4444" />
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                        ))}
+
+                                        <TouchableOpacity onPress={addLinkField} style={styles.addLink}>
+                                            <Plus size={14} color="#F97316" />
+                                            <Text style={styles.addLinkText}>Add Another Link</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </ScrollView>
+
+                                {/* Next button */}
+                                <View style={styles.footer}>
+                                    <TouchableOpacity onPress={handleNext} activeOpacity={0.9}>
+                                        <LinearGradient colors={['#EC4899', '#F97316']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryBtn}>
+                                            <Text style={styles.primaryBtnText}>Review Terms</Text>
+                                            <FileText size={18} color="#fff" />
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        ) : (
+                            /* ═══════ STEP 2: Terms Acknowledgment (Tiered) ═══════ */
+                            <>
+                                <ScrollView
+                                    style={styles.body}
+                                    contentContainerStyle={{ paddingBottom: 20 }}
+                                    onScroll={tier === 'premium' ? handleTermsScroll : undefined}
+                                    scrollEventThrottle={100}
+                                >
+                                    {/* Tier badge */}
+                                    <View style={styles.tierBadge}>
+                                        <Shield size={14} color={tier === 'premium' ? '#EAB308' : tier === 'standard' ? '#3B82F6' : '#34D399'} />
+                                        <Text style={[styles.tierText, {
+                                            color: tier === 'premium' ? '#EAB308' : tier === 'standard' ? '#3B82F6' : '#34D399'
+                                        }]}>
+                                            {tier === 'quick' ? 'Quick Agreement (<Rs.10K)' :
+                                                tier === 'standard' ? 'Standard Agreement (Rs.10K-1L)' :
+                                                    'Premium Agreement (>Rs.1L)'}
+                                        </Text>
+                                    </View>
+
+                                    {/* Booking summary */}
+                                    <View style={styles.summaryCard}>
+                                        <Text style={styles.summaryTitle}>{gigTitle}</Text>
+                                        <View style={styles.summaryRow}>
+                                            <Text style={styles.summaryLabel}>Amount</Text>
+                                            <Text style={styles.summaryValue}>Rs. {gigAmount.toLocaleString('en-IN')}</Text>
+                                        </View>
+                                        {proposedRate && parseInt(proposedRate) !== gigAmount && (
+                                            <View style={styles.summaryRow}>
+                                                <Text style={styles.summaryLabel}>Your proposed rate</Text>
+                                                <Text style={[styles.summaryValue, { color: '#F97316' }]}>Rs. {parseInt(proposedRate).toLocaleString('en-IN')}</Text>
+                                            </View>
                                         )}
                                     </View>
-                                ))}
 
-                                <TouchableOpacity
-                                    onPress={addLinkField}
-                                    className="flex-row items-center justify-center p-3 border border-dashed border-white/20 rounded-xl mt-2"
-                                >
-                                    <Plus size={16} color="#A855F7" />
-                                    <Text className="text-netsa-accent-purple font-satoshi-bold ml-2">Add Another Link</Text>
-                                </TouchableOpacity>
-                            </View>
+                                    {/* Terms content */}
+                                    {tier === 'quick' ? (
+                                        /* Quick: expandable summary */
+                                        <View>
+                                            <TouchableOpacity onPress={() => setTermsExpanded(!termsExpanded)} style={styles.termsToggle}>
+                                                <Text style={styles.termsToggleText}>View Booking Terms</Text>
+                                                {termsExpanded ? <ChevronUp size={16} color="#6B6878" /> : <ChevronDown size={16} color="#6B6878" />}
+                                            </TouchableOpacity>
+                                            {termsExpanded && (
+                                                <View style={styles.termsBox}>
+                                                    <Text style={styles.termsText}>{displayTerms}</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                    ) : (
+                                        /* Standard + Premium: full terms displayed */
+                                        <View style={styles.termsBox}>
+                                            <Text style={styles.termsHeading}>Booking Terms</Text>
+                                            <Text style={styles.termsText}>{displayTerms}</Text>
+                                            {tier === 'premium' && !hasScrolledToBottom && (
+                                                <Text style={styles.scrollHint}>Scroll to bottom to continue</Text>
+                                            )}
+                                        </View>
+                                    )}
 
-                            {/* Terms and Conditions Checkbox */}
-                            {hasTerms && (
-                                <View className="flex-row items-center mb-6">
+                                    {/* Agreement checkbox */}
                                     <TouchableOpacity
-                                        onPress={() => setTermsAccepted(!termsAccepted)}
-                                        className={`w-6 h-6 rounded border items-center justify-center mr-3 ${termsAccepted ? 'bg-netsa-accent-purple border-netsa-accent-purple' : 'border-zinc-500'
-                                            }`}
+                                        onPress={() => {
+                                            if (tier === 'premium' && !hasScrolledToBottom) {
+                                                Alert.alert('Please Read Terms', 'Scroll to the bottom of the terms first.');
+                                                return;
+                                            }
+                                            setTermsAccepted(!termsAccepted);
+                                        }}
+                                        style={styles.checkboxRow}
+                                        activeOpacity={0.7}
                                     >
-                                        {termsAccepted && <Check size={14} color="white" />}
-                                    </TouchableOpacity>
-                                    <View className="flex-1 flex-row flex-wrap">
-                                        <Text className="text-zinc-400 font-inter text-sm">
-                                            I agree to the{' '}
+                                        <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                                            {termsAccepted && <Check size={14} color="#fff" />}
+                                        </View>
+                                        <Text style={styles.checkboxLabel}>
+                                            {tier === 'quick'
+                                                ? 'I agree to the booking terms'
+                                                : 'I have read and agree to all booking terms'}
                                         </Text>
-                                        <TouchableOpacity onPress={onViewTerms}>
-                                            <Text className="text-netsa-accent-purple font-satoshi-bold text-sm underline">
-                                                Terms and Conditions
-                                            </Text>
+                                    </TouchableOpacity>
+
+                                    {/* What happens next */}
+                                    <View style={styles.nextSteps}>
+                                        <Text style={styles.nextStepsTitle}>What happens after you apply?</Text>
+                                        <Text style={styles.nextStepsItem}>1. The hirer reviews your application</Text>
+                                        <Text style={styles.nextStepsItem}>2. If selected, you'll get a booking confirmation to review</Text>
+                                        <Text style={styles.nextStepsItem}>3. You confirm the booking and payment is processed</Text>
+                                    </View>
+                                </ScrollView>
+
+                                {/* Footer */}
+                                <View style={styles.footer}>
+                                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                                        <TouchableOpacity onPress={() => setStep(1)} style={styles.backBtn}>
+                                            <Text style={styles.backBtnText}>Back</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={handleSubmit}
+                                            disabled={applyMutation.isPending || !termsAccepted}
+                                            style={{ flex: 2 }}
+                                            activeOpacity={0.9}
+                                        >
+                                            <LinearGradient
+                                                colors={termsAccepted ? ['#EC4899', '#F97316'] : ['#4A4656', '#4A4656']}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 0 }}
+                                                style={styles.primaryBtn}
+                                            >
+                                                {applyMutation.isPending ? (
+                                                    <ActivityIndicator color="#fff" />
+                                                ) : (
+                                                    <Text style={styles.primaryBtnText}>Submit Application</Text>
+                                                )}
+                                            </LinearGradient>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
-                            )}
-                        </ScrollView>
-
-                        {/* Footer */}
-                        <View className="p-6 border-t border-white/10 safe-area-bottom">
-                            <TouchableOpacity
-                                onPress={handleSubmit}
-                                disabled={applyMutation.isPending}
-                                className={`w-full py-4 rounded-xl flex-row justify-center items-center ${applyMutation.isPending ? 'bg-netsa-accent-purple/50' : 'bg-netsa-accent-purple'
-                                    }`}
-                            >
-                                {applyMutation.isPending ? (
-                                    <ActivityIndicator color="white" />
-                                ) : (
-                                    <Text className="text-white font-satoshi-bold text-lg">Submit Application</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-
+                            </>
+                        )}
                     </View>
                 </View>
             </Modal>
 
-            {/* Profile completion blocker */}
             <ProfileCompletionModal
                 visible={profileModalVisible}
                 onClose={() => setProfileModalVisible(false)}
                 onGoToProfile={() => {
                     setProfileModalVisible(false);
                     onClose();
-                    router.push('/(app)/profile');
+                    router.push('/(app)/profile?highlight=true');
                 }}
                 score={profileModalData.score}
                 missing={profileModalData.missing}
             />
         </>
     );
+};
+
+const styles = {
+    overlay: {
+        flex: 1,
+        justifyContent: 'flex-end' as const,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+    },
+    sheet: {
+        backgroundColor: '#121018',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        maxHeight: '90%' as any,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.06)',
+    },
+    header: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.06)',
+        gap: 12,
+    },
+    headerTitle: {
+        fontFamily: 'Outfit-Bold',
+        fontSize: 18,
+        color: '#F0ECE6',
+    },
+    headerSub: {
+        fontFamily: 'Outfit-Regular',
+        fontSize: 13,
+        color: '#6B6878',
+        marginTop: 2,
+    },
+    stepIndicator: {
+        flexDirection: 'row' as const,
+        gap: 4,
+    },
+    stepDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+    },
+    stepDotActive: {
+        backgroundColor: '#F97316',
+    },
+    closeBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+    },
+    body: {
+        paddingHorizontal: 20,
+        paddingTop: 20,
+    },
+    label: {
+        fontFamily: 'Outfit-SemiBold',
+        fontSize: 15,
+        color: '#F0ECE6',
+        marginBottom: 4,
+    },
+    hint: {
+        fontFamily: 'Outfit-Regular',
+        fontSize: 12,
+        color: '#6B6878',
+        marginBottom: 10,
+    },
+    textArea: {
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        borderRadius: 14,
+        padding: 16,
+        color: '#F0ECE6',
+        fontFamily: 'Outfit-Regular',
+        fontSize: 14,
+        minHeight: 120,
+        textAlignVertical: 'top' as const,
+    },
+    rateInput: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        borderRadius: 14,
+        paddingHorizontal: 16,
+        height: 48,
+    },
+    ratePrefix: {
+        fontFamily: 'Outfit-Bold',
+        fontSize: 16,
+        color: '#F0ECE6',
+        marginRight: 8,
+    },
+    rateField: {
+        flex: 1,
+        fontFamily: 'Outfit-Medium',
+        fontSize: 16,
+        color: '#F0ECE6',
+    },
+    linkRow: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        marginBottom: 8,
+        gap: 8,
+    },
+    linkInput: {
+        flex: 1,
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        height: 44,
+        gap: 10,
+    },
+    linkField: {
+        flex: 1,
+        fontFamily: 'Outfit-Regular',
+        fontSize: 13,
+        color: '#F0ECE6',
+    },
+    removeLink: {
+        padding: 10,
+        backgroundColor: 'rgba(239,68,68,0.08)',
+        borderRadius: 10,
+    },
+    addLink: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        padding: 12,
+        borderWidth: 1,
+        borderStyle: 'dashed' as const,
+        borderColor: 'rgba(249,115,22,0.25)',
+        borderRadius: 12,
+        marginTop: 4,
+        gap: 6,
+    },
+    addLinkText: {
+        fontFamily: 'Outfit-SemiBold',
+        fontSize: 13,
+        color: '#F97316',
+    },
+    // Step 2 styles
+    tierBadge: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderRadius: 100,
+        alignSelf: 'flex-start' as const,
+        marginBottom: 20,
+    },
+    tierText: {
+        fontFamily: 'Outfit-SemiBold',
+        fontSize: 11,
+        letterSpacing: 0.5,
+    },
+    summaryCard: {
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.06)',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 20,
+    },
+    summaryTitle: {
+        fontFamily: 'Outfit-SemiBold',
+        fontSize: 16,
+        color: '#F0ECE6',
+        marginBottom: 12,
+    },
+    summaryRow: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        paddingVertical: 6,
+    },
+    summaryLabel: {
+        fontFamily: 'Outfit-Regular',
+        fontSize: 13,
+        color: '#6B6878',
+    },
+    summaryValue: {
+        fontFamily: 'Outfit-Bold',
+        fontSize: 14,
+        color: '#F0ECE6',
+    },
+    termsToggle: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        alignItems: 'center' as const,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.06)',
+        marginBottom: 12,
+    },
+    termsToggleText: {
+        fontFamily: 'Outfit-Medium',
+        fontSize: 14,
+        color: '#6B6878',
+    },
+    termsBox: {
+        backgroundColor: 'rgba(255,255,255,0.02)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.06)',
+        borderRadius: 14,
+        padding: 16,
+        marginBottom: 20,
+    },
+    termsHeading: {
+        fontFamily: 'Outfit-SemiBold',
+        fontSize: 14,
+        color: '#F0ECE6',
+        marginBottom: 12,
+    },
+    termsText: {
+        fontFamily: 'Outfit-Regular',
+        fontSize: 13,
+        color: '#6B6878',
+        lineHeight: 22,
+    },
+    scrollHint: {
+        fontFamily: 'Outfit-Medium',
+        fontSize: 12,
+        color: '#EAB308',
+        textAlign: 'center' as const,
+        marginTop: 12,
+        fontStyle: 'italic' as const,
+    },
+    checkboxRow: {
+        flexDirection: 'row' as const,
+        alignItems: 'flex-start' as const,
+        gap: 12,
+        marginBottom: 24,
+    },
+    checkbox: {
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        borderWidth: 2,
+        borderColor: '#6B6878',
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        marginTop: 1,
+    },
+    checkboxChecked: {
+        backgroundColor: '#F97316',
+        borderColor: '#F97316',
+    },
+    checkboxLabel: {
+        flex: 1,
+        fontFamily: 'Outfit-Regular',
+        fontSize: 14,
+        color: '#F0ECE6',
+        lineHeight: 22,
+    },
+    nextSteps: {
+        backgroundColor: 'rgba(249,115,22,0.04)',
+        borderWidth: 1,
+        borderColor: 'rgba(249,115,22,0.1)',
+        borderRadius: 14,
+        padding: 16,
+    },
+    nextStepsTitle: {
+        fontFamily: 'Outfit-SemiBold',
+        fontSize: 13,
+        color: '#F97316',
+        marginBottom: 8,
+    },
+    nextStepsItem: {
+        fontFamily: 'Outfit-Regular',
+        fontSize: 12,
+        color: '#6B6878',
+        lineHeight: 20,
+    },
+    footer: {
+        padding: 16,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.06)',
+    },
+    primaryBtn: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        gap: 8,
+        paddingVertical: 16,
+        borderRadius: 14,
+    },
+    primaryBtnText: {
+        fontFamily: 'Outfit-Bold',
+        fontSize: 16,
+        color: '#fff',
+    },
+    backBtn: {
+        flex: 1,
+        paddingVertical: 16,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: 'rgba(255,255,255,0.1)',
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+    },
+    backBtnText: {
+        fontFamily: 'Outfit-SemiBold',
+        fontSize: 14,
+        color: '#6B6878',
+    },
 };

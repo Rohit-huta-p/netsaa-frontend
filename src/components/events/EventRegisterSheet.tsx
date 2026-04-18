@@ -199,10 +199,7 @@ export const EventRegisterSheet: React.FC<EventRegisterSheetProps> = ({
         return startStr;
     };
 
-    const imageUri =
-        event?.coverImage ||
-        event?.image ||
-        'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=300';
+    const imageUri = event?.coverImage || event?.image;
 
     // Ticket name
     const ticketName = (): string => {
@@ -352,7 +349,7 @@ export const EventRegisterSheet: React.FC<EventRegisterSheetProps> = ({
                         {/* Event Mini Card */}
                         <View style={styles.eventRow}>
                             <Image
-                                source={{ uri: imageUri }}
+                                source={imageUri ? { uri: imageUri } : require('@/assets/netsaa.png')}
                                 style={styles.eventThumb}
                             />
                             <View style={{ flex: 1 }}>

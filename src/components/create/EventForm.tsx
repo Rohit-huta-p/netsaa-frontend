@@ -25,7 +25,7 @@ import gigService from '@/services/gigService';
 
 import { useCreateEvent, usePublishEvent } from '@/hooks/useEvents';
 import { useAuthStore } from '@/stores/authStore';
-import { CreateEventDTO } from '@/types/event';
+import { CreateEventDTO, IEventTicketType, PricingTier } from '@/types/event';
 import { useCreateEventStore } from '@/stores/createEventStore';
 
 // NETSA Organizer-themed TextInput (Matches GigForm)
@@ -84,6 +84,8 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
     const [addingTicket, setAddingTicket] = useState(false);
     const [rephrasingField, setRephrasingField] = useState<string | null>(null);
 
+    const today = toLocalDateString(new Date());
+
     const [formData, setFormData] = useState({
         title: storedData.title || '',
         eventType: storedData.eventType || '',
@@ -94,8 +96,8 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
         city: storedData.city || '',
         venue: storedData.venue || '',
         address: storedData.address || '',
-        startDate: storedData.startDate || '',
-        endDate: storedData.endDate || '',
+        startDate: storedData.startDate || today,
+        endDate: storedData.endDate || today,
         pricingMode: storedData.pricingMode || 'simple',
         ticketPrice: storedData.ticketPrice || '',
         ticketTypes: storedData.ticketTypes || [],
@@ -108,14 +110,18 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const [newTicket, setNewTicket] = useState({
-        name: '',
+        name: 'General Admission',
+        basePrice: '',
         price: '',
-        capacity: '',
         isRefundable: false,
         refundPolicyNotes: '',
-        salesStartAt: '',
-        salesEndAt: '',
+        salesStartAt: today,
+        salesEndAt: formData.endDate || formData.startDate || today,
+        useTieredPricing: false,
     });
+
+    const [addingTier, setAddingTier] = useState<PricingTier | null>(null);
+    const [tiers, setTiers] = useState<PricingTier[]>([]);
 
     // Sync formData to store when it changes
     useEffect(() => {
@@ -173,7 +179,6 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
         let hasError = false;
 
         if (step === 0) {
-            if (!formData.title?.trim()) { newErrors.title = "Event Title is required"; hasError = true; }
             if (!formData.eventType?.trim()) { newErrors.eventType = "Format is required"; hasError = true; }
             if (!formData.category?.trim()) { newErrors.category = "Category is required"; hasError = true; }
         } else if (step === 2) {
@@ -254,29 +259,84 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
     };
 
     const handleAddTicket = () => {
-        if (!newTicket.name || !newTicket.price || !newTicket.capacity || !newTicket.salesStartAt || !newTicket.salesEndAt) {
+        if (!newTicket.name || !newTicket.basePrice || !newTicket.salesStartAt || !newTicket.salesEndAt) {
             Alert.alert('Error', 'Please fill all required fields');
             return;
         }
 
-        const tick = {
+        const tick: IEventTicketType = {
             name: newTicket.name,
-            price: Number(newTicket.price),
-            capacity: Number(newTicket.capacity),
+            basePrice: Number(newTicket.basePrice),
+            currentPrice: newTicket.useTieredPricing && tiers.length > 0
+                ? tiers[0].price
+                : Number(newTicket.price || newTicket.basePrice),
             currency: 'INR',
             salesStartAt: newTicket.salesStartAt,
             salesEndAt: newTicket.salesEndAt,
             isRefundable: newTicket.isRefundable,
-            refundPolicyNotes: newTicket.refundPolicyNotes
+            refundPolicyNotes: newTicket.refundPolicyNotes,
+            pricingTiers: newTicket.useTieredPricing ? tiers : undefined,
         };
 
         updateField('ticketTypes', [...(formData.ticketTypes || []), tick]);
-        setNewTicket({ name: '', price: '', capacity: '', isRefundable: false, refundPolicyNotes: '', salesStartAt: '', salesEndAt: '' });
+        setNewTicket({
+            name: formData.title || 'General Admission',
+            basePrice: '',
+            price: '',
+            isRefundable: false,
+            refundPolicyNotes: '',
+            salesStartAt: today,
+            salesEndAt: formData.startDate || today,
+            useTieredPricing: false,
+        });
+        setTiers([]);
         setAddingTicket(false);
+    };
+
+    const handleAddTier = () => {
+        if (!addingTier || !addingTier.name || addingTier.price === undefined) {
+            Alert.alert('Error', 'Please fill tier name and price');
+            return;
+        }
+        if (addingTier.conditionType === 'capacity' && !addingTier.maxRegistrations) {
+            Alert.alert('Error', 'Please set max registrations for capacity-based tier');
+            return;
+        }
+        if (addingTier.conditionType === 'date' && !addingTier.validUntil) {
+            Alert.alert('Error', 'Please set valid until date for date-based tier');
+            return;
+        }
+
+        setTiers([...tiers, { ...addingTier, priority: tiers.length }]);
+        setAddingTier(null);
+    };
+
+    const handleRemoveTier = (index: number) => {
+        const newTiers = tiers.filter((_, i) => i !== index);
+        // Re-assign priorities
+        const rePrioritized = newTiers.map((t, i) => ({ ...t, priority: i }));
+        setTiers(rePrioritized);
     };
 
     const handleSubmit = async (isDraft: boolean = false) => {
         isNavigatingAway.current = true;
+
+        // Calculate minimum price considering tiered pricing
+        const calculateMinPrice = () => {
+            if (formData.pricingMode === 'simple') {
+                return Number(formData.ticketPrice) || 0;
+            }
+            if (!formData.ticketTypes || formData.ticketTypes.length === 0) {
+                return 0;
+            }
+            const prices = formData.ticketTypes.map((t: any) => {
+                if (t.pricingTiers && t.pricingTiers.length > 0) {
+                    return Math.min(...t.pricingTiers.map((tier: any) => Number(tier.price)));
+                }
+                return Number(t.price || t.basePrice);
+            });
+            return Math.min(...prices);
+        };
 
         const eventPayload: CreateEventDTO = {
             title: formData.title,
@@ -286,10 +346,10 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
             tags: typeof formData.tags === 'string' ? formData.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : formData.tags,
             skillLevel: formData.skillLevel as any,
             eligibleArtistTypes: [],
+            pricingMode: formData.pricingMode === 'simple' ? 'fixed' : 'ticketed',
 
-            ticketPrice: formData.pricingMode === 'simple' ? (Number(formData.ticketPrice) || 0) :
-                (formData.ticketTypes?.length ? Math.min(...formData.ticketTypes.map((t: any) => Number(t.price))) : 0),
-            ticketTypes: formData.pricingMode === 'types' ? formData.ticketTypes : [],
+            ticketPrice: calculateMinPrice(),
+            ticketTypes: formData.pricingMode === 'types' ? (formData.ticketTypes as IEventTicketType[]) : [],
 
             schedule: {
                 startDate: new Date(formData.startDate).toISOString(),
@@ -317,7 +377,7 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
             isFeatured: formData.featured,
 
             organizerId: user?._id,
-            organizerSnapshot: {
+            organizer: {
                 name: user?.displayName || (user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Unknown Organizer'),
                 organizationName: (user as any)?.organizationName || (user as any)?.displayName || 'Unknown Org',
                 profileImageUrl: (user as any)?.profileImageUrl
@@ -358,18 +418,16 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
 
     const renderStep0 = () => (
         <View className="gap-6">
-            <InputGroup label="Event Title" required subtitle="Make it catchy and clear" error={errors.title}>
-                <StyledTextInput
-                    icon={Type}
-                    value={formData.title}
-                    onChangeText={(val: string) => updateField('title', val)}
-                    placeholder="e.g. Summer Dance Workshop 2024"
-                    error={errors.title}
-                />
-            </InputGroup>
-
             <View className="flex-col md:flex-row gap-4">
-                <InputGroup label="Format" required error={errors.eventType}>
+                <InputGroup label="Event Name" required error={errors.name}>
+                    <StyledTextInput
+                        value={formData.title}
+                        onChangeText={(val: string) => updateField('name', val)}
+                        placeholder="e.g. Dance Workshop"
+                        error={errors.name}
+                    />
+                </InputGroup>
+                <InputGroup label="Title" required error={errors.eventType}>
                     <SearchableSelect
                         icon={Layout}
                         options={[
@@ -487,7 +545,7 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
         </View>
     );
 
-    const renderStep3 = () => (
+    const ScheduleStep = () => (
         <View className="gap-6">
             <View className="flex-1">
                 <DatePickerInput
@@ -513,74 +571,227 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
         </View>
     );
 
+
+    const renderTierForm = () => {
+        if (!addingTier) return null;
+        const isDefaultTierName = addingTier.name === 'Tier 1';
+        return (
+            <View className="gap-4 p-4 rounded-xl bg-zinc-800/50 border border-white/10 mt-3">
+                <InputGroup label="Tier Name" required>
+                    <StyledTextInput
+                        value={addingTier.name}
+                        onChangeText={(t: string) => setAddingTier({ ...addingTier, name: t })}
+                        placeholder="Tier X"
+                        editable={true}
+                        style={{ color: '#a1a1aa' }}
+                    />
+                </InputGroup>
+
+                <View className="flex-row gap-4">
+                    <View className="flex-1">
+                        <InputGroup label="Discounted Price (₹)" required>
+                            <StyledTextInput
+                                inputMode="numeric"
+                                value={String(addingTier.price)}
+                                onChangeText={(t: string) => setAddingTier({ ...addingTier, price: t === '' ? 0 : Number(t) })}
+                                placeholder="1200"
+                            />
+                        </InputGroup>
+                    </View>
+                </View>
+
+                <InputGroup label="Condition Type" required>
+                    <View className="flex-row gap-2">
+                        <TouchableOpacity
+                            onPress={() => setAddingTier({ ...addingTier, conditionType: 'capacity', maxRegistrations: undefined, validUntil: undefined })}
+                            className={`flex-1 py-2 rounded-lg items-center ${addingTier.conditionType === 'capacity' ? 'bg-[#FF6B35]/20 border border-[#FF6B35]' : 'bg-zinc-700 border border-white/10'}`}
+                        >
+                            <Text className={`font-medium ${addingTier.conditionType === 'capacity' ? 'text-[#FF6B35]' : 'text-zinc-300'}`}>
+                                Capacity
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => setAddingTier({ ...addingTier, conditionType: 'date', maxRegistrations: undefined, validUntil: undefined })}
+                            className={`flex-1 py-2 rounded-lg items-center ${addingTier.conditionType === 'date' ? 'bg-[#FF6B35]/20 border border-[#FF6B35]' : 'bg-zinc-700 border border-white/10'}`}
+                        >
+                            <Text className={`font-medium ${addingTier.conditionType === 'date' ? 'text-[#FF6B35]' : 'text-zinc-300'}`}>
+                                Date
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </InputGroup>
+
+                <View className="flex-row gap-4 mb-3">
+                    <View className="flex-1">
+                        <DatePickerInput
+                            label="Tier Start Date"
+                            required
+                            value={addingTier.salesStartAt}
+                            onChange={(date) => setAddingTier({ ...addingTier, salesStartAt: toLocalDateString(date) })}
+                            placeholder="Start Date"
+                        />
+                    </View>
+                </View>
+
+                {addingTier.conditionType === 'capacity' ? (
+                    <InputGroup label="Max Registrations" required>
+                        <StyledTextInput
+                            inputMode="numeric"
+                            value={String(addingTier.maxRegistrations || '')}
+                            onChangeText={(t: string) => setAddingTier({ ...addingTier, maxRegistrations: t === '' ? undefined : Number(t) })}
+                            placeholder="50"
+                        />
+                    </InputGroup>
+                ) : (
+                    <View className="flex-1 mb-2">
+                        <DatePickerInput
+                            label="Tier End Date"
+                            required
+                            value={addingTier.validUntil}
+                            onChange={(date) => setAddingTier({ ...addingTier, validUntil: toLocalDateString(date) })}
+                            placeholder="Select Date"
+                            minimumDate={addingTier.salesStartAt ? new Date(addingTier.salesStartAt) : new Date()}
+                        />
+                    </View>
+                )}
+
+                <TouchableOpacity
+                    className="py-3 bg-[#FF6B35] rounded-xl items-center"
+                    onPress={handleAddTier}
+                >
+                    <Text className="text-white font-bold">Add Tier</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
     const renderTicketForm = () => (
         <View className="gap-4 p-4 rounded-xl bg-zinc-900/50 border border-white/10">
             <Text className="text-white font-bold mb-2">New Ticket Type</Text>
             <View className="gap-4">
-                <InputGroup label="Ticket Name" required>
-                    <StyledTextInput
-                        value={newTicket.name}
-                        onChangeText={(t: string) => setNewTicket({ ...newTicket, name: t })}
-                        placeholder="e.g. VIP Access"
-                    />
-                </InputGroup>
-            </View>
 
-            <View className="flex-row gap-4">
-                <View className="flex-1">
-                    <InputGroup label="Price (₹)" required>
-                        <StyledTextInput
-                            inputMode="numeric"
-                            value={newTicket.price}
-                            onChangeText={(t: string) => setNewTicket({ ...newTicket, price: t })}
-                            placeholder="0"
-                        />
-                    </InputGroup>
+                <View className="flex-row gap-4">
+                    <View className="flex-1">
+                        <InputGroup label="Base Price (₹)" required subtitle="Final price after all offers">
+                            <StyledTextInput
+                                inputMode="numeric"
+                                value={newTicket.basePrice}
+                                onChangeText={(t: string) => setNewTicket({ ...newTicket, basePrice: t, price: t })}
+                                placeholder="2000"
+                            />
+                        </InputGroup>
+                    </View>
                 </View>
-                <View className="flex-1">
-                    <InputGroup label="Capacity" required>
-                        <StyledTextInput
-                            inputMode="numeric"
-                            value={String(newTicket.capacity)}
-                            onChangeText={(t: string) => setNewTicket({ ...newTicket, capacity: t })}
-                            placeholder="100"
-                        />
-                    </InputGroup>
-                </View>
-            </View>
 
-            <View className="flex-row gap-4 relative">
-                <View className="flex-1">
-                    <DatePickerInput
-                        label="Sales Start"
-                        required
-                        value={newTicket.salesStartAt}
-                        onChange={(date) => setNewTicket({ ...newTicket, salesStartAt: toLocalDateString(date) })}
-                        placeholder="Start Date"
-                        minimumDate={new Date()}
-                    />
+                <View className="flex-row gap-4 relative">
+                    <View className="flex-1">
+                        <DatePickerInput
+                            label="Sales Start"
+                            required
+                            value={newTicket.salesStartAt}
+                            onChange={(date) => setNewTicket({ ...newTicket, salesStartAt: toLocalDateString(date) })}
+                            placeholder="Start Date"
+                            minimumDate={new Date()}
+                        />
+                    </View>
+                    <View className="flex-1">
+                        <DatePickerInput
+                            label="Sales End"
+                            required
+                            value={newTicket.salesEndAt}
+                            onChange={(date) => setNewTicket({ ...newTicket, salesEndAt: toLocalDateString(date) })}
+                            placeholder="End Date"
+                            minimumDate={newTicket.salesStartAt ? new Date(newTicket.salesStartAt) : new Date()}
+                        />
+                    </View>
                 </View>
-                <View className="flex-1">
-                    <DatePickerInput
-                        label="Sales End"
-                        required
-                        value={newTicket.salesEndAt}
-                        onChange={(date) => setNewTicket({ ...newTicket, salesEndAt: toLocalDateString(date) })}
-                        placeholder="End Date"
-                        minimumDate={newTicket.salesStartAt ? new Date(newTicket.salesStartAt) : new Date()}
-                    />
-                </View>
+
+                {/* Tiered Pricing Toggle */}
+                <TouchableOpacity
+                    className={`flex-row items-center justify-between p-3 rounded-xl border ${newTicket.useTieredPricing ? 'bg-[#FF6B35]/10 border-[#FF6B35]' : 'bg-zinc-800/50 border-white/10'}`}
+                    onPress={() => {
+                        setNewTicket({ ...newTicket, useTieredPricing: !newTicket.useTieredPricing });
+                        setTiers([]);
+                    }}
+                >
+                    <View>
+                        <Text className={`font-medium ${newTicket.useTieredPricing ? 'text-[#FF6B35]' : 'text-white'}`}>
+                            Enable Tiered Pricing
+                        </Text>
+                        <Text className="text-xs text-zinc-500">Early bird, Phase 1, etc.</Text>
+                    </View>
+                    <View className={`w-6 h-6 rounded-md border items-center justify-center ${newTicket.useTieredPricing ? 'bg-[#FF6B35] border-[#FF6B35]' : 'border-zinc-600'}`}>
+                        {newTicket.useTieredPricing && <Text className="text-white font-bold">✓</Text>}
+                    </View>
+                </TouchableOpacity>
+
+                {newTicket.useTieredPricing && (
+                    <View className="gap-2">
+                        <View className="flex-row justify-between items-center">
+                            <Text className="text-zinc-400 text-sm font-medium">Pricing Tiers</Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    const tierNum = tiers.length + 1;
+                                    const newTier: PricingTier = {
+                                        name: `Tier ${tierNum}`,
+                                        price: 0,
+                                        conditionType: 'capacity',
+                                        priority: tiers.length,
+                                    };
+                                    // If this is Tier 2+ and previous tier has validUntil, set this tier's start date
+                                    if (tierNum > 1 && tiers.length > 0) {
+                                        const prevTier = tiers[tiers.length - 1];
+                                        if (prevTier.validUntil) {
+                                            const prevEndDate = new Date(prevTier.validUntil);
+                                            prevEndDate.setDate(prevEndDate.getDate() + 1);
+                                            newTier.salesStartAt = toLocalDateString(prevEndDate);
+                                        }
+                                    } else {
+                                        // First tier defaults to ticket salesStartAt or today
+                                        newTier.salesStartAt = newTicket.salesStartAt || today;
+                                    }
+                                    setAddingTier(newTier);
+                                }}
+                                className="px-3 py-1 bg-[#FF6B35]/20 rounded-lg"
+                            >
+                                <Text className="text-[#FF6B35] text-xs font-bold">+ Add Tier</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {tiers.map((tier, index) => (
+                            <View key={index} className="flex-row items-center justify-between p-3 bg-zinc-800/50 rounded-lg border border-white/10">
+                                <View className="flex-1">
+                                    <Text className="text-white font-medium">{tier.name}</Text>
+                                    <Text className="text-zinc-400 text-xs">
+                                        ₹{tier.price} • {tier.conditionType === 'capacity'
+                                            ? `${tier.maxRegistrations} slots`
+                                            : `Until ${tier.validUntil}`}
+                                    </Text>
+                                </View>
+                                <TouchableOpacity onPress={() => handleRemoveTier(index)} className="p-2">
+                                    <Text className="text-red-400 font-bold">✕</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+
+                        {renderTierForm()}
+                    </View>
+                )}
             </View>
 
             <View className="flex-row gap-3 mt-2">
                 <TouchableOpacity
                     className="flex-1 py-3 bg-zinc-700 rounded-xl items-center"
-                    onPress={() => setAddingTicket(false)}
+                    onPress={() => {
+                        setAddingTicket(false);
+                        setNewTicket({ name: formData.title || 'General Admission', basePrice: '', price: '', isRefundable: false, refundPolicyNotes: '', salesStartAt: today, salesEndAt: formData.endDate || formData.startDate || today, useTieredPricing: false });
+                        setTiers([]);
+                    }}
                 >
                     <Text className="text-white font-medium">Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    className="flex-1 py-3 bg-indigo-600 rounded-xl items-center"
+                    className="flex-1 py-3 bg-[#FF6B35] rounded-xl items-center"
                     onPress={handleAddTicket}
                 >
                     <Text className="text-white font-bold">Add Ticket</Text>
@@ -633,11 +844,25 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
                                 {/* List of added ticket types */}
                                 {formData.ticketTypes && formData.ticketTypes.map((ticket: any, index: number) => (
                                     <View key={index} className="bg-zinc-900/50 p-3 rounded-lg border border-white/10 flex-row justify-between items-center">
-                                        <View>
-                                            <Text className="text-white font-medium">{ticket.name}</Text>
+                                        <View className="flex-1">
+                                            <View className="flex-row items-center gap-2">
+                                                <Text className="text-white font-medium">{ticket.name}</Text>
+                                                {ticket.pricingTiers && ticket.pricingTiers.length > 0 && (
+                                                    <View className="px-2 py-0.5 bg-[#FF6B35]/20 rounded">
+                                                        <Text className="text-[#FF6B35] text-[10px] font-bold">TIERED</Text>
+                                                    </View>
+                                                )}
+                                            </View>
                                             <Text className="text-zinc-400 text-xs">
-                                                ₹{ticket.price} • {ticket.capacity} seats • {ticket.isRefundable ? 'Refundable' : 'Non-refundable'}
+                                                {ticket.pricingTiers && ticket.pricingTiers.length > 0
+                                                    ? `Starts at ₹${Math.min(...ticket.pricingTiers.map((t: any) => t.price))} → ₹${ticket.basePrice}`
+                                                    : `₹${ticket.price || ticket.basePrice}`}
                                             </Text>
+                                            {ticket.pricingTiers && ticket.pricingTiers.length > 0 && (
+                                                <Text className="text-zinc-500 text-[10px] mt-1">
+                                                    {ticket.pricingTiers.length} tier{ticket.pricingTiers.length > 1 ? 's' : ''}: {ticket.pricingTiers.map((t: any) => `${t.name} ₹${t.price}`).join(' • ')}
+                                                </Text>
+                                            )}
                                         </View>
                                         <TouchableOpacity
                                             onPress={() => {
@@ -653,7 +878,10 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
                                 ))}
 
                                 <TouchableOpacity
-                                    onPress={() => setAddingTicket(true)}
+                                    onPress={() => {
+                                        setNewTicket(prev => ({ ...prev, name: formData.title || 'General Admission', salesStartAt: today, salesEndAt: formData.endDate || formData.startDate || today }));
+                                        setAddingTicket(true);
+                                    }}
                                     className="flex-row items-center justify-center p-4 border border-dashed border-zinc-700 rounded-xl bg-[#FF6B35]/5"
                                 >
                                     <View className="bg-[#FF6B35]/20 p-1 rounded mr-2">
@@ -793,9 +1021,22 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
                     <View>
                         <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-1">Pricing</Text>
                         {formData.pricingMode === 'simple' ? (
-                            <Text className="text-white text-lg font-black">{formData.ticketPrice && Number(formData.ticketPrice) > 0 ? `₹${formData.ticketPrice}` : 'Free'}</Text>
+                            <Text className="text-white text-lg font-black">
+                                {formData.ticketPrice && Number(formData.ticketPrice) > 0 ? `₹${formData.ticketPrice}` : 'Free'}
+                            </Text>
                         ) : (
-                            <Text className="text-white text-lg font-black">{formData.ticketTypes?.length ? `${formData.ticketTypes.length} Ticket Types` : 'TBA'}</Text>
+                            <>
+                                <Text className="text-white text-lg font-black">
+                                    {formData.ticketTypes?.length
+                                        ? `Starts at ₹${Math.min(...formData.ticketTypes.map((t: any) => Number(t.price)))}`
+                                        : 'TBA'}
+                                </Text>
+                                {formData.ticketTypes?.length > 0 && (
+                                    <Text className="text-zinc-500 text-xs mt-0.5">
+                                        {formData.ticketTypes.length} ticket type{formData.ticketTypes.length > 1 ? 's' : ''}
+                                    </Text>
+                                )}
+                            </>
                         )}
                     </View>
 
@@ -857,7 +1098,7 @@ export const EventForm = React.forwardRef<EventFormHandle, EventFormProps>(({ on
                         {step === 0 && renderStep0()}
                         {step === 1 && renderStep1()}
                         {step === 2 && renderStep2()}
-                        {step === 3 && renderStep3()}
+                        {step === 3 && ScheduleStep()}
                         {step === 4 && renderStep4()}
                         {step === 5 && renderStep5()}
                         {step === 6 && renderStep6()}

@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { View, Text } from 'react-native';
 import { useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
 import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import { EventDetails } from '@/components/events/EventDetails';
@@ -13,6 +13,7 @@ export default function EventDetailsPage() {
     const eventId = Array.isArray(id) ? id[0] : id;
     const { data: event, isLoading, error, refetch } = useEvent(eventId || '');
     const user = useAuthStore((state) => state.user);
+
 
     useFocusEffect(
         useCallback(() => {

@@ -115,7 +115,7 @@ export const OrganizerEventDetails: React.FC<OrganizerEventDetailsProps> = ({
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
-    const imageUri = event.thumbnailUrl || event.coverImage || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1000";
+    const imageUri = event.thumbnailUrl || event.coverImage;
 
     const description = event.description || 'No description provided.';
     const isLongDescription = description.length > 180;
@@ -144,7 +144,7 @@ export const OrganizerEventDetails: React.FC<OrganizerEventDetailsProps> = ({
                         <View className="px-4 pt-14" style={isLargeScreen ? { paddingHorizontal: 0, paddingTop: 40 } : undefined}>
                             <View style={{ width: '100%', height: 220, position: 'relative', borderRadius: 20, overflow: 'hidden' }}>
                                 <Image
-                                    source={{ uri: imageUri }}
+                                    source={imageUri ? { uri: imageUri } : require('@/assets/netsaa.png')}
                                     style={{ width: '100%', height: '100%' }}
                                     resizeMode="cover"
                                 />

@@ -28,13 +28,15 @@ export const eventSchema = z.object({
 
     ticketTypes: z.array(z.object({
         name: z.string().min(1, 'Name is required'),
-        price: z.coerce.number().min(0, 'Price must be 0 or greater'),
-        capacity: z.coerce.number().int().positive('Capacity must be at least 1'),
+        basePrice: z.coerce.number().min(0, 'Base price must be 0 or greater'),
+        currentPrice: z.coerce.number().optional(),
+        price: z.coerce.number().optional(), // For backwards compatibility
         salesStartAt: z.string().min(1, 'Start date required'),
         salesEndAt: z.string().min(1, 'End date required'),
         isRefundable: z.boolean(),
         refundPolicyNotes: z.string().optional(),
         currency: z.literal('INR').default('INR'),
+        pricingTiers: z.any().optional(),
     })).optional(),
 
     deadline: z.string().optional(),

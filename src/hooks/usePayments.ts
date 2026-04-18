@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { contractService, transactionService } from '../services/paymentService';
+import { contractService, transactionService, type ContractPaymentMethod, type SignContractPayload } from '../services/paymentService';
 
 // ── Contract Hooks ──
 
@@ -29,7 +29,8 @@ export function useCreateContract() {
 export function useSignContract() {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id: string; data?: any }) => contractService.sign(id, data),
+        mutationFn: ({ id, data }: { id: string; data?: SignContractPayload }) =>
+            contractService.sign(id, data),
         onSuccess: () => qc.invalidateQueries({ queryKey: ['contracts'] }),
     });
 }
@@ -38,6 +39,15 @@ export function useDeclineContract() {
     const qc = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => contractService.decline(id),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['contracts'] }),
+    });
+}
+
+export function useSwitchContractPaymentMethod() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, paymentMethod }: { id: string; paymentMethod: ContractPaymentMethod }) =>
+            contractService.switchPaymentMethod(id, paymentMethod),
         onSuccess: () => qc.invalidateQueries({ queryKey: ['contracts'] }),
     });
 }

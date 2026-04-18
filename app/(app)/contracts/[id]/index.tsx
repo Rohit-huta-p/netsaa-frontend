@@ -2,17 +2,15 @@ import React from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CheckCircle, XCircle, FileText, MapPin, Calendar, DollarSign } from 'lucide-react-native';
-import { useContract, useSignContract, useDeclineContract } from '@/hooks/usePayments';
+import { CheckCircle, XCircle, FileText, MapPin, Calendar, DollarSign, ShieldAlert } from 'lucide-react-native';
+import { useContract, useDeclineContract } from '@/hooks/usePayments';
 import useAuthStore from '@/stores/authStore';
-import TrustBadge from '@/components/ui/TrustBadge';
 
 export default function ContractDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
     const userId = useAuthStore((s) => s.user as any)?.id || useAuthStore((s) => s.user as any)?._id;
     const { data, isLoading } = useContract(id || '');
-    const signMutation = useSignContract();
     const declineMutation = useDeclineContract();
 
     const contract = data?.data;
@@ -24,19 +22,12 @@ export default function ContractDetailScreen() {
     const isHirer = contract.hirerId === userId;
     const canSign = isArtist && contract.status === 'sent';
     const canPay = isHirer && contract.status === 'accepted';
+    const awaitingGuardian = contract.status === 'pending_guardian_cosign';
 
     const handleSign = () => {
-        Alert.alert(
-            'Sign Contract',
-            `Confirm booking for "${contract.terms.gigTitle}" at Rs. ${contract.terms.amount.toLocaleString('en-IN')}?`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Sign & Accept',
-                    onPress: () => signMutation.mutate({ id: contract._id }),
-                },
-            ]
-        );
+        // Full ceremony (scroll-to-bottom + double-confirm + audit capture) lives on
+        // the dedicated sign page — an inline Alert does not satisfy PRD §9.3.
+        router.push(`/(app)/contracts/${contract._id}/sign`);
     };
 
     const handleDecline = () => {
@@ -148,6 +139,18 @@ export default function ContractDetailScreen() {
                 </View>
             </View>
 
+            {awaitingGuardian && (
+                <View style={styles.guardianBanner}>
+                    <ShieldAlert size={18} color="#F59E0B" />
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.guardianTitle}>Awaiting guardian co-signature</Text>
+                        <Text style={styles.guardianSub}>
+                            This contract is on hold until the artist&apos;s guardian confirms. You&apos;ll be notified when it&apos;s ready.
+                        </Text>
+                    </View>
+                </View>
+            )}
+
             {/* Actions */}
             {canSign && (
                 <View style={styles.actions}>
@@ -179,8 +182,18 @@ export default function ContractDetailScreen() {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-    draft: '#6B7280', sent: '#F97316', accepted: '#3B82F6', active: '#34D399',
-    performed: '#8B5CF6', completed: '#34D399', declined: '#EF4444', disputed: '#EF4444',
+    draft: '#6B7280',
+    sent: '#F97316',
+    pending_artist_signature: '#F97316',
+    pending_guardian_cosign: '#F59E0B',
+    accepted: '#3B82F6',
+    active: '#34D399',
+    performed: '#8B5CF6',
+    completed: '#34D399',
+    declined: '#EF4444',
+    disputed: '#EF4444',
+    cancelled: '#6B7280',
+    breached: '#EF4444',
 };
 
 const styles = StyleSheet.create({
@@ -209,4 +222,17 @@ const styles = StyleSheet.create({
     primaryBtnText: { fontFamily: 'Outfit-Bold', fontSize: 16, color: '#fff' },
     dangerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(239,68,68,0.3)' },
     dangerBtnText: { fontFamily: 'Outfit-SemiBold', fontSize: 14, color: '#EF4444' },
+    guardianBanner: {
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'flex-start',
+        padding: 14,
+        marginBottom: 16,
+        borderRadius: 12,
+        backgroundColor: 'rgba(245,158,11,0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(245,158,11,0.25)',
+    },
+    guardianTitle: { fontFamily: 'Outfit-SemiBold', fontSize: 14, color: '#F59E0B', marginBottom: 2 },
+    guardianSub: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#D1B37A', lineHeight: 18 },
 });

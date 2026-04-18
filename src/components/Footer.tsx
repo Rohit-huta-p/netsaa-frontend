@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Platform, Linking, useWindowDimensions } from 'react-native';
-import { Sparkles } from 'lucide-react-native';
+import { Sparkles, ArrowUpRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 const MOBILE_BREAKPOINT = 768;
+const isWeb = Platform.OS === 'web';
 
 export default function Footer() {
     const router = useRouter();
@@ -47,11 +48,11 @@ export default function Footer() {
     return (
         <View
             style={{
-                paddingVertical: isMobile ? 48 : 96,
+                paddingVertical: isMobile ? 48 : 80,
                 paddingHorizontal: isMobile ? 16 : 24,
                 backgroundColor: '#09090b',
                 borderTopWidth: 1,
-                borderTopColor: 'rgba(255, 255, 255, 0.05)',
+                borderTopColor: 'rgba(255, 255, 255, 0.06)',
             }}
         >
             <View
@@ -66,7 +67,7 @@ export default function Footer() {
                     style={{
                         flexDirection: isMobile ? 'column' : 'row',
                         gap: isMobile ? 40 : 64,
-                        marginBottom: isMobile ? 48 : 96,
+                        marginBottom: isMobile ? 40 : 64,
                     }}
                 >
                     {/* Brand section */}
@@ -76,66 +77,66 @@ export default function Footer() {
                             style={{
                                 flexDirection: 'row',
                                 alignItems: 'center',
-                                gap: 8,
-                                marginBottom: isMobile ? 16 : 32,
+                                gap: 10,
+                                marginBottom: isMobile ? 16 : 24,
                             }}
                         >
                             <View
                                 style={{
-                                    width: 40,
-                                    height: 40,
+                                    width: 36,
+                                    height: 36,
                                     borderRadius: 8,
                                     backgroundColor: '#fff',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                 }}
                             >
-                                <Sparkles size={24} color="#000" />
+                                <Sparkles size={20} color="#000" />
                             </View>
-                            <Text style={{ fontSize: 24, fontWeight: '700', color: '#fff', letterSpacing: -1 }}>
+                            <Text style={{ fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -1 }}>
                                 NETSA
                             </Text>
                         </TouchableOpacity>
                         <Text
                             style={{
-                                fontSize: isMobile ? 14 : 16,
+                                fontSize: isMobile ? 13 : 14,
                                 color: '#71717a',
-                                lineHeight: isMobile ? 22 : 26,
-                                fontWeight: '300',
-                                maxWidth: isMobile ? '100%' : 300,
+                                lineHeight: isMobile ? 20 : 24,
+                                fontWeight: '400',
+                                maxWidth: isMobile ? '100%' : 280,
                             }}
                         >
-                            Empowering India's performing artists with technology, transparency, and trust. Professionalizing the passion since 2026.
+                            Empowering India's performing artists with technology, transparency, and trust.
                         </Text>
                     </View>
 
-                    {/* Links Grid - 2 columns on mobile, row on desktop */}
+                    {/* Links Grid */}
                     <View
                         style={{
                             flexDirection: isMobile ? 'row' : 'column',
                             flexWrap: 'wrap',
-                            gap: isMobile ? 32 : 64,
+                            gap: isMobile ? 32 : 48,
+                            flex: 1,
                         }}
                     >
-
                         {/* Platform links */}
                         <View style={{ minWidth: isMobile ? '40%' : 'auto' }}>
                             <Text
                                 style={{
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     fontWeight: '700',
                                     color: '#fff',
                                     textTransform: 'uppercase',
-                                    letterSpacing: 3,
-                                    marginBottom: isMobile ? 16 : 32,
+                                    letterSpacing: 2.5,
+                                    marginBottom: isMobile ? 14 : 20,
                                 }}
                             >
                                 Platform
                             </Text>
-                            <View style={{ gap: isMobile ? 12 : 16 }}>
+                            <View style={{ gap: isMobile ? 10 : 14 }}>
                                 {footerLinks.platform.map((link) => (
                                     <TouchableOpacity key={link.label} onPress={() => handleLink(link.path)}>
-                                        <Text style={{ fontSize: 14, color: '#a1a1aa' }}>{link.label}</Text>
+                                        <Text style={{ fontSize: 13, color: '#71717a' }}>{link.label}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
@@ -145,20 +146,20 @@ export default function Footer() {
                         <View style={{ minWidth: isMobile ? '40%' : 'auto' }}>
                             <Text
                                 style={{
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     fontWeight: '700',
                                     color: '#fff',
                                     textTransform: 'uppercase',
-                                    letterSpacing: 3,
-                                    marginBottom: isMobile ? 16 : 32,
+                                    letterSpacing: 2.5,
+                                    marginBottom: isMobile ? 14 : 20,
                                 }}
                             >
                                 Company
                             </Text>
-                            <View style={{ gap: isMobile ? 12 : 16 }}>
+                            <View style={{ gap: isMobile ? 10 : 14 }}>
                                 {footerLinks.company.map((link) => (
                                     <TouchableOpacity key={link.label} onPress={() => handleLink(link.path)}>
-                                        <Text style={{ fontSize: 14, color: '#a1a1aa' }}>{link.label}</Text>
+                                        <Text style={{ fontSize: 13, color: '#71717a' }}>{link.label}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
@@ -168,20 +169,20 @@ export default function Footer() {
                         <View style={{ minWidth: isMobile ? '40%' : 'auto' }}>
                             <Text
                                 style={{
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     fontWeight: '700',
                                     color: '#fff',
                                     textTransform: 'uppercase',
-                                    letterSpacing: 3,
-                                    marginBottom: isMobile ? 16 : 32,
+                                    letterSpacing: 2.5,
+                                    marginBottom: isMobile ? 14 : 20,
                                 }}
                             >
                                 Legal
                             </Text>
-                            <View style={{ gap: isMobile ? 12 : 16 }}>
+                            <View style={{ gap: isMobile ? 10 : 14 }}>
                                 {footerLinks.legal.map((link) => (
                                     <TouchableOpacity key={link.label} onPress={() => handleLink(link.path)}>
-                                        <Text style={{ fontSize: 14, color: '#a1a1aa' }}>{link.label}</Text>
+                                        <Text style={{ fontSize: 13, color: '#71717a' }}>{link.label}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
@@ -195,9 +196,9 @@ export default function Footer() {
                         flexDirection: isMobile ? 'column' : 'row',
                         justifyContent: 'space-between',
                         alignItems: isMobile ? 'flex-start' : 'center',
-                        paddingTop: isMobile ? 32 : 48,
+                        paddingTop: isMobile ? 24 : 32,
                         borderTopWidth: 1,
-                        borderTopColor: 'rgba(255, 255, 255, 0.05)',
+                        borderTopColor: 'rgba(255, 255, 255, 0.06)',
                         gap: isMobile ? 16 : 24,
                     }}
                 >
@@ -207,26 +208,35 @@ export default function Footer() {
                             fontWeight: '500',
                             color: '#52525b',
                             textTransform: 'uppercase',
-                            letterSpacing: isMobile ? 1 : 3,
+                            letterSpacing: isMobile ? 1 : 2,
                         }}
                     >
                         © 2026 NETSA. All rights reserved.
                     </Text>
 
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: isMobile ? 16 : 32 }}>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: isMobile ? 14 : 24 }}>
                         {socialLinks.map((link) => (
-                            <TouchableOpacity key={link.label} onPress={() => Linking.openURL(link.url)}>
+                            <TouchableOpacity
+                                key={link.label}
+                                onPress={() => Linking.openURL(link.url)}
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                }}
+                            >
                                 <Text
                                     style={{
                                         fontSize: 11,
                                         fontWeight: '500',
                                         color: '#52525b',
                                         textTransform: 'uppercase',
-                                        letterSpacing: 3,
+                                        letterSpacing: 2,
                                     }}
                                 >
                                     {link.label}
                                 </Text>
+                                <ArrowUpRight size={10} color="#52525b" />
                             </TouchableOpacity>
                         ))}
                     </View>

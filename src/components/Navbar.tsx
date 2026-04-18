@@ -244,6 +244,20 @@ function ProfileMenu({
             </TouchableOpacity>
 
             <ScrollView bounces={false} style={{ maxHeight: isMobileView ? 350 : 450 }}>
+                <MenuSection title="Network">
+                    <MenuItem
+                        icon={Users}
+                        label="Your Network"
+                        color="#EC4899"
+                        onPress={() => { onClose(); router.push('/(app)/network' as any); }}
+                    />
+                    <MenuItem
+                        icon={Bell}
+                        label="Notifications"
+                        color="#F97316"
+                        onPress={() => { onClose(); router.push('/(app)/notifications'); }}
+                    />
+                </MenuSection>
                 <MenuSection title="Account">
                     <MenuItem
                         icon={Settings}
@@ -431,6 +445,11 @@ export default function Navbar() {
                     <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 8 }} onPress={() => router.push('/(app)/events')}>
                         <Text style={{ color: C.textSecondary, fontFamily: F.bodyMedium, fontSize: 13 }}>Events</Text>
                     </TouchableOpacity>
+                    {isAuthenticated && (
+                        <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 8 }} onPress={() => router.push('/(app)/network' as any)}>
+                            <Text style={{ color: C.textSecondary, fontFamily: F.bodyMedium, fontSize: 13 }}>Network</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             )}
 

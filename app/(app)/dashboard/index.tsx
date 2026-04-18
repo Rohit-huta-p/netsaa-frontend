@@ -25,6 +25,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import AppScrollView from "@/components/AppScrollView";
 import useAuthStore from "@/stores/authStore";
+import { TopRightIcons } from "@/components/common/TopRightIcons";
 import { useOrganizerEvents } from "@/hooks/useEvents";
 import { useOrganizerGigs } from "@/hooks/useGigs";
 import { LoadingAnimation } from "@/components/ui/LoadingAnimation";
@@ -79,20 +80,20 @@ const ItemCard = ({ item, onPress, onOpenApplicants }: any) => {
                 </View>
             </View>
 
-            <Text className="text-white text-lg font-black tracking-tight mb-3">
+            <Text className="text-white text-md font-black tracking-tight mb-3">
                 {item.title}
             </Text>
 
             <View className="flex-row items-center justify-start gap-4 mb-4">
                 <View className="flex-row items-center">
                     <MapPin size={14} color="rgba(255, 255, 255, 0.5)" />
-                    <Text className="text-zinc-400 text-sm ml-2 font-light">
+                    <Text className="text-zinc-400 text-xs ml-2 font-light">
                         {item.location}
                     </Text>
                 </View>
                 <View className="flex-row items-center">
                     <Clock size={14} color="rgba(255, 255, 255, 0.5)" />
-                    <Text className="text-zinc-400 text-sm ml-2 font-light">
+                    <Text className="text-zinc-400 text-xs ml-2 font-light">
                         {item.date}
                     </Text>
                 </View>
@@ -101,7 +102,7 @@ const ItemCard = ({ item, onPress, onOpenApplicants }: any) => {
             <View className="h-px bg-white/10 mb-4" />
 
             <View className="flex-row items-center justify-between">
-                <Text className="text-white font-bold text-lg">
+                <Text className="text-white font-bold text-md">
                     {item.price}
                 </Text>
 
@@ -111,7 +112,7 @@ const ItemCard = ({ item, onPress, onOpenApplicants }: any) => {
                     className="px-5 py-3 rounded-xl"
                     style={{ backgroundColor: "rgba(255, 107, 53, 0.15)" }}
                 >
-                    <Text className="text-[#FF6B35] font-bold text-sm">
+                    <Text className="text-[#FF6B35] font-bold text-[10px]">
                         {item.applicants} {isGig ? "Applications" : "Registrations"}
                     </Text>
                 </TouchableOpacity>
@@ -122,20 +123,22 @@ const ItemCard = ({ item, onPress, onOpenApplicants }: any) => {
 
 const StatCard = ({ icon: Icon, label, value, bg, color }: any) => (
     <View
-        className="bg-zinc-900/40 border border-white/5 rounded-2xl p-4 flex-1 mb-3 mr-2"
+        className="bg-zinc-900/40 border border-white/5 rounded-2xl p-4 flex-row items-center gap-2"
         style={{ minWidth: "45%" }}
     >
+        {/* ICON */}
         <View
-            className="w-10 h-10 rounded-lg items-center justify-center mb-3"
+            className="w-10 h-10 rounded-lg items-center justify-center"
             style={{ backgroundColor: bg }}
         >
             <Icon size={18} color={color} />
         </View>
+        {/* VALUE & LABEL */}
         <View>
-            <Text className="text-white font-black text-xl tracking-tight leading-6">
+            <Text className="text-white font-black text-md tracking-tight leading-6">
                 {value}
             </Text>
-            <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mt-1">
+            <Text className="text-zinc-500 text-[8px] font-bold uppercase tracking-wider mt-1">
                 {label}
             </Text>
         </View>
@@ -286,6 +289,9 @@ export default function OrganizerHome() {
                 />
             </View>
 
+            {/* Top-right: NetworkIcon + NotificationsBell */}
+            <TopRightIcons />
+
             <AppScrollView className="bg-transparent">
                 <View
                     style={{
@@ -349,6 +355,18 @@ export default function OrganizerHome() {
                                     Manage All Posts
                                 </Text>
                             </TouchableOpacity>
+
+                            {/* Network quick-action (per checkpoint §2D entry point #3) */}
+                            <TouchableOpacity
+                                activeOpacity={0.9}
+                                onPress={() => router.push("/(app)/network" as any)}
+                                className="px-6 py-4 rounded-xl flex-row items-center justify-center gap-2 border border-white/10 bg-white/5"
+                            >
+                                <UsersIcon size={18} color="#EC4899" />
+                                <Text className="text-white font-bold tracking-tight">
+                                    Your Network
+                                </Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
                     {/* INSIGHTS SECTION */}
@@ -356,7 +374,7 @@ export default function OrganizerHome() {
                         <Text className="text-white font-black text-xl tracking-tight mb-4">
                             Quick Insights
                         </Text>
-                        <View className="flex-row flex-wrap">
+                        <View className="grid grid-cols-2 gap-4">
                             <StatCard
                                 icon={Calendar}
                                 label="Total Events"
@@ -399,6 +417,7 @@ export default function OrganizerHome() {
                             />
                         </View>
                     </View>
+
                     {/* MAIN CONTENT */}
                     <View
                         style={{
@@ -413,7 +432,7 @@ export default function OrganizerHome() {
                                     Your Posts
                                 </Text>
                                 <View className="px-3 py-1.5 rounded-full bg-[#FF6B35]/15">
-                                    <Text className="text-[#FF6B35] text-xs font-black uppercase tracking-wider">
+                                    <Text className="text-[#FF6B35] text-[8px] font-black uppercase tracking-wider">
                                         {dashboardItems.length} Active
                                     </Text>
                                 </View>

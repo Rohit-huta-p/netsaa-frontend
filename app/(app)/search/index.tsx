@@ -29,6 +29,9 @@ import {
 import { useSearchPreview, useSearchPeople, useSearchGigs, useSearchEvents } from "@/hooks/useSearchQueries";
 import connectionService from "@/services/connectionService";
 import AppScrollView from "@/components/AppScrollView";
+import { TopRightIcons } from "@/components/common/TopRightIcons";
+import { interpretConnectionError } from "@/utils/connectionErrors";
+import { Alert } from "react-native";
 
 
 
@@ -69,9 +72,14 @@ const PersonItem = ({ item, status: initialStatus, onPress }: { item: any, statu
             setIsLoading(true);
             await connectionService.sendConnectionRequest(item.id);
             setStatus('pending');
-        } catch (error) {
-            console.error("Failed to send request", error);
-            // Optionally show toast/alert
+        } catch (error: any) {
+            const info = interpretConnectionError(error);
+            if (info.swallow) {
+                // Already connected/pending — sync local state silently
+                setStatus('pending');
+            } else {
+                Alert.alert(info.title, info.message);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -268,6 +276,7 @@ export default function SearchScreen() {
 
     return (
         <View className="flex-1 bg-[#09090b]">
+            <TopRightIcons />
             {/* Background Glow */}
             <LinearGradient
                 colors={['#1e1b4b', '#09090b']}

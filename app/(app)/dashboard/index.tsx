@@ -20,6 +20,7 @@ import {
     Clock,
     MapPin,
     Sparkles,
+    FileText,
 } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -365,6 +366,18 @@ export default function OrganizerHome() {
                                 <UsersIcon size={18} color="#EC4899" />
                                 <Text className="text-white font-bold tracking-tight">
                                     Your Network
+                                </Text>
+                            </TouchableOpacity>
+
+                            {/* Contracts quick-action (MVP hybrid-payment flow entry point) */}
+                            <TouchableOpacity
+                                activeOpacity={0.9}
+                                onPress={() => router.push("/(app)/contracts" as any)}
+                                className="px-6 py-4 rounded-xl flex-row items-center justify-center gap-2 border border-white/10 bg-white/5"
+                            >
+                                <FileText size={18} color="#F97316" />
+                                <Text className="text-white font-bold tracking-tight">
+                                    Your Contracts
                                 </Text>
                             </TouchableOpacity>
                         </View>

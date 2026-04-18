@@ -20,15 +20,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
     ChevronLeft, ArrowRight, MapPin, Mail, Lock, User as UserIcon,
-    Instagram, Youtube, Music2, Headphones, Check,
+    Instagram, Youtube, Music2, Headphones, Check, ShieldAlert,
 } from 'lucide-react-native';
 
 import {
     StepInput, CountryCodePicker, ExpCard,
 } from '@/components/auth';
+import { DatePickerInput } from '@/components/ui/DatePickerInput/DatePickerInput';
 import {
     STEPS, StepId, SOFT_STEPS, BLOCKING_STEPS,
     INTENT_OPTIONS, ARTIST_TYPES, EXP_LEVELS, HIRER_CLIENT_TYPES,
+    MIN_REGISTRATION_AGE, MAJORITY_AGE,
 } from '@/constants/registration';
 import type {
     Intent, ExperienceLevel, HirerClientType, RegisterPayload,
@@ -99,7 +101,17 @@ export default function RegisterScreen() {
         return '';
     });
     const [fullName, setFullName] = useState('');
+    const [dob, setDob] = useState<Date | null>(null);
     const [password, setPassword] = useState('');
+
+    /* ─── Derived age from DOB (used for age-gate UI copy) ─── */
+    const ageYears = useMemo<number | null>(() => {
+        if (!dob) return null;
+        const ms = Date.now() - dob.getTime();
+        if (ms <= 0) return null;
+        return Math.floor(ms / (365.25 * 24 * 60 * 60 * 1000));
+    }, [dob]);
+    const isMinor = ageYears !== null && ageYears < MAJORITY_AGE;
 
     /* ─── Intent (Step 4) ─── */
     const [intentChoice, setIntentChoice] = useState<'find_gigs' | 'hire_artists' | 'both' | null>(null);
@@ -173,6 +185,16 @@ export default function RegisterScreen() {
             }
             case 'identity': {
                 if (!fullName.trim() || fullName.trim().length < 2) return 'Name must be at least 2 characters';
+                return null;
+            }
+            case 'dob': {
+                if (!dob) return 'Please select your date of birth';
+                if (dob.getTime() >= Date.now()) return 'Date of birth must be in the past';
+                if (ageYears === null) return 'Please select a valid date';
+                if (ageYears < MIN_REGISTRATION_AGE) {
+                    return `You must be at least ${MIN_REGISTRATION_AGE} to use NETSA`;
+                }
+                if (ageYears > 120) return 'Please enter a valid date of birth';
                 return null;
             }
             case 'credentials': {
@@ -264,6 +286,7 @@ export default function RegisterScreen() {
                 email: email.trim(),
                 password,
                 phoneNumber: phone.trim() ? `${countryCode}${phone.replace(/[^0-9]/g, '')}` : undefined,
+                dateOfBirth: dob ? dob.toISOString() : undefined,
                 intent: intents,
                 marketingConsent: false, // surface this on a later settings screen, not here
             },
@@ -366,6 +389,44 @@ export default function RegisterScreen() {
                             autoCapitalize="words"
                             icon={<UserIcon size={16} color={C.text3} />}
                         />
+                    </View>
+                );
+
+            case 'dob':
+                return (
+                    <View>
+                        <Headline>
+                            <SerifLine>When were you</SerifLine>
+                            <SerifLine>born?</SerifLine>
+                        </Headline>
+                        <Subhead>
+                            Needed for booking contracts. Not shown publicly.
+                        </Subhead>
+                        <View style={{ marginTop: 8 }}>
+                            <DatePickerInput
+                                label="Date of birth"
+                                value={dob ?? undefined}
+                                onChange={(d) => { setDob(d); setStepError(null); }}
+                                maximumDate={new Date()}
+                                minimumDate={new Date(1900, 0, 1)}
+                                placeholder="DD / MM / YYYY"
+                                required
+                            />
+                        </View>
+                        {isMinor && ageYears !== null && ageYears >= MIN_REGISTRATION_AGE && (
+                            <View style={s.minorBanner}>
+                                <ShieldAlert size={16} color={C.gold} strokeWidth={2} />
+                                <Text style={s.minorBannerText}>
+                                    You're under {MAJORITY_AGE}. You can use NETSA, but a parent
+                                    or guardian will need to co-sign any booking contracts.
+                                    We'll walk you through it when the time comes.
+                                </Text>
+                            </View>
+                        )}
+                        <Text style={s.fineprint}>
+                            Per Indian Contract Act §11, minors can't sign enforceable
+                            contracts alone — guardian co-sign is required for bookings.
+                        </Text>
                     </View>
                 );
 
@@ -905,6 +966,26 @@ const s = StyleSheet.create({
         color: C.text3,
         marginTop: 12,
         lineHeight: 16,
+        fontFamily: FONT.body,
+    },
+
+    // Age-gate minor notice
+    minorBanner: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 10,
+        marginTop: 16,
+        padding: 14,
+        borderRadius: 12,
+        backgroundColor: 'rgba(234,179,8,0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(234,179,8,0.28)',
+    },
+    minorBannerText: {
+        flex: 1,
+        fontSize: 12,
+        lineHeight: 17,
+        color: C.text,
         fontFamily: FONT.body,
     },
 

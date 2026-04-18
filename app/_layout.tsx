@@ -20,6 +20,9 @@ import {
     Outfit_900Black,
 } from '@expo-google-fonts/outfit';
 import {
+    DMSerifDisplay_400Regular,
+} from '@expo-google-fonts/dm-serif-display';
+import {
     SourceSans3_200ExtraLight,
     SourceSans3_300Light,
     SourceSans3_400Regular,
@@ -53,7 +56,7 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
     const { isHydrated, accessToken } = useAuthStore();
     const pathname = usePathname();
-    const isAuthRoute = pathname?.startsWith('/login') || pathname?.startsWith('/register');
+    const isAuthRoute = pathname?.startsWith('/login') || pathname?.startsWith('/register') || pathname?.includes('forgot-password');
     const [fontsLoaded, fontError] = useFonts({
         // Outfit fonts (primary heading/display font)
         'Outfit-Thin': Outfit_100Thin,
@@ -65,6 +68,9 @@ export default function RootLayout() {
         'Outfit-Bold': Outfit_700Bold,
         'Outfit-ExtraBold': Outfit_800ExtraBold,
         'Outfit-Black': Outfit_900Black,
+
+        // DM Serif Display (landing page serif headlines)
+        'DMSerifDisplay_400Regular': DMSerifDisplay_400Regular,
 
         // Source Sans 3 (body/secondary font)
         'SourceSans3-ExtraLight': SourceSans3_200ExtraLight,

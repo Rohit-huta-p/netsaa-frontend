@@ -244,6 +244,14 @@ function ProfileMenu({
             </TouchableOpacity>
 
             <ScrollView bounces={false} style={{ maxHeight: isMobileView ? 350 : 450 }}>
+                <MenuSection title="Workspace">
+                    <MenuItem
+                        icon={LayoutDashboard}
+                        label="Dashboard"
+                        color="#F97316"
+                        onPress={() => { onClose(); router.push('/(app)/dashboard' as any); }}
+                    />
+                </MenuSection>
                 <MenuSection title="Network">
                     <MenuItem
                         icon={Users}

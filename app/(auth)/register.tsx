@@ -1,850 +1,1172 @@
-// app/(auth)/register.tsx — Multi-step registration (orchestration only)
-import React, { useState, useRef, useCallback, useMemo } from "react";
-import { View, Text, TouchableOpacity, Animated, Platform, ScrollView } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import {
-    Sparkles, Mic2, Calendar, Instagram, ChevronLeft, ArrowRight,
-    MapPin, Check, Building2, Globe, Phone, Mail, User, Receipt,
-    Youtube, Music2, Headphones, HelpCircle, PenLine,
-} from "lucide-react-native";
-import { TextInput } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import useAuthStore from "@/stores/authStore";
-import { useRegister, useCheckEmail, useCheckPhone } from "@/hooks/useAuthQueries";
-import type { Role, Intent, ExperienceLevel, OrganizerTypeCategory } from "@/schemas/register.schema";
+// app/(auth)/register.tsx
+//
+// PRD v4 — Two-Context Model — Single-flow registration.
+//
+// One step sequence for everyone. No role fork.
+// Blocking steps:  entry → identity → credentials
+// Soft steps:      intent → artistProfile → hirerProfile? → social
+//
+// Step 4 "What brings you to NETSA?" is the emotional center.
+// Richer hirer business fields (GST, legal name, billing) are deferred to
+// the first gig post per PRD §8.1.1 Step 6.
 
-// Extracted modules
+import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import {
-    INTENT_OPTIONS, ARTIST_TYPES, EXP_LEVELS, ORG_TYPE_CATEGORIES,
-    ARTIST_STEPS, ORGANIZER_STEPS,
-} from "@/constants/registration";
-import { Colors } from "@/constants/Colors";
-const C = Colors.auth;
-import { StepInput, LargeRoleCard, IntentCard, TypeChip, ExpCard, CountryCodePicker } from "@/components/auth";
+    View, Text, Pressable, Animated, Easing, StyleSheet,
+    ActivityIndicator, ScrollView, useWindowDimensions, Platform,
+} from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+    ChevronLeft, ArrowRight, MapPin, Mail, Lock, User as UserIcon,
+    Instagram, Youtube, Music2, Headphones, Check,
+} from 'lucide-react-native';
 
-/* ════════════════════════════════════════════════════ */
-/*  MAIN SCREEN                                        */
-/* ════════════════════════════════════════════════════ */
+import {
+    StepInput, CountryCodePicker, ExpCard,
+} from '@/components/auth';
+import {
+    STEPS, StepId, SOFT_STEPS, BLOCKING_STEPS,
+    INTENT_OPTIONS, ARTIST_TYPES, EXP_LEVELS, HIRER_CLIENT_TYPES,
+} from '@/constants/registration';
+import type {
+    Intent, ExperienceLevel, HirerClientType, RegisterPayload,
+} from '@/schemas/register.schema';
+import { useRegister, useCheckEmail, useCheckPhone } from '@/hooks/useAuthQueries';
+
+// ─── Design palette (Palette 18 — same as profile + network screens) ───
+const C = {
+    pink: '#EC4899',
+    orange: '#F97316',
+    gold: '#EAB308',
+    cyan: '#06B6D4',
+    green: '#34D399',
+    red: '#EF4444',
+    bg: '#050509',
+    surface: '#121018',
+    surface2: '#1A1824',
+    text: '#F0ECE6',
+    text2: '#6B6878',
+    text3: '#4A4656',
+    text4: '#3A3746',
+    border: 'rgba(255,255,255,0.06)',
+    borderStrong: 'rgba(255,255,255,0.12)',
+    activeBg: 'rgba(249,115,22,0.08)',
+    activeBorder: 'rgba(249,115,22,0.35)',
+};
+
+const FONT = {
+    serif: 'DMSerifDisplay_400Regular',
+    body: 'Outfit-Regular',
+    bodyMed: 'Outfit-Medium',
+    bodySemi: 'Outfit-SemiBold',
+    bodyBold: 'Outfit-Bold',
+    bodyExtra: 'Outfit-ExtraBold',
+};
+
+// ════════════════════════════════════════════════════════════════════
+//  MAIN SCREEN
+// ════════════════════════════════════════════════════════════════════
 
 export default function RegisterScreen() {
     const routeParams = useLocalSearchParams<{ phone?: string; email?: string }>();
+    const { width } = useWindowDimensions();
+
     const registerMutation = useRegister();
     const checkEmailMutation = useCheckEmail();
     const checkPhoneMutation = useCheckPhone();
 
-    /* ── Step state ── */
-    const [step, setStep] = useState(0);
+    /* ─── Wizard cursor ─── */
+    const [stepIdx, setStepIdx] = useState(0);
     const [stepError, setStepError] = useState<string | null>(null);
+    const [completed, setCompleted] = useState(false);
 
-    /* ── Shared field state ── */
-    const [role, setRole] = useState<Role | null>(null);
-    const [fullName, setFullName] = useState("");
-    const [location, setLocation] = useState("");
-    const [email, setEmail] = useState(routeParams.email ?? "");
+    /* ─── Core form state ─── */
+    const [email, setEmail] = useState(routeParams.email ?? '');
     const [countryCode, setCountryCode] = useState(() => {
-        // Pre-fill from route params if phone was passed from OTP verification
         if (routeParams.phone) {
-            const p = routeParams.phone;
-            // Extract country code (starts with +, followed by 1-3 digits)
-            const match = p.match(/^(\+\d{1,3})(.*)$/);
-            return match ? match[1] : '+91';
+            const m = routeParams.phone.match(/^(\+\d{1,3})(.*)$/);
+            return m ? m[1] : '+91';
         }
         return '+91';
     });
     const [phone, setPhone] = useState(() => {
         if (routeParams.phone) {
-            const p = routeParams.phone;
-            const match = p.match(/^\+\d{1,3}(.*)$/);
-            return match ? match[1].replace(/[^0-9]/g, '') : '';
+            const m = routeParams.phone.match(/^\+\d{1,3}(.*)$/);
+            return m ? m[1].replace(/[^0-9]/g, '') : '';
         }
         return '';
     });
-    const [password, setPassword] = useState("");
-    const [intent, setIntent] = useState<Intent[]>([]);
-    const [instagram, setInstagram] = useState("");
-    const [youtube, setYoutube] = useState("");
-    const [spotify, setSpotify] = useState("");
-    const [soundcloud, setSoundcloud] = useState("");
+    const [fullName, setFullName] = useState('');
+    const [password, setPassword] = useState('');
 
-    /* ── Artist-specific state ── */
-    const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+    /* ─── Intent (Step 4) ─── */
+    const [intentChoice, setIntentChoice] = useState<'find_gigs' | 'hire_artists' | 'both' | null>(null);
+
+    /* ─── Optional artist profile (Step 5) ─── */
+    const [artistTypes, setArtistTypes] = useState<string[]>([]);
     const [expLevel, setExpLevel] = useState<ExperienceLevel | null>(null);
-    const [marketingConsent, setMarketingConsent] = useState(false);
+    const [artistCity, setArtistCity] = useState('');
 
-    /* ── Organizer-specific state ── */
-    const [organizerTypeCategory, setOrganizerTypeCategory] = useState<OrganizerTypeCategory | null>(null);
-    const [isCustomCategory, setIsCustomCategory] = useState(false);
-    const [customCategoryLabel, setCustomCategoryLabel] = useState("");
-    const [organizationName, setOrganizationName] = useState("");
-    const [organizationWebsite, setOrganizationWebsite] = useState("");
-    const [legalBusinessName, setLegalBusinessName] = useState("");
-    const [gstNumber, setGstNumber] = useState("");
-    const [billingAddress, setBillingAddress] = useState("");
-    const [billingState, setBillingState] = useState("");
-    const [pincode, setPincode] = useState("");
-    const [country, setCountry] = useState("");
+    /* ─── Optional hirer profile (Step 6, conditional) ─── */
+    const [clientType, setClientType] = useState<HirerClientType | null>(null);
+    const [hirerCity, setHirerCity] = useState('');
 
-    /* ── Derived: is this an individual organizer? ── */
-    const isIndividual = organizerTypeCategory === 'individual';
+    /* ─── Optional socials (Step 7) ─── */
+    const [instagram, setInstagram] = useState('');
+    const [youtube, setYoutube] = useState('');
+    const [spotify, setSpotify] = useState('');
+    const [soundcloud, setSoundcloud] = useState('');
 
-    /* ── Derived ── */
-    const isOrganizer = role === 'organizer';
-    const isArtist = role === 'artist';
+    /* ─── Derived step sequence (hirerProfile hidden if no hire intent) ─── */
+    const activeSteps = useMemo<StepId[]>(() => {
+        const wantsHire = intentChoice === 'hire_artists' || intentChoice === 'both';
+        return STEPS.filter((s) => {
+            if (s === 'hirerProfile') return wantsHire;
+            return true;
+        });
+    }, [intentChoice]);
 
-    const steps = useMemo(() => {
-        if (!isOrganizer) return ARTIST_STEPS;
-        if (isIndividual) {
-            // Individuals skip orgProfile (no org name/website) and billing
-            return ORGANIZER_STEPS.filter(s => s !== 'orgProfile' && s !== 'billing');
-        }
-        return ORGANIZER_STEPS;
-    }, [isOrganizer, isIndividual]);
+    const currentStepId: StepId = completed ? 'completion' : (activeSteps[stepIdx] ?? 'completion');
+    const isLastDataStep = stepIdx === activeSteps.length - 1;
+    const isSoft = SOFT_STEPS.has(currentStepId);
 
-    const totalDataSteps = steps.length;
-    const completionStep = totalDataSteps;
-    const currentStepId = step < totalDataSteps ? steps[step] : 'completion';
+    /* ─── Progress (blocking steps only — honest count) ─── */
+    const blockingIdx = useMemo(() => {
+        return activeSteps
+            .slice(0, stepIdx + 1)
+            .filter((s) => BLOCKING_STEPS.has(s)).length;
+    }, [activeSteps, stepIdx]);
+    const blockingTotal = useMemo(
+        () => activeSteps.filter((s) => BLOCKING_STEPS.has(s)).length,
+        [activeSteps]
+    );
+    const progress = Math.min(blockingIdx / blockingTotal, 1);
 
-    const progress = Math.min((step + 1) / totalDataSteps, 1);
-    const showBack = step > 0 && step < completionStep;
-    const isLastDataStep = step === totalDataSteps - 1;
-    const ctaLabel = isLastDataStep ? "Create Account" : step === completionStep ? "Let's go!" : "Continue";
-
-    const showSkip = useMemo(() => {
-        if (currentStepId === 'social') return true;
-        if (currentStepId === 'experience') return true;
-        if (currentStepId === 'billing') return true;
-        return false;
-    }, [currentStepId]);
-
-    /* ── Animation ── */
+    /* ─── Animation ─── */
     const slideX = useRef(new Animated.Value(0)).current;
     const fadeAnim = useRef(new Animated.Value(1)).current;
 
-    const animateToStep = useCallback((newStep: number) => {
-        const dir = newStep > step ? 1 : -1;
+    const animateToStep = useCallback((newIdx: number) => {
+        const dir = newIdx > stepIdx ? 1 : -1;
         Animated.parallel([
             Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
-            Animated.timing(slideX, { toValue: dir * -180, duration: 120, useNativeDriver: true }),
+            Animated.timing(slideX, { toValue: dir * -120, duration: 120, useNativeDriver: true }),
         ]).start(() => {
-            setStep(newStep);
-            slideX.setValue(dir * 180);
+            setStepIdx(newIdx);
+            slideX.setValue(dir * 120);
             Animated.parallel([
-                Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-                Animated.spring(slideX, { toValue: 0, stiffness: 300, damping: 30, mass: 1, useNativeDriver: true }),
+                Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+                Animated.spring(slideX, { toValue: 0, stiffness: 260, damping: 28, useNativeDriver: true }),
             ]).start();
         });
-    }, [step, fadeAnim, slideX]);
+    }, [stepIdx, fadeAnim, slideX]);
 
-    /* ── Per-step validation ── */
-    const validateStep = (): string | null => {
+    /* ─── Per-step validation ─── */
+    const validateCurrent = (): string | null => {
         switch (currentStepId) {
-            case 'role':
-                return !role ? "Choose your role to continue" : null;
-            case 'identity':
-                if (!fullName.trim() || fullName.trim().length < 2) return "Name must be at least 2 characters";
-                if (!location.trim() || location.trim().length < 2) return "Location is required";
+            case 'entry': {
+                if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) return 'Please enter a valid email';
+                if (phone.trim() && phone.trim().length < 10) return 'Phone number must be at least 10 digits';
                 return null;
-            case 'credentials':
-                if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) return "Please enter a valid email";
-                if (!phone.trim() || phone.trim().length < 10) return "Phone number must be at least 10 digits";
-                if (password.length < 8) return "Password must be at least 8 characters";
-                return null;
-            case 'intent':
-                return intent.length === 0 ? "Please select at least one intent" : null;
-            case 'artistCategory':
-                return selectedTypes.length === 0 ? "Please select at least one category" : null;
-            case 'experience':
-                return null;
-            case 'social': {
-                const socialErrors: string[] = [];
-                if (instagram.trim() && !/^@?[\w]([\w.]){0,29}$/.test(instagram.trim())) {
-                    socialErrors.push('Enter a valid Instagram handle');
-                }
-                if (youtube.trim() && !/(?:youtube\.com|youtu\.be)\/|^@[\w.-]+$/.test(youtube.trim())) {
-                    socialErrors.push('Enter a valid YouTube URL or @handle');
-                }
-                if (spotify.trim() && !/open\.spotify\.com\/artist\//.test(spotify.trim())) {
-                    socialErrors.push('Enter a valid Spotify artist URL');
-                }
-                if (soundcloud.trim() && !/soundcloud\.com\//.test(soundcloud.trim())) {
-                    socialErrors.push('Enter a valid SoundCloud URL');
-                }
-                return socialErrors.length > 0 ? socialErrors[0] : null;
             }
-            case 'orgTypeCategory':
-                if (isCustomCategory) {
-                    return !customCategoryLabel.trim() ? "Please enter your category" : null;
-                }
-                return !organizerTypeCategory ? "Please select your organizer type" : null;
-            case 'orgProfile':
-                // Individual skips this step entirely; for others, org name required
-                if (!isIndividual && (!organizationName.trim() || organizationName.trim().length < 2)) {
-                    return "Organization name is required";
-                }
+            case 'identity': {
+                if (!fullName.trim() || fullName.trim().length < 2) return 'Name must be at least 2 characters';
                 return null;
+            }
+            case 'credentials': {
+                if (password.length < 8) return 'Password must be at least 8 characters';
                 return null;
-            case 'billing':
-                // Optional now, validation only if fields are partially filled if we wanted strictly consistent data, 
-                // but for now, if they enter something it should be valid, or if they skip it's fine.
-                // However, the prompt asked to make it fully optional.
-                // If they enter a business name but no GST, that might be okay depending on rules, 
-                // but let's keep it simple: if they don't skip, we might still want to clear errors if they are empty
-                // actually, validateStep is called on Next. If they skip, this isn't called with strict checks.
-                // If they don't skip (click Next), we should probably still validate if they entered *something*.
-                // For now, let's assume if they click Next without skipping, they might intend to fill it.
-                // But the requirement says "keep the Business Billing Details step fully optional".
-                // So I will loosen the validation here. 
-                // However, if they type in Legal Business Name, they probably should fill other required fields for a business.
-                // But let's return null to allow "Next" to act as optional too, or at least rely on the Skip button.
-                // Actually, if they use the 'Skip' button, handleNext(true) is called.
-                // If they click 'Continue' (handleNext(false)), we might want to enforce data if they started typing?
-                // For safety, legal business name is required only if organizerTypeCategory !== 'individual' AND they didn't skip.
-                // But wait, if they click Continue, they might expect it to save what they wrote.
-                // If they leave it empty and click Continue, it should act like Skip? 
-                // Let's enforce validation ONLY if they have typed something, OR if they are non-individual and didn't explicitly skip?
-                // The prompt says "whichever page is optional, add a good kind of large not too large visible skip".
-                // So if they want to skip, they should click skip. If they click Continue, maybe they want validation?
-                // Let's stick to the existing logic for non-individuals but relying on the Skip button to bypass it.
-                // Wait, if I return an error here, handleNext(false) will block.
-                // So for 'billing', if it's optional, maybe we should just return null? 
-                // But then 'Continue' allows empty strings. 
-                // The prompt says "keep fully optional". So returning null is safest.
-                return null;
+            }
+            case 'intent':
+                return intentChoice === null ? 'Pick at least one — you can change this anytime' : null;
+            case 'artistProfile':
+            case 'hirerProfile':
+            case 'social':
+                return null; // soft steps are always passable
             default:
                 return null;
         }
     };
 
-    /* ── Navigation ── */
-    const handleNext = useCallback((skip = false) => {
-        if (!skip) {
-            const error = validateStep();
-            if (error) { setStepError(error); return; }
+    /* ─── Remote uniqueness checks (only for blocking steps) ─── */
+    const checkRemoteUniqueness = async (): Promise<string | null> => {
+        if (currentStepId !== 'entry') return null;
+        try {
+            const emailRes = await checkEmailMutation.mutateAsync({ email: email.trim() });
+            if ((emailRes as any)?.exists) return 'That email is already registered. Try logging in.';
+            if (phone.trim()) {
+                const fullPhone = `${countryCode}${phone.replace(/[^0-9]/g, '')}`;
+                const phoneRes = await checkPhoneMutation.mutateAsync({ phone: fullPhone });
+                if ((phoneRes as any)?.exists) {
+                    // Per PRD: phones can be shared in families. Warn, don't block.
+                    console.warn('[register] phone already on another account — proceeding with warning');
+                }
+            }
+        } catch (e) {
+            // Remote failure shouldn't block the user
+            console.warn('[register] uniqueness check failed, continuing', e);
+        }
+        return null;
+    };
+
+    /* ─── CTA handler ─── */
+    const handleNext = async () => {
+        const err = validateCurrent();
+        if (err) {
+            setStepError(err);
+            return;
         }
         setStepError(null);
 
-        const proceed = () => {
-            if (isLastDataStep) {
-                submitRegistration(skip);
+        if (currentStepId === 'entry') {
+            const remoteErr = await checkRemoteUniqueness();
+            if (remoteErr) {
+                setStepError(remoteErr);
                 return;
             }
-            animateToStep(step + 1);
-        };
-
-        // If we are currently on the credentials step AND we are moving forward without skipping,
-        // we should verify the email and phone are currently available on the backend
-        if (currentStepId === 'credentials' && !skip) {
-            const formattedPhone = `${countryCode}${phone.replace(/[^0-9]/g, '')}`;
-
-            Promise.all([
-                checkEmailMutation.mutateAsync({ email }),
-                checkPhoneMutation.mutateAsync({ phone: formattedPhone })
-            ]).then(([emailData, phoneData]) => {
-                if (emailData.exists) {
-                    setStepError("This email is already registered.");
-                } else if (phoneData.exists) {
-                    setStepError("This phone number is already registered.");
-                } else {
-                    proceed();
-                }
-            }).catch(() => {
-                setStepError("Could not verify details. Please try again later.");
-            });
-        } else {
-            proceed();
         }
-    }, [step, role, fullName, location, email, countryCode, phone, password, intent, selectedTypes,
-        youtube, spotify, soundcloud,
-        organizerTypeCategory, organizationName,
-        legalBusinessName, isLastDataStep]);
+
+        if (isLastDataStep) {
+            submitRegistration(false);
+            return;
+        }
+
+        animateToStep(stepIdx + 1);
+    };
+
+    const handleSkip = () => {
+        if (!isSoft) return;
+        setStepError(null);
+        if (isLastDataStep) {
+            submitRegistration(true);
+            return;
+        }
+        animateToStep(stepIdx + 1);
+    };
 
     const handleBack = () => {
-        if (step > 0 && step < completionStep) {
+        if (stepIdx > 0 && !completed) {
             setStepError(null);
-            animateToStep(step - 1);
+            animateToStep(stepIdx - 1);
         }
     };
 
-    /* ── Submission ── */
-    const submitRegistration = (skipSocial = false) => {
-        const formattedPhone = `${countryCode}${phone.replace(/[^0-9]/g, '')}`;
+    /* ─── Submit ─── */
+    const submitRegistration = (skipOptional: boolean) => {
+        const chosen = INTENT_OPTIONS.find((o) => o.id === intentChoice);
+        const intents: Intent[] = chosen?.toIntents ?? [];
 
-        if (isOrganizer) {
-            const payload: any = {
-                user: {
-                    displayName: fullName, email, password,
-                    phoneNumber: formattedPhone, role: 'organizer',
-                    marketingConsent,
-                },
-                organizerProfile: {
-                    organizerTypeCategory: organizerTypeCategory!,
-                    organizationType: isIndividual ? 'individual' : 'company',
-                    organizationName: isIndividual ? undefined : (organizationName.trim() || undefined),
-                    organizationWebsite: isIndividual ? undefined : (organizationWebsite.trim() || undefined),
-                    isCustomCategory,
-                    customCategoryLabel: isCustomCategory ? customCategoryLabel.trim() : undefined,
-                    billingDetails: (!skipSocial && legalBusinessName.trim()) ? {
-                        legalBusinessName: legalBusinessName.trim() || undefined,
-                        gstNumber: gstNumber.trim() || undefined,
-                        billingAddress: billingAddress.trim() || undefined,
-                        state: billingState.trim() || undefined,
-                        pincode: pincode.trim() || undefined,
-                        country: country.trim() || undefined,
-                    } : {},
-                    intent: intent.length > 0 ? intent : undefined,
-                },
+        const payload: RegisterPayload = {
+            user: {
+                displayName: fullName.trim(),
+                email: email.trim(),
+                password,
+                phoneNumber: phone.trim() ? `${countryCode}${phone.replace(/[^0-9]/g, '')}` : undefined,
+                intent: intents,
+                marketingConsent: false, // surface this on a later settings screen, not here
+            },
+        };
+
+        // Stage profile data client-side. Backend register endpoint doesn't accept
+        // these fields today — they'll be PATCHed via /users/me in Phase 2c.
+        if (!skipOptional && (artistTypes.length || expLevel || artistCity.trim())) {
+            payload.artistProfile = {
+                artistTypes: artistTypes.length ? artistTypes : undefined,
+                experience: expLevel ?? undefined,
+                primaryCity: artistCity.trim() || undefined,
             };
-            if (!skipSocial) {
-                if (instagram.trim()) payload.user.instagramHandle = instagram.trim().replace(/^@/, '');
-                if (youtube.trim()) payload.user.youtubeUrl = youtube.trim();
-                if (spotify.trim()) payload.user.spotifyUrl = spotify.trim();
-                if (soundcloud.trim()) payload.user.soundcloudUrl = soundcloud.trim();
-            }
-            registerMutation.mutate(payload, {
-                onSuccess: () => animateToStep(completionStep),
-                onError: (err: any) => {
-                    setStepError(err.response?.data?.msg || err.response?.data?.message || err.message || "Registration failed.");
-                },
-            });
-        } else {
-            const payload: any = {
-                user: {
-                    displayName: fullName, email, password,
-                    phoneNumber: formattedPhone, role: 'artist',
-                    marketingConsent,
-                },
+        }
+        if (!skipOptional && (clientType || hirerCity.trim())) {
+            payload.hirerProfile = {
+                clientType: clientType ?? undefined,
+                primaryCity: hirerCity.trim() || undefined,
             };
-            if (intent.length > 0) payload.user.intent = intent;
-            if (expLevel) payload.user.experienceLevel = expLevel;
-            if (!skipSocial) {
-                if (instagram.trim()) payload.user.instagramHandle = instagram.trim().replace(/^@/, '');
-                if (youtube.trim()) payload.user.youtubeUrl = youtube.trim();
-                if (spotify.trim()) payload.user.spotifyUrl = spotify.trim();
-                if (soundcloud.trim()) payload.user.soundcloudUrl = soundcloud.trim();
-            }
-            if (selectedTypes.length > 0) payload.user.artistType = selectedTypes;
-
-            registerMutation.mutate(payload, {
-                onSuccess: () => animateToStep(completionStep),
-                onError: (err: any) => {
-                    setStepError(err.response?.data?.msg || err.response?.data?.message || err.message || "Registration failed.");
-                },
-            });
         }
-    };
-
-    const navigateAway = () => {
-        const { user } = useAuthStore.getState();
-        if (user?.roles?.includes("organizer") || role === "organizer") {
-            router.replace("/(app)/dashboard");
-        } else {
-            router.replace("/(app)/gigs");
+        if (!skipOptional) {
+            const socials = {
+                instagram: instagram.trim() || undefined,
+                youtube: youtube.trim() || undefined,
+                spotify: spotify.trim() || undefined,
+                soundcloud: soundcloud.trim() || undefined,
+            };
+            if (Object.values(socials).some(Boolean)) payload.socials = socials;
         }
+
+        registerMutation.mutate(payload as any, {
+            onSuccess: () => setCompleted(true),
+            onError: (err: any) => {
+                const msg =
+                    err.response?.data?.msg ||
+                    err.response?.data?.message ||
+                    err.message ||
+                    'Registration failed.';
+                setStepError(msg);
+            },
+        });
     };
 
-    /* ── Toggle helpers ── */
-    const toggleIntent = (id: Intent) => {
-        setIntent(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-        setStepError(null);
-    };
-    const toggleType = (t: string) => {
-        setSelectedTypes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
-        setStepError(null);
-    };
-
-    /* ── Category selection with state reset ── */
-    const selectOrgCategory = (catId: OrganizerTypeCategory) => {
-        setOrganizerTypeCategory(catId);
-        setIsCustomCategory(false);
-        setCustomCategoryLabel("");
-        // Reset org-specific fields when switching categories
-        setOrganizationName("");
-        setOrganizationWebsite("");
-        setLegalBusinessName("");
-        setGstNumber("");
-        setBillingAddress("");
-        setBillingState("");
-        setPincode("");
-        setCountry("");
-        setStepError(null);
+    /* ─── Toggle helpers ─── */
+    const toggleArtistType = (id: string) => {
+        setArtistTypes((prev) => {
+            if (prev.includes(id)) return prev.filter((x) => x !== id);
+            if (prev.length >= 3) return prev; // cap
+            return [...prev, id];
+        });
     };
 
-    const selectCustomCategory = () => {
-        setOrganizerTypeCategory('individual');  // fallback enum for backend
-        setIsCustomCategory(true);
-        setCustomCategoryLabel("");
-        setOrganizationName("");
-        setOrganizationWebsite("");
-        setStepError(null);
-    };
-
-
-    /* ════════════════════════════════════════════════ */
-    /*  STEP RENDERERS                                 */
-    /* ════════════════════════════════════════════════ */
+    /* ══════════════════════════════════════════════════════
+     *  STEP RENDERERS
+     * ══════════════════════════════════════════════════════ */
 
     const renderStep = () => {
         switch (currentStepId) {
-            /* ── SHARED ── */
-            case 'role':
+            case 'entry':
                 return (
                     <View>
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, lineHeight: 36 }}>
-                            Choose your path on NETSA
-                        </Text>
-                        <Text style={{ fontSize: 14, color: C.w30, marginTop: 8, marginBottom: 32 }}>
-                            Choose your role to get started.
-                        </Text>
-                        <View style={{ gap: 12 }}>
-                            <LargeRoleCard icon={Mic2} title="Artist" subtitle="Perform & get discovered"
-                                selected={role === 'artist'} onPress={() => { setRole('artist'); setStepError(null); }} />
-                            <LargeRoleCard icon={Calendar} title="Organizer" subtitle="Discover & hire talent"
-                                selected={role === 'organizer'} onPress={() => { setRole('organizer'); setStepError(null); }} />
-                        </View>
-                    </View>
-                );
-
-            case 'identity':
-                return (
-                    <View>
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, lineHeight: 36 }}>
-                            How should people{'\n'}recognize you?
-                        </Text>
-                        <Text style={{ fontSize: 14, color: C.w30, marginTop: 8, marginBottom: 32 }}>
-                            This is how you'll appear on NETSA.
-                        </Text>
-                        <StepInput label="Full Name" value={fullName} onChangeText={(v) => { setFullName(v); setStepError(null); }}
-                            placeholder="Your name or stage name" autoCapitalize="words" />
-                        <StepInput label="Location" value={location} onChangeText={(v) => { setLocation(v); setStepError(null); }}
-                            placeholder="e.g. Mumbai, Delhi, Bangalore"
-                            icon={<MapPin size={16} color={C.w25} />} />
-                    </View>
-                );
-
-            case 'credentials':
-                return (
-                    <View>
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, lineHeight: 36 }}>
-                            How do we secure{'\n'}your account?
-                        </Text>
-                        <Text style={{ fontSize: 14, color: C.w30, marginTop: 8, marginBottom: 32 }}>
-                            We'll keep your info safe.
-                        </Text>
-                        <StepInput label="Email" value={email} onChangeText={(v) => { setEmail(v); setStepError(null); }}
-                            placeholder="your@email.com" keyboardType="email-address" autoCapitalize="none" />
+                        <Headline>
+                            <SerifLine>Welcome to</SerifLine>
+                            <SerifBrand>NETSA</SerifBrand>
+                        </Headline>
+                        <Subhead>How should we reach you?</Subhead>
                         <StepInput
-                            label="Phone Number"
+                            label="Email"
+                            value={email}
+                            onChangeText={(v) => { setEmail(v); setStepError(null); }}
+                            placeholder="you@example.com"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            icon={<Mail size={16} color={C.text3} />}
+                        />
+                        <StepInput
+                            label="Phone (optional, recommended for India)"
                             value={phone}
                             onChangeText={(v) => { setPhone(v.replace(/[^0-9]/g, '')); setStepError(null); }}
                             placeholder="9876543210"
                             keyboardType="phone-pad"
                             prefix={<CountryCodePicker selectedCode={countryCode} onSelect={setCountryCode} />}
                         />
-                        <StepInput label="Password" value={password} onChangeText={(v) => { setPassword(v); setStepError(null); }}
-                            placeholder="Min 8 characters" secureTextEntry />
+                    </View>
+                );
+
+            case 'identity':
+                return (
+                    <View>
+                        <Headline>
+                            <SerifLine>What should people</SerifLine>
+                            <SerifLine>call you?</SerifLine>
+                        </Headline>
+                        <Subhead>Your name as it'll appear across NETSA.</Subhead>
+                        <StepInput
+                            label="Full name or stage name"
+                            value={fullName}
+                            onChangeText={(v) => { setFullName(v); setStepError(null); }}
+                            placeholder="e.g. Priya Sharma"
+                            autoCapitalize="words"
+                            icon={<UserIcon size={16} color={C.text3} />}
+                        />
+                    </View>
+                );
+
+            case 'credentials':
+                return (
+                    <View>
+                        <Headline>
+                            <SerifLine>Secure your</SerifLine>
+                            <SerifLine>account.</SerifLine>
+                        </Headline>
+                        <Subhead>Pick a password. Minimum 8 characters.</Subhead>
+                        <StepInput
+                            label="Password"
+                            value={password}
+                            onChangeText={(v) => { setPassword(v); setStepError(null); }}
+                            placeholder="At least 8 characters"
+                            secureTextEntry
+                            icon={<Lock size={16} color={C.text3} />}
+                        />
+                        <Text style={s.fineprint}>
+                            By continuing, you agree to the NETSA Terms and Privacy Policy.
+                        </Text>
                     </View>
                 );
 
             case 'intent':
                 return (
+                    <IntentStep
+                        choice={intentChoice}
+                        onChoose={(id) => { setIntentChoice(id); setStepError(null); }}
+                    />
+                );
+
+            case 'artistProfile':
+                return (
                     <View>
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, lineHeight: 36 }}>
-                            What brings you{'\n'}to NETSA?
-                        </Text>
-                        <Text style={{ fontSize: 14, color: C.w30, marginTop: 8, marginBottom: 32 }}>
-                            Pick as many as you like.
-                        </Text>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 }}>
-                            {INTENT_OPTIONS.map((opt) => (
-                                <IntentCard key={opt.id} icon={opt.icon} label={opt.label}
-                                    selected={intent.includes(opt.id)} onPress={() => toggleIntent(opt.id)} />
+                        <Headline>
+                            <SerifLine>Tell us about</SerifLine>
+                            <SerifLine>your craft.</SerifLine>
+                        </Headline>
+                        <Subhead>
+                            You can skip — fill this in later from your profile.
+                        </Subhead>
+
+                        <Text style={s.sectionLabel}>What do you do? (max 3)</Text>
+                        <View style={s.chipsWrap}>
+                            {ARTIST_TYPES.map((t) => {
+                                const active = artistTypes.includes(t.id);
+                                const Icon = t.icon;
+                                return (
+                                    <Pressable
+                                        key={t.id}
+                                        onPress={() => toggleArtistType(t.id)}
+                                        style={({ pressed }) => [
+                                            s.chip,
+                                            active && s.chipActive,
+                                            pressed && { opacity: 0.7 },
+                                        ]}
+                                    >
+                                        <Icon size={14} color={active ? C.orange : C.text2} strokeWidth={2} />
+                                        <Text style={[s.chipText, active && s.chipTextActive]}>{t.label}</Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+
+                        <Text style={s.sectionLabel}>Experience</Text>
+                        <View style={{ gap: 8 }}>
+                            {EXP_LEVELS.map((lvl) => (
+                                <ExpCard
+                                    key={lvl.id}
+                                    label={lvl.label}
+                                    sub={lvl.sub}
+                                    selected={expLevel === lvl.id}
+                                    onPress={() => setExpLevel(lvl.id)}
+                                />
                             ))}
                         </View>
+
+                        <Text style={s.sectionLabel}>Where are you based?</Text>
+                        <StepInput
+                            label=""
+                            hideLabel
+                            value={artistCity}
+                            onChangeText={setArtistCity}
+                            placeholder="e.g. Mumbai, Pune, Delhi"
+                            icon={<MapPin size={16} color={C.text3} />}
+                        />
+                    </View>
+                );
+
+            case 'hirerProfile':
+                return (
+                    <View>
+                        <Headline>
+                            <SerifLine>Who's doing</SerifLine>
+                            <SerifLine>the hiring?</SerifLine>
+                        </Headline>
+                        <Subhead>
+                            Just the basics. Business details come later when you post a gig.
+                        </Subhead>
+
+                        <Text style={s.sectionLabel}>I'm hiring as</Text>
+                        <View style={{ gap: 8 }}>
+                            {HIRER_CLIENT_TYPES.map((t) => {
+                                const active = clientType === t.id;
+                                const Icon = t.icon;
+                                return (
+                                    <Pressable
+                                        key={t.id}
+                                        onPress={() => setClientType(t.id)}
+                                        style={({ pressed }) => [
+                                            s.hirerCard,
+                                            active && s.hirerCardActive,
+                                            pressed && { opacity: 0.85 },
+                                        ]}
+                                    >
+                                        <View style={[s.hirerIcon, active && s.hirerIconActive]}>
+                                            <Icon size={18} color={active ? '#fff' : C.text2} strokeWidth={2} />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[s.hirerLabel, active && s.hirerLabelActive]}>{t.label}</Text>
+                                            <Text style={s.hirerSub}>{t.sub}</Text>
+                                        </View>
+                                        {active && <Check size={16} color={C.orange} strokeWidth={2.5} />}
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+
+                        <Text style={s.sectionLabel}>Primary city</Text>
+                        <StepInput
+                            label=""
+                            hideLabel
+                            value={hirerCity}
+                            onChangeText={setHirerCity}
+                            placeholder="e.g. Mumbai, Bangalore, Hyderabad"
+                            icon={<MapPin size={16} color={C.text3} />}
+                        />
                     </View>
                 );
 
             case 'social':
                 return (
-                    <View style={{ gap: 4 }}>
-                        <Text style={{ fontSize: 24, fontWeight: '800', color: C.w95, lineHeight: 32 }}>
-                            Want to add credibility?
-                        </Text>
-                        <Text style={{ fontSize: 13, color: C.w30, marginTop: 4, marginBottom: 18 }}>
-                            Your social links help build trust with others.{'\n'}
-                            <Text style={{ color: C.w15 }}>All fields are optional.</Text>
-                        </Text>
-                        <StepInput label="Instagram Handle" value={instagram} onChangeText={setInstagram}
-                            placeholder="@yourhandle" autoCapitalize="none"
-                            icon={<Instagram size={15} color={C.w25} />} />
-                        <StepInput label="YouTube" value={youtube} onChangeText={setYoutube}
-                            placeholder="your channel URL" autoCapitalize="none"
-                            icon={<Youtube size={15} color={C.w25} />} />
-                        <StepInput label="Spotify" value={spotify} onChangeText={setSpotify}
-                            placeholder="artist URL" autoCapitalize="none"
-                            icon={<Music2 size={15} color={C.w25} />} />
-                        <StepInput label="SoundCloud" value={soundcloud} onChangeText={setSoundcloud}
-                            placeholder="profile URL" autoCapitalize="none"
-                            icon={<Headphones size={15} color={C.w25} />} />
-                    </View>
-                );
-
-            /* ── ARTIST-ONLY ── */
-            case 'artistCategory':
-                return (
                     <View>
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, lineHeight: 36 }}>
-                            Where do you{'\n'}belong?
-                        </Text>
-                        <Text style={{ fontSize: 14, color: C.w30, marginTop: 8, marginBottom: 32 }}>
-                            Select all that apply.
-                        </Text>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                            {ARTIST_TYPES.map((t) => (
-                                <TypeChip key={t} label={t} selected={selectedTypes.includes(t)}
-                                    onPress={() => toggleType(t)} />
-                            ))}
-                        </View>
-                    </View>
-                );
-
-            case 'experience':
-                return (
-                    <View>
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, lineHeight: 36 }}>
-                            Where are you in{'\n'}your journey?
-                        </Text>
-                        <Text style={{ fontSize: 14, color: C.w30, marginTop: 8, marginBottom: 32 }}>
-                            No pressure — this helps us curate your feed.
-                        </Text>
-                        <View style={{ gap: 10 }}>
-                            {EXP_LEVELS.map((l) => (
-                                <ExpCard key={l.id} label={l.label} sub={l.sub}
-                                    selected={expLevel === l.id} onPress={() => setExpLevel(l.id)} />
-                            ))}
-                        </View>
-                    </View>
-                );
-
-            /* ── ORGANIZER-ONLY ── */
-            case 'orgTypeCategory':
-                return (
-                    <View>
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, lineHeight: 36 }}>
-                            What kind of{'\n'}organizer are you?
-                        </Text>
-                        <Text style={{ fontSize: 14, color: C.w30, marginTop: 8, marginBottom: 24 }}>
-                            This helps us tailor your experience.
-                        </Text>
-                        <View style={{ gap: 8 }}>
-                            {ORG_TYPE_CATEGORIES.map((cat) => {
-                                const Icon = cat.icon;
-                                const sel = !isCustomCategory && organizerTypeCategory === cat.id;
-                                return (
-                                    <TouchableOpacity key={cat.id} activeOpacity={0.7}
-                                        onPress={() => selectOrgCategory(cat.id)}
-                                        style={{
-                                            flexDirection: 'row', alignItems: 'center', gap: 12,
-                                            paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14,
-                                            borderWidth: 1, borderColor: sel ? C.activeB : C.w08,
-                                            backgroundColor: sel ? C.activeBg : C.w03,
-                                        }}>
-                                        <View style={{
-                                            width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
-                                            backgroundColor: sel ? C.primary : C.w06,
-                                        }}>
-                                            <Icon size={16} color={sel ? '#fff' : C.w30} />
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={{ fontSize: 15, fontWeight: '600', color: sel ? C.primary : C.w60 }}>{cat.label}</Text>
-                                            <Text style={{ fontSize: 11, color: sel ? C.w50 : C.w25, marginTop: 1 }}>{cat.sub}</Text>
-                                        </View>
-                                        {sel && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary }} />}
-                                    </TouchableOpacity>
-                                );
-                            })}
-
-                            {/* ── "None of the above?" option ── */}
-                            <TouchableOpacity activeOpacity={0.7}
-                                onPress={selectCustomCategory}
-                                style={{
-                                    flexDirection: 'row', alignItems: 'center', gap: 12,
-                                    paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14,
-                                    borderWidth: 1,
-                                    borderColor: isCustomCategory ? 'rgba(251,191,36,0.5)' : C.w08,
-                                    backgroundColor: isCustomCategory ? 'rgba(251,191,36,0.08)' : C.w03,
-                                    borderStyle: 'dashed',
-                                }}>
-                                <View style={{
-                                    width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
-                                    backgroundColor: isCustomCategory ? 'rgba(251,191,36,0.15)' : C.w06,
-                                }}>
-                                    <HelpCircle size={16} color={isCustomCategory ? '#FBBF24' : C.w30} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ fontSize: 15, fontWeight: '600', color: isCustomCategory ? '#FBBF24' : C.w60 }}>None of the above?</Text>
-                                    <Text style={{ fontSize: 11, color: isCustomCategory ? C.w50 : C.w25, marginTop: 1 }}>Tell us what you do</Text>
-                                </View>
-                                {isCustomCategory && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FBBF24' }} />}
-                            </TouchableOpacity>
-
-                            {/* Custom category text input */}
-                            {isCustomCategory && (
-                                <View style={{ marginTop: 8 }}>
-                                    <View style={{
-                                        flexDirection: 'row', alignItems: 'center', gap: 10,
-                                        borderWidth: 1, borderColor: 'rgba(251,191,36,0.3)',
-                                        backgroundColor: 'rgba(251,191,36,0.05)',
-                                        borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-                                    }}>
-                                        <PenLine size={16} color="#FBBF24" />
-                                        <TextInput
-                                            value={customCategoryLabel}
-                                            onChangeText={(v) => { setCustomCategoryLabel(v); setStepError(null); }}
-                                            placeholder="e.g. Wedding Planner, Promoter..."
-                                            placeholderTextColor={C.w25}
-                                            style={{
-                                                flex: 1, color: '#fff', fontSize: 15, fontWeight: '500',
-                                                outlineStyle: 'none',
-                                            } as any}
-                                            autoCapitalize="words"
-                                        />
-                                    </View>
-                                </View>
-                            )}
-                        </View>
-                    </View>
-                );
-
-            case 'orgProfile':
-                // This step is skipped entirely for 'individual' via the steps filter
-                return (
-                    <View>
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, lineHeight: 36 }}>
-                            Tell us about{'\n'}your organization
-                        </Text>
-                        <Text style={{ fontSize: 14, color: C.w30, marginTop: 8, marginBottom: 32 }}>
-                            This will appear on your public profile.
-                        </Text>
-                        <StepInput label="Organization Name" value={organizationName}
-                            onChangeText={(v) => { setOrganizationName(v); setStepError(null); }}
-                            placeholder="e.g. Starlight Events"
-                            icon={<Building2 size={16} color={C.w25} />} />
-                        <StepInput label="Website (optional)" value={organizationWebsite}
-                            onChangeText={setOrganizationWebsite}
-                            placeholder="https://yourwebsite.com" autoCapitalize="none" keyboardType="url"
-                            icon={<Globe size={16} color={C.w25} />} />
-                    </View>
-                );
-
-
-            case 'billing':
-                return (
-                    <View>
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, lineHeight: 36 }}>
-                            Business billing{'\n'}details
-                        </Text>
-                        <Text style={{ fontSize: 14, color: C.w30, marginTop: 8, marginBottom: 32 }}>
-                            Required for invoicing and compliance.
-                        </Text>
-                        <StepInput label="Legal Business Name" value={legalBusinessName}
-                            onChangeText={(v) => { setLegalBusinessName(v); setStepError(null); }}
-                            placeholder="Registered business name"
-                            icon={<Building2 size={16} color={C.w25} />} />
-                        <StepInput label="GST Number (optional)" value={gstNumber}
-                            onChangeText={setGstNumber}
-                            placeholder="22AAAAA0000A1Z5" autoCapitalize="characters"
-                            icon={<Receipt size={16} color={C.w25} />} />
-                        <StepInput label="Billing Address (optional)" value={billingAddress}
-                            onChangeText={setBillingAddress} placeholder="Street address" />
-                        <View style={{ flexDirection: 'row', gap: 12 }}>
-                            <View style={{ flex: 1 }}>
-                                <StepInput label="State" value={billingState}
-                                    onChangeText={setBillingState} placeholder="State" />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <StepInput label="Pincode" value={pincode}
-                                    onChangeText={setPincode} placeholder="560001" keyboardType="number-pad" />
-                            </View>
-                        </View>
-                    </View>
-                );
-
-            /* ── COMPLETION ── */
-            default:
-                return (
-                    <View style={{ alignItems: 'center' }}>
-                        <LinearGradient
-                            colors={[C.primary, C.secondary]}
-                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                            style={{
-                                width: 80, height: 80, borderRadius: 40,
-                                alignItems: 'center', justifyContent: 'center', marginBottom: 24,
-                            }}>
-                            <Check size={40} color="#fff" strokeWidth={3} />
-                        </LinearGradient>
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: C.w95, textAlign: 'center' }}>
-                            Your stage is ready.
-                        </Text>
-                        <Text style={{ fontSize: 14, color: C.w30, marginTop: 12, textAlign: 'center', maxWidth: 280 }}>
-                            {isArtist
-                                ? "Time to get discovered by top organizers."
-                                : "Start finding the perfect talent for your events."}
-                        </Text>
-                    </View>
-                );
-        }
-    };
-
-    /* ════════════════════════════════════════════════ */
-    /*  RENDER                                         */
-    /* ════════════════════════════════════════════════ */
-
-    return (
-        <View style={{ flex: 1, backgroundColor: C.bg }}>
-            <SafeAreaView style={{ flex: 1 }}>
-                {/* ═══ HEADER ═══ */}
-                <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16, marginTop: 20 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                        {showBack ? (
-                            <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={{
-                                width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: C.w10,
-                                alignItems: 'center', justifyContent: 'center',
-                            }}>
-                                <ChevronLeft size={16} color={C.w40} />
-                            </TouchableOpacity>
-                        ) : (
-                            <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}
-                                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <View style={{
-                                    width: 32, height: 32, borderRadius: 10, backgroundColor: C.w06,
-                                    borderWidth: 1, borderColor: C.w10, alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                    <Sparkles size={14} color={C.primary} />
-                                </View>
-                                <Text style={{ fontSize: 18, fontWeight: '700', letterSpacing: -1, color: C.w80 }}>
-                                    NETSA
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-                        {step < completionStep && (
-                            <Text style={{ fontSize: 12, fontWeight: '500', color: C.w25 }}>
-                                {step + 1} of {totalDataSteps}
-                            </Text>
-                        )}
-                    </View>
-                    <View style={{ height: 3, backgroundColor: C.w08, borderRadius: 2, overflow: 'hidden' }}>
-                        <LinearGradient
-                            colors={[C.primary, C.secondary]}
-                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                            style={{ height: '100%', width: `${progress * 100}%`, borderRadius: 2 }}
+                        <Headline>
+                            <SerifLine>One last thing.</SerifLine>
+                        </Headline>
+                        <Subhead>
+                            Link your socials to show your work. Optional.
+                        </Subhead>
+                        <StepInput
+                            label="Instagram"
+                            value={instagram}
+                            onChangeText={setInstagram}
+                            placeholder="@yourhandle"
+                            autoCapitalize="none"
+                            icon={<Instagram size={15} color={C.text3} />}
+                        />
+                        <StepInput
+                            label="YouTube"
+                            value={youtube}
+                            onChangeText={setYoutube}
+                            placeholder="Channel URL or @handle"
+                            autoCapitalize="none"
+                            icon={<Youtube size={15} color={C.text3} />}
+                        />
+                        <StepInput
+                            label="Spotify"
+                            value={spotify}
+                            onChangeText={setSpotify}
+                            placeholder="Artist URL"
+                            autoCapitalize="none"
+                            icon={<Music2 size={15} color={C.text3} />}
+                        />
+                        <StepInput
+                            label="SoundCloud"
+                            value={soundcloud}
+                            onChangeText={setSoundcloud}
+                            placeholder="Profile URL"
+                            autoCapitalize="none"
+                            icon={<Headphones size={15} color={C.text3} />}
                         />
                     </View>
-                </View>
+                );
 
-                {/* ═══ ANIMATED CONTENT ═══ */}
-                <Animated.View style={{
-                    flex: 1, paddingHorizontal: 24,
-                    opacity: fadeAnim, transform: [{ translateX: slideX }],
-                }}>
-                    <ScrollView
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 20 }}
-                        keyboardShouldPersistTaps="handled"
+            case 'completion':
+                return <CompletionStep intentChoice={intentChoice} displayName={fullName} />;
+        }
+        return null;
+    };
+
+    /* ══════════════════════════════════════════════════════
+     *  LAYOUT
+     * ══════════════════════════════════════════════════════ */
+
+    const ctaLabel = isLastDataStep ? 'Create account' : 'Continue';
+    const isSubmitting = registerMutation.isPending;
+
+    return (
+        <View style={s.root}>
+            {/* Ambient gradient — only on Step 4 (intent) to signal emotional weight */}
+            {currentStepId === 'intent' && <IntentAmbient />}
+
+            <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+                {/* Header: back + progress */}
+                {!completed && (
+                    <View style={s.header}>
+                        <Pressable
+                            onPress={handleBack}
+                            disabled={stepIdx === 0}
+                            style={({ pressed }) => [
+                                s.backBtn,
+                                stepIdx === 0 && { opacity: 0.25 },
+                                pressed && { opacity: 0.55 },
+                            ]}
+                            hitSlop={8}
+                        >
+                            <ChevronLeft size={18} color={C.text2} strokeWidth={2} />
+                        </Pressable>
+                        <View style={s.progressTrack}>
+                            <LinearGradient
+                                colors={[C.pink, C.orange]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={[s.progressFill, { width: `${progress * 100}%` }]}
+                            />
+                        </View>
+                        <Text style={s.progressLabel}>
+                            {blockingIdx}/{blockingTotal}
+                        </Text>
+                    </View>
+                )}
+
+                {/* Step body */}
+                <ScrollView
+                    contentContainerStyle={{
+                        paddingHorizontal: width < 500 ? 22 : 32,
+                        paddingTop: 20,
+                        paddingBottom: 40,
+                        minHeight: '100%',
+                    }}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <Animated.View
+                        style={{
+                            opacity: fadeAnim,
+                            transform: [{ translateX: slideX }],
+                        }}
                     >
                         {renderStep()}
-                    </ScrollView>
-                </Animated.View>
+                    </Animated.View>
 
-                {/* ═══ CTA AREA ═══ */}
-                <View style={{ paddingHorizontal: 24, paddingBottom: Platform.OS === 'android' ? 24 : 0, marginBottom: 44 }}>
-
-                    {/* Marketing consent — shown only on the final step, above submit */}
-                    {isLastDataStep && (
-                        <TouchableOpacity
-                            activeOpacity={0.8}
-                            onPress={() => setMarketingConsent(v => !v)}
-                            style={{
-                                flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-                                marginBottom: 16,
-                                paddingVertical: 12, paddingHorizontal: 12,
-                                borderRadius: 12, borderWidth: 1,
-                                borderColor: marketingConsent ? C.activeB : C.w08,
-                                backgroundColor: marketingConsent ? C.activeBg : C.w03,
-                            }}
-                        >
-                            {/* Checkbox */}
-                            <View style={{
-                                width: 18, height: 18, borderRadius: 6, marginTop: 1,
-                                borderWidth: 1.5,
-                                borderColor: marketingConsent ? C.primary : C.w30,
-                                backgroundColor: marketingConsent ? C.primary : 'transparent',
-                                alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                            }}>
-                                {marketingConsent && <Check size={12} color="#fff" strokeWidth={3} />}
-                            </View>
-
-                            {/* Text block */}
-                            <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 12, color: C.w60, lineHeight: 17 }}>
-                                    I agree to receive updates, opportunities, and announcements from NETSA.
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
-                    )}
-
-                    {stepError && (
-                        <View style={{
-                            backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1,
-                            borderColor: 'rgba(239,68,68,0.25)', borderRadius: 12,
-                            paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12,
-                        }}>
-                            <Text style={{ color: '#fca5a5', fontSize: 13, textAlign: 'center' }}>{stepError}</Text>
+                    {stepError ? (
+                        <View style={s.errorBox}>
+                            <Text style={s.errorText}>{stepError}</Text>
                         </View>
-                    )}
+                    ) : null}
+                </ScrollView>
 
-                    <TouchableOpacity
-                        onPress={() => step === completionStep ? navigateAway() : handleNext()}
-                        activeOpacity={0.85}
-                        disabled={registerMutation.isPending}
-                        style={{ borderRadius: 16, overflow: 'hidden', opacity: registerMutation.isPending ? 0.6 : 1 }}
-                    >
-                        <LinearGradient
-                            colors={[C.primary, C.secondary]}
-                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                            style={{ height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}
+                {/* Footer CTA */}
+                {!completed && (
+                    <View style={[s.footer, { paddingBottom: Platform.OS === 'ios' ? 20 : 24 }]}>
+                        {isSoft && (
+                            <Pressable
+                                onPress={handleSkip}
+                                disabled={isSubmitting}
+                                style={({ pressed }) => [
+                                    s.skipBtn,
+                                    pressed && { opacity: 0.6 },
+                                ]}
+                            >
+                                <Text style={s.skipBtnText}>Skip for now</Text>
+                            </Pressable>
+                        )}
+                        <Pressable
+                            onPress={handleNext}
+                            disabled={isSubmitting}
+                            style={({ pressed }) => [
+                                { flex: 1, opacity: isSubmitting ? 0.6 : pressed ? 0.85 : 1 },
+                            ]}
                         >
-                            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>
-                                {registerMutation.isPending ? "Creating account..." : ctaLabel}
-                            </Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
-
-                    {showSkip && (
-                        <TouchableOpacity onPress={() => handleNext(true)} activeOpacity={0.7}
-                            style={{
-                                marginTop: 14, alignItems: 'center', justifyContent: 'center',
-                                paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: C.w10
-                            }}>
-                            <Text style={{ fontSize: 14, fontWeight: '600', color: C.w50 }}>
-                                Skip (I'll do this later)
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-
-
-                    {step === 0 && (
-                        <TouchableOpacity onPress={() => router.push("/(auth)/login")}
-                            style={{ marginTop: 20, alignItems: 'center' }}>
-                            <Text style={{ fontSize: 12, color: C.w25 }}>
-                                Already have an account?{' '}
-                                <Text style={{ fontWeight: '600', color: C.primary }}>Sign In</Text>
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
+                            <LinearGradient
+                                colors={[C.pink, C.orange]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={s.ctaBtn}
+                            >
+                                {isSubmitting ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <>
+                                        <Text style={s.ctaText}>{ctaLabel}</Text>
+                                        <ArrowRight size={16} color="#fff" strokeWidth={2.5} />
+                                    </>
+                                )}
+                            </LinearGradient>
+                        </Pressable>
+                    </View>
+                )}
             </SafeAreaView>
         </View>
     );
 }
+
+// ════════════════════════════════════════════════════════════════════
+//  STEP 4 — "What brings you to NETSA?" — the emotional center
+// ════════════════════════════════════════════════════════════════════
+
+const IntentAmbient = () => (
+    <>
+        <View style={s.ambientOrb1} pointerEvents="none">
+            <LinearGradient
+                colors={['rgba(236,72,153,0.22)', 'transparent']}
+                style={{ flex: 1, borderRadius: 400 }}
+            />
+        </View>
+        <View style={s.ambientOrb2} pointerEvents="none">
+            <LinearGradient
+                colors={['rgba(249,115,22,0.18)', 'transparent']}
+                style={{ flex: 1, borderRadius: 400 }}
+            />
+        </View>
+        <Text style={s.devanagariGhost} pointerEvents="none">
+            संगीत
+        </Text>
+    </>
+);
+
+const IntentStep = ({
+    choice,
+    onChoose,
+}: {
+    choice: 'find_gigs' | 'hire_artists' | 'both' | null;
+    onChoose: (id: 'find_gigs' | 'hire_artists' | 'both') => void;
+}) => {
+    return (
+        <View>
+            <View style={{ marginBottom: 28 }}>
+                <Text style={s.intentEyebrow}>WHAT BRINGS YOU HERE</Text>
+                <Text style={s.intentHeadline}>What brings you{'\n'}to NETSA?</Text>
+                <Text style={s.intentSub}>
+                    Pick one — you can always do both later. This just helps us set up your first view.
+                </Text>
+            </View>
+
+            <View style={{ gap: 12 }}>
+                {INTENT_OPTIONS.map((opt) => {
+                    const active = choice === opt.id;
+                    const Icon = opt.icon;
+                    return (
+                        <Pressable
+                            key={opt.id}
+                            onPress={() => onChoose(opt.id as any)}
+                            style={({ pressed }) => [
+                                s.intentCard,
+                                active && s.intentCardActive,
+                                pressed && { opacity: 0.85 },
+                            ]}
+                        >
+                            <View style={[s.intentIcon, active && s.intentIconActive]}>
+                                <Icon size={20} color={active ? '#fff' : C.text2} strokeWidth={2} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[s.intentCardTitle, active && s.intentCardTitleActive]}>
+                                    {opt.title}
+                                </Text>
+                                <Text style={s.intentCardSub}>{opt.sub}</Text>
+                            </View>
+                            {active && (
+                                <View style={s.intentCheck}>
+                                    <Check size={14} color="#fff" strokeWidth={3} />
+                                </View>
+                            )}
+                        </Pressable>
+                    );
+                })}
+            </View>
+        </View>
+    );
+};
+
+// ════════════════════════════════════════════════════════════════════
+//  Completion step
+// ════════════════════════════════════════════════════════════════════
+
+const CompletionStep = ({
+    intentChoice,
+    displayName,
+}: {
+    intentChoice: 'find_gigs' | 'hire_artists' | 'both' | null;
+    displayName: string;
+}) => {
+    const firstName = displayName.trim().split(/\s+/)[0] || 'there';
+    const isArtist = intentChoice === 'find_gigs' || intentChoice === 'both';
+    const isHirer = intentChoice === 'hire_artists' || intentChoice === 'both';
+
+    const go = () => {
+        if (intentChoice === 'hire_artists') {
+            router.replace('/(app)/dashboard' as any);
+        } else {
+            router.replace('/(app)/gigs' as any);
+        }
+    };
+
+    return (
+        <View style={{ alignItems: 'center', paddingTop: 40 }}>
+            <LinearGradient
+                colors={[C.pink, C.orange]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={s.completionRing}
+            >
+                <View style={s.completionRingInner}>
+                    <Check size={38} color={C.orange} strokeWidth={2} />
+                </View>
+            </LinearGradient>
+
+            <Text style={s.completionHeadline}>Welcome, {firstName}.</Text>
+            <Text style={s.completionSub}>
+                Your NETSA account is ready.
+                {isArtist ? '\nStart browsing gigs that match your craft.' : ''}
+                {isHirer ? '\nPost your first gig whenever you need a team.' : ''}
+            </Text>
+
+            <Pressable onPress={go} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+                <LinearGradient
+                    colors={[C.pink, C.orange]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={s.completionCta}
+                >
+                    <Text style={s.completionCtaText}>Enter NETSA</Text>
+                    <ArrowRight size={16} color="#fff" strokeWidth={2.5} />
+                </LinearGradient>
+            </Pressable>
+        </View>
+    );
+};
+
+// ════════════════════════════════════════════════════════════════════
+//  Typography helpers
+// ════════════════════════════════════════════════════════════════════
+
+const Headline = ({ children }: { children: React.ReactNode }) => (
+    <View style={{ marginBottom: 12 }}>{children}</View>
+);
+
+const SerifLine = ({ children }: { children: React.ReactNode }) => (
+    <Text style={s.serifHeadline}>{children}</Text>
+);
+
+const SerifBrand = ({ children }: { children: React.ReactNode }) => (
+    <Text style={s.serifBrand}>{children}</Text>
+);
+
+const Subhead = ({ children }: { children: React.ReactNode }) => (
+    <Text style={s.subhead}>{children}</Text>
+);
+
+// ════════════════════════════════════════════════════════════════════
+//  Styles
+// ════════════════════════════════════════════════════════════════════
+
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
+
+    // Header
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 16,
+    },
+    backBtn: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1,
+        borderColor: C.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    progressTrack: {
+        flex: 1,
+        height: 3,
+        borderRadius: 1.5,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        overflow: 'hidden',
+    },
+    progressFill: { height: '100%', borderRadius: 1.5 },
+    progressLabel: {
+        fontSize: 10,
+        color: C.text3,
+        fontFamily: FONT.bodyBold,
+        letterSpacing: 1,
+    },
+
+    // Typography
+    serifHeadline: {
+        fontFamily: FONT.serif,
+        fontSize: 34,
+        lineHeight: 40,
+        color: C.text,
+        letterSpacing: -0.5,
+    },
+    serifBrand: {
+        fontFamily: FONT.serif,
+        fontSize: 54,
+        lineHeight: 60,
+        color: C.text,
+        letterSpacing: -1.2,
+    },
+    subhead: {
+        fontSize: 14,
+        color: C.text2,
+        lineHeight: 20,
+        marginTop: 10,
+        marginBottom: 28,
+        fontFamily: FONT.body,
+    },
+    sectionLabel: {
+        fontSize: 10,
+        color: C.text2,
+        textTransform: 'uppercase',
+        letterSpacing: 2,
+        fontFamily: FONT.bodyBold,
+        marginTop: 24,
+        marginBottom: 10,
+    },
+    fineprint: {
+        fontSize: 11,
+        color: C.text3,
+        marginTop: 12,
+        lineHeight: 16,
+        fontFamily: FONT.body,
+    },
+
+    // Step 4 (intent)
+    ambientOrb1: {
+        position: 'absolute',
+        top: -120,
+        right: -120,
+        width: 340,
+        height: 340,
+    },
+    ambientOrb2: {
+        position: 'absolute',
+        bottom: 80,
+        left: -140,
+        width: 320,
+        height: 320,
+    },
+    devanagariGhost: {
+        position: 'absolute',
+        top: 80,
+        right: 20,
+        fontSize: 120,
+        color: 'rgba(236,72,153,0.04)',
+        fontFamily: FONT.serif,
+    },
+    intentEyebrow: {
+        fontSize: 10,
+        color: C.pink,
+        letterSpacing: 3,
+        fontFamily: FONT.bodyBold,
+        marginBottom: 14,
+    },
+    intentHeadline: {
+        fontSize: 38,
+        lineHeight: 44,
+        color: C.text,
+        letterSpacing: -0.8,
+        fontFamily: FONT.serif,
+    },
+    intentSub: {
+        fontSize: 14,
+        color: C.text2,
+        lineHeight: 20,
+        marginTop: 14,
+        fontFamily: FONT.body,
+        maxWidth: 320,
+    },
+
+    intentCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        padding: 18,
+        borderRadius: 20,
+        backgroundColor: 'rgba(18,16,24,0.5)',
+        borderWidth: 1,
+        borderColor: C.border,
+    },
+    intentCardActive: {
+        backgroundColor: C.activeBg,
+        borderColor: C.activeBorder,
+    },
+    intentIcon: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    intentIconActive: {
+        backgroundColor: C.orange,
+    },
+    intentCardTitle: {
+        fontSize: 15,
+        fontFamily: FONT.bodySemi,
+        color: C.text,
+        marginBottom: 2,
+    },
+    intentCardTitleActive: { color: C.text },
+    intentCardSub: {
+        fontSize: 12,
+        color: C.text3,
+        fontFamily: FONT.body,
+        lineHeight: 16,
+    },
+    intentCheck: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: C.orange,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    // Artist-type chips
+    chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+    chip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 14,
+        paddingVertical: 9,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: C.border,
+        backgroundColor: 'rgba(255,255,255,0.02)',
+    },
+    chipActive: {
+        backgroundColor: C.activeBg,
+        borderColor: C.activeBorder,
+    },
+    chipText: {
+        fontSize: 12,
+        color: C.text2,
+        fontFamily: FONT.bodyMed,
+    },
+    chipTextActive: { color: C.orange, fontFamily: FONT.bodyBold },
+
+    // Hirer cards
+    hirerCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        padding: 16,
+        borderRadius: 16,
+        backgroundColor: 'rgba(18,16,24,0.5)',
+        borderWidth: 1,
+        borderColor: C.border,
+    },
+    hirerCardActive: {
+        backgroundColor: C.activeBg,
+        borderColor: C.activeBorder,
+    },
+    hirerIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    hirerIconActive: {
+        backgroundColor: C.orange,
+    },
+    hirerLabel: {
+        fontSize: 14,
+        color: C.text,
+        fontFamily: FONT.bodySemi,
+    },
+    hirerLabelActive: { color: C.text },
+    hirerSub: {
+        fontSize: 11,
+        color: C.text3,
+        fontFamily: FONT.body,
+        marginTop: 2,
+    },
+
+    // Error
+    errorBox: {
+        marginTop: 16,
+        padding: 12,
+        borderRadius: 12,
+        backgroundColor: 'rgba(239,68,68,0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(239,68,68,0.25)',
+    },
+    errorText: {
+        fontSize: 12,
+        color: '#FCA5A5',
+        fontFamily: FONT.bodyMed,
+    },
+
+    // Footer CTA
+    footer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingHorizontal: 22,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.04)',
+        backgroundColor: C.bg,
+    },
+    skipBtn: {
+        paddingHorizontal: 18,
+        paddingVertical: 14,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: C.border,
+        backgroundColor: 'rgba(255,255,255,0.02)',
+    },
+    skipBtnText: {
+        fontSize: 13,
+        color: C.text2,
+        fontFamily: FONT.bodyBold,
+        letterSpacing: 0.5,
+    },
+    ctaBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        height: 52,
+        borderRadius: 14,
+    },
+    ctaText: {
+        fontSize: 14,
+        fontFamily: FONT.bodyBold,
+        color: '#fff',
+        letterSpacing: 0.5,
+    },
+
+    // Completion
+    completionRing: {
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 3,
+        marginBottom: 24,
+    },
+    completionRingInner: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 48,
+        backgroundColor: C.bg,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    completionHeadline: {
+        fontSize: 30,
+        color: C.text,
+        fontFamily: FONT.serif,
+        letterSpacing: -0.6,
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    completionSub: {
+        fontSize: 14,
+        color: C.text2,
+        fontFamily: FONT.body,
+        lineHeight: 20,
+        textAlign: 'center',
+        maxWidth: 300,
+        marginBottom: 28,
+    },
+    completionCta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingHorizontal: 28,
+        paddingVertical: 14,
+        borderRadius: 14,
+    },
+    completionCtaText: {
+        fontSize: 14,
+        fontFamily: FONT.bodyBold,
+        color: '#fff',
+        letterSpacing: 0.5,
+    },
+});

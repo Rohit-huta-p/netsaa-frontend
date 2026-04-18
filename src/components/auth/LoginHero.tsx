@@ -1,20 +1,20 @@
 import React, { useRef, useEffect } from "react";
-import { View, Text, Animated, Image, Dimensions } from "react-native";
+import { View, Text, Animated, Image, Dimensions, Platform } from "react-native";
 import { Mic2, Music2, Users, Star, Sparkles } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArtistTag } from "./ArtistTag";
-import { AnimatedGlowOrb as GlowOrb } from "./AnimatedGlowOrb";
 
-const ARTIST_TAGS = [
+export const ARTIST_TAGS = [
     { icon: Mic2, label: "Singer" },
     { icon: Music2, label: "Musician" },
     { icon: Users, label: "Dancer" },
     { icon: Star, label: "Actor" },
 ];
 
-const { height: SCREEN_H } = Dimensions.get("window");
-const TOP_H = SCREEN_H * 0.34;
+const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get("window");
+const isWeb = Platform.OS === "web";
+// Responsive hero height: clamp between 180 and 320, scale based on screen
+const TOP_H = Math.min(Math.max(SCREEN_H * 0.28, 180), 320);
 
 // @ts-ignore
 const tailwindConfig = require("../../../tailwind.config");
@@ -44,7 +44,7 @@ export const LoginHero = () => {
     }, [heroFade, logoFade, logoSlide, headFade, headSlide]);
 
     return (
-        <Animated.View style={{ height: TOP_H, opacity: heroFade }}>
+        <Animated.View style={{ flex: 1, opacity: heroFade }}>
             {/* Background login image */}
             <Image
                 source={require("@/assets/login.jpg")}
@@ -64,18 +64,7 @@ export const LoginHero = () => {
                 style={ABS_FILL}
             />
 
-            {/* Ambient purple glow top-right */}
-            <GlowOrb
-                size={180}
-                color="rgba(139,92,246,0.20)"
-                style={{ top: -40, right: -40 }}
-            />
-            {/* Ambient indigo glow bottom-left */}
-            <GlowOrb
-                size={120}
-                color="rgba(99,102,241,0.18)"
-                style={{ bottom: 30, left: -20 }}
-            />
+
 
             <SafeAreaView style={{ flex: 1 }}>
                 {/* NETSA wordmark badge */}
@@ -126,18 +115,6 @@ export const LoginHero = () => {
                     </Text>
                 </Animated.View>
 
-                {/* Artist tag pills — staggered */}
-                <View style={{
-                    flexDirection: "row", flexWrap: "wrap", gap: 8,
-                    marginTop: 18, paddingHorizontal: 24,
-                }}>
-                    {ARTIST_TAGS.map(({ icon, label }, i) => (
-                        <ArtistTag
-                            key={label} icon={icon} label={label}
-                            delay={700 + i * 80}
-                        />
-                    ))}
-                </View>
             </SafeAreaView>
         </Animated.View>
     );

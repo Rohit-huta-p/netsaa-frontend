@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import {
-    Mail, Key, Lock, ChevronLeft, ArrowRight, CheckCircle,
+    Mail, Key, Lock, ChevronLeft, ArrowRight, CheckCircle, Eye, EyeOff
 } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useForgotPassword, useResetPassword } from "@/hooks/useAuthQueries";
@@ -30,6 +30,7 @@ export default function ForgotPasswordScreen() {
     const [step, setStep] = useState<Step>("email");
     const [email, setEmail] = useState(params.email ?? "");
     const [code, setCode] = useState("");
+    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
@@ -209,7 +210,7 @@ export default function ForgotPasswordScreen() {
 
             {/* Sheet */}
             <Animated.View style={{
-                flex: 1,
+                flex: 2,
                 borderTopLeftRadius: 30, borderTopRightRadius: 30,
                 backgroundColor: C.sheet,
                 borderTopWidth: 1, borderColor: C.sheetBorder,
@@ -253,264 +254,250 @@ export default function ForgotPasswordScreen() {
                         showsVerticalScrollIndicator={false}
                         bounces={false}
                     >
-                        {/* Header */}
-                        <View style={{
-                            flexDirection: "row", alignItems: "center",
-                            marginBottom: 4, gap: 10,
-                        }}>
-                            {step !== "success" && (
-                                <TouchableOpacity
-                                    onPress={handleBack}
-                                    accessibilityRole="button"
-                                    style={{
-                                        width: 32, height: 32, borderRadius: 10,
-                                        backgroundColor: C.w05,
-                                        borderWidth: 1, borderColor: C.w08,
-                                        alignItems: "center", justifyContent: "center",
-                                    }}
-                                >
-                                    <ChevronLeft size={16} color={C.w80} />
-                                </TouchableOpacity>
-                            )}
-                            <Text style={{
-                                fontSize: 24, fontWeight: "800",
-                                color: C.w95, letterSpacing: -0.5,
+                        {/* Header, subtitle */}
+                        <View>
+                            <View style={{
+                                flexDirection: "row", alignItems: "center",
+                                marginBottom: 4, gap: 10,
                             }}>
-                                {sheetTitle}
+                                {step !== "success" && (
+                                    <TouchableOpacity
+                                        onPress={handleBack}
+                                        accessibilityRole="button"
+                                        style={{
+                                            width: 32, height: 32, borderRadius: 10,
+                                            backgroundColor: C.w05,
+                                            borderWidth: 1, borderColor: C.w08,
+                                            alignItems: "center", justifyContent: "center",
+                                        }}
+                                    >
+                                        <ChevronLeft size={16} color={C.w80} />
+                                    </TouchableOpacity>
+                                )}
+                                <Text style={{
+                                    fontSize: 24, fontWeight: "800",
+                                    color: C.w95, letterSpacing: -0.5,
+                                }}>
+                                    {sheetTitle}
+                                </Text>
+                            </View>
+
+                            <Text style={{
+                                fontSize: 13, color: C.w40,
+                                marginBottom: 20, lineHeight: 18,
+                            }}>
+                                {sheetSubtitle}
                             </Text>
                         </View>
 
-                        <Text style={{
-                            fontSize: 13, color: C.w40,
-                            marginBottom: 20, lineHeight: 18,
-                        }}>
-                            {sheetSubtitle}
-                        </Text>
-
-                        {/* ── Step: Email ── */}
-                        {step === "email" && (
-                            <StepInput
-                                label="Email Address"
-                                value={email}
-                                onChangeText={(v) => { setEmail(v); setError(null); }}
-                                placeholder="name@example.com"
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                icon={<Mail size={15} color={C.w40} />}
-                                error={!!error}
-                            />
-                        )}
-
-                        {/* ── Step: Code ── */}
-                        {step === "code" && (
-                            <>
+                        <View style={{ gap: 16, justifyContent: "center", flex: 1, }}>
+                            {/* ── Step: Email ── */}
+                            {step === "email" && (
                                 <StepInput
-                                    label={`Reset Code — ${email}`}
-                                    value={code}
-                                    onChangeText={(v) => { setCode(v.replace(/[^0-9]/g, "").slice(0, 6)); setError(null); }}
-                                    placeholder="Enter 6-digit code"
-                                    keyboardType="number-pad"
-                                    icon={<Key size={15} color={C.w40} />}
+                                    label="Email Address"
+                                    hideLabel
+                                    value={email}
+                                    onChangeText={(v) => { setEmail(v); setError(null); }}
+                                    placeholder="name@example.com"
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    icon={<Mail size={15} color={C.w40} />}
                                     error={!!error}
                                 />
-                                {/* Resend row */}
-                                <TouchableOpacity
-                                    onPress={handleResendCode}
-                                    activeOpacity={0.75}
-                                    disabled={countdown > 0}
-                                    accessibilityRole="button"
-                                    style={{ alignSelf: "flex-end", marginTop: -4, marginBottom: 20 }}
-                                >
-                                    <Text style={{
-                                        fontSize: 12, fontWeight: "600",
-                                        color: countdown > 0 ? C.w30 : C.primary,
-                                    }}>
-                                        {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
-                                    </Text>
-                                </TouchableOpacity>
-                            </>
-                        )}
+                            )}
 
-                        {/* ── Step: New Password ── */}
-                        {step === "newPassword" && (
-                            <>
-                                <StepInput
-                                    label="New Password"
-                                    value={newPassword}
-                                    onChangeText={(v) => { setNewPassword(v); setError(null); }}
-                                    placeholder="Minimum 8 characters"
-                                    secureTextEntry
-                                    icon={<Lock size={15} color={C.w40} />}
-                                    error={!!error}
-                                />
-                                <StepInput
-                                    label="Confirm Password"
-                                    value={confirmPassword}
-                                    onChangeText={(v) => { setConfirmPassword(v); setError(null); }}
-                                    placeholder="Re-enter your password"
-                                    secureTextEntry
-                                    icon={<Lock size={15} color={C.w40} />}
-                                    error={!!error}
-                                />
-                            </>
-                        )}
-
-                        {/* ── Step: Success ── */}
-                        {step === "success" && (
-                            <Animated.View style={{
-                                alignItems: "center", paddingVertical: 32,
-                                transform: [{ scale: successScale }],
-                            }}>
-                                <View style={{
-                                    width: 72, height: 72, borderRadius: 36,
-                                    backgroundColor: "rgba(34,197,94,0.15)",
-                                    alignItems: "center", justifyContent: "center",
-                                    marginBottom: 20,
-                                }}>
-                                    <CheckCircle size={36} color="#22C55E" />
-                                </View>
-                                <Text style={{
-                                    fontSize: 16, fontWeight: "700",
-                                    color: C.w95, textAlign: "center", marginBottom: 8,
-                                }}>
-                                    Password Reset!
-                                </Text>
-                                <Text style={{
-                                    fontSize: 13, color: C.w40,
-                                    textAlign: "center", lineHeight: 18,
-                                }}>
-                                    You can now sign in with your new password.
-                                </Text>
-                            </Animated.View>
-                        )}
-
-                        {/* ── Error banner ── */}
-                        {error && (
-                            <View style={{
-                                backgroundColor: C.error,
-                                borderWidth: 1, borderColor: C.errorBdr,
-                                borderRadius: 12, paddingVertical: 10,
-                                paddingHorizontal: 14, marginBottom: 16,
-                            }}>
-                                <Text style={{
-                                    color: C.errorText, fontSize: 13,
-                                    textAlign: "center", lineHeight: 18,
-                                }}>{error}</Text>
-
-                                {showRegisterLink && (
+                            {/* ── Step: Code ── */}
+                            {step === "code" && (
+                                <>
+                                    <StepInput
+                                        label={`Reset Code — ${email}`}
+                                        hideLabel
+                                        value={code}
+                                        onChangeText={(v) => { setCode(v.replace(/[^0-9]/g, "").slice(0, 6)); setError(null); }}
+                                        placeholder="Enter 6-digit code"
+                                        keyboardType="number-pad"
+                                        icon={<Key size={15} color={C.w40} />}
+                                        error={!!error}
+                                    />
+                                    {/* Resend row */}
                                     <TouchableOpacity
-                                        onPress={() => router.replace({
-                                            pathname: "/(auth)/register",
-                                            params: { email: email.trim() },
-                                        })}
-                                        activeOpacity={0.7}
+                                        onPress={handleResendCode}
+                                        activeOpacity={0.75}
+                                        disabled={countdown > 0}
+                                        accessibilityRole="button"
+                                        style={{ alignSelf: "flex-end", marginTop: -4, marginBottom: 20 }}
+                                    >
+                                        <Text style={{
+                                            fontSize: 12, fontWeight: "600",
+                                            color: countdown > 0 ? C.w30 : C.primary,
+                                        }}>
+                                            {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+
+                            {/* ── Step: New Password ── */}
+                            {step === "newPassword" && (
+                                <>
+                                    <StepInput
+                                        label="New Password"
+                                        hideLabel
+                                        value={newPassword}
+                                        onChangeText={(v) => { setNewPassword(v); setError(null); }}
+                                        placeholder="Minimum 8 characters"
+                                        secureTextEntry={!isPasswordVisible}
+                                        icon={<Lock size={15} color={C.w40} />}
+                                        rightIcon={isPasswordVisible ? <EyeOff size={16} color={C.w40} /> : <Eye size={16} color={C.w40} />}
+                                        onRightIconPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                                        error={!!error}
+                                    />
+                                    <StepInput
+                                        label="Confirm Password"
+                                        hideLabel
+                                        value={confirmPassword}
+                                        onChangeText={(v) => { setConfirmPassword(v); setError(null); }}
+                                        placeholder="Re-enter your password"
+                                        secureTextEntry={!isPasswordVisible}
+                                        icon={<Lock size={15} color={C.w40} />}
+                                        rightIcon={isPasswordVisible ? <EyeOff size={16} color={C.w40} /> : <Eye size={16} color={C.w40} />}
+                                        onRightIconPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                                        error={!!error}
+                                    />
+                                </>
+                            )}
+
+                            {/* ── Step: Success ── */}
+                            {step === "success" && (
+                                <Animated.View style={{
+                                    alignItems: "center", paddingVertical: 32,
+                                    transform: [{ scale: successScale }],
+                                }}>
+                                    <View style={{
+                                        width: 72, height: 72, borderRadius: 36,
+                                        backgroundColor: "rgba(34,197,94,0.15)",
+                                        alignItems: "center", justifyContent: "center",
+                                        marginBottom: 20,
+                                    }}>
+                                        <CheckCircle size={36} color="#22C55E" />
+                                    </View>
+                                    <Text style={{
+                                        fontSize: 16, fontWeight: "700",
+                                        color: C.w95, textAlign: "center", marginBottom: 8,
+                                    }}>
+                                        Password Reset!
+                                    </Text>
+                                    <Text style={{
+                                        fontSize: 13, color: C.w40,
+                                        textAlign: "center", lineHeight: 18,
+                                    }}>
+                                        You can now sign in with your new password.
+                                    </Text>
+                                </Animated.View>
+                            )}
+
+                            {/* ── Error banner ── */}
+                            {error && (
+                                <View style={{
+                                    backgroundColor: C.error,
+                                    borderWidth: 1, borderColor: C.errorBdr,
+                                    borderRadius: 12, paddingVertical: 10,
+                                    paddingHorizontal: 14, marginBottom: 16,
+                                }}>
+                                    <Text style={{
+                                        color: C.errorText, fontSize: 13,
+                                        textAlign: "center", lineHeight: 18,
+                                    }}>{error}</Text>
+
+                                    {showRegisterLink && (
+                                        <TouchableOpacity
+                                            onPress={() => router.replace({
+                                                pathname: "/(auth)/register",
+                                                params: { email: email.trim() },
+                                            })}
+                                            activeOpacity={0.7}
+                                            style={{
+                                                marginTop: 10,
+                                                paddingVertical: 8,
+                                                paddingHorizontal: 12,
+                                                borderRadius: 8,
+                                                backgroundColor: "rgba(139,92,246,0.15)",
+                                                alignSelf: 'center',
+                                                borderWidth: 1,
+                                                borderColor: "rgba(139,92,246,0.3)",
+                                            }}
+                                        >
+                                            <Text style={{ color: C.primary, fontWeight: '700', fontSize: 13 }}>
+                                                Create an account
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            )}
+
+                            {/* ── CTA Button ── */}
+                            <View style={{ alignItems: "center", width: "100%" }}>
+                                {step !== "success" ? (
+                                    <TouchableOpacity
+                                        onPress={
+                                            step === "email" ? handleSendCode
+                                                : step === "code" ? handleVerifyCode
+                                                    : handleResetPassword
+                                        }
+                                        activeOpacity={0.87}
+                                        disabled={isPending}
+                                        accessibilityRole="button"
                                         style={{
-                                            marginTop: 10,
-                                            paddingVertical: 8,
-                                            paddingHorizontal: 12,
-                                            borderRadius: 8,
-                                            backgroundColor: "rgba(139,92,246,0.15)",
-                                            alignSelf: 'center',
-                                            borderWidth: 1,
-                                            borderColor: "rgba(139,92,246,0.3)",
+                                            width: "85%",
+                                            borderRadius: 16, overflow: "hidden",
+                                            opacity: isPending ? 0.72 : 1,
+                                            marginTop: !error ? 4 : 0,
                                         }}
                                     >
-                                        <Text style={{ color: C.primary, fontWeight: '700', fontSize: 13 }}>
-                                            Create an account
-                                        </Text>
+                                        <LinearGradient
+                                            colors={["#7C3AED", "#8B5CF6", "#6366F1"]}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                            style={{
+                                                height: 54, borderRadius: 16,
+                                                alignItems: "center", justifyContent: "center",
+                                                flexDirection: "row", gap: 8,
+                                            }}
+                                        >
+                                            <Text style={{
+                                                color: "#fff", fontSize: 16,
+                                                fontWeight: "700", letterSpacing: 0.3,
+                                            }}>{ctaLabel}</Text>
+                                            {!isPending && (
+                                                <ArrowRight size={17} color="rgba(255,255,255,0.85)" />
+                                            )}
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <TouchableOpacity
+                                        onPress={() => router.replace("/(auth)/login")}
+                                        activeOpacity={0.87}
+                                        accessibilityRole="button"
+                                        style={{ width: "85%", borderRadius: 16, overflow: "hidden", marginTop: 4 }}
+                                    >
+                                        <LinearGradient
+                                            colors={["#7C3AED", "#8B5CF6", "#6366F1"]}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                            style={{
+                                                height: 54, borderRadius: 16,
+                                                alignItems: "center", justifyContent: "center",
+                                                flexDirection: "row", gap: 8,
+                                            }}
+                                        >
+                                            <Text style={{
+                                                color: "#fff", fontSize: 16,
+                                                fontWeight: "700", letterSpacing: 0.3,
+                                            }}>Back to Sign In</Text>
+                                            <ArrowRight size={17} color="rgba(255,255,255,0.85)" />
+                                        </LinearGradient>
                                     </TouchableOpacity>
                                 )}
                             </View>
-                        )}
-
-                        {/* ── CTA Button ── */}
-                        {step !== "success" ? (
-                            <TouchableOpacity
-                                onPress={
-                                    step === "email" ? handleSendCode
-                                        : step === "code" ? handleVerifyCode
-                                            : handleResetPassword
-                                }
-                                activeOpacity={0.87}
-                                disabled={isPending}
-                                accessibilityRole="button"
-                                style={{
-                                    borderRadius: 16, overflow: "hidden",
-                                    opacity: isPending ? 0.72 : 1,
-                                    marginTop: !error ? 4 : 0,
-                                }}
-                            >
-                                <LinearGradient
-                                    colors={["#7C3AED", "#8B5CF6", "#6366F1"]}
-                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                                    style={{
-                                        height: 54, borderRadius: 16,
-                                        alignItems: "center", justifyContent: "center",
-                                        flexDirection: "row", gap: 8,
-                                    }}
-                                >
-                                    {/* Shimmer */}
-                                    <Animated.View
-                                        pointerEvents="none"
-                                        style={{
-                                            position: "absolute",
-                                            top: 0, bottom: 0, width: 80,
-                                            transform: [{ translateX: ctaShimmer }],
-                                            backgroundColor: "rgba(255,255,255,0.12)",
-                                            skewX: "-20deg",
-                                        } as any}
-                                    />
-                                    <Text style={{
-                                        color: "#fff", fontSize: 16,
-                                        fontWeight: "700", letterSpacing: 0.3,
-                                    }}>{ctaLabel}</Text>
-                                    {!isPending && (
-                                        <ArrowRight size={17} color="rgba(255,255,255,0.85)" />
-                                    )}
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        ) : (
-                            <TouchableOpacity
-                                onPress={() => router.replace("/(auth)/login")}
-                                activeOpacity={0.87}
-                                accessibilityRole="button"
-                                style={{ borderRadius: 16, overflow: "hidden", marginTop: 4 }}
-                            >
-                                <LinearGradient
-                                    colors={["#7C3AED", "#8B5CF6", "#6366F1"]}
-                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                                    style={{
-                                        height: 54, borderRadius: 16,
-                                        alignItems: "center", justifyContent: "center",
-                                        flexDirection: "row", gap: 8,
-                                    }}
-                                >
-                                    <Text style={{
-                                        color: "#fff", fontSize: 16,
-                                        fontWeight: "700", letterSpacing: 0.3,
-                                    }}>Back to Sign In</Text>
-                                    <ArrowRight size={17} color="rgba(255,255,255,0.85)" />
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        )}
-
-                        {/* ── Back to login link ── */}
-                        {step !== "success" && (
-                            <TouchableOpacity
-                                onPress={() => router.back()}
-                                style={{ marginTop: 18, alignItems: "center" }}
-                                activeOpacity={0.7}
-                                accessibilityRole="button"
-                            >
-                                <Text style={{ fontSize: 13, color: C.w30 }}>
-                                    Remember your password?{" "}
-                                    <Text style={{ fontWeight: "700", color: C.w80 }}>
-                                        Sign In
-                                    </Text>
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-
+                        </View>
                     </ScrollView>
                 </KeyboardAvoidingView>
             </Animated.View>

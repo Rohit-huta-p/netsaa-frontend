@@ -3,20 +3,19 @@ import React, { useState, useRef, useEffect } from "react";
 import {
     View, Text, TouchableOpacity, Animated, Platform,
     KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard,
-    Dimensions, StatusBar, Image, ScrollView,
+    Dimensions, StatusBar, Image, ScrollView, Easing,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-    Mail, Lock, ChevronLeft,
-    Phone, Key, ArrowRight,
+    Mail, Lock, ChevronLeft, Phone, Key, ArrowRight, Smartphone, X, Eye, EyeOff,
 } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLogin, useSendOtp, useVerifyOtp } from "@/hooks/useAuthQueries";
 import { useAuthStore } from "@/stores/authStore";
 import { usePendingAuthActionStore } from "@/stores/pendingAuthActionStore";
 import authService from "@/services/authService";
-import { CountryCodePicker, StepInput, ArtistTag, AnimatedGlowOrb as GlowOrb, ModeToggle, LoginHero } from "@/components/auth";
+import { CountryCodePicker, StepInput, ArtistTag, AnimatedGlowOrb as GlowOrb, LoginHero, ARTIST_TAGS } from "@/components/auth";
 import { OnboardingDetectedModal } from "@/components/common/OnboardingDetectedModal";
 import type { VerifyOtpResponse } from "@/types/index";
 
@@ -28,6 +27,7 @@ const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get("window");
 
 
 import { Colors } from "@/constants/Colors";
+
 const C = Colors.auth;
 
 /* ═══════════════════════════════════════════════════════ */
@@ -47,13 +47,14 @@ export default function LoginScreen() {
     const [verifiedPhone, setVerifiedPhone] = useState("");
 
     /* ── Field state ── */
-    const [loginMode, setLoginMode] = useState<"phone" | "otp" | "email">("phone");
+    const [loginMode, setLoginMode] = useState<"phone" | "otp" | "email">("email");
     const [countryCode, setCountryCode] = useState("+91");
     const [phone, setPhone] = useState("");
     const [otp, setOtp] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
+    const [showPassword, setShowPassword] = React.useState(false);
+    const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
     const [countdown, setCountdown] = useState(0);
 
     /* ── Animations ── */
@@ -63,13 +64,18 @@ export default function LoginScreen() {
     const ctaShimmer = useRef(new Animated.Value(-SCREEN_W)).current;
     const keyboardShift = useRef(new Animated.Value(0)).current;
 
+    /* ── Marquee scroll for artist tags ── */
+    const marqueeAnim = useRef(new Animated.Value(0)).current;
+    // Estimated width of one full set of tags (4 tags × ~110px each + gaps)
+    const TAG_SET_WIDTH = ARTIST_TAGS.length * 118;
+
     useEffect(() => {
         const kbdShow = Keyboard.addListener(
             Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
             () => {
                 Animated.timing(keyboardShift, {
                     toValue: -80, // Slide the sheet up by 80 points
-                    duration: 250,
+                    duration: 450,
                     useNativeDriver: true,
                 }).start();
             }
@@ -93,7 +99,7 @@ export default function LoginScreen() {
             Animated.delay(800),
             Animated.parallel([
                 Animated.spring(sheetSlide, { toValue: 0, friction: 9, tension: 55, useNativeDriver: true }),
-                Animated.timing(sheetFade, { toValue: 1, duration: 350, useNativeDriver: true }),
+                Animated.timing(sheetFade, { toValue: 1, duration: 550, useNativeDriver: true }),
             ]),
         ]).start();
 
@@ -102,7 +108,7 @@ export default function LoginScreen() {
             Animated.sequence([
                 Animated.delay(2500),
                 Animated.timing(ctaShimmer, {
-                    toValue: SCREEN_W * 2, duration: 900,
+                    toValue: SCREEN_W * 2, duration: 1000,
                     useNativeDriver: true,
                 }),
                 Animated.timing(ctaShimmer, {
@@ -111,6 +117,34 @@ export default function LoginScreen() {
                 }),
             ])
         ).start();
+    }, []);
+
+    /* ── Marquee infinite loop ── */
+    useEffect(() => {
+        let isCancelled = false;
+
+        const animateMarquee = () => {
+            if (isCancelled) return;
+            marqueeAnim.setValue(0);
+            Animated.timing(marqueeAnim, {
+                toValue: -TAG_SET_WIDTH,
+                duration: 35000,
+                useNativeDriver: true,
+                easing: Easing.linear,
+            }).start(({ finished }) => {
+                if (finished && !isCancelled) {
+                    animateMarquee();
+                }
+            });
+        };
+
+        // Start after the sheet entrance animation finishes
+        const timer = setTimeout(animateMarquee, 1200);
+        return () => {
+            isCancelled = true;
+            clearTimeout(timer);
+            marqueeAnim.stopAnimation();
+        };
     }, []);
 
     /* Countdown timer */
@@ -247,193 +281,217 @@ export default function LoginScreen() {
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-            {/* ══════════════════════════════════════════ */}
-            {/*  HERO SECTION                             */}
-            {/* ══════════════════════════════════════════ */}
-            <LoginHero />
+            {/* Full-page scroll wrapper for responsive layout */}
+            <ScrollView
+                contentContainerStyle={{ flexGrow: 1 }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+            >
+                {/* ══════════════════════════════════════════ */}
+                {/*  HERO SECTION                             */}
+                {/* ══════════════════════════════════════════ */}
+                <LoginHero />
 
-            {/* ══════════════════════════════════════════ */}
-            {/*  FORM                                       */}
-            {/* ══════════════════════════════════════════ */}
-            <Animated.View style={{
-                flex: 1,
-                borderTopLeftRadius: 30, borderTopRightRadius: 30,
-                backgroundColor: C.sheet,
-                borderTopWidth: 1, borderColor: C.sheetBorder,
-                opacity: sheetFade,
-                transform: [
-                    { translateY: sheetSlide },
-                    { translateY: keyboardShift }
-                ],
-                overflow: "hidden",
-            }}>
-                {/* Inner top glow line */}
-                <LinearGradient
-                    colors={["rgba(139,92,246,0.28)", "transparent"]}
-                    style={{
-                        position: "absolute", top: 0, left: 0, right: 0, height: 1,
-                    }}
-                />
-
-                {/* Ambient sheet glow */}
-                <View style={{
-                    position: "absolute", top: -60, left: SCREEN_W * 0.2,
-                    width: SCREEN_W * 0.6, height: 120,
-                    borderRadius: 60,
-                    backgroundColor: "rgba(139,92,246,0.07)",
-                }} />
-
-                {/* Drag indicator */}
-                <View style={{
-                    alignSelf: "center", marginTop: 10, marginBottom: 2,
-                    width: 38, height: 4, borderRadius: 2,
-                    backgroundColor: C.w15,
-                }} />
-
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : undefined}
-                    style={{ flex: 1 }}
-                >
-                    <ScrollView
-                        contentContainerStyle={{
-                            flexGrow: 1, paddingHorizontal: 24,
-                            paddingTop: 22, paddingBottom: 28,
+                {/* ══════════════════════════════════════════ */}
+                {/*  FORM SHEET                               */}
+                {/* ══════════════════════════════════════════ */}
+                <Animated.View style={{
+                    borderTopLeftRadius: 30, borderTopRightRadius: 30,
+                    backgroundColor: C.sheet,
+                    borderTopWidth: 1, borderColor: C.sheetBorder,
+                    opacity: sheetFade,
+                    transform: [
+                        { translateY: sheetSlide },
+                        { translateY: keyboardShift }
+                    ],
+                    overflow: "hidden",
+                    flex: 2,
+                }}>
+                    {/* Inner top glow line */}
+                    <LinearGradient
+                        colors={["rgba(139,92,246,0.28)", "transparent"]}
+                        style={{
+                            position: "absolute", top: 0, left: 0, right: 0, height: 1,
                         }}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={false}
-                        bounces={false}
+                    />
+
+                    {/* Ambient sheet glow */}
+                    <View style={{
+                        position: "absolute", top: -60, left: SCREEN_W * 0.2,
+                        width: SCREEN_W * 0.6, height: 120,
+                        borderRadius: 60,
+                        backgroundColor: "rgba(139,92,246,0.07)",
+                    }} />
+
+                    {/* Drag indicator */}
+                    <View style={{
+                        alignSelf: "center", marginTop: 12, marginBottom: 2,
+                        width: 38, height: 4, borderRadius: 2,
+                        backgroundColor: C.w15,
+                    }} />
+
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === "ios" ? "padding" : undefined}
+                        style={{ flex: 1 }}
                     >
-
-                        {/* ── Sheet header ── */}
-                        <View style={{
-                            flexDirection: "row", alignItems: "center",
-                            marginBottom: 4, gap: 10,
-                        }}>
-                            {(loginMode === "otp" || (loginMode === "email" && showPassword)) && (
-                                <TouchableOpacity
-                                    onPress={() => { 
-                                        setLoginError(null);
-                                        if (loginMode === "email" && showPassword) {
-                                            setShowPassword(false);
-                                            Animated.timing(passwordAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
-                                            setPassword("");
-                                        } else {
-                                            setLoginMode("phone"); 
-                                        }
-                                    }}
-                                    accessibilityRole="button"
-                                    style={{
-                                        width: 32, height: 32, borderRadius: 10,
-                                        backgroundColor: C.w05,
-                                        borderWidth: 1, borderColor: C.w08,
-                                        alignItems: "center", justifyContent: "center",
-                                    }}
-                                >
-                                    <ChevronLeft size={16} color={C.w80} />
-                                </TouchableOpacity>
-                            )}
-                            <Text style={{
-                                fontSize: 24, fontWeight: "800",
-                                color: C.w95, letterSpacing: -0.5,
-                            }}>
-                                {loginMode === "otp" ? "Verify OTP" : "Welcome back"}
-                            </Text>
-                        </View>
-
-                        <Text style={{
-                            fontSize: 13, color: C.w40,
-                            marginBottom: 20, lineHeight: 18,
-                        }}>
-                            {loginMode === "otp"
-                                ? `Enter the 6-digit code sent to ${countryCode} ${phone}`
-                                : loginMode === "email" && showPassword
-                                    ? `Enter the password for ${email}`
-                                    : "Sign in to continue your journey."}
-                        </Text>
-
-                        {/* ── Mode toggle (phone ↔ email) — only on initial screens ── */}
-                        {(loginMode === "phone" || loginMode === "email") && (
-                            <ModeToggle
-                                mode={toggleMode}
-                                onPhonePress={() => { setLoginMode("phone"); setLoginError(null); }}
-                                onEmailPress={() => { setLoginMode("email"); setLoginError(null); }}
-                            />
-                        )}
-
-                        {/* ── Phone Input ── */}
-                        {loginMode === "phone" && (
-                            <StepInput
-                                label="Phone Number"
-                                value={phone}
-                                onChangeText={(v) => { setPhone(v.replace(/[^0-9]/g, "")); setLoginError(null); }}
-                                placeholder="9876543210"
-                                keyboardType="phone-pad"
-                                icon={<Phone size={15} color={C.w40} />}
-                                prefix={<CountryCodePicker selectedCode={countryCode} onSelect={setCountryCode} />}
-                                error={!!loginError}
-                            />
-                        )}
-
-                        {/* ── OTP Input ── */}
-                        {loginMode === "otp" && (
-                            <>
-                                <StepInput
-                                    label={`OTP Code — ${countryCode}${phone}`}
-                                    value={otp}
-                                    onChangeText={(v) => { setOtp(v.replace(/[^0-9]/g, "").slice(0, 6)); setLoginError(null); }}
-                                    placeholder="Enter 6-digit code"
-                                    keyboardType="number-pad"
-                                    icon={<Key size={15} color={C.w40} />}
-                                    error={!!loginError}
-                                />
-                                {/* Resend row */}
-                                <TouchableOpacity
-                                    onPress={handleResendOtp}
-                                    activeOpacity={0.75}
-                                    disabled={countdown > 0}
-                                    accessibilityRole="button"
-                                    style={{ alignSelf: "flex-end", marginTop: -4, marginBottom: 20 }}
-                                >
-                                    <Text style={{
-                                        fontSize: 12, fontWeight: "600",
-                                        color: countdown > 0 ? C.w30 : C.primary,
-                                    }}>
-                                        {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
-                                    </Text>
-                                </TouchableOpacity>
-                            </>
-                        )}
-
-                        {/* ── Email + Password Inputs ── */}
-                        {loginMode === "email" && (
-                            <View style={{ width: '100%', overflow: 'hidden' }}>
-                                {/* Email Container (Absolute, on top) */}
-                                <Animated.View style={{
-                                    position: 'absolute',
-                                    top: 0, left: 0, right: 0,
-                                    opacity: passwordAnim.interpolate({
-                                        inputRange: [0, 1],
-                                        outputRange: [1, 0]
-                                    }),
-                                    transform: [{
-                                        translateX: passwordAnim.interpolate({
-                                            inputRange: [0, 1],
-                                            outputRange: [0, -SCREEN_W]
-                                        })
-                                    }],
-                                    zIndex: 2,
+                        <View
+                            style={{
+                                flex: 1, justifyContent: "center",
+                                paddingHorizontal: 24,
+                                paddingTop: 14, paddingBottom: 28,
+                            }}
+                        >
+                            {/* ── Sheet header & Tags── */}
+                            <View style={{ marginBottom: 20, marginTop: 20 }}>
+                                <View style={{
+                                    flexDirection: "row", alignItems: "center",
+                                    justifyContent: (loginMode === "otp" || (loginMode === "email" && showPassword)) ? "flex-start" : "center",
+                                    marginBottom: 14, gap: 10,
                                 }}>
+                                    {(loginMode === "otp" || (loginMode === "email" && showPassword)) && (
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                setLoginError(null);
+                                                if (loginMode === "email" && showPassword) {
+                                                    setShowPassword(false);
+                                                    Animated.timing(passwordAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
+                                                    setPassword("");
+                                                } else {
+                                                    setLoginMode("email");
+                                                }
+                                            }}
+                                            accessibilityRole="button"
+                                            style={{
+                                                width: 32, height: 32, borderRadius: 10,
+                                                backgroundColor: C.w05,
+                                                borderWidth: 1, borderColor: C.w08,
+                                                alignItems: "center", justifyContent: "center",
+                                            }}
+                                        >
+                                            <ChevronLeft size={16} color={C.w80} />
+                                        </TouchableOpacity>
+                                    )}
+                                    <Text style={{
+                                        fontSize: 28, fontWeight: "700",
+                                        color: C.w95, letterSpacing: -0.3, marginBottom: 10,
+                                    }}>
+                                        {loginMode === "otp" ? "Verify OTP" : "Welcome back"}
+                                    </Text>
+                                </View>
+
+                                {/* ── Subtitle (only for OTP / password steps) ── */}
+                                {(loginMode === "otp" || (loginMode === "email" && showPassword)) && (
+                                    <Text style={{
+                                        fontSize: 13, color: C.w40,
+                                        marginBottom: 16, lineHeight: 18,
+                                    }}>
+                                        {loginMode === "otp"
+                                            ? `Enter the 6-digit code sent to ${countryCode} ${phone}`
+                                            : ``}
+                                    </Text>
+                                )}
+
+                                {/* ── Artist tag pills — horizontal marquee ── */}
+                                <View style={{
+                                    overflow: "hidden",
+                                    marginBottom: 18,
+                                    marginHorizontal: -24, // bleed edge-to-edge
+                                }}>
+                                    {/* Fade masks on left & right edges */}
+                                    <LinearGradient
+                                        colors={[C.sheet, "transparent"]}
+                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                        style={{
+                                            position: "absolute", left: 0, top: 0, bottom: 0,
+                                            width: 32, zIndex: 2,
+                                        }}
+                                        pointerEvents="none"
+                                    />
+                                    <LinearGradient
+                                        colors={["transparent", C.sheet]}
+                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                        style={{
+                                            position: "absolute", right: 0, top: 0, bottom: 0,
+                                            width: 32, zIndex: 2,
+                                        }}
+                                        pointerEvents="none"
+                                    />
+
+                                    <Animated.View style={{
+                                        flexDirection: "row", gap: 10,
+                                        paddingHorizontal: 24,
+                                        transform: [{ translateX: marqueeAnim }],
+                                    }}>
+                                        {/* Render 3 copies for seamless infinite scroll */}
+                                        {[0, 1, 2].map((setIdx) =>
+                                            ARTIST_TAGS.map(({ icon, label }, i) => (
+                                                <ArtistTag
+                                                    key={`${setIdx}-${label}`}
+                                                    icon={icon} label={label}
+                                                    delay={setIdx === 0 ? 700 + i * 80 : 0}
+                                                />
+                                            ))
+                                        )}
+                                    </Animated.View>
+                                </View>
+                            </View>
+
+                            {/* ── Mode toggle temporarily removed ── */}
+                            <View style={{ flex: 1, marginTop: 10, paddingHorizontal: 14 }}>
+                                {/* ── Phone Input ── */}
+                                {loginMode === "phone" && (
+                                    <StepInput
+                                        label="Phone Number"
+                                        value={phone}
+                                        onChangeText={(v) => { setPhone(v.replace(/[^0-9]/g, "")); setLoginError(null); }}
+                                        placeholder="9876543210"
+                                        keyboardType="phone-pad"
+                                        icon={<Phone size={15} color={C.w40} />}
+                                        prefix={<CountryCodePicker selectedCode={countryCode} onSelect={setCountryCode} />}
+                                        error={!!loginError}
+                                    />
+                                )}
+
+                                {/* ── OTP Input ── */}
+                                {loginMode === "otp" && (
+                                    <>
+                                        <StepInput
+                                            label={`OTP Code — ${countryCode}${phone}`}
+                                            value={otp}
+                                            onChangeText={(v) => { setOtp(v.replace(/[^0-9]/g, "").slice(0, 6)); setLoginError(null); }}
+                                            placeholder="Enter 6-digit code"
+                                            keyboardType="number-pad"
+                                            icon={<Key size={15} color={C.w40} />}
+                                            error={!!loginError}
+                                        />
+                                        {/* Resend row */}
+                                        <TouchableOpacity
+                                            onPress={handleResendOtp}
+                                            activeOpacity={0.75}
+                                            disabled={countdown > 0}
+                                            accessibilityRole="button"
+                                            style={{ alignSelf: "flex-end", marginTop: -4, marginBottom: 20 }}
+                                        >
+                                            <Text style={{
+                                                fontSize: 12, fontWeight: "600",
+                                                color: countdown > 0 ? C.w30 : C.primary,
+                                            }}>
+                                                {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+
+                                {/* ── Email + Password Inputs ── */}
+                                {loginMode === "email" && !showPassword && (
                                     <StepInput
                                         label="Email Address"
+                                        hideLabel
                                         value={email}
                                         onChangeText={(v) => {
                                             setEmail(v);
                                             setLoginError(null);
-                                            if (showPassword) {
-                                                setShowPassword(false);
-                                                Animated.timing(passwordAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
-                                                setPassword("");
-                                            }
                                         }}
                                         placeholder="name@example.com"
                                         keyboardType="email-address"
@@ -441,125 +499,148 @@ export default function LoginScreen() {
                                         icon={<Mail size={15} color={C.w40} />}
                                         error={!!loginError}
                                     />
-                                </Animated.View>
-
-                                {/* Password Container (Relative, sets layout height) */}
-                                <Animated.View style={{
-                                    width: '100%',
-                                    opacity: passwordAnim,
-                                    transform: [{
-                                        translateX: passwordAnim.interpolate({
-                                            inputRange: [0, 1],
-                                            outputRange: [SCREEN_W, 0]
-                                        })
-                                    }],
-                                    zIndex: 1,
-                                }}>
-                                    <StepInput
-                                        label="Password"
-                                        value={password}
-                                        onChangeText={(v) => { setPassword(v); setLoginError(null); }}
-                                        placeholder="Enter your password"
-                                        secureTextEntry
-                                        icon={<Lock size={15} color={C.w40} />}
-                                        error={!!loginError}
-                                    />
-                                    <TouchableOpacity
-                                        style={{ alignSelf: "flex-end", marginTop: -8, marginBottom: 20 }}
-                                        activeOpacity={0.75}
-                                        accessibilityRole="button"
-                                        onPress={() => router.push({
-                                            pathname: "/(auth)/forgot-password",
-                                            params: { email },
-                                        })}
-                                    >
-                                        <Text style={{ fontSize: 12, color: C.primary, fontWeight: "600" }}>
-                                            Forgot password?
-                                        </Text>
-                                    </TouchableOpacity>
-                                </Animated.View>
-                            </View>
-                        )}
-
-                        {/* ── Error banner ── */}
-                        {loginError && (
-                            <View style={{
-                                backgroundColor: C.error,
-                                borderWidth: 1, borderColor: C.errorBdr,
-                                borderRadius: 12, paddingVertical: 10,
-                                paddingHorizontal: 14, marginBottom: 16,
-                            }}>
-                                <Text style={{
-                                    color: C.errorText, fontSize: 13,
-                                    textAlign: "center", lineHeight: 18,
-                                }}>{loginError}</Text>
-                            </View>
-                        )}
-
-                        {/* ── CTA Button with shimmer ── */}
-                        <TouchableOpacity
-                            onPress={
-                                loginMode === "phone" ? handleSendOtp
-                                    : loginMode === "otp" ? handleVerifyOtp
-                                        : handleLogin
-                            }
-                            activeOpacity={0.87}
-                            disabled={isPending}
-                            accessibilityRole="button"
-                            style={{
-                                borderRadius: 16, overflow: "hidden",
-                                opacity: isPending ? 0.72 : 1,
-                                marginTop: !loginError ? 4 : 0,
-                            }}
-                        >
-                            <LinearGradient
-                                colors={["#7C3AED", "#8B5CF6", "#6366F1"]}
-                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                                style={{
-                                    height: 54, borderRadius: 16,
-                                    alignItems: "center", justifyContent: "center",
-                                    flexDirection: "row", gap: 8,
-                                }}
-                            >
-                                {/* Shimmer sweep */}
-                                <Animated.View
-                                    pointerEvents="none"
-                                    style={{
-                                        position: "absolute",
-                                        top: 0, bottom: 0, width: 80,
-                                        transform: [{ translateX: ctaShimmer }],
-                                        backgroundColor: "rgba(255,255,255,0.12)",
-                                        skewX: "-20deg",
-                                    } as any}
-                                />
-                                <Text style={{
-                                    color: "#fff", fontSize: 16,
-                                    fontWeight: "700", letterSpacing: 0.3,
-                                }}>{ctaLabel}</Text>
-                                {!isPending && (
-                                    <ArrowRight size={17} color="rgba(255,255,255,0.85)" />
                                 )}
-                            </LinearGradient>
-                        </TouchableOpacity>
 
-                        {/* ── Register link ── */}
-                        <TouchableOpacity
-                            onPress={() => router.push("/(auth)/register")}
-                            style={{ marginTop: 18, alignItems: "center" }}
-                            activeOpacity={0.7}
-                            accessibilityRole="button"
-                        >
-                            <Text style={{ fontSize: 13, color: C.w30 }}>
-                                Don&apos;t have an account?{" "}
-                                <Text style={{ fontWeight: "700", color: C.w80 }}>
-                                    Create one
-                                </Text>
-                            </Text>
-                        </TouchableOpacity>
+                                {loginMode === "email" && showPassword && (
+                                    <>
+                                        <StepInput
+                                            label="Password"
+                                            hideLabel
+                                            value={password}
+                                            onChangeText={(v) => { setPassword(v); setLoginError(null); }}
+                                            placeholder="Enter your password"
+                                            secureTextEntry={!isPasswordVisible}
+                                            icon={<Lock size={15} color={C.w40} />}
+                                            rightIcon={isPasswordVisible ? <EyeOff size={16} color={C.w40} /> : <Eye size={16} color={C.w40} />}
+                                            onRightIconPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                                            error={!!loginError}
+                                        />
+                                        <View style={{
+                                            flexDirection: "row", justifyContent: "space-between",
+                                            marginTop: -8, marginBottom: 20
+                                        }}>
+                                            <TouchableOpacity
+                                                style={{ alignSelf: "flex-start" }}
+                                                activeOpacity={0.75}
+                                                accessibilityRole="button"
+                                                onPress={() => {
+                                                    setLoginError(null);
+                                                    setShowPassword(false);
+                                                    Animated.timing(passwordAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
+                                                    setPassword("");
+                                                }}
+                                            >
+                                                <Text style={{ fontSize: 12, color: C.w40, fontWeight: "600" }}>
+                                                    Change email?
+                                                </Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                activeOpacity={0.75}
+                                                accessibilityRole="button"
+                                                onPress={() => router.push({
+                                                    pathname: "/(auth)/forgot-password",
+                                                    params: { email },
+                                                })}
+                                            >
+                                                <Text style={{ fontSize: 12, color: C.primary, fontWeight: "600" }}>
+                                                    Forgot password?
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </>
+                                )}
 
-                    </ScrollView>
-                </KeyboardAvoidingView>
-            </Animated.View>
+                                {/* ── Error banner ── */}
+                                {loginError && (
+                                    <View style={{
+                                        backgroundColor: C.error,
+                                        borderWidth: 1, borderColor: C.errorBdr,
+                                        borderRadius: 12, paddingVertical: 10,
+                                        paddingHorizontal: 14, marginBottom: 16,
+                                    }}>
+                                        <Text style={{
+                                            color: C.errorText, fontSize: 13,
+                                            textAlign: "center", lineHeight: 18,
+                                        }}>{loginError}</Text>
+                                    </View>
+                                )}
+
+                                {/* ── CTA Button with shimmer + glow ── */}
+                                <View style={{ marginTop: !loginError ? 4 : 0, alignItems: "center" }}>
+                                    {/* Purple glow behind button */}
+                                    <View style={{
+                                        position: "absolute",
+                                        bottom: -6, width: "75%",
+                                        height: 42,
+                                        borderRadius: 30,
+                                        backgroundColor: "rgba(139,92,246,0.45)",
+                                    } as any} />
+                                    <TouchableOpacity
+                                        onPress={
+                                            loginMode === "phone" ? handleSendOtp
+                                                : loginMode === "otp" ? handleVerifyOtp
+                                                    : handleLogin
+                                        }
+                                        activeOpacity={0.87}
+                                        disabled={isPending}
+                                        accessibilityRole="button"
+                                        style={{
+                                            width: "85%",
+                                            borderRadius: 28, overflow: "hidden",
+                                            opacity: isPending ? 0.72 : 1,
+
+                                        }}
+                                    >
+                                        <LinearGradient
+                                            colors={["#9333EA", "#A855F7", "#7C3AED"]}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                            style={{
+                                                height: 54, borderRadius: 28,
+                                                alignItems: "center", justifyContent: "center",
+                                                flexDirection: "row", gap: 8,
+                                            }}
+                                        >
+                                            {/* Shimmer sweep */}
+                                            <Animated.View
+                                                pointerEvents="none"
+                                                style={{
+                                                    position: "absolute",
+                                                    top: 0, bottom: 0, width: 80,
+                                                    transform: [{ translateX: ctaShimmer }],
+                                                    backgroundColor: "rgba(255,255,255,0.12)",
+                                                    skewX: "-20deg",
+                                                } as any}
+                                            />
+                                            <Text style={{
+                                                color: "#fff", fontSize: 16,
+                                                fontWeight: "700", letterSpacing: 0.3,
+                                            }}>{ctaLabel}</Text>
+                                            {/* {!isPending && (
+                                                <ArrowRight size={17} color="rgba(255,255,255,0.85)" />
+                                            )} */}
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* ── Register link ── */}
+                                <TouchableOpacity
+                                    onPress={() => router.push("/(auth)/register")}
+                                    style={{ marginTop: 28, alignItems: "center" }}
+                                    activeOpacity={0.7}
+                                    accessibilityRole="button"
+                                >
+                                    <Text style={{ fontSize: 13, color: C.w40 }}>
+                                        Don&apos;t have an account?{" "}
+                                        <Text style={{ fontWeight: "700", color: C.primary, textDecorationLine: "underline", letterSpacing: 0.3 }}>
+                                            Register
+                                        </Text>
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </KeyboardAvoidingView>
+                </Animated.View>
+            </ScrollView>
 
             {/* ══════════════════════════════════════════ */}
             {/*  NEW-USER MODAL (unchanged)               */}

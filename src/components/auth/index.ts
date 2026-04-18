@@ -13,4 +13,4 @@ export { CountryCodePicker } from './CountryCodePicker';
 export { ModeToggle } from './ModeToggle';
 export { ArtistTag } from './ArtistTag';
 export { AnimatedGlowOrb } from './AnimatedGlowOrb';
-export { LoginHero } from './LoginHero';
+export { LoginHero, ARTIST_TAGS } from './LoginHero';

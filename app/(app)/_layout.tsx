@@ -4,6 +4,7 @@ import useAuthStore from "@/stores/authStore";
 import ProfileCompletionModal from "@/components/common/ProfileCompletionModal";
 import AccountDeletionScheduledModal from "@/components/settings/AccountDeletionScheduledModal";
 import { computeOverallScore, computeMissing, computeOrganizerScore, computeOrganizerMissing } from "@/components/profile/ProfileStrengthWidget";
+import BottomNav from "@/components/nav/BottomNav";
 import { useState, useEffect } from "react";
 
 /**
@@ -59,6 +60,8 @@ export default function AppLayout() {
     return (
         <View className="flex-1">
             <Stack screenOptions={{ headerShown: false }} />
+
+            <BottomNav />
 
             {/* Profile completion modal — artists/organizers with incomplete profiles */}
             {showProfileModal && (

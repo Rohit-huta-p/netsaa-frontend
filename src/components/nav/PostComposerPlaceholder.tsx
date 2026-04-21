@@ -14,8 +14,10 @@ export default function PostComposerPlaceholder({ visible, onClose }: Props) {
 
   const choose = (type: 'gig' | 'event') => {
     onClose();
-    if (type === 'gig') router.push('/(app)/post-gig' as any);
-    else router.push('/(app)/post-event' as any);
+    // Route to existing unified /create composer with the correct tab preselected.
+    // The placeholder filenames (post-gig/post-event) don't exist yet — create.tsx
+    // already handles both in a single screen via ?initialTab=.
+    router.push(`/(app)/create?initialTab=${type}` as any);
   };
 
   return (

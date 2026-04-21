@@ -15,8 +15,9 @@ import { useStepBackGuard } from "@/hooks/useStepBackGuard";
 
 export default function CreateListing() {
     const router = useRouter();
-    const { gigId } = useLocalSearchParams();
-    const [activeTab, setActiveTab] = useState<"gig" | "event">("gig");
+    const { gigId, initialTab } = useLocalSearchParams();
+    const initialTabValue = (Array.isArray(initialTab) ? initialTab[0] : initialTab) === 'event' ? 'event' : 'gig';
+    const [activeTab, setActiveTab] = useState<"gig" | "event">(initialTabValue);
 
     const gigFormRef = useRef<GigFormHandle>(null);
     const eventFormRef = useRef<EventFormHandle>(null);

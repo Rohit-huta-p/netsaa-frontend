@@ -84,13 +84,24 @@ const gigService = {
         return res.data;
     },
 
-    getSavedGigs: async (): Promise<any> => {
-        const res = await API.get('/users/me/saved-gigs');
+    getSavedGigs: async (params?: { limit?: number }): Promise<any> => {
+        const res = await API.get('/users/me/saved-gigs', { params });
         return res.data;
     },
 
-    getUserApplications: async (): Promise<any> => {
-        const res = await API.get('/users/me/gig-applications');
+    getUserApplications: async (params?: { status?: string; limit?: number }): Promise<any> => {
+        const res = await API.get('/users/me/gig-applications', { params });
+        return res.data;
+    },
+
+    /**
+     * Withdraw the current user's gig application.
+     * Backend: PATCH /v1/gigs/applications/:id/withdraw (gigs-service)
+     * Atomic on the backend — only succeeds if the application belongs to
+     * the caller and is in a withdrawable status (applied or shortlisted).
+     */
+    withdrawApplication: async (id: string): Promise<any> => {
+        const res = await API.patch(`/gigs/applications/${id}/withdraw`);
         return res.data;
     },
 

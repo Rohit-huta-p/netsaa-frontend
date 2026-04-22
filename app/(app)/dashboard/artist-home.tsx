@@ -1,25 +1,112 @@
 // netsa-mobile/app/(app)/dashboard/artist-home.tsx
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView } from 'react-native';
+//
+// Plan 2 assembly point. Renders 9 real sections + 3 placeholder cards in
+// spec §4.1 order. Pull-to-refresh invalidates every queryKeys.artist.* key.
+//
+// Sections are self-sufficient (each owns its data hook) except HeroGreeting
+// which takes `user` + `isLoading` as props so the header and trust-tier card
+// can both consume the same cached query without re-rendering gymnastics.
+
+import React, { useCallback, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
+
 import ModeToggle from '../../../src/components/mode/ModeToggle';
 import ScreenTooltip from '../../../src/components/mode/ScreenTooltip';
 
+import useHeroData from '../../../src/hooks/useHeroData';
+import { queryKeys } from '../../../src/constants/queryKeys';
+
+import HeroGreeting from '../../../src/components/dashboard/artist/HeroGreeting';
+import NextUpCard from '../../../src/components/dashboard/artist/NextUpCard';
+import UpcomingSection from '../../../src/components/dashboard/artist/UpcomingSection';
+import AppliedSection from '../../../src/components/dashboard/artist/AppliedSection';
+import SavedSection from '../../../src/components/dashboard/artist/SavedSection';
+import DraftsSection from '../../../src/components/dashboard/artist/DraftsSection';
+import ContractsStrip from '../../../src/components/dashboard/artist/ContractsStrip';
+import TrustTierProgress from '../../../src/components/dashboard/artist/TrustTierProgress';
+import MessagesPreview from '../../../src/components/dashboard/artist/MessagesPreview';
+import PlaceholderCard from '../../../src/components/dashboard/PlaceholderCard';
+
 export default function ArtistHome() {
+  const queryClient = useQueryClient();
+  const { data: user, isLoading: isUserLoading } = useHeroData();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Invalidate every artist-home query key. Individual hooks refetch in parallel.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.hero() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.applications() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.upcoming() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.savedGigs() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.savedEvents() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.contracts() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.conversations() }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient]);
+
   return (
     <SafeAreaView style={styles.root}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#8B5CF6"
+            colors={['#8B5CF6']}
+          />
+        }
+      >
         <View style={styles.header}>
           <Text style={styles.wordmark}>NETSA</Text>
         </View>
 
         <ModeToggle />
 
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderHeading}>Artist mode — Home</Text>
-          <Text style={styles.placeholderBody}>
-            Sections ship in Plan 2: Hero · NextUp · Upcoming · Applied · Saved · Drafts · Contracts · Trust tier · Sub-artist offers · Reviews received · Profile views · Messages preview.
-          </Text>
-        </View>
+        {/* Spec §4.1 order. NextUpCard returns null when neither a pending
+            contract nor a hired gig exists. ContractsStrip returns null when
+            total=0. Both suppress their own placeholder so layout stays tight. */}
+
+        <HeroGreeting user={user} isLoading={isUserLoading} />
+
+        <NextUpCard />
+
+        <UpcomingSection />
+
+        <AppliedSection />
+
+        <SavedSection />
+
+        <DraftsSection />
+
+        <ContractsStrip />
+
+        <TrustTierProgress />
+
+        <PlaceholderCard
+          title="Sub-artist offers"
+          subtitle="Lead-artist team features coming in Plan 4"
+        />
+
+        <PlaceholderCard
+          title="Reviews received"
+          subtitle="Reviews from hirers will appear here after your first completed gig"
+        />
+
+        <PlaceholderCard
+          title="Profile views"
+          subtitle="Analytics coming soon"
+        />
+
+        <MessagesPreview />
       </ScrollView>
 
       <ScreenTooltip
@@ -34,32 +121,12 @@ export default function ArtistHome() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050505' },
-  scroll: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 140 },
-  header: { marginBottom: 24 },
+  scroll: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 140 },
+  header: { marginBottom: 16, paddingHorizontal: 4 },
   wordmark: {
     fontFamily: 'DMSerifDisplay_400Regular',
     fontSize: 22,
     color: '#F5F0EB',
     letterSpacing: 2,
-  },
-  placeholder: {
-    marginTop: 40,
-    padding: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  placeholderHeading: {
-    fontFamily: 'DMSerifDisplay_400Regular',
-    fontSize: 22,
-    color: '#F5F0EB',
-    marginBottom: 12,
-  },
-  placeholderBody: {
-    fontFamily: 'Outfit-Regular',
-    fontSize: 14,
-    color: 'rgba(245, 240, 235, 0.6)',
-    lineHeight: 22,
   },
 });

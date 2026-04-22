@@ -131,7 +131,7 @@ export default function RootLayout() {
                         <Slot />
 
                         {/* Mobile bottom tab bar */}
-                        {!isAuthRoute && <MobileTabBar />}
+                        {/* {!isAuthRoute && <MobileTabBar />} */}
                     </View>
                 </SafeAreaProvider>
             </QueryClientProvider>

@@ -11,6 +11,15 @@ export interface PopulatedConversation extends Omit<Conversation, 'participants'
         profilePicture?: string;
     }[];
     lastMessage?: string;
+    /**
+     * Unread message count for the current user on this thread.
+     *
+     * Lane B (Task 6) added this field server-side. Older deployments may
+     * omit it — in that case the client should fall back to 0 (see
+     * useUnreadCount for the fallback path). Optional to preserve backward
+     * compatibility with existing callers.
+     */
+    unreadCount?: number;
 }
 
 const getBaseUrl = () => {

@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { View, Text, Modal, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApplyToGig } from '../../hooks/useGigApplications';
-import { X, Link as LinkIcon, Plus, Trash2, Check, ChevronDown, ChevronUp, Shield, FileText } from 'lucide-react-native';
+import { X, Link as LinkIcon, Plus, Trash2, Check, ChevronDown, ChevronUp, Shield, FileText, Save } from 'lucide-react-native';
 import { ProfileCompletionModal } from '../common/ProfileCompletionModal';
+import { draftService, generateDraftId, type ApplicationDraft } from '../../services/draftService';
 
 /**
  * PRD v4 Gig Application Flow — Stage 1: Artist Applies
@@ -41,12 +42,20 @@ interface GigApplyModalProps {
     termsAndConditions?: string;
     onViewTerms?: () => void;
     hasTerms?: boolean;
+    /**
+     * Plan 2, Task 17 — if present, the modal loads the draft via
+     * draftService.get() and prefills the form fields. When the user taps
+     * "Save as draft", the same draftId is reused for the upsert so the
+     * round-trip is stable.
+     */
+    draftId?: string;
 }
 
 export const GigApplyModal: React.FC<GigApplyModalProps> = ({
     visible, onClose, gigId, gigTitle,
     gigAmount = 0, isNegotiable = false,
-    termsAndConditions, onViewTerms, hasTerms
+    termsAndConditions, onViewTerms, hasTerms,
+    draftId,
 }) => {
     const [step, setStep] = useState<1 | 2>(1); // 1 = form, 2 = terms
     const [coverNote, setCoverNote] = useState('');
@@ -62,6 +71,78 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
     const router = useRouter();
 
     const tier = useMemo(() => getContractTier(gigAmount), [gigAmount]);
+
+    // Plan 2, Task 17 — draft prefill + save-as-draft wiring.
+    // Track whether we've already consumed the draftId so prefill runs
+    // exactly once per modal open. Without this guard, typing in the form
+    // would get clobbered on re-renders.
+    const prefilledDraftRef = useRef<string | null>(null);
+    // The resolved draft id this modal is operating on. If we loaded one at
+    // mount we keep it; if the user taps Save-as-draft without an incoming
+    // draftId we allocate a new one and stash it here so subsequent saves
+    // in the same session update the same record.
+    const [activeDraftId, setActiveDraftId] = useState<string | null>(
+        draftId ?? null
+    );
+    const [savingDraft, setSavingDraft] = useState(false);
+
+    useEffect(() => {
+        // Only prefill when:
+        //   (a) modal is visible (reset-and-close clears ref on close)
+        //   (b) a draftId prop was passed
+        //   (c) we haven't already prefilled for this draftId
+        if (!visible) return;
+        if (!draftId) return;
+        if (prefilledDraftRef.current === draftId) return;
+        prefilledDraftRef.current = draftId;
+        setActiveDraftId(draftId);
+
+        draftService
+            .get(draftId)
+            .then((d) => {
+                if (!d) {
+                    console.log('[GigApplyModal] No draft found for id', draftId);
+                    return;
+                }
+                // Draft field -> form state. ApplicationDraft.pitch is the
+                // cover-note equivalent; availability/quotedRate are kept on
+                // the draft but do not have form fields in this modal yet,
+                // so we only prefill what the UI renders.
+                if (typeof d.pitch === 'string') setCoverNote(d.pitch);
+                if (typeof d.quotedRate === 'number') {
+                    setProposedRate(String(d.quotedRate));
+                }
+            })
+            .catch((err) => {
+                console.warn('[GigApplyModal] Draft load failed:', err);
+            });
+    }, [visible, draftId]);
+
+    const handleSaveDraft = async () => {
+        if (savingDraft) return;
+        setSavingDraft(true);
+        try {
+            const id = activeDraftId ?? generateDraftId();
+            const draft: ApplicationDraft = {
+                draftId: id,
+                gigId,
+                gigTitle,
+                pitch: coverNote,
+                quotedRate: proposedRate ? parseInt(proposedRate, 10) : undefined,
+                updatedAt: new Date().toISOString(),
+            };
+            await draftService.upsert(draft);
+            setActiveDraftId(id);
+            Alert.alert('Draft saved', 'Pick up where you left off anytime.', [
+                { text: 'OK', onPress: resetAndClose },
+            ]);
+        } catch (err) {
+            console.warn('[GigApplyModal] Save draft failed:', err);
+            Alert.alert('Could not save draft', 'Please try again.');
+        } finally {
+            setSavingDraft(false);
+        }
+    };
 
     const handleLinkChange = (text: string, index: number) => {
         const updated = [...portfolioLinks];
@@ -138,6 +219,10 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
         setTermsAccepted(false);
         setHasScrolledToBottom(false);
         setStep(1);
+        // Plan 2, Task 17 — clear the draft-prefill guard so the next open
+        // (same draftId or not) prefills fresh.
+        prefilledDraftRef.current = null;
+        setActiveDraftId(null);
         onClose();
     };
 
@@ -250,14 +335,33 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
                                     </View>
                                 </ScrollView>
 
-                                {/* Next button */}
+                                {/* Next + Save-as-draft buttons */}
                                 <View style={styles.footer}>
-                                    <TouchableOpacity onPress={handleNext} activeOpacity={0.9}>
-                                        <LinearGradient colors={['#EC4899', '#F97316']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryBtn}>
-                                            <Text style={styles.primaryBtnText}>Review Terms</Text>
-                                            <FileText size={18} color="#fff" />
-                                        </LinearGradient>
-                                    </TouchableOpacity>
+                                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                                        <TouchableOpacity
+                                            onPress={handleSaveDraft}
+                                            disabled={savingDraft}
+                                            style={styles.secondaryBtn}
+                                            accessibilityRole="button"
+                                            accessibilityLabel="Save as draft"
+                                            testID="apply-save-draft-btn"
+                                        >
+                                            {savingDraft ? (
+                                                <ActivityIndicator size="small" color="#F0ECE6" />
+                                            ) : (
+                                                <>
+                                                    <Save size={16} color="#F0ECE6" />
+                                                    <Text style={styles.secondaryBtnText}>Save draft</Text>
+                                                </>
+                                            )}
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={handleNext} activeOpacity={0.9} style={{ flex: 2 }}>
+                                            <LinearGradient colors={['#EC4899', '#F97316']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryBtn}>
+                                                <Text style={styles.primaryBtnText}>Review Terms</Text>
+                                                <FileText size={18} color="#fff" />
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             </>
                         ) : (
@@ -715,5 +819,23 @@ const styles = {
         fontFamily: 'Outfit-SemiBold',
         fontSize: 14,
         color: '#6B6878',
+    },
+    // Plan 2, Task 17 — Save-as-draft secondary button
+    secondaryBtn: {
+        flex: 1,
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        gap: 6,
+        paddingVertical: 16,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: 'rgba(255,255,255,0.14)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
+    },
+    secondaryBtnText: {
+        fontFamily: 'Outfit-SemiBold',
+        fontSize: 14,
+        color: '#F0ECE6',
     },
 };

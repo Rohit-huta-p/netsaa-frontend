@@ -12,8 +12,16 @@ import { Sparkles } from 'lucide-react-native';
 
 export default function GigDetailsPage() {
     const { width, height } = useWindowDimensions();
-    const { id } = useLocalSearchParams();
+    const params = useLocalSearchParams<{ id?: string; resumeDraftId?: string }>();
+    const { id, resumeDraftId } = params;
     const gigId = Array.isArray(id) ? id[0] : id;
+    // When navigating from DraftsSection (Plan 2, Task 17) we receive a
+    // ?resumeDraftId=<id> query param. The GigDetails child reads this and
+    // auto-opens GigApplyModal prefilled from draftService. Normalize array
+    // values (expo-router can return string | string[]) before passing down.
+    const resumeDraftIdNormalized = Array.isArray(resumeDraftId)
+        ? resumeDraftId[0]
+        : resumeDraftId;
     const { data: gig, isLoading, error } = useGig(gigId || '');
     const user = useAuthStore((state) => state.user);
     const isOrganizer = user?.role === 'organizer';
@@ -112,7 +120,7 @@ export default function GigDetailsPage() {
 
             {/* Main Content */}
             <View className="flex-1 relative z-10">
-                <GigDetails gig={gig} />
+                <GigDetails gig={gig} resumeDraftId={resumeDraftIdNormalized} />
             </View>
         </View>
     );

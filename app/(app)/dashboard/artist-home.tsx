@@ -65,9 +65,6 @@ export default function ArtistHome() {
           />
         }
       >
-        <View style={styles.header}>
-          <Text style={styles.wordmark}>NETSA</Text>
-        </View>
 
         <ModeToggle />
 

@@ -25,17 +25,17 @@ import SectionCard from '../SectionCard';
 
 export interface HeroGreetingProps {
   user:
-    | {
-        displayName?: string;
-        trustTier?: string;
-        trustScore?: number;
-        cached?: {
-          averageRating?: number;
-          totalReviews?: number;
-        };
-      }
-    | null
-    | undefined;
+  | {
+    displayName?: string;
+    trustTier?: string;
+    trustScore?: number;
+    cached?: {
+      averageRating?: number;
+      totalReviews?: number;
+    };
+  }
+  | null
+  | undefined;
   isLoading?: boolean;
 }
 
@@ -100,9 +100,9 @@ export default function HeroGreeting({ user, isLoading }: HeroGreetingProps) {
       accessibilityRole="summary"
       accessibilityLabel={`Hero. Namaste, ${firstName}`}
     >
-      <Text style={styles.watermark} allowFontScaling={false} numberOfLines={1}>
+      {/* <Text style={styles.watermark} allowFontScaling={false} numberOfLines={1}>
         नमस्ते
-      </Text>
+      </Text> */}
 
       <View style={styles.foreground}>
         <Text style={styles.greeting} numberOfLines={2}>

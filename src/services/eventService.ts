@@ -75,8 +75,8 @@ const eventService = {
         return response.data;
     },
 
-    getUserRegistrations: async () => {
-        const response = await API.get<{ data: any[] }>('/users/me/event-registrations');
+    getUserRegistrations: async (params?: { limit?: number }) => {
+        const response = await API.get<{ data: any[] }>('/users/me/event-registrations', { params });
         return response.data;
     },
 
@@ -115,8 +115,8 @@ const eventService = {
         return response.data;
     },
 
-    getSavedEvents: async () => {
-        const response = await API.get<{ data: any[] }>('/users/me/saved-events');
+    getSavedEvents: async (params?: { limit?: number }) => {
+        const response = await API.get<{ data: any[] }>('/users/me/saved-events', { params });
         return response.data;
     },
 

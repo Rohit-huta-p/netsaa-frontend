@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, ScrollView, Alert, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FlatList } from 'react-native-gesture-handler';
@@ -42,13 +42,20 @@ import { Edit2 } from 'lucide-react-native';
 
 interface GigDetailsProps {
     gig: any;
+    /**
+     * If present, auto-opens GigApplyModal with that draft prefilled.
+     * Set via the `?resumeDraftId=…` query param on /(app)/gigs/[id] —
+     * DraftsSection (Plan 2, Task 17) routes users here to resume a
+     * saved draft.
+     */
+    resumeDraftId?: string;
 }
 
 /**
  * GigDetails — orchestrator component.
  * All sections, tabs, and handlers are extracted into focused subcomponents and a custom hook.
  */
-export const GigDetails: React.FC<GigDetailsProps> = ({ gig }) => {
+export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId }) => {
     const { width } = useWindowDimensions();
     const tabBarHeight = useMobileTabBarHeight();
     const isMobileWidth = width < 768;
@@ -79,6 +86,18 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig }) => {
         editModalVisible, setEditModalVisible,
         editTargetTab, setEditTargetTab,
     } = useGigActions(gig);
+
+    // Plan 2, Task 17 — auto-open GigApplyModal when a resumeDraftId query
+    // param was passed from DraftsSection. Guard with a ref so React strict
+    // mode double-invokes don't trigger the modal twice, and so returning
+    // the user to this screen after closing the modal doesn't re-open it.
+    const autoOpenedDraftRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!resumeDraftId) return;
+        if (autoOpenedDraftRef.current === resumeDraftId) return;
+        autoOpenedDraftRef.current = resumeDraftId;
+        setApplyModalVisible(true);
+    }, [resumeDraftId, setApplyModalVisible]);
 
     // Tab configuration
     const tabs = [
@@ -263,6 +282,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig }) => {
                 termsAndConditions={gig.termsAndConditions}
                 onViewTerms={handleViewTerms}
                 hasTerms={!!gig.termsAndConditions}
+                draftId={resumeDraftId}
             />
 
             {settingsModalVisible && (

@@ -49,13 +49,20 @@ interface GigDetailsProps {
      * saved draft.
      */
     resumeDraftId?: string;
+    /**
+     * If `'applicants'` (and the viewer is the organizer), preselects the
+     * existing internal 'applications' tab. Set via the `?tab=applicants`
+     * query param on /(app)/gigs/[id] — ApplicantsInbox (Plan 3, Task 14)
+     * routes users here from the hirer home.
+     */
+    tab?: string;
 }
 
 /**
  * GigDetails — orchestrator component.
  * All sections, tabs, and handlers are extracted into focused subcomponents and a custom hook.
  */
-export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId }) => {
+export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab }) => {
     const { width } = useWindowDimensions();
     const tabBarHeight = useMobileTabBarHeight();
     const isMobileWidth = width < 768;
@@ -98,6 +105,22 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId }) =>
         autoOpenedDraftRef.current = resumeDraftId;
         setApplyModalVisible(true);
     }, [resumeDraftId, setApplyModalVisible]);
+
+    // Plan 3, Task 14 — preselect the 'applications' tab when the page is
+    // opened with ?tab=applicants (ApplicantsInbox row tap). Organizer-only:
+    // the 'applications' tab itself is organizer-gated (see `tabs` below),
+    // so for non-organizers this is a silent no-op. Guard with a ref to
+    // keep the deep-link as a one-shot hint — the user can switch tabs
+    // after landing without the effect fighting them.
+    const appliedTabHintRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!tab) return;
+        if (appliedTabHintRef.current === tab) return;
+        appliedTabHintRef.current = tab;
+        if (tab === 'applicants' && isOrganizer) {
+            setActiveTab('applications');
+        }
+    }, [tab, isOrganizer, setActiveTab]);
 
     // Tab configuration
     const tabs = [

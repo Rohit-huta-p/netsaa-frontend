@@ -96,12 +96,12 @@ const gigService = {
 
     /**
      * Withdraw the current user's gig application.
-     * Backend: PATCH /v1/gigs/applications/:id/withdraw (gigs-service)
+     * Backend: PATCH /v1/applications/:id/withdraw (gigs-service routes.ts:34)
      * Atomic on the backend — only succeeds if the application belongs to
      * the caller and is in a withdrawable status (applied or shortlisted).
      */
     withdrawApplication: async (id: string): Promise<any> => {
-        const res = await API.patch(`/gigs/applications/${id}/withdraw`);
+        const res = await API.patch(`/applications/${id}/withdraw`);
         return res.data;
     },
 

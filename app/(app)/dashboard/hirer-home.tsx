@@ -1,25 +1,106 @@
 // netsa-mobile/app/(app)/dashboard/hirer-home.tsx
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView } from 'react-native';
+//
+// Plan 3 assembly point. Renders 9 real sections + 3 placeholder cards in
+// spec §5.1 order. Pull-to-refresh invalidates every queryKeys.hirer.* key
+// plus the shared artist.hero / artist.conversations / artist.contracts
+// keys that hirer hooks piggyback on.
+
+import React, { useCallback, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
+
 import ModeToggle from '../../../src/components/mode/ModeToggle';
 import ScreenTooltip from '../../../src/components/mode/ScreenTooltip';
 
+import { queryKeys } from '../../../src/constants/queryKeys';
+
+import HeroGreetingHirer from '../../../src/components/dashboard/hirer/HeroGreetingHirer';
+import NextUpCardHirer from '../../../src/components/dashboard/hirer/NextUpCardHirer';
+import PostedGigsSection from '../../../src/components/dashboard/hirer/PostedGigsSection';
+import ApplicantsInbox from '../../../src/components/dashboard/hirer/ApplicantsInbox';
+import HiredArtistsSection from '../../../src/components/dashboard/hirer/HiredArtistsSection';
+import ContractsYouSentStrip from '../../../src/components/dashboard/hirer/ContractsYouSentStrip';
+import PaymentsStrip from '../../../src/components/dashboard/hirer/PaymentsStrip';
+import TrustTierProgress from '../../../src/components/dashboard/artist/TrustTierProgress';
+import MessagesPreview from '../../../src/components/dashboard/artist/MessagesPreview';
+import PlaceholderCard from '../../../src/components/dashboard/PlaceholderCard';
+
 export default function HirerHome() {
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        // Hirer namespace
+        queryClient.invalidateQueries({ queryKey: queryKeys.hirer.hero() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.hirer.postedGigs() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.hirer.applicants() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.hirer.hiredArtists() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.hirer.contracts() }),
+        // Shared reads — the same hero + conversations are used by the artist dashboard
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.hero() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.conversations() }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient]);
+
   return (
     <SafeAreaView style={styles.root}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.wordmark}>NETSA</Text>
-        </View>
-
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#FF6B35"
+            colors={['#FF6B35']}
+          />
+        }
+      >
         <ModeToggle />
 
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderHeading}>Hirer mode — Home</Text>
-          <Text style={styles.placeholderBody}>
-            Sections ship in Plan 3: Hero · NextUp · Posts list · Analytics · Saved artists · Upcoming bookings · Spend · Rehire suggestions · Drafts · Reviews given · Time-to-fill · Messages preview.
-          </Text>
-        </View>
+        {/* Spec §5.1 order. NextUpCardHirer returns null when no contract
+            and no pending applicant. ContractsYouSentStrip returns null
+            when total=0. Both suppress their own empty chrome so layout
+            stays tight. */}
+
+        <HeroGreetingHirer />
+
+        <NextUpCardHirer />
+
+        <PostedGigsSection />
+
+        <ApplicantsInbox />
+
+        <HiredArtistsSection />
+
+        <ContractsYouSentStrip />
+
+        <PaymentsStrip />
+
+        <TrustTierProgress />
+
+        <PlaceholderCard
+          title="Reviews given"
+          subtitle="Post-gig review prompts land after your first completed hire"
+        />
+
+        <PlaceholderCard
+          title="Hiring analytics"
+          subtitle="Time-to-fill, conversion, and trend charts coming in the analytics sprint"
+        />
+
+        <PlaceholderCard
+          title="Team management"
+          subtitle="Saved artists, rehire shortcuts, and My Team shortcuts coming in a later pass"
+        />
+
+        <MessagesPreview />
       </ScrollView>
 
       <ScreenTooltip
@@ -34,32 +115,5 @@ export default function HirerHome() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050505' },
-  scroll: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 140 },
-  header: { marginBottom: 24 },
-  wordmark: {
-    fontFamily: 'DMSerifDisplay_400Regular',
-    fontSize: 22,
-    color: '#F5F0EB',
-    letterSpacing: 2,
-  },
-  placeholder: {
-    marginTop: 40,
-    padding: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  placeholderHeading: {
-    fontFamily: 'DMSerifDisplay_400Regular',
-    fontSize: 22,
-    color: '#F5F0EB',
-    marginBottom: 12,
-  },
-  placeholderBody: {
-    fontFamily: 'Outfit-Regular',
-    fontSize: 14,
-    color: 'rgba(245, 240, 235, 0.6)',
-    lineHeight: 22,
-  },
+  scroll: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 140 },
 });

@@ -6,6 +6,31 @@ import { useAuthStore } from '../stores/authStore';
 
 import { Platform } from 'react-native';
 
+/**
+ * Shape returned by `GET /organizers/me`. Mirrors the organizer document
+ * the users-service writes (see netsa-backend/users-service/src/models/Organizer.ts).
+ * Optional subfields mirror the backend default/optional schema fields.
+ */
+export interface OrganizerProfile {
+  _id: string;
+  userId: string;
+  organizationName?: string;
+  organizerTypeCategory: string;
+  logoUrl?: string;
+  organizerStats?: {
+    gigsPosted?: number;
+    eventsCreated?: number;
+    artistsHired?: number;
+    averageRating?: number;
+    totalReviews?: number;
+    responseRate?: number;
+  };
+  verification: {
+    businessVerified: boolean;
+    verificationLevel: 'none' | 'basic' | 'business' | 'trusted';
+  };
+}
+
 const getBaseUrl = () => {
   // Always prefer env var, fallback to production
   return process.env.EXPO_PUBLIC_API_URL || 'https://netsaa-backend.onrender.com';
@@ -107,6 +132,11 @@ const authService = {
     console.log("AUTH SERVICE: Updating profile...", data);
     const res = await API.patch('/auth/me', data);
     console.log("AUTH SERVICE: Profile updated successfully");
+    return res.data;
+  },
+
+  getOrganizer: async (): Promise<OrganizerProfile> => {
+    const res = await API.get('/organizers/me');
     return res.data;
   },
 

@@ -39,9 +39,13 @@ export default function HirerHome() {
         queryClient.invalidateQueries({ queryKey: queryKeys.hirer.applicants() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.hirer.hiredArtists() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.hirer.contracts() }),
-        // Shared reads — the same hero + conversations are used by the artist dashboard
+        // Shared reads — same hero + conversations + contracts cache used by
+        // the artist dashboard. useContractsArtist reads artist.contracts() while
+        // useContractsHirer reads hirer.contracts(); both should refresh here so
+        // switching modes after a pull shows up-to-date data on either side.
         queryClient.invalidateQueries({ queryKey: queryKeys.artist.hero() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.artist.conversations() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.contracts() }),
       ]);
     } finally {
       setRefreshing(false);

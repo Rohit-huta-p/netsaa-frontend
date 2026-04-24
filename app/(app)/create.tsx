@@ -10,8 +10,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, Briefcase, Calendar } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { GigForm, GigFormHandle } from "@/components/create/GigForm";
+import GigFormV2 from "@/components/create/GigFormV2";
 import { EventForm, EventFormHandle } from "@/components/create/EventForm";
 import { useStepBackGuard } from "@/hooks/useStepBackGuard";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 export default function CreateListing() {
     const router = useRouter();
@@ -21,6 +23,7 @@ export default function CreateListing() {
 
     const gigFormRef = useRef<GigFormHandle>(null);
     const eventFormRef = useRef<EventFormHandle>(null);
+    const { newGigForm } = useFeatureFlags();
 
     // Keep activeTab in a ref so handleBack (read via onBackRef inside the hook)
     // always sees the latest tab without needing useCallback deps.
@@ -149,12 +152,21 @@ export default function CreateListing() {
             {/* Content */}
             <View style={styles.content}>
                 {activeTab === "gig" ? (
-                    <GigForm
-                        ref={gigFormRef}
-                        onPublish={handlePublish}
-                        onCancel={handleCancel}
-                        gigId={Array.isArray(gigId) ? gigId[0] : gigId}
-                    />
+                    newGigForm ? (
+                        <GigFormV2
+                            ref={gigFormRef}
+                            onPublish={handlePublish}
+                            onCancel={handleCancel}
+                            gigId={Array.isArray(gigId) ? gigId[0] : gigId}
+                        />
+                    ) : (
+                        <GigForm
+                            ref={gigFormRef}
+                            onPublish={handlePublish}
+                            onCancel={handleCancel}
+                            gigId={Array.isArray(gigId) ? gigId[0] : gigId}
+                        />
+                    )
                 ) : (
                     <EventForm
                         ref={eventFormRef}

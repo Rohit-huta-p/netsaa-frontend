@@ -122,7 +122,11 @@ function coerceMusicNumeric(input: unknown): number | undefined {
   return undefined;
 }
 
-function coerceMusicDetails(music: GigFormV2State['p3']['music']): GigFormV2State['p3']['music'] {
+// Return type is a backend-ready shape (numbers for numeric fields). Input
+// shape carries string form-input values. We intentionally widen to `any`
+// to cross the string→number boundary cleanly; callers are `buildBackendPayload`
+// only, and its return is typed loosely at the mutation call site.
+function coerceMusicDetails(music: GigFormV2State['p3']['music']): Record<string, unknown> {
   return {
     ...music,
     bpm: coerceMusicNumeric(music.bpm),
@@ -315,7 +319,23 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
     };
 
     const previewGig = useMemo(() => buildBackendPayload(state), [state]);
-    const formStateForChecks = previewGig; // same shape — CheckableFormState has an index signature
+    // Checks need a richer input than the backend payload: they read
+    // `compensation.structure` (UI-only; not sent to server) plus `title` +
+    // `description` which live at different nesting levels in state. Merge
+    // the payload with the structure flag so every check can see what it
+    // needs. Post-code-review P1-1 + P1-3 fix.
+    const formStateForChecks = useMemo(
+      () => ({
+        ...previewGig,
+        title: state.p1.title,
+        description: state.p4.description,
+        compensation: {
+          ...previewGig.compensation,
+          structure: state.p2.compensationStructure,
+        },
+      }),
+      [previewGig, state.p1.title, state.p4.description, state.p2.compensationStructure]
+    );
 
     return (
       <View style={styles.root}>

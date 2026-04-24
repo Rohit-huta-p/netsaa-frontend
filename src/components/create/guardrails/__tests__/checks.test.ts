@@ -19,11 +19,11 @@ describe('runHardChecks', () => {
     expect(issues.some((i) => i.id === 'MODEL_NUDITY_REQUIRED')).toBe(false);
   });
 
-  it('flags UNPAID_NUDITY when nudityLevel ≠ None and compensation.model === tbd', () => {
+  it('flags UNPAID_NUDITY when nudityLevel ≠ None and compensation.structure === tbd', () => {
     const issues = runHardChecks({
       artistTypes: ['Model'],
       modelDetails: { nudityLevel: 'Partial', shootType: 'Fashion' },
-      compensation: { model: 'tbd' },
+      compensation: { structure: 'tbd' },
     });
     expect(issues.some((i) => i.id === 'UNPAID_NUDITY')).toBe(true);
   });
@@ -45,14 +45,28 @@ describe('runHardChecks', () => {
     expect(issues.some((i) => i.id === 'PAST_DATE')).toBe(true);
   });
 
-  it('empty state returns zero HARD issues (minus required-field nags)', () => {
-    expect(runHardChecks({}).length).toBe(0);
+  it('empty state returns the 4 MISSING_* required-field HARD issues', () => {
+    // After Post-code-review P1-3: empty state surfaces required-field nags
+    // (title, performer type, event function, description) as HARD blocks.
+    const issues = runHardChecks({});
+    const ids = issues.map((i) => i.id).sort();
+    expect(ids).toEqual(['MISSING_DESCRIPTION', 'MISSING_EVENT_FUNCTION', 'MISSING_PERFORMER_TYPE', 'MISSING_TITLE']);
+  });
+
+  it('fully-populated required fields clear the MISSING_* checks', () => {
+    const issues = runHardChecks({
+      title: 'Test gig',
+      artistTypes: ['Dancer'],
+      eventFunction: 'Sangeet',
+      description: 'A test gig.',
+    });
+    expect(issues.some((i) => i.id.startsWith('MISSING_'))).toBe(false);
   });
 });
 
 describe('runSoftChecks', () => {
-  it('flags TBD_PAY when compensation.model === tbd', () => {
-    const issues = runSoftChecks({ compensation: { model: 'tbd' } });
+  it('flags TBD_PAY when compensation.structure === tbd', () => {
+    const issues = runSoftChecks({ compensation: { structure: 'tbd' } });
     expect(issues.some((i) => i.id === 'TBD_PAY')).toBe(true);
   });
 
@@ -95,8 +109,8 @@ describe('runSoftChecks', () => {
 });
 
 describe('runTrustSignals', () => {
-  it('flags LOW_PAY_TRANSPARENCY when compensation.model === tbd', () => {
-    const signals = runTrustSignals({ compensation: { model: 'tbd' } });
+  it('flags LOW_PAY_TRANSPARENCY when compensation.structure === tbd', () => {
+    const signals = runTrustSignals({ compensation: { structure: 'tbd' } });
     expect(signals.some((s) => s.id === 'LOW_PAY_TRANSPARENCY')).toBe(true);
   });
 

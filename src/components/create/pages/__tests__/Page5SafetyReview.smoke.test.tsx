@@ -16,7 +16,14 @@ describe('Page5SafetyReview', () => {
   it('enables publish when form state has no hard issues', () => {
     const { getByLabelText, queryByText } = render(
       <Page5SafetyReview
-        formState={{ artistTypes: ['Singer'] }}
+        formState={{
+          // All 4 MISSING_* required fields populated so the post-review
+          // P1-3 HARD checks don't fire in the "clean" case.
+          title: 'Test gig',
+          artistTypes: ['Singer'],
+          eventFunction: 'Sangeet',
+          description: 'A simple test description.',
+        }}
         previewGig={{}}
         isLoading={false}
         onDraft={jest.fn()}

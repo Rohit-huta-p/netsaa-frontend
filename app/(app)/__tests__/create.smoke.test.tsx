@@ -46,14 +46,14 @@ describe('app/(app)/create.tsx — feature flag gate', () => {
     delete process.env.EXPO_PUBLIC_FEATURE_NEW_GIG_FORM;
 
     jest.isolateModules(() => {
+      const legacySpy = jest.fn(() => null);
+      const v2Spy = jest.fn(() => null);
       jest.doMock('@/components/create/GigForm', () => ({
-        GigForm: () => null,
-        __testId: 'LEGACY',
+        GigForm: legacySpy,
       }));
       jest.doMock('@/components/create/GigFormV2', () => ({
         __esModule: true,
-        default: () => null,
-        __testId: 'V2',
+        default: v2Spy,
       }));
       const React = require('react');
       const TestRenderer = require('react-test-renderer');
@@ -61,8 +61,9 @@ describe('app/(app)/create.tsx — feature flag gate', () => {
       TestRenderer.act(() => {
         TestRenderer.create(React.createElement(Create));
       });
-      const legacyModule = require('@/components/create/GigForm');
-      expect(legacyModule.__testId).toBe('LEGACY');
+      // Actual assertion: only the legacy form was rendered, not V2.
+      expect(legacySpy).toHaveBeenCalled();
+      expect(v2Spy).not.toHaveBeenCalled();
     });
   });
 
@@ -70,14 +71,14 @@ describe('app/(app)/create.tsx — feature flag gate', () => {
     process.env.EXPO_PUBLIC_FEATURE_NEW_GIG_FORM = 'true';
 
     jest.isolateModules(() => {
+      const legacySpy = jest.fn(() => null);
+      const v2Spy = jest.fn(() => null);
       jest.doMock('@/components/create/GigForm', () => ({
-        GigForm: () => null,
-        __testId: 'LEGACY',
+        GigForm: legacySpy,
       }));
       jest.doMock('@/components/create/GigFormV2', () => ({
         __esModule: true,
-        default: () => null,
-        __testId: 'V2',
+        default: v2Spy,
       }));
       const React = require('react');
       const TestRenderer = require('react-test-renderer');
@@ -85,8 +86,9 @@ describe('app/(app)/create.tsx — feature flag gate', () => {
       TestRenderer.act(() => {
         TestRenderer.create(React.createElement(Create));
       });
-      const v2Module = require('@/components/create/GigFormV2');
-      expect(v2Module.__testId).toBe('V2');
+      // Actual assertion: only V2 was rendered, not legacy.
+      expect(v2Spy).toHaveBeenCalled();
+      expect(legacySpy).not.toHaveBeenCalled();
     });
   });
 });

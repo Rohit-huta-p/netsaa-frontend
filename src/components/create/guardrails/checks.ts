@@ -19,7 +19,20 @@ export interface CheckableFormState {
     male?: { min?: string | number; max?: string | number };
     female?: { min?: string | number; max?: string | number };
   };
-  compensation?: { model?: string; amount?: string | number; minAmount?: string | number; maxAmount?: string | number; negotiable?: boolean };
+  compensation?: {
+    model?: string;
+    /** Client-side UX flag — one of 'fixed' | 'range' | 'tbd'. Separate from
+     * `model` (the payment unit) because 'tbd' means "no amount disclosed"
+     * and lives in UI state, not the backend payload. Post-code-review P1-1
+     * fix: checks that used to read `model === 'tbd'` now read this field. */
+    structure?: string;
+    amount?: string | number;
+    minAmount?: string | number;
+    maxAmount?: string | number;
+    negotiable?: boolean;
+  };
+  title?: string;
+  description?: string;
   schedule?: { startDate?: string };
   applicationDeadline?: string;
   location?: { venueName?: string; address?: string };
@@ -81,13 +94,49 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
   if (
     state.modelDetails?.nudityLevel &&
     state.modelDetails.nudityLevel !== 'None' &&
-    state.compensation?.model === 'tbd'
+    state.compensation?.structure === 'tbd'
   ) {
     issues.push({
       id: 'UNPAID_NUDITY',
       severity: 'hard',
       message: 'Nudity gigs must specify paid compensation. Update the pay structure on Page 2.',
-      field: 'compensation.model',
+      field: 'compensation.structure',
+    });
+  }
+
+  // 5. Missing required fields — backend Zod rejects empty title/artistTypes/
+  // eventFunction/description with a cryptic error. Friendlier to surface as
+  // an inline hard block. Post-code-review P1-3 fix.
+  if (!state.title || state.title.trim().length === 0) {
+    issues.push({
+      id: 'MISSING_TITLE',
+      severity: 'hard',
+      message: 'Title is required. Go back to Page 1 and enter a gig title.',
+      field: 'title',
+    });
+  }
+  if (!state.artistTypes || state.artistTypes.length === 0) {
+    issues.push({
+      id: 'MISSING_PERFORMER_TYPE',
+      severity: 'hard',
+      message: 'At least one performer type is required. Go back to Page 1 and select.',
+      field: 'artistTypes',
+    });
+  }
+  if (!state.eventFunction || state.eventFunction.trim().length === 0) {
+    issues.push({
+      id: 'MISSING_EVENT_FUNCTION',
+      severity: 'hard',
+      message: 'Event function is required. Go back to Page 1 and pick or type one.',
+      field: 'eventFunction',
+    });
+  }
+  if (!state.description || state.description.trim().length === 0) {
+    issues.push({
+      id: 'MISSING_DESCRIPTION',
+      severity: 'hard',
+      message: 'Description is required. Go back to Page 4 and add a description.',
+      field: 'description',
     });
   }
 
@@ -124,8 +173,8 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
 export function runSoftChecks(state: CheckableFormState): GuardrailIssue[] {
   const issues: GuardrailIssue[] = [];
 
-  // TBD pay
-  if (state.compensation?.model === 'tbd') {
+  // TBD pay (reads structure, not model — post-code-review P1-1 fix)
+  if (state.compensation?.structure === 'tbd') {
     issues.push({
       id: 'TBD_PAY',
       severity: 'soft',
@@ -201,7 +250,8 @@ export function runSoftChecks(state: CheckableFormState): GuardrailIssue[] {
 export function runTrustSignals(state: CheckableFormState): GuardrailIssue[] {
   const signals: GuardrailIssue[] = [];
 
-  if (state.compensation?.model === 'tbd') {
+  // Reads structure, not model — post-code-review P1-1 fix
+  if (state.compensation?.structure === 'tbd') {
     signals.push({
       id: 'LOW_PAY_TRANSPARENCY',
       severity: 'trust',

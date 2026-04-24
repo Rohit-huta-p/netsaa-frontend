@@ -119,9 +119,10 @@ interface GigFormProps {
     gigId?: string;
 }
 
-export interface GigFormHandle {
-    handleBack: () => boolean; // Return true if handled (step > 1), false if should exit (step 1)
-}
+// Re-export from shared types (Plan 5 — Task 2b) so callers can import
+// from either the legacy form or GigFormV2 without coupling.
+export type { GigFormHandle } from './GigFormTypes';
+import type { GigFormHandle } from './GigFormTypes';
 
 export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublish, onCancel, gigId }, ref) => {
     const { width: windowWidth } = useWindowDimensions();

@@ -1487,7 +1487,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                     ref={scrollViewRef}
                     showsVerticalScrollIndicator={false}
                     style={{ flex: 1 }}
-                    contentContainerStyle={{ paddingBottom: 120 }}
+                    contentContainerStyle={{ paddingBottom: 200 }}
                     onScroll={Animated.event(
                         [{ nativeEvent: { contentOffset: { y: headerScrollY } } }],
                         { useNativeDriver: false }
@@ -1509,8 +1509,9 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                 </ScrollView>
             </View>
 
-            {/* Footer Navigation (Pinned Bottom) */}
-            <View className="absolute bottom-0 left-0 right-0 p-2 bg-black/90 border-t border-white/10" style={{ paddingBottom: Platform.OS === 'ios' ? 40 : 24 }}>
+            {/* Footer Navigation — sits ABOVE the floating BottomNav (height
+                ~84/76px from screen bottom). +8px gap for breathing room. */}
+            <View className="absolute left-0 right-0 p-2 bg-black/95 border-t border-b border-white/10" style={{ bottom: Platform.OS === 'ios' ? 92 : 84 }}>
                 <View className="flex-row justify-between items-center gap-4">
                     {step > 0 && (
                         <TouchableOpacity

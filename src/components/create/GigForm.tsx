@@ -53,6 +53,7 @@ import { z } from 'zod';
 import { useCreateGig, useUpdateGig, useGig } from '@/hooks/useGigs';
 import { Gig } from '@/types/gig';
 import { MapLinkCard } from '@/components/location/MapLinkCard';
+import StyledTextInput from '@/components/ui/StyledTextInput';
 
 // Zod Schema synced to backend
 const formSchema = z.object({
@@ -112,37 +113,16 @@ const formSchema = z.object({
     termsAndConditions: z.string().optional()
 });
 
-// NETSA Organizer-themed TextInput
-const StyledTextInput = ({ value, onChangeText, placeholder, icon: Icon, error, type = 'text', ...props }: any) => (
-    <View className="relative">
-        {Icon && (
-            <View className="absolute left-3 top-[50%] -translate-y-1/2 z-10">
-                <Icon size={18} color="rgba(255, 255, 255, 0.4)" />
-            </View>
-        )}
-        <TextInput
-            type={type}
-            className={`w-full bg-zinc-900/50  border ${error ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500 outline-none`}
-            style={{ outlineStyle: 'none', fontSize: T.size.xs, lineHeight: getLineHeight('body') } as any}
-            placeholder={placeholder}
-            placeholderTextColor="rgba(255, 255, 255, 0.3)"
-            value={value}
-            onChangeText={onChangeText}
-            {...props}
-        />
-        {error && <Text style={{ color: '#ef4444', fontSize: T.size.xs, marginTop: 4, marginLeft: 4 }}>{error}</Text>}
-    </View>
-);
-
 interface GigFormProps {
     onPublish: (data: any) => void;
     onCancel: () => void;
     gigId?: string;
 }
 
-export interface GigFormHandle {
-    handleBack: () => boolean; // Return true if handled (step > 1), false if should exit (step 1)
-}
+// Re-export from shared types (Plan 5 — Task 2b) so callers can import
+// from either the legacy form or GigFormV2 without coupling.
+export type { GigFormHandle } from './GigFormTypes';
+import type { GigFormHandle } from './GigFormTypes';
 
 export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublish, onCancel, gigId }, ref) => {
     const { width: windowWidth } = useWindowDimensions();

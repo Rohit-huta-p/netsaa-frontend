@@ -107,6 +107,32 @@ export function setByPath<T extends Record<string, any>>(
 // ── Pure client → backend payload transform ────────────────────────
 // Locks the shape Plan 4's Zod schema expects. If this drifts, `createGig`
 // 400s with a cryptic error. Covered by `buildBackendPayload.test.ts`.
+
+// Coerce numeric musicDetails fields from string (text-input state) to
+// number (Plan 4 Zod expects z.number()). Undefined / empty values pass
+// through as undefined. Non-numeric strings (e.g., typo) also become
+// undefined — backend refinement catches required-field misses.
+function coerceMusicNumeric(input: unknown): number | undefined {
+  if (input === undefined || input === null || input === '') return undefined;
+  if (typeof input === 'number') return Number.isFinite(input) ? input : undefined;
+  if (typeof input === 'string') {
+    const n = parseFloat(input);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
+}
+
+function coerceMusicDetails(music: GigFormV2State['p3']['music']): GigFormV2State['p3']['music'] {
+  return {
+    ...music,
+    bpm: coerceMusicNumeric(music.bpm),
+    turnaroundDays: coerceMusicNumeric(music.turnaroundDays),
+    revisionsIncluded: coerceMusicNumeric(music.revisionsIncluded),
+    setLengthHours: coerceMusicNumeric(music.setLengthHours),
+    bandSize: coerceMusicNumeric(music.bandSize),
+  };
+}
+
 export function buildBackendPayload(state: GigFormV2State) {
   const compStructure = state.p2.compensationStructure;
   const amount =
@@ -156,7 +182,7 @@ export function buildBackendPayload(state: GigFormV2State) {
     maxApplications: state.p4.maxApplicants ? parseInt(state.p4.maxApplicants, 10) : undefined,
     mediaRequirements: state.p4.mediaRequirements,
     termsAndConditions: state.p4.termsAndConditions,
-    musicDetails: state.p3.music,
+    musicDetails: coerceMusicDetails(state.p3.music),
     modelDetails: state.p3.model,
     visualDetails: {
       roleType: state.p3.visual.roleType,

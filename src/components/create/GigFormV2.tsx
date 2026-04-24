@@ -274,13 +274,12 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
       };
       try {
         if (gigId) {
-          // Cast to `any` — legacy `Gig` type narrows compensation.model to
-          // 'fixed' | 'hourly' | 'per-day'; V2 form adds 'per-track' and
-          // 'per-shoot' matching Plan 4 backend Zod. Backend is the source
-          // of truth until the Gig type is updated in a follow-up.
-          await updateMutation.mutateAsync({ id: gigId, payload: payload as any });
+          // Wave 6: `as any` removed — `types/gig.ts` was widened to
+          // include per-track / per-shoot comp models and the Plan 4
+          // backend sub-documents (musicDetails, modelDetails, etc.).
+          await updateMutation.mutateAsync({ id: gigId, payload });
         } else {
-          await createMutation.mutateAsync(payload as any);
+          await createMutation.mutateAsync(payload);
         }
         isNavigatingAway.current = true;
         onPublish(payload);

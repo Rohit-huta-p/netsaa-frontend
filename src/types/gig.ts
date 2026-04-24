@@ -53,7 +53,9 @@ export interface Gig {
     };
 
     compensation: {
-        model: 'fixed' | 'hourly' | 'per-day';
+        // 'per-track' + 'per-shoot' added in Plan 5 Wave 6 to match Plan 4
+        // backend Zod schema (widened from fixed/hourly/per-day only).
+        model: 'fixed' | 'hourly' | 'per-day' | 'per-track' | 'per-shoot';
         amount?: number;
         minAmount?: number;
         maxAmount?: number;
@@ -71,6 +73,56 @@ export interface Gig {
         videoReel?: boolean;
         audioSample?: boolean;
         notes?: string;
+    };
+
+    // ── Plan 4 backend sub-documents (added Plan 5 Wave 6) ──
+    // Conditional blocks the new GigFormV2 writes based on the artistTypes
+    // selected on Page 1. Each block maps to its Page 3 block value. All
+    // fields are optional since any single gig exercises only one or two
+    // of these groups.
+    eventFunction?: string;
+    languagePreferences?: string[];
+    ancillaryLogistics?: {
+        provided: string[];
+    };
+    musicDetails?: {
+        genres?: string[];
+        equipmentProvided?: boolean;
+        // Backend accepts number; the form block currently stores strings
+        // for text-input ergonomics, so allow both until we normalize.
+        bpm?: number | string;
+        musicalKey?: string;
+        deliverableFormats?: string[];
+        referenceTracks?: string[];
+        turnaroundDays?: number | string;
+        revisionsIncluded?: number | string;
+        setLengthHours?: number | string;
+        bandSize?: number | string;
+        attirePreference?: 'formal' | 'casual' | 'themed' | 'open';
+    };
+    modelDetails?: {
+        shootType?: 'Editorial' | 'Commercial' | 'Fashion' | 'Fitness' | 'Lifestyle' | 'Art';
+        nudityLevel?: 'None' | 'Implied' | 'Partial' | 'Artistic' | 'Nude';
+        wardrobeNotes?: string;
+        usageRights?: string[];
+        releaseRequired?: boolean;
+        measurements?: {
+            height?: string;
+            bust?: string;
+            waist?: string;
+            hips?: string;
+            hair?: string;
+            eyes?: string;
+        };
+    };
+    visualDetails?: {
+        roleType?: 'lead' | 'supporting' | 'extra' | 'background';
+        bodyType?: 'slim' | 'athletic' | 'average' | 'plus' | 'any';
+    };
+    crewDetails?: {
+        deliverables?: string;
+        styleReferences?: string[];
+        equipmentProvided?: boolean;
     };
 
     status: 'draft' | 'published' | 'paused' | 'closed' | 'expired';

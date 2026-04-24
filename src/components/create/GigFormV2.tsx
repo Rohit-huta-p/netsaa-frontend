@@ -468,19 +468,25 @@ const styles = StyleSheet.create({
   dotDone: { backgroundColor: 'rgba(255, 107, 53, 0.35)' },
   dotLabel: { fontSize: 9, color: '#52525B', textTransform: 'uppercase', letterSpacing: 0.5 },
   dotLabelCurrent: { color: '#FFFFFF', fontWeight: '900' as any },
-  content: { padding: 20, paddingBottom: 120 },
+  // Bigger paddingBottom on the scroll content so the last fields aren't
+  // sandwiched between the footer (above) and the bottom-nav (below). Enough
+  // room to scroll past both with breathing room.
+  content: { padding: 20, paddingBottom: 200 },
   footer: {
     position: 'absolute',
-    bottom: 0,
+    // Sits ABOVE the floating BottomNav (height 64 + paddingBottom 20 iOS /
+    // 12 Android = 84 / 76px from screen bottom). +8 for visual gap.
+    bottom: Platform.OS === 'ios' ? 92 : 84,
     left: 0,
     right: 0,
     flexDirection: 'row',
     gap: 10,
     padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    backgroundColor: 'rgba(10, 10, 14, 0.98)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   backBtn: {
     width: 48,

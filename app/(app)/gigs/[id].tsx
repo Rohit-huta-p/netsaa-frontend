@@ -12,8 +12,8 @@ import { Sparkles } from 'lucide-react-native';
 
 export default function GigDetailsPage() {
     const { width, height } = useWindowDimensions();
-    const params = useLocalSearchParams<{ id?: string; resumeDraftId?: string }>();
-    const { id, resumeDraftId } = params;
+    const params = useLocalSearchParams<{ id?: string; resumeDraftId?: string; tab?: string }>();
+    const { id, resumeDraftId, tab } = params;
     const gigId = Array.isArray(id) ? id[0] : id;
     // When navigating from DraftsSection (Plan 2, Task 17) we receive a
     // ?resumeDraftId=<id> query param. The GigDetails child reads this and
@@ -22,6 +22,10 @@ export default function GigDetailsPage() {
     const resumeDraftIdNormalized = Array.isArray(resumeDraftId)
         ? resumeDraftId[0]
         : resumeDraftId;
+    // Plan 3, Task 14 — ApplicantsInbox row taps route here with
+    // ?tab=applicants to preselect the applications tab on the gig detail
+    // page for organizers. Same array→string normalization pattern.
+    const tabNormalized = Array.isArray(tab) ? tab[0] : tab;
     const { data: gig, isLoading, error } = useGig(gigId || '');
     const user = useAuthStore((state) => state.user);
     const isOrganizer = user?.role === 'organizer';
@@ -120,7 +124,7 @@ export default function GigDetailsPage() {
 
             {/* Main Content */}
             <View className="flex-1 relative z-10">
-                <GigDetails gig={gig} resumeDraftId={resumeDraftIdNormalized} />
+                <GigDetails gig={gig} resumeDraftId={resumeDraftIdNormalized} tab={tabNormalized} />
             </View>
         </View>
     );

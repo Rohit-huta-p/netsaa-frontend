@@ -42,7 +42,12 @@ export const contractService = {
         const res = await API.get(`/contracts/${id}`);
         return res.data;
     },
-    getUserContracts: async (params?: { status?: string; page?: number; pageSize?: number }) => {
+    getUserContracts: async (params?: {
+        status?: string;
+        page?: number;
+        pageSize?: number;
+        limit?: number;
+    }) => {
         const res = await API.get('/users/me/contracts', { params });
         return res.data;
     },

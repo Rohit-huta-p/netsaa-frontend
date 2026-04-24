@@ -29,7 +29,9 @@
  * Keys are declared `as const` readonly tuples so TypeScript can enforce
  * exact shapes at both produce and consume sites.
  *
- * Plan 3 will add `queryKeys.hirer.*` with parallel structure.
+ * Plan 3 adds `queryKeys.hirer.*` with parallel structure: hero,
+ * postedGigs(filter?), applicants(filter?), hiredArtists, contracts.
+ * Same prefix-match invalidation contract applies.
  */
 export const queryKeys = {
   artist: {
@@ -48,5 +50,24 @@ export const queryKeys = {
     drafts: () => ['artist', 'drafts'] as const,
     contracts: () => ['artist', 'contracts'] as const,
     conversations: () => ['artist', 'conversations'] as const,
+  },
+  hirer: {
+    hero: () => ['hirer', 'hero'] as const,
+
+    // postedGigs() with no arg = namespace prefix (prefix-invalidates every filter).
+    // postedGigs(filter) = filtered cache key (proper suffix of the namespace).
+    postedGigs: (filter?: string) =>
+      (filter && filter.length > 0
+        ? (['hirer', 'postedGigs', 'byFilter', filter] as const)
+        : (['hirer', 'postedGigs'] as const)),
+
+    // Same prefix-match pattern as artist.applications.
+    applicants: (filter?: string) =>
+      (filter && filter.length > 0
+        ? (['hirer', 'applicants', 'byFilter', filter] as const)
+        : (['hirer', 'applicants'] as const)),
+
+    hiredArtists: () => ['hirer', 'hiredArtists'] as const,
+    contracts: () => ['hirer', 'contracts'] as const,
   },
 } as const;

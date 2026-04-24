@@ -48,8 +48,18 @@ const gigService = {
         return res.data;
     },
 
-    getOrganizerGigs: async (organizerId: string): Promise<GigsListResponse> => {
-        const res = await API.get('/organizers/me/gigs', { params: { organizerId } });
+    getOrganizerGigs: async (params?: { status?: 'draft' | 'published' | 'closed'; limit?: number }): Promise<GigsListResponse> => {
+        // Backend resolves identity from req.user._id; no organizerId param needed.
+        const res = await API.get('/organizers/me/gigs', { params });
+        return res.data;
+    },
+
+    getOrganizerApplicants: async (params?: {
+        status?: 'applied' | 'shortlisted' | 'hired' | 'rejected' | 'withdrawn';
+        gigId?: string;
+        limit?: number;
+    }): Promise<any> => {
+        const res = await API.get('/organizers/me/applicants', { params });
         return res.data;
     },
 

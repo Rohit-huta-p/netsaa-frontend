@@ -17,10 +17,8 @@
  * LIMIT
  * -----
  * Optional `limit` param is forwarded via contractService.getUserContracts.
- * The payment-service accepts `?limit=N` per Lane A's deviation note.
- * contractService.getUserContracts's existing signature uses `pageSize`
- * — both map to the same backend cap so we send `limit` via a typed
- * extension param.
+ * Plan 3 Task 16 widened the service signature to include `limit`, so no
+ * cast is required anymore.
  *
  * INVALIDATION CONTRACT
  * ---------------------
@@ -43,13 +41,8 @@ export function useContractsArtist(limit?: number) {
   return useQuery({
     queryKey: queryKeys.artist.contracts(),
     queryFn: () =>
-      // The existing contractService type accepts { status, page, pageSize }.
-      // Backend (Lane A) shortcut accepts `limit` directly; pass through by
-      // casting since the backend ignores unknown params gracefully and
-      // we don't want to widen the service signature here (out of scope
-      // for 2a.1).
       contractService.getUserContracts(
-        limit !== undefined ? ({ limit } as any) : undefined
+        limit !== undefined ? { limit } : undefined
       ),
     staleTime: 1000 * 60 * 2, // 2 minutes
   });

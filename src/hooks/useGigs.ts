@@ -86,7 +86,9 @@ export const useGigs = (request?: GigSearchRequest) => {
 export const useOrganizerGigs = (organizerId: string) => {
     return useQuery({
         queryKey: gigKeys.organizer(organizerId),
-        queryFn: () => gigService.getOrganizerGigs(organizerId).then(res => res.data.gigs), // Normalized response
+        // Backend resolves the organizer from req.user._id now; organizerId is retained
+        // as the cache key + enabled gate so the hook signature stays stable.
+        queryFn: () => gigService.getOrganizerGigs().then(res => res.data.gigs), // Normalized response
         enabled: !!organizerId,
     });
 };

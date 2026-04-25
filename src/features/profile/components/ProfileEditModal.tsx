@@ -89,7 +89,6 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const { activeSheet, closeSheet, highlightMissing } = useProfileUiStore();
     const { user, setAuth, accessToken } = useAuthStore();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-    const tabScrollRef = useRef<ScrollView>(null);
     const section = activeSheet;
     const isVisible = !!section;
     const initialTab = section ? (SECTION_TO_TAB[section] || 'header') : 'header';
@@ -201,11 +200,6 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     };
 
     const handleKeepEditing = () => setDiscardPromptVisible(false);
-
-    useEffect(() => {
-        const idx = visibleTabs.findIndex(t => t.key === activeTab);
-        if (idx >= 0 && tabScrollRef.current) { tabScrollRef.current.scrollTo({ x: Math.max(0, idx * 88 - SCREEN_WIDTH / 2 + 44), animated: true }); }
-    }, [activeTab]);
 
     // ── Save logic — single Save fans out to two endpoints in parallel ──
     const handleSaveAll = async () => {

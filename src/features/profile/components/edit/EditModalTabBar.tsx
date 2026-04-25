@@ -8,7 +8,7 @@
 //   - none
 // 'optional' tabs render an additional 'OPTIONAL' microcopy badge.
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
 import { P } from './EditModalPrimitives';
 
@@ -31,8 +31,11 @@ export function EditModalTabBar<K extends string>({ tabs, active, onChange }: Pr
     const layouts = useRef<Record<string, { x: number; w: number }>>({}).current;
     const indicatorX = useRef(new Animated.Value(0)).current;
     const indicatorW = useRef(new Animated.Value(0)).current;
-    const [, force] = useState(0); // force a re-render once layouts arrive
+    const scrollRef = useRef<ScrollView>(null);
 
+    // When `active` changes, animate the pill to the new tab's measured rect.
+    // First-render initialization (when no animation is wanted) happens
+    // synchronously inside the active tab's `onLayout` below.
     useEffect(() => {
         const l = layouts[active as string];
         if (!l) return;
@@ -40,11 +43,14 @@ export function EditModalTabBar<K extends string>({ tabs, active, onChange }: Pr
             Animated.timing(indicatorX, { toValue: l.x, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
             Animated.timing(indicatorW, { toValue: l.w, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
         ]).start();
-    }, [active, layouts]);
+        // Center the active tab horizontally in the scroll view.
+        scrollRef.current?.scrollTo({ x: Math.max(0, l.x + l.w / 2 - 160), animated: true });
+    }, [active]);
 
     return (
         <View style={{ borderBottomWidth: 1, borderBottomColor: P.border }}>
             <ScrollView
+                ref={scrollRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10, gap: 6 }}>
@@ -77,7 +83,6 @@ export function EditModalTabBar<K extends string>({ tabs, active, onChange }: Pr
                                             indicatorX.setValue(x);
                                             indicatorW.setValue(width);
                                         }
-                                        force(n => n + 1);
                                     }}
                                     style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 14 }}>
                                     <Icon size={14} color={isActive ? P.textPrimary : P.textMuted} />

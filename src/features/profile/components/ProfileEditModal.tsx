@@ -128,6 +128,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const [experience, setExperience] = useState<ExperienceEntry[]>([]);
 
     const [dirtyTabs, setDirtyTabs] = useState<Set<TabKey>>(new Set());
+    const [discardPromptVisible, setDiscardPromptVisible] = useState(false);
     const markDirty = (tab: TabKey) => setDirtyTabs(prev => {
         if (prev.has(tab)) return prev;
         const next = new Set(prev);
@@ -175,7 +176,23 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         if (isVisible) { Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 180 }).start(); }
         else { slideAnim.setValue(SCREEN_HEIGHT); }
     }, [isVisible]);
-    const handleClose = () => { Animated.timing(slideAnim, { toValue: SCREEN_HEIGHT, duration: 200, useNativeDriver: true }).start(() => closeSheet()); };
+    const handleClose = () => {
+        if (dirtyTabs.size > 0) {
+            setDiscardPromptVisible(true);
+            return;
+        }
+        Animated.timing(slideAnim, { toValue: SCREEN_HEIGHT, duration: 200, useNativeDriver: true })
+            .start(() => closeSheet());
+    };
+
+    const handleConfirmDiscard = () => {
+        setDiscardPromptVisible(false);
+        setDirtyTabs(new Set());
+        Animated.timing(slideAnim, { toValue: SCREEN_HEIGHT, duration: 200, useNativeDriver: true })
+            .start(() => closeSheet());
+    };
+
+    const handleKeepEditing = () => setDiscardPromptVisible(false);
 
     useEffect(() => {
         const idx = visibleTabs.findIndex(t => t.key === activeTab);
@@ -653,7 +670,12 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                             </View>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: P.border }}>
                                 <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 18, color: P.textPrimary, letterSpacing: -0.3 }}>Edit Profile</Text>
-                                <TouchableOpacity onPress={handleClose} style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' }}><X size={16} color={P.textSecondary} /></TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={handleClose}
+                                    accessibilityLabel="Close edit modal"
+                                    style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' }}>
+                                    <X size={16} color={P.textSecondary} />
+                                </TouchableOpacity>
                             </View>
 
                             {/* Tab Bar — per-tab accent colors */}
@@ -701,6 +723,37 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                     </LinearGradient>
                                 </Pressable>
                             </View>
+
+                            {discardPromptVisible && (
+                                <View style={{
+                                    position: 'absolute', left: 0, right: 0, bottom: 0,
+                                    backgroundColor: P.surface, borderTopWidth: 1, borderTopColor: P.border,
+                                    padding: 20, gap: 12, zIndex: 100,
+                                }}>
+                                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 14, color: P.textPrimary }}>
+                                        You have unsaved changes
+                                    </Text>
+                                    <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textSecondary }}>
+                                        Discard them?
+                                    </Text>
+                                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                                        <TouchableOpacity
+                                            onPress={handleKeepEditing}
+                                            style={{ flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: P.border, alignItems: 'center' }}>
+                                            <Text style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                                Keep editing
+                                            </Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={handleConfirmDiscard}
+                                            style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: P.danger, alignItems: 'center' }}>
+                                            <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                                Discard
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            )}
 
                         </TouchableOpacity>
                     </Animated.View>

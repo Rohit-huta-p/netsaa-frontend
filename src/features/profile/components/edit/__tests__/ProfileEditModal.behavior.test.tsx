@@ -115,3 +115,25 @@ describe('ProfileEditModal — 8 tabs always visible', () => {
         expect(getAllByText('OPTIONAL').length).toBeGreaterThanOrEqual(2);
     });
 });
+
+describe('ProfileEditModal — discard prompt', () => {
+    it('shows a discard sheet when closing with dirty edits', () => {
+        const { getByPlaceholderText, getByLabelText, queryByText } = render(
+            <ProfileEditModal profileData={baseProfile} />
+        );
+        fireEvent.changeText(getByPlaceholderText('Your name'), 'Pending');
+        fireEvent.press(getByLabelText('Close edit modal'));
+        expect(queryByText(/unsaved changes/i)).toBeTruthy();
+    });
+
+    it('Keep editing dismisses the discard sheet, modal stays', () => {
+        const { getByPlaceholderText, getByLabelText, getByText, queryByText } = render(
+            <ProfileEditModal profileData={baseProfile} />
+        );
+        fireEvent.changeText(getByPlaceholderText('Your name'), 'Pending');
+        fireEvent.press(getByLabelText('Close edit modal'));
+        fireEvent.press(getByText(/keep editing/i));
+        expect(queryByText(/unsaved changes/i)).toBeNull();
+        expect(getByPlaceholderText('Your name').props.value).toBe('Pending');
+    });
+});

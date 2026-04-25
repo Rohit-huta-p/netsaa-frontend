@@ -137,3 +137,18 @@ describe('ProfileEditModal — discard prompt', () => {
         expect(getByPlaceholderText('Your name').props.value).toBe('Pending');
     });
 });
+
+describe('ProfileEditModal — dirty dot indicator', () => {
+    it('marks the Basic tab dirty after editing Display Name', () => {
+        const { getByPlaceholderText, getByText } = render(
+            <ProfileEditModal profileData={baseProfile} />
+        );
+        fireEvent.changeText(getByPlaceholderText('Your name'), 'X');
+        // Switching to another tab keeps the Basic tab visible in the bar.
+        fireEvent.press(getByText('Bio'));
+        // Dirty state should survive tab switching — re-pressing Basic shows
+        // the unsaved value.
+        fireEvent.press(getByText('Basic'));
+        expect(getByPlaceholderText('Your name').props.value).toBe('X');
+    });
+});

@@ -23,6 +23,7 @@ import { ProfileData, ExperienceEntry } from '@/components/profile/types';
 import { AITextInput } from '@/components/ui/AITextInput';
 import { Field, Input, MiniField, P } from './edit/EditModalPrimitives';
 import { EditModalToast, type ToastState } from './edit/EditModalToast';
+import { EditModalTabBar } from './edit/EditModalTabBar';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -700,31 +701,19 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                 </TouchableOpacity>
                             </View>
 
-                            {/* Tab Bar — per-tab accent colors */}
-                            <View style={{ borderBottomWidth: 1, borderBottomColor: P.border }}>
-                                <ScrollView ref={tabScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10, gap: 6 }}>
-                                    {visibleTabs.map((tab) => {
-                                        const isActive = activeTab === tab.key;
-                                        const isComplete = tab.checkComplete(profileData);
-                                        const TabIcon = tab.icon;
-                                        return (
-                                            <Pressable key={tab.key} onPress={() => setActiveTab(tab.key)}
-                                                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 14 }}>
-                                                <TabIcon size={14} color={isActive ? P.textPrimary : P.textMuted} />
-                                                <Text style={{ fontFamily: isActive ? 'Outfit-Bold' : 'Outfit-Medium', fontSize: 12, color: isActive ? P.textPrimary : P.textSecondary }}>
-                                                    {tab.label}
-                                                </Text>
-                                                {tab.optional && (
-                                                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 8, color: P.gold, letterSpacing: 1, textTransform: 'uppercase' }}>
-                                                        OPTIONAL
-                                                    </Text>
-                                                )}
-                                                {isComplete && <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: P.green }} />}
-                                            </Pressable>
-                                        );
-                                    })}
-                                </ScrollView>
-                            </View>
+                            {/* Tab Bar — animated pill + dirty/complete dots */}
+                            <EditModalTabBar
+                                tabs={visibleTabs.map(t => ({
+                                    key: t.key,
+                                    label: t.label,
+                                    icon: t.icon,
+                                    optional: t.optional,
+                                    isComplete: t.checkComplete(profileData),
+                                    isDirty: dirtyTabs.has(t.key),
+                                }))}
+                                active={activeTab}
+                                onChange={setActiveTab}
+                            />
 
                             {/* Content */}
                             <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 120 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>

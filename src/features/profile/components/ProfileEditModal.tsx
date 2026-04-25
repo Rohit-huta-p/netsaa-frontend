@@ -236,9 +236,19 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         }
 
         try {
+            // Track index of each task so we can match results back to which endpoint
+            // they came from. Order: [artist?, organizer?] — depending on which has work.
             const tasks: Array<Promise<any>> = [];
-            if (Object.keys(artistPayload).length > 0) tasks.push(authService.updateProfile(artistPayload));
-            if (Object.keys(organizerPayload).length > 0) tasks.push(authService.updateOrganizer(organizerPayload));
+            let artistTaskIndex = -1;
+            let organizerTaskIndex = -1;
+            if (Object.keys(artistPayload).length > 0) {
+                artistTaskIndex = tasks.length;
+                tasks.push(authService.updateProfile(artistPayload));
+            }
+            if (Object.keys(organizerPayload).length > 0) {
+                organizerTaskIndex = tasks.length;
+                tasks.push(authService.updateOrganizer(organizerPayload));
+            }
 
             const results = await Promise.allSettled(tasks);
             const rejected = results.filter(r => r.status === 'rejected');
@@ -248,15 +258,22 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                 return;
             }
 
-            // Merge successful artist updates into authStore
-            const fulfilled = results.filter(r => r.status === 'fulfilled') as Array<PromiseFulfilledResult<any>>;
-            if (fulfilled.length > 0) {
-                const merged: any = { ...user };
-                fulfilled.forEach(r => Object.assign(merged, r.value));
-                setAuth({ user: merged, accessToken: accessToken || '' });
+            // Merge successful results into authStore. Artist result spreads at the
+            // top level (matches how /auth/me responses have always been merged).
+            // Organizer result lands under user.organizerDetails — preserves the
+            // shape that downstream consumers (mapUserToProfileData, ProfileScreen)
+            // already read from. Spreading the Organizer doc at the top level
+            // would clobber user._id with the organizer doc's own _id.
+            const merged: any = { ...user };
+            if (artistTaskIndex !== -1 && results[artistTaskIndex].status === 'fulfilled') {
+                Object.assign(merged, (results[artistTaskIndex] as PromiseFulfilledResult<any>).value);
             }
+            if (organizerTaskIndex !== -1 && results[organizerTaskIndex].status === 'fulfilled') {
+                merged.organizerDetails = (results[organizerTaskIndex] as PromiseFulfilledResult<any>).value;
+            }
+            setAuth({ user: merged, accessToken: accessToken || '' });
 
-            setSavedSection('header'); // reuse for the green button flash
+            setSavedSection(activeTab); // green button flash on whichever tab the user is on
             setDirtyTabs(new Set());
             setTimeout(() => setSavedSection(null), 2000);
         } catch (err) {

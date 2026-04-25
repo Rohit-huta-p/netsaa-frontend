@@ -12,6 +12,7 @@ import {
     Users, Home, Landmark, Tag,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import { Video as ExpoVideo, ResizeMode } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { uploadMediaFlow, validateMediaFile, isLargeFile } from "@/utils/upload";
@@ -89,10 +90,15 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const { activeSheet, closeSheet, highlightMissing } = useProfileUiStore();
     const { user, setAuth, accessToken } = useAuthStore();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+    const fadeAnim = useRef(new Animated.Value(1)).current;
     const section = activeSheet;
     const isVisible = !!section;
     const initialTab = section ? (SECTION_TO_TAB[section] || 'header') : 'header';
     const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+    const handleTabChange = (k: TabKey) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        setActiveTab(k);
+    };
     const [isSaving, setIsSaving] = useState(false);
     const [savedSection, setSavedSection] = useState<TabKey | null>(null);
     const [expandedEntries, setExpandedEntries] = useState<Set<number>>(new Set());
@@ -179,12 +185,21 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         if (isVisible) { Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 180 }).start(); }
         else { slideAnim.setValue(SCREEN_HEIGHT); }
     }, [isVisible]);
+
+    // ── Tab cross-fade ──
+    useEffect(() => {
+        Animated.sequence([
+            Animated.timing(fadeAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
+            Animated.timing(fadeAnim, { toValue: 1, duration: 160, useNativeDriver: true }),
+        ]).start();
+    }, [activeTab]);
     const handleClose = () => {
         if (discardPromptVisible) {
             setDiscardPromptVisible(false);
             return;
         }
         if (dirtyTabs.size > 0) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
             setDiscardPromptVisible(true);
             return;
         }
@@ -306,6 +321,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             }
             setAuth({ user: merged, accessToken: accessToken || '' });
 
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             setToast({ visible: true, variant: 'success', message: 'Profile updated' });
             setSavedSection(activeTab); // green button flash on whichever tab the user is on
             setDirtyTabs(new Set());
@@ -382,8 +398,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                     </View>
                     <View style={{ flex: 1, minWidth: 80, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: P.border, padding: 10 }}>
                         <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Skin Tone</Text>
-                        <View style={{ flexDirection: 'row', gap: 4 }}>
-                            {SKIN_TONES.slice(0, 5).map(t => (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                            {SKIN_TONES.map(t => (
                                 <TouchableOpacity key={t.label} onPress={() => { setSkinTone(t.label); setSkinToneHex(t.hex); markDirty('about'); }}
                                     style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: t.hex, borderWidth: 2, borderColor: skinTone === t.label ? P.gold : 'transparent' }}>
                                     {skinTone === t.label && <Check size={10} color={t.hex === '#fcd9b8' || t.hex === '#f0cbb0' ? '#000' : '#fff'} style={{ alignSelf: 'center', marginTop: 3 }} />}
@@ -706,12 +722,14 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                     isDirty: dirtyTabs.has(t.key),
                                 }))}
                                 active={activeTab}
-                                onChange={setActiveTab}
+                                onChange={handleTabChange}
                             />
 
                             {/* Content */}
                             <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 120 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                                {renderActiveTab()}
+                                <Animated.View style={{ opacity: fadeAnim }}>
+                                    {renderActiveTab()}
+                                </Animated.View>
                             </ScrollView>
 
                             {/* Footer — per-tab gradient */}

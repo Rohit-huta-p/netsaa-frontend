@@ -125,4 +125,25 @@ describe('ProfileEditModal — toast feedback', () => {
         const toast = await findByText(/Couldn't save Basic/);
         expect(toast).toBeTruthy();
     });
+
+    it('only labels the failed group when one endpoint rejects with edits across both', async () => {
+        mockUpdateOrganizer.mockRejectedValueOnce(new Error('500'));
+        // mockUpdateProfile defaults to resolved — both endpoints fire because
+        // both tabs are dirty, only the organizer one rejects.
+        const { getByPlaceholderText, getByText, findByText, queryByText } = render(
+            <ProfileEditModal profileData={profile} />
+        );
+        // Edit Basic (artist-side)
+        fireEvent.changeText(getByPlaceholderText('Your name'), 'Aarav');
+        // Switch to Org tab and edit Org Name (organizer-side)
+        fireEvent.press(getByText('Org'));
+        fireEvent.changeText(getByPlaceholderText('Organization name'), 'Studio X');
+        fireEvent.press(getByText('Save changes'));
+
+        // Toast labels Org (and possibly Billing if dirty), but not Basic.
+        const toast = await findByText(/Couldn't save Org/);
+        expect(toast).toBeTruthy();
+        // The artist-side tabs should NOT appear in the toast text.
+        expect(queryByText(/Couldn't save.*Basic/)).toBeNull();
+    });
 });

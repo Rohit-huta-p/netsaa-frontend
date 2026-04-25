@@ -508,7 +508,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const renderBilling = () => (
         <>
             <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 }}>Billing Details</Text>
-            <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginBottom: 20 }}>Official information for invoicing</Text>
+            <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginBottom: 20 }}>Optional — only required if you'll invoice as a registered business.</Text>
             {/* Group 1: Business Identity */}
             <View style={{ borderLeftWidth: 2, borderLeftColor: `${P.gold}30`, paddingLeft: 16, backgroundColor: `${P.gold}02`, borderRadius: 14, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 16, marginBottom: 20 }}>
                 <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 14 }}>Business Identity</Text>

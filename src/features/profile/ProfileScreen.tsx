@@ -693,7 +693,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
             </ScrollView>
 
             {/* ═══ 17. PROFILE EDIT MODAL ═══ */}
-            {isOwner && <ProfileEditModal profileData={profileData} isOrganizer={true} />}
+            {isOwner && <ProfileEditModal profileData={profileData} />}
 
             {/* ═══ CONNECTION REQUEST SHEET ═══ */}
             {!isOwner && showRequestSheet && (

@@ -43,25 +43,33 @@ const HEIGHT_OPTIONS = Array.from({ length: 37 }, (_, i) => {
 
 // ── Tab definitions ──
 type TabKey = 'header' | 'about' | 'identity' | 'experience' | 'media' | 'socials' | 'organization' | 'billing';
-interface TabDef { key: TabKey; label: string; icon: any; color: string; gradient: [string, string]; orgOnly?: boolean; checkComplete: (d: ProfileData) => boolean; }
+interface TabDef {
+    key: TabKey;
+    label: string;
+    icon: any;
+    color: string;
+    gradient: [string, string];
+    optional?: boolean;
+    checkComplete: (d: ProfileData) => boolean;
+}
 
 const TABS: TabDef[] = [
     { key: 'header', label: 'Basic', icon: UserIcon, color: P.orange, gradient: [P.orange, P.gold],
         checkComplete: (d) => !!(d.fullName && d.location && d.artistType) },
-    { key: 'about', label: 'About', icon: FileText, color: P.gold, gradient: [P.gold, '#D97706'],
+    { key: 'about', label: 'Bio', icon: FileText, color: P.gold, gradient: [P.gold, '#D97706'],
         checkComplete: (d) => !!(d.bio && d.bio.length >= 50) },
     { key: 'identity', label: 'Skills', icon: Zap, color: P.pink, gradient: [P.pink, P.orange],
         checkComplete: (d) => d.skills.length >= 1 },
-    { key: 'experience', label: 'History', icon: Briefcase, color: P.cyan, gradient: [P.cyan, '#0891B2'],
+    { key: 'experience', label: 'Experience', icon: Briefcase, color: P.cyan, gradient: [P.cyan, '#0891B2'],
         checkComplete: (d) => d.experience.length >= 1 },
     { key: 'media', label: 'Media', icon: ImageIcon, color: P.green, gradient: [P.green, '#059669'],
         checkComplete: (d) => !!(d.profileImageUrl || (d.galleryUrls && d.galleryUrls.filter(Boolean).length >= 1)) },
     { key: 'socials', label: 'Social', icon: Link2, color: '#E040A0', gradient: ['#E040A0', P.pink],
         checkComplete: (d) => !!(d.instagramHandle || d.youtubeUrl) },
     { key: 'organization', label: 'Org', icon: Building2, color: P.cyan, gradient: [P.cyan, '#0891B2'],
-        orgOnly: true, checkComplete: (d) => !!(d.organizationName) },
+        optional: true, checkComplete: (d) => !!(d.organizationName) },
     { key: 'billing', label: 'Billing', icon: CreditCard, color: P.gold, gradient: [P.gold, P.orange],
-        orgOnly: true, checkComplete: () => false },
+        optional: true, checkComplete: () => false },
 ];
 
 const SECTION_TO_TAB: Record<string, TabKey> = {
@@ -122,7 +130,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const [uploadingState, setUploadingState] = useState<any>({});
     const [experience, setExperience] = useState<ExperienceEntry[]>([]);
 
-    const visibleTabs = TABS.filter(t => !t.orgOnly || isOrganizer);
+    const visibleTabs = TABS;
 
     // ── Reset form (unchanged) ──
     useEffect(() => {
@@ -352,16 +360,10 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                     </Pressable>
                                     {isExpanded && (
                                         <View style={{ gap: 10, marginTop: 14, borderTopWidth: 1, borderTopColor: `${P.cyan}10`, paddingTop: 14 }}>
-                                            {!isOrganizer ? (<>
-                                                <MiniField label="Role / Title"><Input placeholder="Lead Singer" value={exp.role ?? exp.title ?? ''} onChangeText={(v) => handleChange(index, 'role', v)} /></MiniField>
-                                                <MiniField label="Production / Project"><Input placeholder="The Grand Show" value={exp.projectName || ''} onChangeText={(v) => handleChange(index, 'projectName', v)} /></MiniField>
-                                                <MiniField label="Organization"><Input placeholder="Moonlight Studios" value={exp.organization || ''} onChangeText={(v) => handleChange(index, 'organization', v)} /></MiniField>
-                                            </>) : (<>
-                                                <MiniField label="Event Title"><Input placeholder="Summer Fest 2024" value={exp.projectName ?? exp.title ?? ''} onChangeText={(v) => handleChange(index, 'projectName', v)} /></MiniField>
-                                                <MiniField label="Organization"><Input placeholder="Live Events Co." value={exp.organization || ''} onChangeText={(v) => handleChange(index, 'organization', v)} /></MiniField>
-                                                <MiniField label="Role"><Input placeholder="Event Manager" value={exp.role || ''} onChangeText={(v) => handleChange(index, 'role', v)} /></MiniField>
-                                                <MiniField label="Location"><Input placeholder="Main Stadium" value={exp.location ?? exp.venue ?? ''} onChangeText={(v) => handleChange(index, 'location', v)} /></MiniField>
-                                            </>)}
+                                            <MiniField label="Role / Title"><Input placeholder="Lead Singer" value={exp.role ?? exp.title ?? ''} onChangeText={(v) => handleChange(index, 'role', v)} /></MiniField>
+                                            <MiniField label="Production / Project"><Input placeholder="Summer Fest 2024" value={exp.projectName ?? exp.title ?? ''} onChangeText={(v) => handleChange(index, 'projectName', v)} /></MiniField>
+                                            <MiniField label="Organization"><Input placeholder="Moonlight Studios" value={exp.organization || ''} onChangeText={(v) => handleChange(index, 'organization', v)} /></MiniField>
+                                            <MiniField label="Location"><Input placeholder="Main Stadium" value={exp.location ?? exp.venue ?? ''} onChangeText={(v) => handleChange(index, 'location', v)} /></MiniField>
                                             <AITextInput label="Description" placeholder="Describe your role..." value={exp.description || ''} onChangeText={(val: string) => handleChange(index, 'description', val)} />
                                             <MiniField label="Date"><Input placeholder="MM - YYYY or range" value={exp.date || ''} onChangeText={(v) => handleChange(index, 'date', v)} /></MiniField>
                                         </View>
@@ -478,6 +480,9 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     ];
     const renderOrganization = () => (
         <>
+            <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginBottom: 16 }}>
+                Optional — fill this in when you want to post gigs as an organization.
+            </Text>
             <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.cyan, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Type</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
                 {ORG_TYPES.map(type => {
@@ -492,7 +497,9 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             </View>
             <View style={{ height: 1, backgroundColor: P.border, marginBottom: 20 }} />
             <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.cyan, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Details</Text>
-            <Field label="Organization Name"><Input value={orgName} onChangeText={setOrgName} placeholder="Organization name" /></Field>
+            <Field label="Organization Name" highlighted={isFieldMissing('organization')} accent={P.cyan}>
+                <Input value={orgName} onChangeText={setOrgName} placeholder="Organization name" />
+            </Field>
             <Field label="Website"><Input value={orgWebsite} onChangeText={setOrgWebsite} placeholder="https://..." /></Field>
         </>
     );
@@ -569,7 +576,14 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                             <Pressable key={tab.key} onPress={() => setActiveTab(tab.key)}
                                                 style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 14 }}>
                                                 <TabIcon size={14} color={isActive ? P.textPrimary : P.textMuted} />
-                                                <Text style={{ fontFamily: isActive ? 'Outfit-Bold' : 'Outfit-Medium', fontSize: 12, color: isActive ? P.textPrimary : P.textSecondary }}>{tab.label}</Text>
+                                                <Text style={{ fontFamily: isActive ? 'Outfit-Bold' : 'Outfit-Medium', fontSize: 12, color: isActive ? P.textPrimary : P.textSecondary }}>
+                                                    {tab.label}
+                                                </Text>
+                                                {tab.optional && (
+                                                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 8, color: P.gold, letterSpacing: 1, textTransform: 'uppercase' }}>
+                                                        OPTIONAL
+                                                    </Text>
+                                                )}
                                                 {isComplete && <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: P.green }} />}
                                             </Pressable>
                                         );

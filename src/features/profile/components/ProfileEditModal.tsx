@@ -84,9 +84,6 @@ type Props = { profileData: ProfileData };
 //  MAIN COMPONENT
 // ══════════════════════════════════════════
 export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
-    // Temporary: preserves prior behavior in non-renderHeader code paths
-    // until subsequent tasks fully decouple the modal from role-gating.
-    const isOrganizer = true;
     const { activeSheet, closeSheet, highlightMissing } = useProfileUiStore();
     const { user, setAuth, accessToken } = useAuthStore();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -130,13 +127,21 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const [uploadingState, setUploadingState] = useState<any>({});
     const [experience, setExperience] = useState<ExperienceEntry[]>([]);
 
+    const [dirtyTabs, setDirtyTabs] = useState<Set<TabKey>>(new Set());
+    const markDirty = (tab: TabKey) => setDirtyTabs(prev => {
+        if (prev.has(tab)) return prev;
+        const next = new Set(prev);
+        next.add(tab);
+        return next;
+    });
+
     const visibleTabs = TABS;
 
     // ── Reset form (unchanged) ──
     useEffect(() => {
         if (!isVisible) return;
         const tab = section ? (SECTION_TO_TAB[section] || 'header') : 'header';
-        setActiveTab(tab); setSavedSection(null); setExpandedEntries(new Set());
+        setActiveTab(tab); setSavedSection(null); setExpandedEntries(new Set()); setDirtyTabs(new Set());
         setDisplayName(profileData.fullName || ''); setHeadline(profileData.headline || '');
         setArtistType(profileData.artistType || ''); setLocation(profileData.location || '');
         setOrgName(profileData.organizationName || ''); setBio(profileData.bio || '');
@@ -177,38 +182,95 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         if (idx >= 0 && tabScrollRef.current) { tabScrollRef.current.scrollTo({ x: Math.max(0, idx * 88 - SCREEN_WIDTH / 2 + 44), animated: true }); }
     }, [activeTab]);
 
-    // ── Save logic (unchanged) ──
-    const handleSaveSection = async () => {
+    // ── Save logic — single Save fans out to two endpoints in parallel ──
+    const handleSaveAll = async () => {
         if (!user) return;
-        if (activeTab === 'experience') {
+        if (dirtyTabs.has('experience')) {
             const missingDateIndex = experience.findIndex(exp => !exp.date?.trim());
-            if (missingDateIndex !== -1) { Alert.alert("Missing Date", `Please enter a Date for Entry ${missingDateIndex + 1}.`); return; }
-        }
-        setIsSaving(true);
-        try {
-            let payload: any = {};
-            switch (activeTab) {
-                case 'header': payload = { displayName, headline, artistType, location }; break;
-                case 'about': payload = { bio, age, height, skinTone, skinToneHex }; break;
-                case 'identity': payload = { skills }; break;
-                case 'experience': payload = { experience }; break;
-                case 'media': payload = { profileImageUrl, galleryUrls: galleryUrls.filter(Boolean), videoUrls: videoUrls.filter(Boolean), hasPhotos: galleryUrls.some(Boolean) || !!profileImageUrl }; break;
-                case 'socials': payload = { ...socials }; break;
-                case 'organization':
-                    if (isOrganizer) { const r = await authService.updateOrganizer({ organizationName: orgName, organizerTypeCategory: orgType, organizationWebsite: orgWebsite }); setAuth({ user: { ...user, organizerDetails: r }, accessToken: accessToken || '' }); setSavedSection(activeTab); setTimeout(() => setSavedSection(null), 2000); return; } break;
-                case 'billing':
-                    if (isOrganizer) { await authService.updateOrganizer({ billingDetails: { legalBusinessName, gstNumber, billingAddress, state: billingState, pincode, country } }); setSavedSection(activeTab); setTimeout(() => setSavedSection(null), 2000); return; } break;
+            if (missingDateIndex !== -1) {
+                Alert.alert('Missing Date', `Please enter a Date for Entry ${missingDateIndex + 1}.`);
+                return;
             }
-            if (Object.keys(payload).length > 0) { const u = await authService.updateProfile(payload); setAuth({ user: { ...user, ...u }, accessToken: accessToken || '' }); }
-            setSavedSection(activeTab); setTimeout(() => setSavedSection(null), 2000);
-        } catch (err) { console.error('[ProfileEditModal] Save failed:', err); Alert.alert('Save Failed', 'Could not save changes. Try again.'); }
-        finally { setIsSaving(false); }
+        }
+
+        setIsSaving(true);
+
+        // Compose payloads from dirty tabs
+        const artistPayload: any = {};
+        const organizerPayload: any = {};
+
+        if (dirtyTabs.has('header')) {
+            Object.assign(artistPayload, { displayName, headline, artistType, location });
+        }
+        if (dirtyTabs.has('about')) {
+            Object.assign(artistPayload, { bio, age, height, skinTone, skinToneHex });
+        }
+        if (dirtyTabs.has('identity')) {
+            Object.assign(artistPayload, { skills });
+        }
+        if (dirtyTabs.has('experience')) {
+            Object.assign(artistPayload, { experience });
+        }
+        if (dirtyTabs.has('media')) {
+            Object.assign(artistPayload, {
+                profileImageUrl,
+                galleryUrls: galleryUrls.filter(Boolean),
+                videoUrls: videoUrls.filter(Boolean),
+                hasPhotos: galleryUrls.some(Boolean) || !!profileImageUrl,
+            });
+        }
+        if (dirtyTabs.has('socials')) {
+            Object.assign(artistPayload, { ...socials });
+        }
+        if (dirtyTabs.has('organization')) {
+            Object.assign(organizerPayload, {
+                organizationName: orgName,
+                organizerTypeCategory: orgType,
+                organizationWebsite: orgWebsite,
+            });
+        }
+        if (dirtyTabs.has('billing')) {
+            Object.assign(organizerPayload, {
+                billingDetails: { legalBusinessName, gstNumber, billingAddress, state: billingState, pincode, country },
+            });
+        }
+
+        try {
+            const tasks: Array<Promise<any>> = [];
+            if (Object.keys(artistPayload).length > 0) tasks.push(authService.updateProfile(artistPayload));
+            if (Object.keys(organizerPayload).length > 0) tasks.push(authService.updateOrganizer(organizerPayload));
+
+            const results = await Promise.allSettled(tasks);
+            const rejected = results.filter(r => r.status === 'rejected');
+            if (rejected.length > 0) {
+                const failedTabName = visibleTabs.find(t => dirtyTabs.has(t.key))?.label || 'changes';
+                Alert.alert('Save Failed', `Couldn't save ${failedTabName}. Try again.`);
+                return;
+            }
+
+            // Merge successful artist updates into authStore
+            const fulfilled = results.filter(r => r.status === 'fulfilled') as Array<PromiseFulfilledResult<any>>;
+            if (fulfilled.length > 0) {
+                const merged: any = { ...user };
+                fulfilled.forEach(r => Object.assign(merged, r.value));
+                setAuth({ user: merged, accessToken: accessToken || '' });
+            }
+
+            setSavedSection('header'); // reuse for the green button flash
+            setDirtyTabs(new Set());
+            setTimeout(() => setSavedSection(null), 2000);
+        } catch (err) {
+            console.error('[ProfileEditModal] Save failed:', err);
+            Alert.alert('Save Failed', 'Could not save changes. Try again.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const isFieldMissing = (keyword: string) => highlightMissing.some(m => m.toLowerCase().includes(keyword.toLowerCase()));
     const filteredSkills = SKILL_OPTIONS.filter(s => s.toLowerCase().includes(skillSearch.toLowerCase()) && !skills.includes(s));
     const exactMatch = SKILL_OPTIONS.find(s => s.toLowerCase() === skillSearch.toLowerCase());
-    const toggleSkill = (skill: string) => { setSkills(prev => (prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill])); setSkillSearch(''); setShowSkillDropdown(false); };
+    const toggleSkill = (skill: string) => { setSkills(prev => (prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill])); setSkillSearch(''); setShowSkillDropdown(false); markDirty('identity'); };
     const filteredHeights = HEIGHT_OPTIONS.filter(h => h.includes(heightSearch));
 
     // ══════════════════════════════════
@@ -216,81 +278,87 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     // ══════════════════════════════════
 
     // ── TAB 1: BASIC — Profile Card Preview ──
-    const renderHeader = () => (
-        <>
-            {/* Live preview card */}
-            <View style={{ borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: `${P.orange}20`, paddingVertical: 24, paddingHorizontal: 20, marginBottom: 24, borderLeftWidth: 3, borderLeftColor: `${P.orange}99`, position: 'relative' }}>
-                <View style={{ alignItems: 'center', gap: 4 }}>
-                    <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: displayName ? P.textPrimary : P.textMuted }}>{displayName || 'Your Name'}</Text>
-                    {headline ? <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textSecondary }}>{headline}</Text> : null}
-                    {artistType ? <View style={{ paddingVertical: 2, paddingHorizontal: 10, borderRadius: 100, backgroundColor: `${P.orange}10`, borderWidth: 1, borderColor: `${P.orange}20`, marginTop: 4 }}><Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.orange, textTransform: 'uppercase', letterSpacing: 2 }}>{artistType}</Text></View> : null}
-                    {location ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}><MapPin size={10} color={P.textMuted} /><Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted }}>{location}</Text></View> : null}
+    const renderHeader = () => {
+        const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('header'); };
+        return (
+            <>
+                {/* Live preview card */}
+                <View style={{ borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: `${P.orange}20`, paddingVertical: 24, paddingHorizontal: 20, marginBottom: 24, borderLeftWidth: 3, borderLeftColor: `${P.orange}99`, position: 'relative' }}>
+                    <View style={{ alignItems: 'center', gap: 4 }}>
+                        <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: displayName ? P.textPrimary : P.textMuted }}>{displayName || 'Your Name'}</Text>
+                        {headline ? <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textSecondary }}>{headline}</Text> : null}
+                        {artistType ? <View style={{ paddingVertical: 2, paddingHorizontal: 10, borderRadius: 100, backgroundColor: `${P.orange}10`, borderWidth: 1, borderColor: `${P.orange}20`, marginTop: 4 }}><Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.orange, textTransform: 'uppercase', letterSpacing: 2 }}>{artistType}</Text></View> : null}
+                        {location ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}><MapPin size={10} color={P.textMuted} /><Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted }}>{location}</Text></View> : null}
+                    </View>
                 </View>
-            </View>
-            <View style={{ height: 1, backgroundColor: P.border, marginBottom: 20 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}><Edit3 size={12} color={P.orange} /><Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.orange, textTransform: 'uppercase', letterSpacing: 2 }}>Edit Details</Text></View>
-            <Field label="Display Name" highlighted={isFieldMissing('display name')} accent={P.orange}>
-                <Input value={displayName} onChangeText={setDisplayName} placeholder="Your name" />
-            </Field>
-            <Field label="Headline"><Input value={headline} onChangeText={setHeadline} placeholder="Singer | Performer | 5+ years" /></Field>
-            <Field label="Artist Type" highlighted={isFieldMissing('artist type')} accent={P.orange}>
-                <Input value={artistType} onChangeText={setArtistType} placeholder="Dancer, Singer..." />
-            </Field>
-            <Field label="Location" highlighted={isFieldMissing('location')} accent={P.orange}><Input value={location} onChangeText={setLocation} placeholder="City, Country" /></Field>
-        </>
-    );
+                <View style={{ height: 1, backgroundColor: P.border, marginBottom: 20 }} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}><Edit3 size={12} color={P.orange} /><Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.orange, textTransform: 'uppercase', letterSpacing: 2 }}>Edit Details</Text></View>
+                <Field label="Display Name" highlighted={isFieldMissing('display name')} accent={P.orange}>
+                    <Input value={displayName} onChangeText={set(setDisplayName)} placeholder="Your name" />
+                </Field>
+                <Field label="Headline"><Input value={headline} onChangeText={set(setHeadline)} placeholder="Singer | Performer | 5+ years" /></Field>
+                <Field label="Artist Type" highlighted={isFieldMissing('artist type')} accent={P.orange}>
+                    <Input value={artistType} onChangeText={set(setArtistType)} placeholder="Dancer, Singer..." />
+                </Field>
+                <Field label="Location" highlighted={isFieldMissing('location')} accent={P.orange}><Input value={location} onChangeText={set(setLocation)} placeholder="City, Country" /></Field>
+            </>
+        );
+    };
 
     // ── TAB 2: ABOUT — Editorial Canvas ──
-    const renderAbout = () => (
-        <>
-            {/* Bio with editorial gold border */}
-            <View style={{ position: 'relative', borderLeftWidth: 3, borderLeftColor: `${P.gold}40`, paddingLeft: 16, backgroundColor: `${P.gold}04`, borderRadius: 16, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, paddingVertical: 16, paddingRight: 16, marginBottom: 24 }}>
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 48, lineHeight: 48, color: `${P.gold}15`, position: 'absolute', top: -4, left: 8 }}>&ldquo;</Text>
-                {isFieldMissing('bio') && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: P.gold }} /><Text style={{ color: P.gold, fontSize: 10, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5 }}>Required</Text></View>}
-                <AITextInput label="Bio" value={bio} onChangeText={setBio} placeholder="Tell your story..." containerStyle={{ marginBottom: 0 }} />
-            </View>
-            {/* Physical specs — compact inline row */}
-            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Physical Specs</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-                <View style={{ flex: 1, minWidth: 80, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: P.border, padding: 10 }}>
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Age</Text>
-                    <TextInput value={age} onChangeText={setAge} placeholder="--" placeholderTextColor={P.textMuted} keyboardType="number-pad" style={{ fontFamily: 'Outfit-SemiBold', fontSize: 16, color: P.textPrimary, padding: 0 }} />
+    const renderAbout = () => {
+        const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('about'); };
+        return (
+            <>
+                {/* Bio with editorial gold border */}
+                <View style={{ position: 'relative', borderLeftWidth: 3, borderLeftColor: `${P.gold}40`, paddingLeft: 16, backgroundColor: `${P.gold}04`, borderRadius: 16, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, paddingVertical: 16, paddingRight: 16, marginBottom: 24 }}>
+                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 48, lineHeight: 48, color: `${P.gold}15`, position: 'absolute', top: -4, left: 8 }}>&ldquo;</Text>
+                    {isFieldMissing('bio') && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: P.gold }} /><Text style={{ color: P.gold, fontSize: 10, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5 }}>Required</Text></View>}
+                    <AITextInput label="Bio" value={bio} onChangeText={set(setBio)} placeholder="Tell your story..." containerStyle={{ marginBottom: 0 }} />
                 </View>
-                <View style={{ flex: 1, minWidth: 80, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: P.border, padding: 10 }}>
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Height</Text>
-                    <TouchableOpacity onPress={() => { setShowHeightDropdown(!showHeightDropdown); setHeightSearch(''); }}>
-                        <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 16, color: height ? P.textPrimary : P.textMuted }}>{height || '--'}</Text>
-                    </TouchableOpacity>
-                </View>
-                <View style={{ flex: 1, minWidth: 80, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: P.border, padding: 10 }}>
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Skin Tone</Text>
-                    <View style={{ flexDirection: 'row', gap: 4 }}>
-                        {SKIN_TONES.slice(0, 5).map(t => (
-                            <TouchableOpacity key={t.label} onPress={() => { setSkinTone(t.label); setSkinToneHex(t.hex); }}
-                                style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: t.hex, borderWidth: 2, borderColor: skinTone === t.label ? P.gold : 'transparent' }}>
-                                {skinTone === t.label && <Check size={10} color={t.hex === '#fcd9b8' || t.hex === '#f0cbb0' ? '#000' : '#fff'} style={{ alignSelf: 'center', marginTop: 3 }} />}
-                            </TouchableOpacity>
-                        ))}
+                {/* Physical specs — compact inline row */}
+                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Physical Specs</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                    <View style={{ flex: 1, minWidth: 80, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: P.border, padding: 10 }}>
+                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Age</Text>
+                        <TextInput value={age} onChangeText={set(setAge)} placeholder="--" placeholderTextColor={P.textMuted} keyboardType="number-pad" style={{ fontFamily: 'Outfit-SemiBold', fontSize: 16, color: P.textPrimary, padding: 0 }} />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 80, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: P.border, padding: 10 }}>
+                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Height</Text>
+                        <TouchableOpacity onPress={() => { setShowHeightDropdown(!showHeightDropdown); setHeightSearch(''); }}>
+                            <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 16, color: height ? P.textPrimary : P.textMuted }}>{height || '--'}</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 80, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: P.border, padding: 10 }}>
+                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Skin Tone</Text>
+                        <View style={{ flexDirection: 'row', gap: 4 }}>
+                            {SKIN_TONES.slice(0, 5).map(t => (
+                                <TouchableOpacity key={t.label} onPress={() => { setSkinTone(t.label); setSkinToneHex(t.hex); markDirty('about'); }}
+                                    style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: t.hex, borderWidth: 2, borderColor: skinTone === t.label ? P.gold : 'transparent' }}>
+                                    {skinTone === t.label && <Check size={10} color={t.hex === '#fcd9b8' || t.hex === '#f0cbb0' ? '#000' : '#fff'} style={{ alignSelf: 'center', marginTop: 3 }} />}
+                                </TouchableOpacity>
+                            ))}
+                        </View>
                     </View>
                 </View>
-            </View>
-            {showHeightDropdown && (
-                <View style={{ backgroundColor: P.surfaceLight, borderWidth: 1, borderColor: P.border, borderRadius: 14, maxHeight: 180, overflow: 'hidden', marginBottom: 16 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: P.border, paddingHorizontal: 12, paddingVertical: 10 }}>
-                        <Search size={14} color={P.textSecondary} />
-                        <TextInput value={heightSearch} onChangeText={setHeightSearch} placeholder="Search" placeholderTextColor={P.textMuted} style={{ flex: 1, marginLeft: 8, color: P.textPrimary, fontFamily: 'Outfit-Regular', fontSize: 14 }} autoFocus />
+                {showHeightDropdown && (
+                    <View style={{ backgroundColor: P.surfaceLight, borderWidth: 1, borderColor: P.border, borderRadius: 14, maxHeight: 180, overflow: 'hidden', marginBottom: 16 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: P.border, paddingHorizontal: 12, paddingVertical: 10 }}>
+                            <Search size={14} color={P.textSecondary} />
+                            <TextInput value={heightSearch} onChangeText={setHeightSearch} placeholder="Search" placeholderTextColor={P.textMuted} style={{ flex: 1, marginLeft: 8, color: P.textPrimary, fontFamily: 'Outfit-Regular', fontSize: 14 }} autoFocus />
+                        </View>
+                        <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 130 }}>
+                            {filteredHeights.map(opt => (
+                                <TouchableOpacity key={opt} onPress={() => { setHeight(opt); setShowHeightDropdown(false); markDirty('about'); }} style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: P.border }}>
+                                    <Text style={{ color: height === opt ? P.gold : P.textPrimary, fontFamily: height === opt ? 'Outfit-Bold' : 'Outfit-Regular', fontSize: 14 }}>{opt}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
                     </View>
-                    <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 130 }}>
-                        {filteredHeights.map(opt => (
-                            <TouchableOpacity key={opt} onPress={() => { setHeight(opt); setShowHeightDropdown(false); }} style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: P.border }}>
-                                <Text style={{ color: height === opt ? P.gold : P.textPrimary, fontFamily: height === opt ? 'Outfit-Bold' : 'Outfit-Regular', fontSize: 14 }}>{opt}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-            )}
-        </>
-    );
+                )}
+            </>
+        );
+    };
 
     // ── TAB 3: SKILLS — Tag Cloud Manager ──
     const renderIdentity = () => (
@@ -316,7 +384,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             {/* Skill pills */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {skills.map((skill, i) => (
-                    <TouchableOpacity key={i} onPress={() => setSkills(prev => prev.filter(s => s !== skill))}
+                    <TouchableOpacity key={i} onPress={() => { setSkills(prev => prev.filter(s => s !== skill)); markDirty('identity'); }}
                         style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: `${P.pink}12`, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100, borderWidth: 1, borderColor: `${P.pink}30`, transform: [{ rotate: `${(i % 3 - 1) * 0.8}deg` }] }}>
                         <Text style={{ color: P.pink, fontFamily: 'Outfit-Medium', fontSize: 13 }}>{skill}</Text>
                         <X size={12} color={P.pink} />
@@ -330,9 +398,9 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
 
     // ── TAB 4: EXPERIENCE — Timeline Editor ──
     const renderExperience = () => {
-        const handleAdd = () => { setExperience([...experience, { role: '', projectName: '', organization: '', location: '', description: '', date: '' }]); setExpandedEntries(prev => new Set(prev).add(experience.length)); };
-        const handleRemove = (index: number) => { const n = [...experience]; n.splice(index, 1); setExperience(n); };
-        const handleChange = (index: number, field: keyof ExperienceEntry, value: string) => { const n = [...experience]; n[index] = { ...n[index], [field]: value }; setExperience(n); };
+        const handleAdd = () => { setExperience([...experience, { role: '', projectName: '', organization: '', location: '', description: '', date: '' }]); setExpandedEntries(prev => new Set(prev).add(experience.length)); markDirty('experience'); };
+        const handleRemove = (index: number) => { const n = [...experience]; n.splice(index, 1); setExperience(n); markDirty('experience'); };
+        const handleChange = (index: number, field: keyof ExperienceEntry, value: string) => { const n = [...experience]; n[index] = { ...n[index], [field]: value }; setExperience(n); markDirty('experience'); };
         const toggleExpand = (index: number) => { setExpandedEntries(prev => { const n = new Set(prev); n.has(index) ? n.delete(index) : n.add(index); return n; }); };
 
         return (
@@ -398,10 +466,10 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             const purpose = type === 'profile' ? 'avatar' as const : type === 'video' ? 'portfolio' as const : 'gallery' as const;
             const result = await uploadMediaFlow({ asset, entityType: 'user', entityId: user?._id || '', purpose, onProgress: (progress) => setUploadingState((prev: any) => ({ ...prev, [uploadKey]: { ...prev[uploadKey], progress, uploading: true } })) });
             setUploadingState((prev: any) => ({ ...prev, [uploadKey]: { ...prev[uploadKey], progress: 100, uploading: false } }));
-            if (result.success && result.url) { if (type === 'profile') setProfileImageUrl(result.url!); else if (type === 'gallery' && index !== undefined) setGalleryUrls(prev => { const n = [...prev]; n[index] = result.url!; return n; }); else if (type === 'video' && index !== undefined) setVideoUrls(prev => { const n = [...prev]; n[index] = result.url!; return n; }); }
+            if (result.success && result.url) { if (type === 'profile') setProfileImageUrl(result.url!); else if (type === 'gallery' && index !== undefined) setGalleryUrls(prev => { const n = [...prev]; n[index] = result.url!; return n; }); else if (type === 'video' && index !== undefined) setVideoUrls(prev => { const n = [...prev]; n[index] = result.url!; return n; }); markDirty('media'); }
             else Alert.alert('Upload Failed', result.error || 'Unknown error');
         };
-        const removeMedia = (type: 'gallery' | 'video', index: number) => { if (type === 'gallery') setGalleryUrls(prev => { const n = [...prev]; n[index] = ''; return n; }); else setVideoUrls(prev => { const n = [...prev]; n[index] = ''; return n; }); };
+        const removeMedia = (type: 'gallery' | 'video', index: number) => { if (type === 'gallery') setGalleryUrls(prev => { const n = [...prev]; n[index] = ''; return n; }); else setVideoUrls(prev => { const n = [...prev]; n[index] = ''; return n; }); markDirty('media'); };
         const profileState = uploadingState['profile'];
 
         const MediaSlot = ({ type, index, url }: { type: 'gallery' | 'video'; index: number; url: string }) => {
@@ -459,7 +527,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                         </View>
                         <View style={{ flex: 1, gap: 4 }}>
                             <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: p.color, textTransform: 'uppercase', letterSpacing: 1.5 }}>{p.label}</Text>
-                            <TextInput value={(socials as any)[p.key]} onChangeText={t => setSocials(s => ({ ...s, [p.key]: t }))} placeholder={p.placeholder} placeholderTextColor={P.textMuted}
+                            <TextInput value={(socials as any)[p.key]} onChangeText={t => { setSocials(s => ({ ...s, [p.key]: t })); markDirty('socials'); }} placeholder={p.placeholder} placeholderTextColor={P.textMuted}
                                 style={{ backgroundColor: `${P.surface}cc`, borderWidth: 1, borderColor: P.border, borderLeftWidth: 2, borderLeftColor: `${p.color}40`, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, color: P.textPrimary, fontFamily: 'Outfit-Regular', fontSize: 14 }} autoCapitalize="none" />
                         </View>
                     </View>
@@ -478,59 +546,65 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         { label: 'Brand', value: 'brand', icon: Tag },
         { label: 'Corporate', value: 'corporate', icon: Briefcase },
     ];
-    const renderOrganization = () => (
-        <>
-            <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginBottom: 16 }}>
-                Optional — fill this in when you want to post gigs as an organization.
-            </Text>
-            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.cyan, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Type</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
-                {ORG_TYPES.map(type => {
-                    const isSelected = orgType === type.value; const OrgIcon = type.icon;
-                    return (
-                        <TouchableOpacity key={type.value} onPress={() => setOrgType(type.value)} style={{ width: (SCREEN_WIDTH - 40 - 20 - 10) / 2, minHeight: 72, backgroundColor: isSelected ? `${P.cyan}08` : 'rgba(255,255,255,0.02)', borderRadius: 16, borderWidth: 1.5, borderColor: isSelected ? P.cyan : P.border, padding: 14, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                            <OrgIcon size={20} color={isSelected ? P.cyan : P.textMuted} />
-                            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 12, color: isSelected ? P.cyan : P.textSecondary }}>{type.label}</Text>
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
-            <View style={{ height: 1, backgroundColor: P.border, marginBottom: 20 }} />
-            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.cyan, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Details</Text>
-            <Field label="Organization Name" highlighted={isFieldMissing('organization')} accent={P.cyan}>
-                <Input value={orgName} onChangeText={setOrgName} placeholder="Organization name" />
-            </Field>
-            <Field label="Website"><Input value={orgWebsite} onChangeText={setOrgWebsite} placeholder="https://..." /></Field>
-        </>
-    );
+    const renderOrganization = () => {
+        const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('organization'); };
+        return (
+            <>
+                <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginBottom: 16 }}>
+                    Optional — fill this in when you want to post gigs as an organization.
+                </Text>
+                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.cyan, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Type</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
+                    {ORG_TYPES.map(type => {
+                        const isSelected = orgType === type.value; const OrgIcon = type.icon;
+                        return (
+                            <TouchableOpacity key={type.value} onPress={() => { setOrgType(type.value); markDirty('organization'); }} style={{ width: (SCREEN_WIDTH - 40 - 20 - 10) / 2, minHeight: 72, backgroundColor: isSelected ? `${P.cyan}08` : 'rgba(255,255,255,0.02)', borderRadius: 16, borderWidth: 1.5, borderColor: isSelected ? P.cyan : P.border, padding: 14, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                <OrgIcon size={20} color={isSelected ? P.cyan : P.textMuted} />
+                                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 12, color: isSelected ? P.cyan : P.textSecondary }}>{type.label}</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+                <View style={{ height: 1, backgroundColor: P.border, marginBottom: 20 }} />
+                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.cyan, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Details</Text>
+                <Field label="Organization Name" highlighted={isFieldMissing('organization')} accent={P.cyan}>
+                    <Input value={orgName} onChangeText={set(setOrgName)} placeholder="Organization name" />
+                </Field>
+                <Field label="Website"><Input value={orgWebsite} onChangeText={set(setOrgWebsite)} placeholder="https://..." /></Field>
+            </>
+        );
+    };
 
     // ── TAB 8: BILLING — Ruled Document ──
-    const renderBilling = () => (
-        <>
-            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 }}>Billing Details</Text>
-            <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginBottom: 20 }}>Optional — only required if you'll invoice as a registered business.</Text>
-            {/* Group 1: Business Identity */}
-            <View style={{ borderLeftWidth: 2, borderLeftColor: `${P.gold}30`, paddingLeft: 16, backgroundColor: `${P.gold}02`, borderRadius: 14, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 16, marginBottom: 20 }}>
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 14 }}>Business Identity</Text>
-                <View style={{ borderBottomWidth: 1, borderBottomColor: `${P.gold}10`, paddingBottom: 20, marginBottom: 20 }}>
-                    <Field label="Legal Business Name"><Input value={legalBusinessName} onChangeText={setLegalBusinessName} placeholder="Registered business name" /></Field>
+    const renderBilling = () => {
+        const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('billing'); };
+        return (
+            <>
+                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 }}>Billing Details</Text>
+                <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginBottom: 20 }}>Optional — only required if you'll invoice as a registered business.</Text>
+                {/* Group 1: Business Identity */}
+                <View style={{ borderLeftWidth: 2, borderLeftColor: `${P.gold}30`, paddingLeft: 16, backgroundColor: `${P.gold}02`, borderRadius: 14, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 16, marginBottom: 20 }}>
+                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 14 }}>Business Identity</Text>
+                    <View style={{ borderBottomWidth: 1, borderBottomColor: `${P.gold}10`, paddingBottom: 20, marginBottom: 20 }}>
+                        <Field label="Legal Business Name"><Input value={legalBusinessName} onChangeText={set(setLegalBusinessName)} placeholder="Registered business name" /></Field>
+                    </View>
+                    <Field label="GST Number" style={{ marginBottom: 0 }}><Input value={gstNumber} onChangeText={set(setGstNumber)} placeholder="22AAAAA0000A1Z5" /></Field>
                 </View>
-                <Field label="GST Number" style={{ marginBottom: 0 }}><Input value={gstNumber} onChangeText={setGstNumber} placeholder="22AAAAA0000A1Z5" /></Field>
-            </View>
-            {/* Group 2: Address */}
-            <View style={{ borderLeftWidth: 2, borderLeftColor: `${P.gold}30`, paddingLeft: 16, backgroundColor: `${P.gold}02`, borderRadius: 14, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 16 }}>
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 14 }}>Address</Text>
-                <View style={{ borderBottomWidth: 1, borderBottomColor: `${P.gold}10`, paddingBottom: 20, marginBottom: 20 }}>
-                    <Field label="Billing Address"><Input value={billingAddress} onChangeText={setBillingAddress} placeholder="Street address" /></Field>
+                {/* Group 2: Address */}
+                <View style={{ borderLeftWidth: 2, borderLeftColor: `${P.gold}30`, paddingLeft: 16, backgroundColor: `${P.gold}02`, borderRadius: 14, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 16 }}>
+                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 14 }}>Address</Text>
+                    <View style={{ borderBottomWidth: 1, borderBottomColor: `${P.gold}10`, paddingBottom: 20, marginBottom: 20 }}>
+                        <Field label="Billing Address"><Input value={billingAddress} onChangeText={set(setBillingAddress)} placeholder="Street address" /></Field>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10, borderBottomWidth: 1, borderBottomColor: `${P.gold}10`, paddingBottom: 20, marginBottom: 20 }}>
+                        <Field label="State" style={{ flex: 1, marginBottom: 0 }}><Input value={billingState} onChangeText={set(setBillingState)} placeholder="State" /></Field>
+                        <Field label="Pincode" style={{ flex: 1, marginBottom: 0 }}><Input value={pincode} onChangeText={set(setPincode)} placeholder="560001" /></Field>
+                    </View>
+                    <Field label="Country" style={{ marginBottom: 0 }}><Input value={country} onChangeText={set(setCountry)} placeholder="India" /></Field>
                 </View>
-                <View style={{ flexDirection: 'row', gap: 10, borderBottomWidth: 1, borderBottomColor: `${P.gold}10`, paddingBottom: 20, marginBottom: 20 }}>
-                    <Field label="State" style={{ flex: 1, marginBottom: 0 }}><Input value={billingState} onChangeText={setBillingState} placeholder="State" /></Field>
-                    <Field label="Pincode" style={{ flex: 1, marginBottom: 0 }}><Input value={pincode} onChangeText={setPincode} placeholder="560001" /></Field>
-                </View>
-                <Field label="Country" style={{ marginBottom: 0 }}><Input value={country} onChangeText={setCountry} placeholder="India" /></Field>
-            </View>
-        </>
-    );
+            </>
+        );
+    };
 
     const renderActiveTab = () => {
         switch (activeTab) {
@@ -601,10 +675,12 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                 <TouchableOpacity onPress={handleClose} style={{ flex: 1, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: P.border, alignItems: 'center' }}>
                                     <Text style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>Cancel</Text>
                                 </TouchableOpacity>
-                                <Pressable onPress={handleSaveSection} disabled={isSaving} style={({ pressed }) => ({ flex: 1, opacity: isSaving ? 0.6 : pressed ? 0.9 : 1 })}>
+                                <Pressable onPress={handleSaveAll} disabled={isSaving} style={({ pressed }) => ({ flex: 1, opacity: isSaving ? 0.6 : pressed ? 0.9 : 1 })}>
                                     <LinearGradient colors={isSaved ? [P.green, '#059669'] : tabGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 14, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                                         {isSaving ? <ActivityIndicator size="small" color="#fff" /> : isSaved ? <Check size={16} color="#fff" /> : null}
-                                        <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>{isSaved ? 'Saved!' : `Save ${currentTabDef?.label || ''}`}</Text>
+                                        <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                            {isSaving ? 'Saving…' : isSaved ? 'Saved!' : 'Save changes'}
+                                        </Text>
                                     </LinearGradient>
                                 </Pressable>
                             </View>

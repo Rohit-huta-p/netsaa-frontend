@@ -101,3 +101,28 @@ describe('ProfileEditModal — single Save fans out to two endpoints', () => {
         );
     });
 });
+
+describe('ProfileEditModal — toast feedback', () => {
+    it('shows a success toast on successful save', async () => {
+        const { getByPlaceholderText, getByText, findByText } = render(
+            <ProfileEditModal profileData={profile} />
+        );
+        fireEvent.changeText(getByPlaceholderText('Your name'), 'Aarav');
+        fireEvent.press(getByText('Save changes'));
+
+        const toast = await findByText('Profile updated');
+        expect(toast).toBeTruthy();
+    });
+
+    it('shows a per-tab error toast on failure', async () => {
+        mockUpdateProfile.mockRejectedValueOnce(new Error('500'));
+        const { getByPlaceholderText, getByText, findByText } = render(
+            <ProfileEditModal profileData={profile} />
+        );
+        fireEvent.changeText(getByPlaceholderText('Your name'), 'Aarav');
+        fireEvent.press(getByText('Save changes'));
+
+        const toast = await findByText(/Couldn't save Basic/);
+        expect(toast).toBeTruthy();
+    });
+});

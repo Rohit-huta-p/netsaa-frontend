@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, Modal, ScrollView,
     Animated, Dimensions, KeyboardAvoidingView, Platform,
-    ActivityIndicator, Image, Alert, Pressable,
+    ActivityIndicator, Image, Alert, Pressable, Easing,
 } from 'react-native';
 import {
     X, Check, Plus, Search, ChevronDown, ChevronUp, Trash2, Camera,
@@ -187,10 +187,25 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     }, [isVisible]);
 
     // ── Tab cross-fade ──
+    const isFirstFadeRender = useRef(true);
     useEffect(() => {
+        if (isFirstFadeRender.current) {
+            isFirstFadeRender.current = false;
+            return;
+        }
         Animated.sequence([
-            Animated.timing(fadeAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
-            Animated.timing(fadeAnim, { toValue: 1, duration: 160, useNativeDriver: true }),
+            Animated.timing(fadeAnim, {
+                toValue: 0,
+                duration: 80,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+            }),
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 160,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+            }),
         ]).start();
     }, [activeTab]);
     const handleClose = () => {

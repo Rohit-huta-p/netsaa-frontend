@@ -152,3 +152,26 @@ describe('ProfileEditModal — dirty dot indicator', () => {
         expect(getByPlaceholderText('Your name').props.value).toBe('X');
     });
 });
+
+describe('ProfileEditModal — full skin tone palette', () => {
+    it('renders all 7 skin tone swatches under the Bio tab', () => {
+        const { getByText, UNSAFE_root } = render(
+            <ProfileEditModal profileData={baseProfile} />
+        );
+        fireEvent.press(getByText('Bio'));
+        // Each skin tone is a TouchableOpacity with a solid backgroundColor
+        // matching one of the 7 hex codes. asymmetric matchers don't match
+        // through inline style objects — walk the tree and check the style
+        // prop directly. RN may pass style as an object or an array.
+        const tones = ['#fcd9b8', '#f0cbb0', '#dcb084', '#c29367', '#a57245', '#7b4b2a', '#4b2a1a'];
+        const styleHasBg = (style: any, hex: string): boolean => {
+            if (!style) return false;
+            if (Array.isArray(style)) return style.some(s => styleHasBg(s, hex));
+            return style.backgroundColor === hex;
+        };
+        tones.forEach(hex => {
+            const matches = UNSAFE_root.findAll(node => styleHasBg(node.props?.style, hex));
+            expect(matches.length).toBeGreaterThanOrEqual(1);
+        });
+    });
+});

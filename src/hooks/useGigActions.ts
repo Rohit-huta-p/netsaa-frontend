@@ -11,8 +11,15 @@ import gigService from '@/services/gigService';
  */
 export function useGigActions(gig: any) {
     const user = useAuthStore((state) => state.user);
-    const isOrganizer = user?._id === gig.organizerId._id;
-    const hasApplied = gig.viewerContext?.hasApplied;
+    // Defensive lookups — gig may be a preview / partial shape (e.g.
+    // GigFormV2 Page5 renders a synthetic preview). Crash-free if either
+    // organizerId or its _id is missing.
+    const organizerId =
+        typeof gig?.organizerId === 'object'
+            ? gig?.organizerId?._id
+            : gig?.organizerId;
+    const isOrganizer = !!user?._id && !!organizerId && user._id === organizerId;
+    const hasApplied = gig?.viewerContext?.hasApplied;
 
     // Modal visibility states
     const [settingsModalVisible, setSettingsModalVisible] = useState(false);

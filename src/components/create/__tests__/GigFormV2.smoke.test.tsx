@@ -29,6 +29,16 @@ jest.mock('@/services/gigService', () => ({
   __esModule: true,
   default: { rephraseText: jest.fn() },
 }));
+// authStore transitively pulls in expo-secure-store (ESM-only). Mock with
+// Zustand-selector-compatible shape — `useAuthStore((s) => s.user)` calls
+// the default export with a selector that gets applied to the fake store.
+jest.mock('@/stores/authStore', () => ({
+  __esModule: true,
+  default: (selector?: (s: any) => any) => {
+    const store = { user: null, accessToken: null };
+    return selector ? selector(store) : store;
+  },
+}));
 
 // Import AFTER mocks so the module graph resolves against the mocked hooks.
 import GigFormV2 from '../GigFormV2';

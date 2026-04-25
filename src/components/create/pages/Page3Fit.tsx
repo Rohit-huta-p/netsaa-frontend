@@ -27,9 +27,13 @@ export interface Page3FitProps {
   value: Page3Value;
   onChange: (next: Page3Value) => void;
   sliderWidth: number;
+  /** Threaded down to VisualBlock — gates the casting "Role type" picker so
+   *  it only renders when the gig context (film / shoot / audition) makes
+   *  it meaningful. Wedding hirers don't see it. */
+  eventFunction?: string;
 }
 
-export default function Page3Fit({ artistTypes, value, onChange, sliderWidth }: Page3FitProps) {
+export default function Page3Fit({ artistTypes, value, onChange, sliderWidth, eventFunction }: Page3FitProps) {
   const groups = resolveGroups(artistTypes);
 
   if (groups.size === 0) {
@@ -56,6 +60,7 @@ export default function Page3Fit({ artistTypes, value, onChange, sliderWidth }: 
           value={value.visual}
           onChange={(v) => onChange({ ...value, visual: v })}
           sliderWidth={sliderWidth}
+          eventFunction={eventFunction}
         />
       )}
       {groups.has('C') && (

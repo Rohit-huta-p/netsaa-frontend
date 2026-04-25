@@ -117,7 +117,7 @@ export interface Gig {
     };
     visualDetails?: {
         roleType?: 'lead' | 'supporting' | 'extra' | 'background';
-        bodyType?: 'slim' | 'athletic' | 'average' | 'plus' | 'any';
+        bodyType?: ('slim' | 'athletic' | 'average' | 'plus' | 'any')[];
     };
     crewDetails?: {
         deliverables?: string;

@@ -21,18 +21,9 @@ import authService from '@/services/authService';
 import gigService from '@/services/gigService';
 import { ProfileData, ExperienceEntry } from '@/components/profile/types';
 import { AITextInput } from '@/components/ui/AITextInput';
+import { Field, Input, MiniField, P } from './edit/EditModalPrimitives';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// ── Brand Palette 18 ──
-const P = {
-    pink: '#EC4899', orange: '#F97316', gold: '#EAB308',
-    cyan: '#06B6D4', green: '#34D399',
-    bg: '#0A0A10', surface: '#121018', surfaceLight: '#1A1824',
-    border: 'rgba(255,255,255,0.06)', borderActive: 'rgba(249,115,22,0.3)',
-    textPrimary: '#F0ECE6', textSecondary: '#6B6878', textMuted: '#4A4656',
-    danger: '#EF4444',
-};
 
 const SKILL_OPTIONS = [
     'Contemporary', 'Kathak', 'Hip Hop', 'Jazz', 'Classical',
@@ -80,24 +71,6 @@ const SECTION_TO_TAB: Record<string, TabKey> = {
 };
 
 type Props = { profileData: ProfileData; isOrganizer: boolean; };
-
-// ── Reusable primitives ──
-const Field = ({ label, children, style, highlighted, accent }: { label: string; children: React.ReactNode; style?: any; highlighted?: boolean; accent?: string }) => (
-    <View style={[{ marginBottom: 20 }, style, highlighted && { borderWidth: 1.5, borderColor: `${accent || P.orange}80`, borderRadius: 14, padding: 10, backgroundColor: `${accent || P.orange}08` }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {highlighted && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: accent || P.orange }} />}
-            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: highlighted ? (accent || P.orange) : P.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>{label}</Text>
-        </View>
-        {children}
-    </View>
-);
-const Input = ({ value, onChangeText, placeholder, multiline = false, accentBorder }: { value: string; onChangeText: (t: string) => void; placeholder: string; multiline?: boolean; accentBorder?: string }) => (
-    <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={P.textMuted} multiline={multiline}
-        style={{ backgroundColor: `${P.surface}cc`, borderWidth: 1, borderColor: P.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, color: P.textPrimary, fontFamily: 'Outfit-Regular', fontSize: 14, minHeight: multiline ? 120 : undefined, textAlignVertical: multiline ? 'top' : 'center', ...(accentBorder ? { borderLeftWidth: 2, borderLeftColor: accentBorder } : {}) }} />
-);
-function MiniField({ label, children }: { label: string; children: React.ReactNode }) {
-    return <View style={{ gap: 4 }}><Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, marginLeft: 2 }}>{label}</Text>{children}</View>;
-}
 
 // ══════════════════════════════════════════
 //  MAIN COMPONENT

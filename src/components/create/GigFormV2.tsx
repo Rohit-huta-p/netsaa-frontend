@@ -31,6 +31,7 @@ import {
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import dayjs from 'dayjs';
 import { useCreateGig, useUpdateGig, useGig } from '@/hooks/useGigs';
+import useAuthStore from '@/stores/authStore';
 import Page1Identity, { type Page1Value } from './pages/Page1Identity';
 import Page2Commitment, { type Page2Value } from './pages/Page2Commitment';
 import Page3Fit, { type Page3Value } from './pages/Page3Fit';
@@ -318,7 +319,31 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
       }
     };
 
-    const previewGig = useMemo(() => buildBackendPayload(state), [state]);
+    // Page-5 preview shows what an ARTIST will see when they open the gig
+    // (per spec Open Q #4). To get artist-side rendering — and hide the
+    // organizer-only "Applications" tab — we deliberately mismatch the
+    // organizerId from the current user so `useGigActions` resolves
+    // `isOrganizer = false`. organizerSnapshot is hydrated from the
+    // current user since they ARE the organizer (real backend will set
+    // organizerId = req.user.id at create time).
+    const currentUser = useAuthStore((s) => s.user);
+    const previewGig = useMemo(() => {
+      const base = buildBackendPayload(state);
+      return {
+        ...base,
+        _id: 'preview-gig',
+        // Sentinel id that will never match `user._id` — keeps preview
+        // in artist-side mode regardless of who's logged in.
+        organizerId: { _id: '__preview_artist_view__' },
+        organizerSnapshot: {
+          displayName: (currentUser as any)?.displayName ?? '',
+          organizationName: (currentUser as any)?.organizationName ?? '',
+          profileImageUrl: (currentUser as any)?.profileImageUrl ?? '',
+          rating: (currentUser as any)?.cached?.averageRating ?? 0,
+        },
+        viewerContext: { hasApplied: false, isOrganizer: false },
+      };
+    }, [state, currentUser]);
     // Checks need a richer input than the backend payload: they read
     // `compensation.structure` (UI-only; not sent to server) plus `title` +
     // `description` which live at different nesting levels in state. Merge

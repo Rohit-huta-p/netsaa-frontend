@@ -14,6 +14,16 @@ jest.mock('@/hooks/useGigs', () => ({
   useUpdateGig: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useGig: () => ({ data: null }),
 }));
+// authStore transitively pulls in expo-secure-store (ESM-only). Mock with
+// Zustand-selector-compatible shape so any caller using
+// `useAuthStore((s) => s.user)` gets a real value back.
+jest.mock('@/stores/authStore', () => ({
+  __esModule: true,
+  default: (selector?: (s: any) => any) => {
+    const store = { user: null, accessToken: null };
+    return selector ? selector(store) : store;
+  },
+}));
 
 // DatePickerInput + MultiSlider + GigDetails transitively loaded by the
 // page imports — string-mock them to avoid PNG/native-binding parse errors

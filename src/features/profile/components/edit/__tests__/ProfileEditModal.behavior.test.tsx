@@ -89,3 +89,29 @@ describe('ProfileEditModal — Display Name is always editable', () => {
         expect(input.props.value).toBe('New Name');
     });
 });
+
+describe('ProfileEditModal — 8 tabs always visible', () => {
+    it('renders all 8 tab labels including Org and Billing', () => {
+        const { getByText } = render(<ProfileEditModal profileData={baseProfile} />);
+        ['Basic', 'Bio', 'Skills', 'Experience', 'Media', 'Social', 'Org', 'Billing'].forEach(
+            label => expect(getByText(label)).toBeTruthy()
+        );
+    });
+
+    it('renders Org Name input under the Org tab (not Basic)', () => {
+        const { getByText, queryByPlaceholderText, getByPlaceholderText } = render(
+            <ProfileEditModal profileData={baseProfile} />
+        );
+        // Basic tab is active by default — Org Name should NOT be there.
+        expect(queryByPlaceholderText('Organization name')).toBeNull();
+        // Switch to Org tab.
+        fireEvent.press(getByText('Org'));
+        // Now Org Name should be present.
+        expect(getByPlaceholderText('Organization name')).toBeTruthy();
+    });
+
+    it('renders an OPTIONAL badge near Org and Billing tabs', () => {
+        const { getAllByText } = render(<ProfileEditModal profileData={baseProfile} />);
+        expect(getAllByText('OPTIONAL').length).toBeGreaterThanOrEqual(2);
+    });
+});

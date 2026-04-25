@@ -70,12 +70,15 @@ const SECTION_TO_TAB: Record<string, TabKey> = {
     organization: 'organization', contact: 'organization',
 };
 
-type Props = { profileData: ProfileData; isOrganizer: boolean; };
+type Props = { profileData: ProfileData };
 
 // ══════════════════════════════════════════
 //  MAIN COMPONENT
 // ══════════════════════════════════════════
-export const ProfileEditModal: React.FC<Props> = ({ profileData, isOrganizer }) => {
+export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
+    // Temporary: preserves prior behavior in non-renderHeader code paths
+    // until subsequent tasks fully decouple the modal from role-gating.
+    const isOrganizer = true;
     const { activeSheet, closeSheet, highlightMissing } = useProfileUiStore();
     const { user, setAuth, accessToken } = useAuthStore();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -218,10 +221,13 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData, isOrganizer }) 
             </View>
             <View style={{ height: 1, backgroundColor: P.border, marginBottom: 20 }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}><Edit3 size={12} color={P.orange} /><Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.orange, textTransform: 'uppercase', letterSpacing: 2 }}>Edit Details</Text></View>
-            {isOrganizer ? <Field label="Organization Name" highlighted={isFieldMissing('organization')} accent={P.orange}><Input value={orgName} onChangeText={setOrgName} placeholder="Organization name" /></Field>
-                : <Field label="Display Name" highlighted={isFieldMissing('display name')} accent={P.orange}><Input value={displayName} onChangeText={setDisplayName} placeholder="Your name" /></Field>}
+            <Field label="Display Name" highlighted={isFieldMissing('display name')} accent={P.orange}>
+                <Input value={displayName} onChangeText={setDisplayName} placeholder="Your name" />
+            </Field>
             <Field label="Headline"><Input value={headline} onChangeText={setHeadline} placeholder="Singer | Performer | 5+ years" /></Field>
-            <Field label={isOrganizer ? 'Org Type' : 'Artist Type'} highlighted={isFieldMissing('artist type')} accent={P.orange}><Input value={artistType} onChangeText={setArtistType} placeholder={isOrganizer ? 'Event Company' : 'Dancer, Singer...'} /></Field>
+            <Field label="Artist Type" highlighted={isFieldMissing('artist type')} accent={P.orange}>
+                <Input value={artistType} onChangeText={setArtistType} placeholder="Dancer, Singer..." />
+            </Field>
             <Field label="Location" highlighted={isFieldMissing('location')} accent={P.orange}><Input value={location} onChangeText={setLocation} placeholder="City, Country" /></Field>
         </>
     );

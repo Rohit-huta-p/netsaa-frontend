@@ -42,8 +42,11 @@ describe('app/(app)/create.tsx — feature flag gate', () => {
     process.env = ORIGINAL_ENV;
   });
 
-  it('renders legacy GigForm when EXPO_PUBLIC_FEATURE_NEW_GIG_FORM is unset', () => {
-    delete process.env.EXPO_PUBLIC_FEATURE_NEW_GIG_FORM;
+  it('renders legacy GigForm when EXPO_PUBLIC_FEATURE_NEW_GIG_FORM is not "true"', () => {
+    // Explicit empty-string assignment is more robust than `delete`. Some
+    // env-loading chains (dotenv + metro) re-populate the var on module
+    // re-require even after delete.
+    process.env.EXPO_PUBLIC_FEATURE_NEW_GIG_FORM = '';
 
     jest.isolateModules(() => {
       const legacySpy = jest.fn(() => null);

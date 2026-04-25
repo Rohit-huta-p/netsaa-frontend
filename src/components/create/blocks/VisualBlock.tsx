@@ -26,10 +26,24 @@ const EXPERIENCE_LEVELS: ExperienceLevel[] = ['beginner', 'intermediate', 'profe
 const GENDER_OPTIONS: GenderPreference[] = ['any', 'male', 'female', 'other'];
 const BODY_TYPES: BodyType[] = ['slim', 'athletic', 'average', 'plus', 'any'];
 
+// Role type is a film/casting concept (lead/supporting/extra/background).
+// Wedding/corporate hirers don't think this way. Reveal only when the gig
+// context is film, photo, audition, or fashion — where role hierarchy
+// drives compensation + casting expectations.
+const ROLE_TYPE_RELEVANT_FUNCTIONS = new Set([
+  'Film shoot',
+  'TV shoot',
+  'Audition',
+  'Photo shoot',
+  'Fashion show',
+  'Music recording',
+  'Live concert',
+]);
+
 export interface VisualBlockProps {
   value: {
     roleType?: RoleType;
-    bodyType?: BodyType;
+    bodyType?: BodyType[]; // multi-select per UX feedback (slim OR athletic OK)
     requiredSkills?: string[];
     experienceLevel?: ExperienceLevel;
     genderPreference?: GenderPreference;
@@ -41,14 +55,18 @@ export interface VisualBlockProps {
   };
   onChange: (next: VisualBlockProps['value']) => void;
   sliderWidth: number; // passed from parent for MultiSlider length
+  /** Optional gig context. Drives roleType visibility — see ROLE_TYPE_RELEVANT_FUNCTIONS. */
+  eventFunction?: string;
 }
 
-export default function VisualBlock({ value, onChange, sliderWidth }: VisualBlockProps) {
+export default function VisualBlock({ value, onChange, sliderWidth, eventFunction }: VisualBlockProps) {
   const [showPhysical, setShowPhysical] = useState(false);
   const update = (patch: Partial<VisualBlockProps['value']>) => onChange({ ...value, ...patch });
 
   const ageMin = value.ageRange?.min ?? 18;
   const ageMax = value.ageRange?.max ?? 60;
+
+  const showRoleType = !!eventFunction && ROLE_TYPE_RELEVANT_FUNCTIONS.has(eventFunction);
 
   return (
     <View style={styles.card} accessibilityLabel="Visual performer details">
@@ -57,14 +75,19 @@ export default function VisualBlock({ value, onChange, sliderWidth }: VisualBloc
         <Text style={styles.headerLabel}>For the performer</Text>
       </View>
 
-      <InputGroup label="Role type">
-        <ChipPicker
-          mode="single"
-          options={ROLE_TYPES}
-          value={value.roleType ?? ''}
-          onChange={(next) => update({ roleType: (next as string) as RoleType })}
-        />
-      </InputGroup>
+      {showRoleType && (
+        <InputGroup label="Role type" subtitle="Casting hierarchy for film / shoot / audition">
+          <ChipPicker
+            mode="single"
+            options={ROLE_TYPES}
+            value={value.roleType ?? ''}
+            onChange={(next) => {
+              const v = next as string;
+              update({ roleType: v ? (v as RoleType) : undefined });
+            }}
+          />
+        </InputGroup>
+      )}
 
       <InputGroup label="Required skills" subtitle="Type comma or enter to add">
         <TagInput
@@ -79,7 +102,10 @@ export default function VisualBlock({ value, onChange, sliderWidth }: VisualBloc
           mode="single"
           options={EXPERIENCE_LEVELS}
           value={value.experienceLevel ?? ''}
-          onChange={(next) => update({ experienceLevel: (next as string) as ExperienceLevel })}
+          onChange={(next) => {
+            const v = next as string;
+            update({ experienceLevel: v ? (v as ExperienceLevel) : undefined });
+          }}
         />
       </InputGroup>
 
@@ -105,7 +131,10 @@ export default function VisualBlock({ value, onChange, sliderWidth }: VisualBloc
               mode="single"
               options={GENDER_OPTIONS}
               value={value.genderPreference ?? ''}
-              onChange={(next) => update({ genderPreference: (next as string) as GenderPreference })}
+              onChange={(next) => {
+                const v = next as string;
+                update({ genderPreference: v ? (v as GenderPreference) : undefined });
+              }}
             />
           </InputGroup>
 
@@ -125,12 +154,12 @@ export default function VisualBlock({ value, onChange, sliderWidth }: VisualBloc
             />
           </InputGroup>
 
-          <InputGroup label="Body type (optional)">
+          <InputGroup label="Body type (optional)" subtitle="Multi-select — open to multiple types">
             <ChipPicker
-              mode="single"
+              mode="multi"
               options={BODY_TYPES}
-              value={value.bodyType ?? ''}
-              onChange={(next) => update({ bodyType: (next as string) as BodyType })}
+              value={value.bodyType ?? []}
+              onChange={(next) => update({ bodyType: (next as string[]) as BodyType[] })}
             />
           </InputGroup>
         </View>

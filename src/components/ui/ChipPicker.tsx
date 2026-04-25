@@ -18,14 +18,14 @@ export interface ChipPickerProps {
   options: readonly (string | ChipOption)[];
   /** Current selection. Single-select: string. Multi-select: string[]. */
   value: string | string[];
-  /** Fires with the full new selection. */
+  /** Fires with the full new selection. Single-select tapping a selected chip
+   *  to deselect calls onChange with empty string `''`. Multi-select toggle
+   *  calls onChange with the new array (omitting the deselected value). */
   onChange: (next: string | string[]) => void;
   /** `single` is the default. `multi` allows toggling multiple values. */
   mode?: 'single' | 'multi';
   /** Optional max selection count for `multi` mode. Silently ignores taps beyond the cap. */
   max?: number;
-  /** Optional callback when user taps an already-selected chip in `single` mode. Defaults to no-op. */
-  onClearSingle?: () => void;
   /** Accessibility label for the group. */
   accessibilityLabel?: string;
 }
@@ -40,7 +40,6 @@ export default function ChipPicker({
   onChange,
   mode = 'single',
   max,
-  onClearSingle,
   accessibilityLabel,
 }: ChipPickerProps) {
   const normalized = normalizeOptions(options);
@@ -48,8 +47,10 @@ export default function ChipPicker({
 
   const handleTap = (optionValue: string) => {
     if (mode === 'single') {
+      // Tap-to-deselect: tapping a selected chip clears it (onChange '').
+      // Required-field gating happens in the form's guardrail panel, not here.
       if (selected[0] === optionValue) {
-        onClearSingle?.();
+        onChange('');
         return;
       }
       onChange(optionValue);

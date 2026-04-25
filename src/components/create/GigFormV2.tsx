@@ -384,6 +384,7 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
               value={state.p3}
               onChange={(v) => setState({ ...state, p3: v })}
               sliderWidth={sliderWidth}
+              eventFunction={state.p1.eventFunction}
             />
           )}
           {page === 4 && (

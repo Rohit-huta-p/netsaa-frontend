@@ -84,6 +84,111 @@ const SECTION_TO_TAB: Record<string, TabKey> = {
 type Props = { profileData: ProfileData };
 
 // ══════════════════════════════════════════
+//  BOTTOM-SHEET PICKERS (Height + Skill)
+// ══════════════════════════════════════════
+function HeightPickerSheet({
+    visible, value, onSelect, onClose,
+}: {
+    visible: boolean;
+    value: string;
+    onSelect: (v: string) => void;
+    onClose: () => void;
+}) {
+    const [search, setSearch] = useState('');
+    const filtered = HEIGHT_OPTIONS.filter(h => h.includes(search));
+    if (!visible) return null;
+    return (
+        <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+            <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+                <Pressable onPress={() => {}} style={{ backgroundColor: P.surfaceLight, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingBottom: 28, maxHeight: '60%' }}>
+                    <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)', marginBottom: 12 }} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: P.border, paddingHorizontal: 16, paddingVertical: 10 }}>
+                        <Search size={14} color={P.textSecondary} />
+                        <TextInput
+                            value={search}
+                            onChangeText={setSearch}
+                            placeholder="Search height"
+                            placeholderTextColor={P.textMuted}
+                            style={{ flex: 1, marginLeft: 8, color: P.textPrimary, fontFamily: 'Outfit-Regular', fontSize: 14 }}
+                            autoFocus
+                        />
+                    </View>
+                    <ScrollView keyboardShouldPersistTaps="handled">
+                        {filtered.map(opt => (
+                            <TouchableOpacity
+                                key={opt}
+                                onPress={() => { onSelect(opt); onClose(); }}
+                                style={{ paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: P.border }}>
+                                <Text style={{ color: value === opt ? P.gold : P.textPrimary, fontFamily: value === opt ? 'Outfit-Bold' : 'Outfit-Regular', fontSize: 14 }}>
+                                    {opt}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </Pressable>
+            </Pressable>
+        </Modal>
+    );
+}
+
+function SkillSearchSheet({
+    visible, selected, onToggle, onClose,
+}: {
+    visible: boolean;
+    selected: string[];
+    onToggle: (skill: string) => void;
+    onClose: () => void;
+}) {
+    const [search, setSearch] = useState('');
+    if (!visible) return null;
+    const filtered = SKILL_OPTIONS.filter(s => s.toLowerCase().includes(search.toLowerCase()) && !selected.includes(s));
+    const exactMatch = SKILL_OPTIONS.find(s => s.toLowerCase() === search.toLowerCase());
+    const trimmed = search.trim();
+    return (
+        <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+            <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+                <Pressable onPress={() => {}} style={{ backgroundColor: P.surfaceLight, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingBottom: 28, maxHeight: '60%' }}>
+                    <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)', marginBottom: 12 }} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: P.border, paddingHorizontal: 16, paddingVertical: 10 }}>
+                        <Search size={14} color={P.pink} />
+                        <TextInput
+                            value={search}
+                            onChangeText={setSearch}
+                            placeholder="Search or add skill"
+                            placeholderTextColor={P.textMuted}
+                            style={{ flex: 1, marginLeft: 8, color: P.textPrimary, fontFamily: 'Outfit-Regular', fontSize: 14 }}
+                            autoFocus
+                        />
+                    </View>
+                    <ScrollView keyboardShouldPersistTaps="handled">
+                        {!exactMatch && trimmed.length > 0 && (
+                            <TouchableOpacity
+                                onPress={() => { onToggle(trimmed); onClose(); }}
+                                style={{ paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: P.border, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <Plus size={14} color={P.pink} />
+                                <Text style={{ color: P.pink, fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase' }}>
+                                    Add "{trimmed}"
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                        {filtered.map(skill => (
+                            <TouchableOpacity
+                                key={skill}
+                                onPress={() => { onToggle(skill); onClose(); }}
+                                style={{ paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: P.border }}>
+                                <Text style={{ color: P.textPrimary, fontFamily: 'Outfit-SemiBold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                    {skill}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </Pressable>
+            </Pressable>
+        </Modal>
+    );
+}
+
+// ══════════════════════════════════════════
 //  MAIN COMPONENT
 // ══════════════════════════════════════════
 export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
@@ -113,11 +218,9 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const [age, setAge] = useState('');
     const [height, setHeight] = useState('');
     const [showHeightDropdown, setShowHeightDropdown] = useState(false);
-    const [heightSearch, setHeightSearch] = useState('');
     const [skinTone, setSkinTone] = useState('');
     const [skinToneHex, setSkinToneHex] = useState('');
     const [skills, setSkills] = useState<string[]>([]);
-    const [skillSearch, setSkillSearch] = useState('');
     const [showSkillDropdown, setShowSkillDropdown] = useState(false);
     const [socials, setSocials] = useState({ instagramHandle: '', youtubeUrl: '', spotifyUrl: '', soundcloudUrl: '' });
     const [orgType, setOrgType] = useState('');
@@ -156,9 +259,9 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         setArtistType(profileData.artistType || ''); setLocation(profileData.location || '');
         setOrgName(profileData.organizationName || ''); setBio(profileData.bio || '');
         setAge(profileData.age || ''); setHeight(profileData.height || '');
-        setShowHeightDropdown(false); setHeightSearch('');
+        setShowHeightDropdown(false);
         setSkinTone(profileData.skinTone || ''); setSkinToneHex(profileData.skinToneHex || '');
-        setSkills(profileData.skills || []); setSkillSearch(''); setShowSkillDropdown(false);
+        setSkills(profileData.skills || []); setShowSkillDropdown(false);
         setSocials({ instagramHandle: profileData.instagramHandle || '', youtubeUrl: profileData.youtubeUrl || '', spotifyUrl: profileData.spotifyUrl || '', soundcloudUrl: profileData.soundcloudUrl || '' });
         setOrgType(profileData.organizerTypeCategory || 'individual'); setOrgWebsite(profileData.organizationWebsite || '');
         setProfileImageUrl(profileData.profileImageUrl || '');
@@ -350,10 +453,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     };
 
     const isFieldMissing = (keyword: string) => highlightMissing.some(m => m.toLowerCase().includes(keyword.toLowerCase()));
-    const filteredSkills = SKILL_OPTIONS.filter(s => s.toLowerCase().includes(skillSearch.toLowerCase()) && !skills.includes(s));
-    const exactMatch = SKILL_OPTIONS.find(s => s.toLowerCase() === skillSearch.toLowerCase());
-    const toggleSkill = (skill: string) => { setSkills(prev => (prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill])); setSkillSearch(''); setShowSkillDropdown(false); markDirty('identity'); };
-    const filteredHeights = HEIGHT_OPTIONS.filter(h => h.includes(heightSearch));
+    const toggleSkill = (skill: string) => { setSkills(prev => (prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill])); setShowSkillDropdown(false); markDirty('identity'); };
 
     // ══════════════════════════════════
     //  SECTION RENDERERS (Variant H — each visually distinct)
@@ -407,7 +507,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                     </View>
                     <View style={{ flex: 1, minWidth: 80, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: P.border, padding: 10 }}>
                         <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Height</Text>
-                        <TouchableOpacity onPress={() => { setShowHeightDropdown(!showHeightDropdown); setHeightSearch(''); }}>
+                        <TouchableOpacity onPress={() => setShowHeightDropdown(true)}>
                             <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 16, color: height ? P.textPrimary : P.textMuted }}>{height || '--'}</Text>
                         </TouchableOpacity>
                     </View>
@@ -423,21 +523,6 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                         </View>
                     </View>
                 </View>
-                {showHeightDropdown && (
-                    <View style={{ backgroundColor: P.surfaceLight, borderWidth: 1, borderColor: P.border, borderRadius: 14, maxHeight: 180, overflow: 'hidden', marginBottom: 16 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: P.border, paddingHorizontal: 12, paddingVertical: 10 }}>
-                            <Search size={14} color={P.textSecondary} />
-                            <TextInput value={heightSearch} onChangeText={setHeightSearch} placeholder="Search" placeholderTextColor={P.textMuted} style={{ flex: 1, marginLeft: 8, color: P.textPrimary, fontFamily: 'Outfit-Regular', fontSize: 14 }} autoFocus />
-                        </View>
-                        <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 130 }}>
-                            {filteredHeights.map(opt => (
-                                <TouchableOpacity key={opt} onPress={() => { setHeight(opt); setShowHeightDropdown(false); markDirty('about'); }} style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: P.border }}>
-                                    <Text style={{ color: height === opt ? P.gold : P.textPrimary, fontFamily: height === opt ? 'Outfit-Bold' : 'Outfit-Regular', fontSize: 14 }}>{opt}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </View>
-                )}
             </>
         );
     };
@@ -445,25 +530,14 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     // ── TAB 3: SKILLS — Tag Cloud Manager ──
     const renderIdentity = () => (
         <>
-            {/* Always-visible search */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: `${P.pink}08`, borderWidth: 1.5, borderColor: `${P.pink}30`, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 16 }}>
+            <TouchableOpacity
+                onPress={() => setShowSkillDropdown(true)}
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: `${P.pink}08`, borderWidth: 1.5, borderColor: `${P.pink}30`, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 16 }}>
                 <Search size={16} color={P.pink} />
-                <TextInput value={skillSearch} onChangeText={(t) => { setSkillSearch(t); setShowSkillDropdown(true); }} placeholder="Search or add skill..." placeholderTextColor={P.textMuted}
-                    style={{ flex: 1, marginLeft: 10, color: P.textPrimary, fontFamily: 'Outfit-Regular', fontSize: 14 }} />
-                {skillSearch.length > 0 && <TouchableOpacity onPress={() => setSkillSearch('')}><X size={14} color={P.textSecondary} /></TouchableOpacity>}
-            </View>
-            {/* Dropdown */}
-            {showSkillDropdown && skillSearch.length > 0 && (
-                <View style={{ marginBottom: 16, backgroundColor: P.surfaceLight, borderRadius: 14, maxHeight: 160, overflow: 'hidden', borderWidth: 1, borderColor: `${P.pink}20` }}>
-                    {!exactMatch && <TouchableOpacity onPress={() => toggleSkill(skillSearch.trim())} style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: P.border, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Plus size={14} color={P.pink} /><Text style={{ color: P.pink, fontFamily: 'Outfit-Bold', fontSize: 11, textTransform: 'uppercase' }}>Add "{skillSearch}"</Text></TouchableOpacity>}
-                    {filteredSkills.map(skill => (
-                        <TouchableOpacity key={skill} onPress={() => toggleSkill(skill)} style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: P.border }}>
-                            <Text style={{ color: P.textPrimary, fontFamily: 'Outfit-SemiBold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>{skill}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            )}
-            {/* Skill pills */}
+                <Text style={{ flex: 1, marginLeft: 10, color: P.textMuted, fontFamily: 'Outfit-Regular', fontSize: 14 }}>
+                    Search or add skill…
+                </Text>
+            </TouchableOpacity>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {skills.map((skill, i) => (
                     <TouchableOpacity key={i} onPress={() => { setSkills(prev => prev.filter(s => s !== skill)); markDirty('identity'); }}
@@ -473,8 +547,9 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                     </TouchableOpacity>
                 ))}
             </View>
-            {/* Counter */}
-            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.pink, textTransform: 'uppercase', letterSpacing: 1.5, textAlign: 'right', marginTop: 12 }}>{skills.length} skill{skills.length !== 1 ? 's' : ''} selected</Text>
+            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.pink, textTransform: 'uppercase', letterSpacing: 1.5, textAlign: 'right', marginTop: 12 }}>
+                {skills.length} skill{skills.length !== 1 ? 's' : ''} selected
+            </Text>
         </>
     );
 
@@ -794,6 +869,20 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                     </View>
                                 </View>
                             )}
+
+                            <HeightPickerSheet
+                                visible={showHeightDropdown}
+                                value={height}
+                                onSelect={(v) => { setHeight(v); markDirty('about'); }}
+                                onClose={() => setShowHeightDropdown(false)}
+                            />
+
+                            <SkillSearchSheet
+                                visible={showSkillDropdown}
+                                selected={skills}
+                                onToggle={toggleSkill}
+                                onClose={() => setShowSkillDropdown(false)}
+                            />
 
                         </TouchableOpacity>
                     </Animated.View>

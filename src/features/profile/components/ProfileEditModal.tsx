@@ -143,6 +143,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         if (!isVisible) return;
         const tab = section ? (SECTION_TO_TAB[section] || 'header') : 'header';
         setActiveTab(tab); setSavedSection(null); setExpandedEntries(new Set()); setDirtyTabs(new Set());
+        setDiscardPromptVisible(false);
         setDisplayName(profileData.fullName || ''); setHeadline(profileData.headline || '');
         setArtistType(profileData.artistType || ''); setLocation(profileData.location || '');
         setOrgName(profileData.organizationName || ''); setBio(profileData.bio || '');
@@ -177,6 +178,10 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         else { slideAnim.setValue(SCREEN_HEIGHT); }
     }, [isVisible]);
     const handleClose = () => {
+        if (discardPromptVisible) {
+            setDiscardPromptVisible(false);
+            return;
+        }
         if (dirtyTabs.size > 0) {
             setDiscardPromptVisible(true);
             return;

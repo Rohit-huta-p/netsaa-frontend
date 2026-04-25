@@ -31,7 +31,7 @@ export function EditModalToast({ state, onDismiss, durationMs = 1800 }: Props) {
                 .start(() => onDismiss());
         }, durationMs);
         return () => clearTimeout(t);
-    }, [state?.visible]);
+    }, [state?.visible, state?.message, state?.variant]);
 
     if (!state?.visible) return null;
 

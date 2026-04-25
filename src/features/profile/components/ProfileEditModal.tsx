@@ -22,6 +22,7 @@ import gigService from '@/services/gigService';
 import { ProfileData, ExperienceEntry } from '@/components/profile/types';
 import { AITextInput } from '@/components/ui/AITextInput';
 import { Field, Input, MiniField, P } from './edit/EditModalPrimitives';
+import { EditModalToast, type ToastState } from './edit/EditModalToast';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -129,6 +130,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
 
     const [dirtyTabs, setDirtyTabs] = useState<Set<TabKey>>(new Set());
     const [discardPromptVisible, setDiscardPromptVisible] = useState(false);
+    const [toast, setToast] = useState<ToastState>(null);
     const markDirty = (tab: TabKey) => setDirtyTabs(prev => {
         if (prev.has(tab)) return prev;
         const next = new Set(prev);
@@ -273,10 +275,24 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             }
 
             const results = await Promise.allSettled(tasks);
-            const rejected = results.filter(r => r.status === 'rejected');
-            if (rejected.length > 0) {
-                const failedTabName = visibleTabs.find(t => dirtyTabs.has(t.key))?.label || 'changes';
-                Alert.alert('Save Failed', `Couldn't save ${failedTabName}. Try again.`);
+            // Identify which task(s) rejected by index — we know exactly which endpoint
+            // each was. Group dirty tabs into artist-side and organizer-side, label the
+            // failed group(s).
+            const ARTIST_TAB_KEYS: TabKey[] = ['header', 'about', 'identity', 'experience', 'media', 'socials'];
+            const ORGANIZER_TAB_KEYS: TabKey[] = ['organization', 'billing'];
+            const failedKeys: TabKey[] = [];
+            if (artistTaskIndex !== -1 && results[artistTaskIndex]?.status === 'rejected') {
+                failedKeys.push(...ARTIST_TAB_KEYS.filter(k => dirtyTabs.has(k)));
+            }
+            if (organizerTaskIndex !== -1 && results[organizerTaskIndex]?.status === 'rejected') {
+                failedKeys.push(...ORGANIZER_TAB_KEYS.filter(k => dirtyTabs.has(k)));
+            }
+            if (failedKeys.length > 0) {
+                const failedTabNames = visibleTabs
+                    .filter(t => failedKeys.includes(t.key))
+                    .map(t => t.label)
+                    .join(', ');
+                setToast({ visible: true, variant: 'error', message: `Couldn't save ${failedTabNames}` });
                 return;
             }
 
@@ -295,12 +311,13 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             }
             setAuth({ user: merged, accessToken: accessToken || '' });
 
+            setToast({ visible: true, variant: 'success', message: 'Profile updated' });
             setSavedSection(activeTab); // green button flash on whichever tab the user is on
             setDirtyTabs(new Set());
             setTimeout(() => setSavedSection(null), 2000);
         } catch (err) {
             console.error('[ProfileEditModal] Save failed:', err);
-            Alert.alert('Save Failed', 'Could not save changes. Try again.');
+            setToast({ visible: true, variant: 'error', message: 'Could not save changes' });
         } finally {
             setIsSaving(false);
         }
@@ -728,6 +745,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                     </LinearGradient>
                                 </Pressable>
                             </View>
+
+                            <EditModalToast state={toast} onDismiss={() => setToast(null)} />
 
                             {discardPromptVisible && (
                                 <View style={{

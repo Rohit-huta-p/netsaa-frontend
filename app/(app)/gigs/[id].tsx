@@ -8,6 +8,7 @@ import { useGig } from '@/hooks/useGigs';
 import { OrganizerGigControls } from '@/components/gigs/OrganizerGigControls';
 import useAuthStore from '@/stores/authStore';
 import { Sparkles } from 'lucide-react-native';
+import { HirerGigHub } from '@/features/hirer-hub/HirerGigHub';
 
 
 export default function GigDetailsPage() {
@@ -75,6 +76,15 @@ export default function GigDetailsPage() {
                 </Text>
             </View>
         );
+    }
+
+    // Hub branch — owners get the project hub.
+    if (gig && user) {
+        const organizerId = typeof gig.organizerId === 'object' ? gig.organizerId?._id : gig.organizerId;
+        const isOwner = !!user._id && !!organizerId && String(user._id) === String(organizerId);
+        if (isOwner) {
+            return <HirerGigHub gigId={gigId!} />;
+        }
     }
 
     // Determine if the current user is the organizer of this gig

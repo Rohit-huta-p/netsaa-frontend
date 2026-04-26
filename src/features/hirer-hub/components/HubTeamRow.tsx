@@ -63,6 +63,10 @@ export function HubTeamRow({ application, contract }: Props) {
         }
     };
 
+    const handleRowPress = () => {
+        router.push(`/(app)/contracts/${contract._id}` as any);
+    };
+
     const displayName = ((application.artistSnapshot?.displayName ?? '') as string).trim() || 'Artist';
     const initials = displayName.split(/\s+/).map((s: string) => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'A';
 
@@ -78,25 +82,30 @@ export function HubTeamRow({ application, contract }: Props) {
                 } : {}),
             }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{
-                    width: 40, height: 40, borderRadius: 12,
-                    backgroundColor: COLORS.bg,
-                    alignItems: 'center', justifyContent: 'center',
-                }}>
-                    <Text style={{ color: COLORS.text0, fontWeight: '700', fontSize: 13 }}>{initials}</Text>
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={{ color: COLORS.text0, fontSize: 14, fontWeight: '700' }}>
-                        {displayName}
-                    </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                        <Text style={{ color: COLORS.text2, fontSize: 12 }}>
-                            ₹{(contract.terms?.amount ?? 0).toLocaleString('en-IN')}
-                        </Text>
-                        <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.text3 }} />
-                        <HubMiniTimeline nodes={stage.nodes} overlay={stage.overlay} />
+                <TouchableOpacity
+                    onPress={handleRowPress}
+                    accessibilityLabel={`Open contract for ${displayName}`}
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                    <View style={{
+                        width: 40, height: 40, borderRadius: 12,
+                        backgroundColor: COLORS.bg,
+                        alignItems: 'center', justifyContent: 'center',
+                    }}>
+                        <Text style={{ color: COLORS.text0, fontWeight: '700', fontSize: 13 }}>{initials}</Text>
                     </View>
-                </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={{ color: COLORS.text0, fontSize: 14, fontWeight: '700' }}>
+                            {displayName}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                            <Text style={{ color: COLORS.text2, fontSize: 12 }}>
+                                ₹{(contract.terms?.amount ?? 0).toLocaleString('en-IN')}
+                            </Text>
+                            <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.text3 }} />
+                            <HubMiniTimeline nodes={stage.nodes} overlay={stage.overlay} />
+                        </View>
+                    </View>
+                </TouchableOpacity>
                 <TouchableOpacity
                     onPress={handlePress}
                     disabled={action.disabled}

@@ -100,4 +100,25 @@ describe('HubTeamRow (via HubTeamSection)', () => {
         );
         expect(getByText('Artist')).toBeTruthy();
     });
+
+    it('tapping the row body (not the CTA) routes to the contract page', () => {
+        // Use a row whose CTA is NOT 'view' so we can prove the row body itself
+        // navigates — i.e. a Pay-Advance state. The CTA would otherwise also
+        // route to contracts via Phase 1 deferred Alert.
+        const payRow = {
+            application: { _id: 'arow', artistSnapshot: { displayName: 'Aanya' } },
+            contract: {
+                _id: 'crow',
+                status: 'active',
+                paidAmount: 0,
+                paymentMethod: 'on_platform',
+                terms: { amount: 50000, paymentStructure: 'advance_balance', dates: { start: new Date(Date.now() + 7 * 86_400_000).toISOString() } },
+            },
+        };
+        const { getByLabelText } = render(
+            <HubTeamSection teamRows={[payRow as any]} slotsTotal={1} pendingApplicantsCount={0} />
+        );
+        fireEvent.press(getByLabelText(/Open contract for Aanya/i));
+        expect(mockPush).toHaveBeenCalledWith('/(app)/contracts/crow');
+    });
 });

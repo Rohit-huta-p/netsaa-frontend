@@ -57,21 +57,25 @@ export function HubTeamRow({ application, contract }: Props) {
         if (PHASE_1_DEFERRED.includes(action.intent)) {
             Alert.alert(
                 'Coming soon',
-                `${action.label} will be wired in Phase 3 of the Hub rollout.`
+                `${action.label} will be wired up in a follow-up release.`
             );
             return;
         }
     };
 
-    const initials = (application.artistSnapshot?.displayName ?? 'A')
-        .split(' ').map((s: string) => s[0]).slice(0, 2).join('').toUpperCase();
+    const displayName = ((application.artistSnapshot?.displayName ?? '') as string).trim() || 'Artist';
+    const initials = displayName.split(/\s+/).map((s: string) => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'A';
 
     return (
         <View
             style={{
                 paddingHorizontal: 24,
                 paddingVertical: 16,
-                ...(accent ? { backgroundColor: `${accent}07` } : {}),
+                ...(accent ? {
+                    backgroundColor: `${accent}14`,
+                    borderLeftWidth: 3,
+                    borderLeftColor: accent,
+                } : {}),
             }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <View style={{
@@ -83,7 +87,7 @@ export function HubTeamRow({ application, contract }: Props) {
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={{ color: COLORS.text0, fontSize: 14, fontWeight: '700' }}>
-                        {application.artistSnapshot?.displayName ?? 'Artist'}
+                        {displayName}
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
                         <Text style={{ color: COLORS.text2, fontSize: 12 }}>
@@ -96,7 +100,7 @@ export function HubTeamRow({ application, contract }: Props) {
                 <TouchableOpacity
                     onPress={handlePress}
                     disabled={action.disabled}
-                    accessibilityLabel={`${action.label} for ${application.artistSnapshot?.displayName ?? 'Artist'}`}
+                    accessibilityLabel={`${action.label} for ${displayName}`}
                     style={{
                         paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8,
                         backgroundColor: accent ? accent : 'transparent',

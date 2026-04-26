@@ -5,7 +5,8 @@ const pastDate = new Date(Date.now() - 86_400_000).toISOString();
 
 describe('computeTeamRowAction', () => {
     it('pending_artist_signature → Sent · waiting (disabled)', () => {
-        const out = computeTeamRowAction({ status: 'pending_artist_signature', sentAt: new Date().toISOString() } as any);
+        const recentSent = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 1h ago
+        const out = computeTeamRowAction({ status: 'pending_artist_signature', sentAt: recentSent } as any);
         expect(out.label).toMatch(/Sent · waiting/i);
         expect(out.disabled).toBe(true);
     });

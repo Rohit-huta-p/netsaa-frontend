@@ -24,7 +24,10 @@ export type TeamRowAction = {
 
 type Input = {
     status?: string;
+    /** When the contract was sent. Falls back to `createdAt` (Mongoose timestamp on the Contract model — backend doesn't yet emit a separate sentAt). */
     sentAt?: string;
+    /** Mongoose `createdAt` on the Contract document. Used as a fallback for sentAt. */
+    createdAt?: string;
     paidAmount?: number;
     paymentMethod?: 'on_platform' | 'off_platform';
     terms?: {
@@ -58,20 +61,27 @@ export function computeTeamRowAction(contract: Input): TeamRowAction {
         return { label: 'Waiting · guardian', intent: 'noop', disabled: true };
     }
     if (s === 'pending_artist_signature' || s === 'sent') {
-        const sentMs = contract.sentAt ? new Date(contract.sentAt).getTime() : Date.now();
+        const sentRaw = contract.sentAt ?? contract.createdAt;
+        const sentMs = sentRaw ? new Date(sentRaw).getTime() : Date.now();
         const ageHours = (Date.now() - sentMs) / HOUR;
         if (ageHours > 48) return { label: 'Cancel offer', intent: 'cancel-offer', disabled: false };
         if (ageHours > 24) return { label: 'Nudge', intent: 'nudge', disabled: false };
         return { label: 'Sent · waiting', intent: 'noop', disabled: true };
     }
 
+    // Unmodeled fall-through: 'draft' | 'accepted' | 'performed' all flow
+    // into the active branch below. Phase 1 acceptable because (a) draft
+    // contracts shouldn't surface in the hub anyway (gig hub only renders
+    // contracts on hired applications, which are at minimum sent) and
+    // (b) accepted / performed are transient states that resolve quickly.
+    // Phase 2 should add explicit branches.
     // active / signed
     const amount = contract.terms?.amount ?? 0;
     const paid = contract.paidAmount ?? 0;
     const isAdvanceBalance = contract.terms?.paymentStructure === 'advance_balance';
     const advanceCutoff = isAdvanceBalance ? amount * 0.3 : amount;
     const eventPast = !!contract.terms?.dates?.start &&
-        new Date(contract.terms.dates.start as any).getTime() < Date.now();
+        new Date(contract.terms.dates.start).getTime() < Date.now();
 
     if (paid < advanceCutoff) {
         // advance not paid yet

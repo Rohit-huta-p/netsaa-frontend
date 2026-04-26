@@ -10,7 +10,7 @@ import {
     MapPin, Edit3, Settings, Share2, UserPlus, Check,
     Star, Briefcase, Award, ChevronRight, ChevronLeft,
     MessageCircle, Clock, Camera, ShieldCheck,
-    Globe, Zap, Calendar, DollarSign, GraduationCap,
+    Globe, Zap, DollarSign, GraduationCap,
     Users, ThumbsUp, MapPinned, BadgeCheck, Handshake,
     TrendingUp, Eye, Instagram, Youtube, Play, X,
     Image as LucideImage, Trash2, Ban, Flag, UserMinus, AlertTriangle,
@@ -110,9 +110,6 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const endorsements: Record<string, number> = u.endorsements || {};
     const availability = u.availability || u.availabilityStatus || null;
     const travelPreference = u.travelPreference || u.travelWillingness || u.artistDetails?.travelPreferences || '';
-    const baseRate = u.baseRate || u.pricing?.baseRate || 0;
-    const rateUnit = u.rateUnit || u.pricing?.rateUnit || 'show';
-    const isNegotiable = u.isNegotiable ?? u.pricing?.negotiable ?? true;
     const certifications: any[] = u.certifications || u.training || [];
     const gigsPosted = u.stats?.gigsPosted || u.organizerDetails?.hirerStats?.gigsPosted || 0;
     const totalHired = u.stats?.totalHired || u.organizerDetails?.hirerStats?.artistsHired || 0;
@@ -159,6 +156,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
         organizerTypeCategory: u.organizerTypeCategory || '',
         primaryContactName: u.primaryContactName || '', primaryContactPhone: u.primaryContactPhone || '',
         primaryContactEmail: u.primaryContactEmail || '',
+        availability: u.availability || u.availabilityStatus || undefined,
         // @ts-ignore
         billingDetails: u.billingDetails || u.organizerDetails?.billingDetails || {},
     };
@@ -386,26 +384,6 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                 {/* ═══ HIRER PERSPECTIVE (non-owner + hirer tab) ═══ */}
                 {!isOwner && activeContext === 'hirer' && (
                     <>
-                        {/* Hire banner */}
-                        {baseRate > 0 && (
-                            <View style={s.hireBanner}>
-                                <View style={s.hireBannerGlow} />
-                                <View style={{ flex: 1 }}>
-                                    <Text style={s.hireBannerPrice}>Rs. {baseRate.toLocaleString('en-IN')}</Text>
-                                    <Text style={s.hireBannerUnit}>per {rateUnit}{isNegotiable ? ' \u00b7 Negotiable' : ''}</Text>
-                                    <View style={s.hireBannerMeta}>
-                                        {responseRate > 0 && <View style={s.hireBannerTag}><Clock size={11} color="#6B6878" /><Text style={s.hireBannerTagText}>Responds {responseRate}%</Text></View>}
-                                        {availability === 'available' && <View style={s.hireBannerTag}><Calendar size={11} color="#6B6878" /><Text style={s.hireBannerTagText}>Available</Text></View>}
-                                    </View>
-                                </View>
-                                <Pressable style={({ pressed }) => [pressed && { opacity: 0.9 }]}>
-                                    <LinearGradient colors={['#EC4899', '#F97316']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.hireBtn}>
-                                        <Text style={s.hireBtnText}>Hire</Text>
-                                    </LinearGradient>
-                                </Pressable>
-                            </View>
-                        )}
-
                         {/* Trust strip */}
                         <View style={s.trustStrip}>
                             <TrustCell val={gigsCompleted} label="Gigs" />
@@ -598,26 +576,6 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                             <Pressable onPress={() => openSheet('header')} style={s.availTravelRow}>
                                 <MapPinned size={13} color="#4A4656" />
                                 <Text style={s.placeholderTap}>Set travel preference</Text>
-                            </Pressable>
-                        ) : null}
-                    </View>
-                )}
-
-                {/* ═══ 12. PRICING — Large Price Tag ═══ */}
-                {(baseRate > 0 || isOwner) && (
-                    <View style={s.pricingSection}>
-                        <View style={s.pricingDivider} />
-                        <Text style={s.pricingLabel}>Base Rate</Text>
-                        {baseRate > 0 ? (
-                            <>
-                                <Text style={s.pricingAmount}>Rs. {baseRate.toLocaleString('en-IN')}</Text>
-                                <Text style={s.pricingUnit}>per {rateUnit}</Text>
-                                {isNegotiable && <View style={s.pricingNegPill}><Text style={s.pricingNegText}>Negotiable</Text></View>}
-                            </>
-                        ) : isOwner ? (
-                            <Pressable onPress={() => openSheet('header')}>
-                                <Text style={[s.pricingAmount, { color: '#3A3746' }]}>Rs. ---</Text>
-                                <Text style={s.placeholderTap}>Tap to set your rate</Text>
                             </Pressable>
                         ) : null}
                     </View>
@@ -1112,17 +1070,6 @@ const s = StyleSheet.create({
     ctxText: { fontFamily: 'Outfit-SemiBold', fontSize: 13, color: '#4A4656' },
     ctxTextActive: { color: '#F0ECE6' },
 
-    // ── Hirer banner ──
-    hireBanner: { marginHorizontal: 14, marginTop: 14, padding: 18, borderRadius: 20, backgroundColor: 'rgba(236,72,153,0.06)', borderWidth: 1, borderColor: 'rgba(236,72,153,0.12)', flexDirection: 'row', alignItems: 'center', gap: 14, overflow: 'hidden' },
-    hireBannerGlow: { position: 'absolute', top: 0, left: 30, right: 30, height: 1, backgroundColor: 'rgba(236,72,153,0.15)' },
-    hireBannerPrice: { fontFamily: 'Outfit-Black', fontSize: 22, color: '#F0ECE6', letterSpacing: -0.5 },
-    hireBannerUnit: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#6B6878', marginTop: 1 },
-    hireBannerMeta: { flexDirection: 'row', gap: 10, marginTop: 6 },
-    hireBannerTag: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    hireBannerTagText: { fontFamily: 'Outfit-Medium', fontSize: 11, color: '#6B6878' },
-    hireBtn: { paddingVertical: 12, paddingHorizontal: 24, borderRadius: 14 },
-    hireBtnText: { fontFamily: 'Outfit-Bold', fontSize: 14, color: '#fff' },
-
     // ── Trust strip ──
     trustStrip: { flexDirection: 'row', marginHorizontal: 14, marginTop: 14, borderRadius: 16, backgroundColor: 'rgba(18,16,24,0.9)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3, overflow: 'hidden' },
     trustCell: { flex: 1, paddingVertical: 14, alignItems: 'center' },
@@ -1193,15 +1140,6 @@ const s = StyleSheet.create({
     availText: { fontFamily: 'Outfit-Regular', fontSize: 14, color: '#F0ECE6' },
     availTravelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     availTravelText: { fontFamily: 'Outfit-Regular', fontSize: 13, color: '#6B6878' },
-
-    // ── 12. Pricing — Large Price Tag ──
-    pricingSection: { marginHorizontal: 20, marginTop: 16, paddingVertical: 24, alignItems: 'center', position: 'relative' },
-    pricingDivider: { position: 'absolute', top: 0, left: '20%', right: '20%', height: 1, backgroundColor: 'rgba(255,255,255,0.04)' },
-    pricingLabel: { fontFamily: 'Outfit-Bold', fontSize: 9, color: '#4A4656', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8 },
-    pricingAmount: { fontFamily: 'Outfit-Black', fontSize: 36, color: '#F0ECE6', letterSpacing: -1 },
-    pricingUnit: { fontFamily: 'Outfit-Regular', fontSize: 14, color: '#6B6878', marginTop: 4 },
-    pricingNegPill: { marginTop: 8, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.03)' },
-    pricingNegText: { fontFamily: 'Outfit-Medium', fontSize: 11, color: '#6B6878' },
 
     // ── 13. Social Links — Icon Circles ──
     socialsSection: { paddingHorizontal: 20, paddingTop: 20, alignItems: 'center' },

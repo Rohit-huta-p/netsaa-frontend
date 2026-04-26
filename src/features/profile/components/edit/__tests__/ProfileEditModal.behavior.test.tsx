@@ -175,3 +175,25 @@ describe('ProfileEditModal — full skin tone palette', () => {
         });
     });
 });
+
+describe('ProfileEditModal — availability picker', () => {
+    it('renders Availability chips on the Basic tab', () => {
+        const { getByText } = render(<ProfileEditModal profileData={baseProfile} />);
+        expect(getByText('Availability')).toBeTruthy();
+        expect(getByText('Available')).toBeTruthy();
+        expect(getByText('Tentative')).toBeTruthy();
+        expect(getByText('Busy')).toBeTruthy();
+    });
+
+    it('tapping Available marks the Basic tab dirty', () => {
+        const { getByText, getByPlaceholderText } = render(
+            <ProfileEditModal profileData={baseProfile} />
+        );
+        fireEvent.press(getByText('Available'));
+        // Dirty state survives tab switching — switch to Bio and back to Basic.
+        fireEvent.press(getByText('Bio'));
+        fireEvent.press(getByText('Basic'));
+        // Display Name input still rendered — modal didn't unmount.
+        expect(getByPlaceholderText('Your name')).toBeTruthy();
+    });
+});

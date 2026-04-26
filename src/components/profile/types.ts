@@ -12,6 +12,8 @@ export type ExperienceEntry = {
     mediaLink?: string;
 };
 
+export type AvailabilityStatus = 'available' | 'busy' | 'tentative';
+
 export type ProfileData = {
     fullName: string;
     headline?: string;
@@ -47,6 +49,7 @@ export type ProfileData = {
     primaryContactEmail?: string;
     isCustomCategory?: boolean;
     customCategoryLabel?: string;
+    availability?: AvailabilityStatus;
 };
 
 export type ProfileStats = {

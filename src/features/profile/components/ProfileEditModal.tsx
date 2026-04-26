@@ -213,6 +213,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const [headline, setHeadline] = useState('');
     const [artistType, setArtistType] = useState('');
     const [location, setLocation] = useState('');
+    const [availability, setAvailability] = useState<'' | 'available' | 'busy' | 'tentative'>('');
     const [orgName, setOrgName] = useState('');
     const [bio, setBio] = useState('');
     const [age, setAge] = useState('');
@@ -257,6 +258,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         setDiscardPromptVisible(false);
         setDisplayName(profileData.fullName || ''); setHeadline(profileData.headline || '');
         setArtistType(profileData.artistType || ''); setLocation(profileData.location || '');
+        setAvailability((profileData.availability as any) || '');
         setOrgName(profileData.organizationName || ''); setBio(profileData.bio || '');
         setAge(profileData.age || ''); setHeight(profileData.height || '');
         setShowHeightDropdown(false);
@@ -352,7 +354,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         const organizerPayload: any = {};
 
         if (dirtyTabs.has('header')) {
-            Object.assign(artistPayload, { displayName, headline, artistType, location });
+            Object.assign(artistPayload, { displayName, headline, artistType, location, availability });
         }
         if (dirtyTabs.has('about')) {
             Object.assign(artistPayload, { bio, age, height, skinTone, skinToneHex });
@@ -483,6 +485,46 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                     <Input value={artistType} onChangeText={set(setArtistType)} placeholder="Dancer, Singer..." />
                 </Field>
                 <Field label="Location" highlighted={isFieldMissing('location')} accent={P.orange}><Input value={location} onChangeText={set(setLocation)} placeholder="City, Country" /></Field>
+                <Field label="Availability" accent={P.orange}>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {([
+                            { value: 'available', label: 'Available', color: P.green },
+                            { value: 'tentative', label: 'Tentative', color: P.gold },
+                            { value: 'busy', label: 'Busy', color: P.danger },
+                        ] as const).map(opt => {
+                            const isSelected = availability === opt.value;
+                            return (
+                                <TouchableOpacity
+                                    key={opt.value}
+                                    onPress={() => {
+                                        setAvailability(isSelected ? '' : opt.value);
+                                        markDirty('header');
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 6,
+                                        paddingVertical: 12,
+                                        borderRadius: 12,
+                                        borderWidth: 1.5,
+                                        borderColor: isSelected ? opt.color : P.border,
+                                        backgroundColor: isSelected ? `${opt.color}10` : 'rgba(255,255,255,0.02)',
+                                    }}>
+                                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: opt.color }} />
+                                    <Text style={{
+                                        fontFamily: isSelected ? 'Outfit-Bold' : 'Outfit-Medium',
+                                        fontSize: 12,
+                                        color: isSelected ? opt.color : P.textSecondary,
+                                    }}>
+                                        {opt.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                </Field>
             </>
         );
     };

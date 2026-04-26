@@ -45,11 +45,12 @@ export function HubMiniTimeline({ nodes, overlay }: Props) {
                     />
                     {i < nodes.length - 1 && (
                         <View
+                            testID="mini-tl-connector"
                             style={{
                                 width: 14,
                                 height: 1,
                                 backgroundColor:
-                                    nodes[i + 1].state === 'done' || (n.state === 'done' && nodes[i + 1].state !== 'pending')
+                                    n.state === 'done' && nodes[i + 1].state !== 'pending'
                                         ? COLOR_MAP[n.color]
                                         : 'rgba(255,255,255,0.09)',
                             }}

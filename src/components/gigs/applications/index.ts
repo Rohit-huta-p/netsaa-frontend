@@ -12,3 +12,5 @@ export { ApplicationsBadge } from './ApplicationsBadge';
 export { ApplicationsBottomSheet } from './ApplicationsBottomSheet';
 
 export { ApplicantContextCard } from './ApplicantContextCard';
+
+export { HireConfirmModal } from './HireConfirmModal';

@@ -278,7 +278,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                             <TermsTab termsAndConditions={gig.termsAndConditions} />
                         )}
                         {activeTab === 'applications' && isOrganizer && (
-                            <ApplicationsTab gigId={gig._id} />
+                            <ApplicationsTab gigId={gig._id} gig={gig} />
                         )}
                     </View>
                 </View>
@@ -344,6 +344,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                     }}
                     onUpdateStatus={handleUpdateStatus}
                     gigId={gig._id}
+                    gig={gig}
                     isLoading={loadingApplications}
                 />
             )}

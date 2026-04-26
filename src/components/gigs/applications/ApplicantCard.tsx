@@ -32,6 +32,14 @@ export interface ApplicantCardProps {
     isExpanded: boolean;
     onToggleExpand: () => void;
     onUpdateStatus: (applicationId: string, status: string) => void;
+    /**
+     * Hire requests are routed through the parent so it can render the
+     * two-section confirm modal (PRD §8.3.2 Stage 2). When omitted, the
+     * Hire button falls back to a direct status flip — kept for backward
+     * compatibility with any legacy callers, but ApplicationsBottomSheet
+     * now always passes this handler.
+     */
+    onRequestHire?: (application: ApplicantCardProps['application']) => void;
     isUpdating?: boolean;
 }
 
@@ -41,6 +49,7 @@ export const ApplicantCard: React.FC<ApplicantCardProps> = ({
     isExpanded,
     onToggleExpand,
     onUpdateStatus,
+    onRequestHire,
     isUpdating = false,
 }) => {
     const router = useRouter();
@@ -218,7 +227,14 @@ export const ApplicantCard: React.FC<ApplicantCardProps> = ({
             <View className="flex-row gap-2 mt-2">
                 {application.status !== 'hired' && (
                     <TouchableOpacity
-                        onPress={() => onUpdateStatus(application._id, 'hired')}
+                        onPress={() => {
+                            if (onRequestHire) {
+                                onRequestHire(application);
+                            } else {
+                                // Backward-compat fallback for legacy callers
+                                onUpdateStatus(application._id, 'hired');
+                            }
+                        }}
                         disabled={isUpdating}
                         className="flex-[2] bg-emerald-500 rounded-2xl py-3.5 flex-row justify-center items-center shadow-lg shadow-emerald-500/20"
                     >

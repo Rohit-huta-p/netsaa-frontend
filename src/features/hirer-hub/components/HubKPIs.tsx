@@ -2,6 +2,11 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import type { HubKPIs as HubKPIData } from '../hooks/useGigHubData';
 
+// `kpis.slotsTotal` is guaranteed >= 1 by the upstream selector hook
+// (useGigHubData applies `|| 1` fallback). If a future caller hands in 0,
+// the rendered "/0" reads as "all slots filled" but is meaningless — keep
+// the upstream guard.
+
 const COLORS = {
     text0: '#F3EFE8',
     text2: '#6B6878',
@@ -12,9 +17,21 @@ const COLORS = {
 };
 
 function inrShort(amount: number): string {
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(amount % 100000 === 0 ? 0 : 1)}L`;
-    if (amount >= 1000) return `₹${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}K`;
-    return `₹${amount}`;
+    if (!Number.isFinite(amount)) return '₹0';
+    // Bump to lakh slightly early so the boundary doesn't read as ₹100.0K
+    // (a tick from ₹1L). Floor instead of round so we never overstate.
+    if (amount >= 99_950) {
+        // For values in the early-bump zone [99_950, 100_000), snap to ₹1L
+        // so the boundary doesn't read as ₹100K. For values >= 100_000,
+        // floor so we never overstate.
+        const lakh = amount < 100_000 ? 1 : Math.floor((amount / 100_000) * 10) / 10;
+        return `₹${lakh % 1 === 0 ? lakh.toFixed(0) : lakh.toFixed(1)}L`;
+    }
+    if (amount >= 1000) {
+        const k = Math.floor((amount / 1000) * 10) / 10;
+        return `₹${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
+    }
+    return `₹${Math.max(0, Math.floor(amount))}`;
 }
 
 type Props = { kpis: HubKPIData };
@@ -36,7 +53,7 @@ export function HubKPIs({ kpis }: Props) {
                         Hired
                     </Text>
                     <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 32, color: COLORS.text0, marginTop: 4 }}>
-                        {kpis.hiredCount}
+                        <Text>{kpis.hiredCount}</Text>
                         <Text style={{ fontSize: 18, color: COLORS.text3 }}>/{kpis.slotsTotal}</Text>
                     </Text>
                 </View>

@@ -68,6 +68,18 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const [mediaViewerIndex, setMediaViewerIndex] = useState<number | null>(null);
     const [confirmAction, setConfirmAction] = useState<null | 'remove' | 'withdraw' | 'block' | 'block_report'>(null);
 
+    // ── ALL hooks must run before any early return below. The first render
+    // bails out at `isLoading && !isOwner` while data fetches; the second
+    // render proceeds past that guard. If hook calls live below the early
+    // returns, the second render calls more hooks than the first → React
+    // throws "Rendered more hooks than during the previous render". Keep
+    // every hook above the loading guards. ──
+    const { data: mutualData } = useMutualConnections(isOwner ? undefined : userId);
+    const { data: degreeData } = useConnectionDegree(isOwner ? undefined : userId);
+    const { data: followStatus } = useFollowStatus(isOwner ? undefined : userId);
+    const { data: followCounts } = useFollowCounts(userId);
+    const { follow: followMut, unfollow: unfollowMut } = useFollowMutations(isOwner ? undefined : userId);
+
     const user = isOwner ? authUser : fetchedUser;
 
     // ── Loading / Error / Not found ──
@@ -105,7 +117,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const phoneVerified = !!(u.phoneVerifiedAt || u.phoneVerified || u.isPhoneVerified);
     const emailVerified = !!(u.emailVerifiedAt || u.emailVerified || u.isEmailVerified);
     const kycStatus = u.kycLevel >= 2 ? 'verified' : u.kycLevel === 1 ? 'pending' : (u.kycStatus || 'none');
-    // connectionDegree comes from the useConnectionDegree hook below (real data).
+    // connectionDegree comes from the useConnectionDegree hook above (real data).
     const workedTogether = u.workedTogether || false;
     const endorsements: Record<string, number> = u.endorsements || {};
     const availability = u.availability || u.availabilityStatus || null;
@@ -117,17 +129,11 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const eventsHosted = u.stats?.eventsHosted || u.organizerDetails?.hirerStats?.eventsCreated || 0;
     const connections = u.stats?.connections || 0;
 
-    // Real mutual + degree from backend (cached via TanStack Query + Redis server-side).
-    // Skipped automatically when viewing own profile (hook guards on userId !== meId).
-    const { data: mutualData } = useMutualConnections(isOwner ? undefined : userId);
-    const { data: degreeData } = useConnectionDegree(isOwner ? undefined : userId);
+    // Derived values from the connection / follow hooks (which run above the
+    // early returns to satisfy the rules-of-hooks). These are pure reads,
+    // safe to compute here.
     const mutualConnections = mutualData?.count ?? 0;
     const connectionDegree = degreeData?.degree ?? null;
-
-    // Follow relationship + counts (PRD §8.9.5)
-    const { data: followStatus } = useFollowStatus(isOwner ? undefined : userId);
-    const { data: followCounts } = useFollowCounts(userId);
-    const { follow: followMut, unfollow: unfollowMut } = useFollowMutations(isOwner ? undefined : userId);
     const iFollow = followStatus?.iFollow ?? false;
     const followsMe = followStatus?.followsMe ?? false;
     const followerCount = followCounts?.followers ?? 0;

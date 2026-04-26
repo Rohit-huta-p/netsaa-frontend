@@ -63,13 +63,19 @@ export function computeContractStage(contract: ContractInput): ContractStage {
         };
     }
 
+    // Unmodeled fall-through: 'draft' | 'accepted' | 'performed' all flow
+    // into the active branch below. Phase 1 acceptable because (a) draft
+    // contracts shouldn't surface in the hub anyway (gig hub only renders
+    // contracts on hired applications, which are at minimum sent) and
+    // (b) accepted / performed are transient states that resolve quickly.
+    // Phase 2 should add explicit branches.
     // active / signed branches
     const amount = contract.terms?.amount ?? 0;
     const paid = contract.paidAmount ?? 0;
     const isAdvanceBalance = contract.terms?.paymentStructure === 'advance_balance';
     const advanceCutoff = isAdvanceBalance ? amount * 0.3 : amount;
     const eventPast = !!contract.terms?.dates?.start &&
-        new Date(contract.terms.dates.start as any).getTime() < Date.now();
+        new Date(contract.terms.dates.start).getTime() < Date.now();
 
     if (paid <= 0) {
         return {

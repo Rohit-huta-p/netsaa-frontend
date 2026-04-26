@@ -55,7 +55,11 @@ export function useGigHubData(gigId: string) {
     const kpis: HubKPIs = useMemo(() => {
         const appliedCount = applications.length;
         const hiredCount = applications.filter((a) => a.status === 'hired').length;
-        const slotsTotal = gig?.requirements?.headcount || hiredCount || 1;
+        // `slotsTotal` represents the number of artists this gig will hire. Backend
+        // doesn't expose a canonical headcount field today, so fall back to the
+        // number already hired (or 1 if nothing is hired yet). When backend adds a
+        // real `headcount` field, prefer it here.
+        const slotsTotal = hiredCount || 1;
         const paidAmount = contracts.reduce((s: number, c: any) => s + (c.paidAmount ?? 0), 0);
         const totalAmount = contracts.reduce((s: number, c: any) => s + (c.terms?.amount ?? 0), 0);
         const dueAmount = Math.max(0, totalAmount - paidAmount);

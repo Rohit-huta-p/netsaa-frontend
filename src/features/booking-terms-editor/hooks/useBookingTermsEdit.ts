@@ -12,12 +12,14 @@ type CancellationPolicy = '24h' | '48h' | '72h';
 type Initial = {
     paymentStructure?: PaymentStructure;
     cancellationPolicy?: CancellationPolicy;
+    cancellationForfeitPct?: number;
     negotiable?: boolean;
 };
 
 export function useBookingTermsEdit(gigId: string, initial: Initial) {
     const [paymentStructure, setPaymentStructure] = useState<PaymentStructure>(initial.paymentStructure ?? 'full');
     const [cancellationPolicy, setCancellationPolicy] = useState<CancellationPolicy>(initial.cancellationPolicy ?? '48h');
+    const [cancellationForfeitPct, setCancellationForfeitPct] = useState<number>(initial.cancellationForfeitPct ?? 100);
     const [negotiable, setNegotiable] = useState<boolean>(initial.negotiable ?? false);
 
     const updateMutation = useUpdateGig();
@@ -26,11 +28,12 @@ export function useBookingTermsEdit(gigId: string, initial: Initial) {
         const dirty: any = {};
         if (paymentStructure !== (initial.paymentStructure ?? 'full')) dirty.paymentStructure = paymentStructure;
         if (cancellationPolicy !== (initial.cancellationPolicy ?? '48h')) dirty.cancellationPolicy = cancellationPolicy;
+        if (cancellationForfeitPct !== (initial.cancellationForfeitPct ?? 100)) dirty.cancellationForfeitPct = cancellationForfeitPct;
         if (negotiable !== (initial.negotiable ?? false)) {
             dirty.compensation = { negotiable };
         }
         return dirty;
-    }, [paymentStructure, cancellationPolicy, negotiable, initial]);
+    }, [paymentStructure, cancellationPolicy, cancellationForfeitPct, negotiable, initial]);
 
     const isDirty = Object.keys(dirtyFields).length > 0;
 
@@ -42,6 +45,7 @@ export function useBookingTermsEdit(gigId: string, initial: Initial) {
     return {
         paymentStructure, setPaymentStructure,
         cancellationPolicy, setCancellationPolicy,
+        cancellationForfeitPct, setCancellationForfeitPct,
         negotiable, setNegotiable,
         isDirty,
         isSaving: updateMutation.isPending,

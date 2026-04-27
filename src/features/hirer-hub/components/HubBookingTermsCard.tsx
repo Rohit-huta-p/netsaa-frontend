@@ -19,6 +19,7 @@ type Props = {
     gigId: string;
     paymentStructure?: 'full' | 'advance_balance';
     cancellationPolicy?: string;
+    cancellationForfeitPct?: number;
     leadAmount?: number;
     subArtistAmount?: number;
     customClausesCount?: number;
@@ -36,6 +37,7 @@ export function HubBookingTermsCard({
     gigId,
     paymentStructure = 'advance_balance',
     cancellationPolicy = '48h',
+    cancellationForfeitPct,
     leadAmount = 0,
     subArtistAmount,
     customClausesCount = 0,
@@ -124,6 +126,7 @@ export function HubBookingTermsCard({
                 visible={previewOpen}
                 paymentStructure={paymentStructure}
                 cancellationPolicy={cancellationPolicy as any}
+                cancellationForfeitPct={cancellationForfeitPct}
                 amount={leadAmount}
                 negotiable={negotiable}
                 termsAndConditions={termsAndConditions}

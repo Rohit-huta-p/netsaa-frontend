@@ -32,9 +32,6 @@ import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const DEFAULT_CANCELLATION =
-    'Cancellations within 48h of event date forfeit the full booking amount.';
-
 type PaymentMethod = 'on_platform' | 'off_platform';
 
 interface HireConfirmModalProps {
@@ -139,10 +136,22 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
             gig?.compensation?.maxAmount ||
             gig?.compensation?.minAmount ||
             0;
+
+        // Phase 2C: read booking terms from the gig (set via the
+        // /gigs/:id/booking-terms editor) so per-hire contracts inherit
+        // the master/template values instead of hardcoded defaults.
+        const paymentStructure: 'full' | 'advance_balance' =
+            gig?.paymentStructure ?? 'full';
+        const cancellationPolicy: '24h' | '48h' | '72h' =
+            gig?.cancellationPolicy ?? '48h';
+        const forfeitPct: number =
+            typeof gig?.cancellationForfeitPct === 'number'
+                ? gig.cancellationForfeitPct
+                : 100;
+
         const cancellationTerms =
-            gig?.cancellationTerms ||
-            gig?.termsAndConditions ||
-            DEFAULT_CANCELLATION;
+            gig?.cancellationTerms ??
+            `Cancellations within ${cancellationPolicy} of event date forfeit ${forfeitPct}% of the booking amount. Artist keeps any portion already paid.`;
 
         return {
             artistName,
@@ -155,6 +164,9 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
             venue,
             cityLine,
             amount,
+            paymentStructure,
+            cancellationPolicy,
+            forfeitPct,
             cancellationTerms,
         };
     }, [gig, application]);
@@ -191,7 +203,7 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
             },
             scopeOfWork: gig?.description || summary.gigTitle,
             amount: summary.amount,
-            paymentStructure: 'full' as const,
+            paymentStructure: summary.paymentStructure,
             cancellationTerms: summary.cancellationTerms,
         };
 

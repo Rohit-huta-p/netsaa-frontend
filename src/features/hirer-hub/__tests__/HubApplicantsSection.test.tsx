@@ -24,10 +24,12 @@ describe('HubApplicantsSection', () => {
         expect(queryByText('Meera D')).toBeNull();
     });
 
-    it('Hire link calls onHire with id', () => {
-        const onHire = jest.fn();
-        const { getAllByText } = render(<HubApplicantsSection applicants={apps} onHire={onHire} />);
-        fireEvent.press(getAllByText('Hire')[0]);
-        expect(onHire).toHaveBeenCalledWith(expect.any(String));
+    it('Quick Hire button calls onQuickHire with id', () => {
+        const onQuickHire = jest.fn();
+        const { getAllByLabelText } = render(<HubApplicantsSection applicants={apps} onQuickHire={onQuickHire} />);
+        // accessibilityLabel is `Hire ${displayName}`
+        const hireButtons = getAllByLabelText(/^Hire /);
+        fireEvent.press(hireButtons[0]);
+        expect(onQuickHire).toHaveBeenCalledWith(expect.any(String));
     });
 });

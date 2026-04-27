@@ -26,6 +26,7 @@ import {
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCreateContract } from '@/hooks/usePayments';
 import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 
@@ -81,6 +82,7 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
     onHired,
 }) => {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('on_platform');
@@ -205,6 +207,65 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
             const contract = res?.data || res;
             createdContractId = contract?._id || contract?.id;
         } catch (err: any) {
+            const status =
+                err?.response?.status ??
+                err?.status ??
+                err?.response?.data?.meta?.status;
+            const data = err?.response?.data?.data ?? err?.data;
+
+            if (status === 409) {
+                // Already-hired branch: friendly recovery UX. The artist
+                // already has a non-terminal contract for this gig, so the
+                // backend dedup guard fired. Offer to view it instead of
+                // dead-ending on an error chip.
+                setIsCreating(false);
+                // Refresh caches so the stale applicants list drops the
+                // already-hired artist on next render.
+                queryClient.invalidateQueries({ queryKey: ['gigApplications', gig._id] });
+                queryClient.invalidateQueries({ queryKey: ['contracts'] });
+
+                const artistName =
+                    application.artistSnapshot?.displayName ?? 'This artist';
+                if (data?.existingContractId) {
+                    try {
+                        Alert.alert(
+                            'Already hired',
+                            `${artistName} is already on your team for this gig.`,
+                            [
+                                { text: 'OK', style: 'cancel' },
+                                {
+                                    text: 'View contract',
+                                    onPress: () => {
+                                        onClose();
+                                        try {
+                                            router?.push?.(
+                                                `/(app)/contracts/${data.existingContractId}` as any,
+                                            );
+                                        } catch {
+                                            /* navigation optional in tests */
+                                        }
+                                    },
+                                },
+                            ],
+                        );
+                    } catch {
+                        /* noop in test environments */
+                    }
+                } else {
+                    // Backend not yet enriched with existingContractId —
+                    // generic friendly fallback.
+                    try {
+                        Alert.alert(
+                            'Already hired',
+                            `${artistName} is already hired for this gig. Refresh to see them under Your team.`,
+                        );
+                    } catch {
+                        /* noop */
+                    }
+                }
+                return;
+            }
+
             const msg =
                 err?.response?.data?.meta?.message ||
                 err?.message ||
@@ -221,7 +282,12 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
                 status: 'hired',
             });
         } catch (err: any) {
-            // Contract is the source of truth — close modal but warn
+            // Contract is the source of truth — close modal but warn.
+            // Cache invalidation still matters: contract IS created, so the
+            // hub's contracts list must refresh even if the application-status
+            // update side-failed.
+            queryClient.invalidateQueries({ queryKey: ['gigApplications', gig._id] });
+            queryClient.invalidateQueries({ queryKey: ['contracts'] });
             setIsCreating(false);
             onClose();
             try {
@@ -236,7 +302,12 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
             return;
         }
 
-        // All good
+        // All good — invalidate both query keys so the just-hired artist
+        // drops off the pending applicants section in the gig hub and
+        // shows up under "Your team" / contracts list.
+        queryClient.invalidateQueries({ queryKey: ['gigApplications', gig._id] });
+        queryClient.invalidateQueries({ queryKey: ['contracts'] });
+
         setIsCreating(false);
         onClose();
         try {

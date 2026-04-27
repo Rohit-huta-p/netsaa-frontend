@@ -76,6 +76,9 @@ function initialState(): GigFormV2State {
       description: '',
       perks: [],
       termsAndConditions: '',
+      // Phase 4A — custom contract clauses default empty. Cleaned + omitted
+      // from the backend payload below when empty so we don't write `[]`.
+      customClauses: [],
     },
     isUrgent: false,
     isFeatured: false,
@@ -147,6 +150,12 @@ export function buildBackendPayload(state: GigFormV2State) {
   const maxAmount =
     compStructure === 'range' && state.p2.maxAmount ? parseInt(state.p2.maxAmount, 10) : undefined;
 
+  // Phase 4A — clean custom clauses: trim each, drop empties. Omit field
+  // entirely when empty so backend keeps default (no clauses on this gig).
+  const cleanedCustomClauses = (state.p4.customClauses ?? [])
+    .map((c) => c.trim())
+    .filter(Boolean);
+
   return {
     title: state.p1.title,
     artistTypes: state.p1.artistTypes,
@@ -196,6 +205,7 @@ export function buildBackendPayload(state: GigFormV2State) {
     crewDetails: state.p3.crew,
     languagePreferences: state.p2.languagePreferences ?? [],
     ancillaryLogistics: { provided: state.p4.ancillaryProvided ?? [] },
+    ...(cleanedCustomClauses.length > 0 ? { customClauses: cleanedCustomClauses } : {}),
     isUrgent: state.isUrgent,
     isFeatured: state.isFeatured,
   };
@@ -280,6 +290,7 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
           description: g.description ?? '',
           perks: g.compensation?.perks ?? [],
           termsAndConditions: g.termsAndConditions ?? '',
+          customClauses: g.customClauses ?? [],
         },
         isUrgent: g.isUrgent ?? false,
         isFeatured: g.isFeatured ?? false,

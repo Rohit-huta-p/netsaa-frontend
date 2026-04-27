@@ -157,6 +157,7 @@ export function HirerGigHub({ gigId }: Props) {
                     cancellationForfeitPct={gig.cancellationForfeitPct}
                     leadAmount={gig.compensation?.amount ?? gig.compensation?.leadAmount ?? 0}
                     subArtistAmount={gig.compensation?.subArtistAmount}
+                    customClauses={gig.customClauses ?? []}
                     customClausesCount={(gig.customClauses ?? []).length}
                     activeContractsCount={data.contracts.filter((c: any) => ['active', 'sent', 'pending_artist_signature'].includes(c.status)).length}
                     negotiable={gig.compensation?.negotiable ?? false}

@@ -22,6 +22,7 @@ type Props = {
     cancellationForfeitPct?: number;
     leadAmount?: number;
     subArtistAmount?: number;
+    customClauses?: string[];
     customClausesCount?: number;
     activeContractsCount: number;
     negotiable?: boolean;
@@ -40,6 +41,7 @@ export function HubBookingTermsCard({
     cancellationForfeitPct,
     leadAmount = 0,
     subArtistAmount,
+    customClauses,
     customClausesCount = 0,
     activeContractsCount,
     negotiable = false,
@@ -127,6 +129,7 @@ export function HubBookingTermsCard({
                 paymentStructure={paymentStructure}
                 cancellationPolicy={cancellationPolicy as any}
                 cancellationForfeitPct={cancellationForfeitPct}
+                customClauses={customClauses}
                 amount={leadAmount}
                 negotiable={negotiable}
                 termsAndConditions={termsAndConditions}

@@ -1,11 +1,16 @@
+// src/features/hirer-hub/__tests__/HubBookingTermsCard.test.tsx
 import React from 'react';
 import { render } from '@testing-library/react-native';
+
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
+
 import { HubBookingTermsCard } from '../components/HubBookingTermsCard';
 
 describe('HubBookingTermsCard', () => {
     it('renders summary fields', () => {
         const { getByText } = render(
             <HubBookingTermsCard
+                gigId="g-test"
                 paymentStructure="advance_balance"
                 cancellationPolicy="48h"
                 leadAmount={50000}
@@ -22,7 +27,7 @@ describe('HubBookingTermsCard', () => {
 
     it('hides propagation note when 0 active contracts', () => {
         const { queryByText } = render(
-            <HubBookingTermsCard activeContractsCount={0} leadAmount={1000} />
+            <HubBookingTermsCard gigId="g-test" activeContractsCount={0} leadAmount={1000} />
         );
         expect(queryByText(/existing contract/)).toBeNull();
     });

@@ -4,13 +4,15 @@
 // when the current user is the gig owner. Public artist view of /gigs/[id]
 // stays untouched in app/(app)/gigs/[id].tsx.
 
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { View, ScrollView, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, MoreHorizontal } from 'lucide-react-native';
 
 import { useGigHubData } from './hooks/useGigHubData';
 import { computeStickyCTA } from './utils/computeStickyCTA';
+import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
+import { HireConfirmModal } from '@/components/gigs/applications/HireConfirmModal';
 
 import { HubHero } from './components/HubHero';
 import { HubKPIs } from './components/HubKPIs';
@@ -19,6 +21,7 @@ import { HubBookingTermsCard } from './components/HubBookingTermsCard';
 import { HubApplicantsSection } from './components/HubApplicantsSection';
 import { HubEssentials } from './components/HubEssentials';
 import { HubStickyCTA } from './components/HubStickyCTA';
+import { ApplicantActionSheet } from './components/ApplicantActionSheet';
 
 const COLORS = { bg: '#07070B', line: 'rgba(255,255,255,0.05)' };
 
@@ -31,6 +34,10 @@ export function HirerGigHub({ gigId }: Props) {
     const data = useGigHubData(gigId);
     const scrollRef = useRef<ScrollView>(null);
     const applicantsYRef = useRef<number>(0);
+
+    const [hireTarget, setHireTarget] = useState<any | null>(null);
+    const [actionSheetTarget, setActionSheetTarget] = useState<any | null>(null);
+    const updateStatusMutation = useUpdateApplicationStatus();
 
     const sticky = useMemo(
         () => computeStickyCTA({
@@ -69,13 +76,45 @@ export function HirerGigHub({ gigId }: Props) {
         }
     };
 
-    const handleHireFromList = (_applicationId: string) => {
-        scrollRef.current?.scrollTo({ y: applicantsYRef.current, animated: true });
-        // The Hire confirmation modal already exists at the gigs/applications layer.
-        // Phase 1 routes the user back to the existing applicants modal flow via the
-        // public gig detail's ApplicationsBottomSheet. A direct trigger from the hub
-        // is wired in a follow-up commit when the bottom sheet exposes a `targetId`
-        // prop. For now, scrolling to the applicants list is the deterministic UX.
+    const findApplication = (applicationId: string) => {
+        return data.pendingApplicants.find((a: any) => a._id === applicationId)
+            ?? data.applications.find((a: any) => a._id === applicationId)
+            ?? null;
+    };
+
+    const handleQuickHire = (applicationId: string) => {
+        const app = findApplication(applicationId);
+        if (app) setHireTarget(app);
+    };
+
+    const handleQuickReject = (applicationId: string) => {
+        updateStatusMutation.mutate({ applicationId, status: 'rejected' });
+    };
+
+    const handleRowTap = (applicationId: string) => {
+        const app = findApplication(applicationId);
+        if (app) setActionSheetTarget(app);
+    };
+
+    const handleSheetShortlist = (applicationId: string) => {
+        updateStatusMutation.mutate({ applicationId, status: 'shortlisted' });
+        setActionSheetTarget(null);
+    };
+
+    const handleSheetReject = (applicationId: string) => {
+        updateStatusMutation.mutate({ applicationId, status: 'rejected' });
+        setActionSheetTarget(null);
+    };
+
+    const handleSheetHire = (applicationId: string) => {
+        const app = findApplication(applicationId);
+        setActionSheetTarget(null);
+        if (app) setHireTarget(app);
+    };
+
+    const handleSheetViewProfile = (artistId: string) => {
+        setActionSheetTarget(null);
+        router.push(`/(app)/profile/${artistId}` as any);
     };
 
     return (
@@ -129,8 +168,9 @@ export function HirerGigHub({ gigId }: Props) {
                     onLayout={(e) => { applicantsYRef.current = e.nativeEvent.layout.y - 16; }}>
                     <HubApplicantsSection
                         applicants={data.pendingApplicants}
-                        onHire={handleHireFromList}
-                        onTapApplicant={(id) => router.push(`/(app)/profile/${data.pendingApplicants.find((a: any) => a._id === id)?.artistId ?? ''}` as any)}
+                        onTapApplicant={handleRowTap}
+                        onQuickHire={handleQuickHire}
+                        onQuickReject={handleQuickReject}
                         onSeeAll={() => router.push(`/(app)/gigs/${gigId}?tab=applicants` as any)}
                     />
                 </View>
@@ -150,6 +190,23 @@ export function HirerGigHub({ gigId }: Props) {
             <View style={{ position: 'absolute', bottom: 16, left: 0, right: 0 }}>
                 <HubStickyCTA cta={sticky} onPress={handleSticky} />
             </View>
+
+            <ApplicantActionSheet
+                visible={!!actionSheetTarget}
+                application={actionSheetTarget}
+                onClose={() => setActionSheetTarget(null)}
+                onShortlist={handleSheetShortlist}
+                onReject={handleSheetReject}
+                onHire={handleSheetHire}
+                onViewProfile={handleSheetViewProfile}
+            />
+            <HireConfirmModal
+                visible={!!hireTarget}
+                gig={gig}
+                application={hireTarget ?? { _id: '', artistId: '', artistSnapshot: undefined }}
+                onClose={() => setHireTarget(null)}
+                onHired={() => setHireTarget(null)}
+            />
         </View>
     );
 }

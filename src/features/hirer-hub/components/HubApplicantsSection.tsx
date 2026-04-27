@@ -11,8 +11,9 @@ type FilterKey = 'all' | 'new' | 'shortlisted' | 'reviewed';
 
 type Props = {
     applicants: any[];
-    onHire?: (applicationId: string) => void;
     onTapApplicant?: (applicationId: string) => void;
+    onQuickHire?: (applicationId: string) => void;
+    onQuickReject?: (applicationId: string) => void;
     onSeeAll?: () => void;
 };
 
@@ -25,7 +26,7 @@ const FILTER_PREDICATES: Record<FilterKey, (a: any) => boolean> = {
 
 const PREVIEW_COUNT = 3;
 
-export function HubApplicantsSection({ applicants, onHire, onTapApplicant, onSeeAll }: Props) {
+export function HubApplicantsSection({ applicants, onTapApplicant, onQuickHire, onQuickReject, onSeeAll }: Props) {
     const [filter, setFilter] = useState<FilterKey>('all');
 
     const counts = useMemo(() => ({
@@ -75,7 +76,13 @@ export function HubApplicantsSection({ applicants, onHire, onTapApplicant, onSee
                     </Text>
                 ) : (
                     filtered.slice(0, PREVIEW_COUNT).map((a) => (
-                        <HubApplicantRow key={a._id} application={a} onHire={onHire} onTap={onTapApplicant} />
+                        <HubApplicantRow
+                            key={a._id}
+                            application={a}
+                            onTap={onTapApplicant}
+                            onQuickHire={onQuickHire}
+                            onQuickReject={onQuickReject}
+                        />
                     ))
                 )}
             </View>

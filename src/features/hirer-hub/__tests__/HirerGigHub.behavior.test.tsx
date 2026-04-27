@@ -24,8 +24,14 @@ const mockSampleContracts = [
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: jest.fn() }) }));
 jest.mock('@/hooks/useGigs', () => ({ useGig: () => ({ data: mockSampleGig, isLoading: false, error: null }) }));
-jest.mock('@/hooks/useGigApplications', () => ({ useGigApplications: () => ({ data: mockSampleApps, isLoading: false, error: null }) }));
+jest.mock('@/hooks/useGigApplications', () => ({
+    useGigApplications: () => ({ data: mockSampleApps, isLoading: false, error: null }),
+    useUpdateApplicationStatus: () => ({ mutate: jest.fn(), isPending: false }),
+}));
 jest.mock('@/hooks/usePayments', () => ({ useUserContracts: () => ({ data: { data: { contracts: mockSampleContracts } }, isLoading: false, error: null }) }));
+jest.mock('@/components/gigs/applications/HireConfirmModal', () => ({
+    HireConfirmModal: () => null,
+}));
 
 import { HirerGigHub } from '../HirerGigHub';
 

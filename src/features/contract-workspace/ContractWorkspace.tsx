@@ -28,6 +28,9 @@ import { ContractActivity } from './components/ContractActivity';
 import { ContractEdgeCases } from './components/ContractEdgeCases';
 import { ContractStickyCTA } from './components/ContractStickyCTA';
 
+import { useContractPdf } from '@/features/contract-pdf/hooks/useContractPdf';
+import { buildFromContract } from '@/features/contract-pdf/utils/buildContractData';
+
 const COLORS = {
     bg0: '#07070B', text1: '#B8B1A6', line: 'rgba(255,255,255,0.05)',
 };
@@ -46,6 +49,7 @@ export function ContractWorkspace({ contractId }: Props) {
 
     const contract = data?.data;
     const activity = useContractActivity(contract);
+    const pdf = useContractPdf();
 
     if (isLoading) {
         return (
@@ -90,6 +94,15 @@ export function ContractWorkspace({ contractId }: Props) {
     const canSwitchMethod = isHirer && !contract.artistSignature?.signedAt && switchableStatuses.includes(contract.status);
     const canCancel = isHirer && switchableStatuses.includes(contract.status);
 
+    const handleGeneratePdf = async () => {
+        try {
+            const pdfData = buildFromContract(contract);
+            await pdf.generateAndShare(pdfData);
+        } catch (err: any) {
+            Alert.alert('Could not generate PDF', err?.message ?? 'Try again.');
+        }
+    };
+
     const handleStickyPress = () => {
         const intent: PrimaryCTAIntent = primaryCTA.intent;
         if (primaryCTA.disabled) return;
@@ -102,7 +115,8 @@ export function ContractWorkspace({ contractId }: Props) {
             if (url) {
                 Linking.openURL(url).catch(() => Alert.alert('Could not open', 'Document URL invalid.'));
             } else {
-                Alert.alert('Coming soon', 'Contract PDF generation ships in a follow-up release.');
+                // Generate fresh from contract data instead of "Coming soon"
+                handleGeneratePdf();
             }
             return;
         }
@@ -190,7 +204,11 @@ export function ContractWorkspace({ contractId }: Props) {
 
                 <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 28 }} />
 
-                <ContractDocuments documents={documents} />
+                <ContractDocuments
+                    documents={documents}
+                    onGeneratePdf={handleGeneratePdf}
+                    isGeneratingPdf={pdf.isGenerating}
+                />
 
                 <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 28 }} />
 

@@ -49,6 +49,17 @@ jest.mock('@/components/payments/PaymentMethodSelector', () => ({
     default: () => null,
 }));
 
+// expo-print + expo-sharing are native modules that can't run under Jest.
+// useContractPdf wraps them; the orchestrator smoke test only needs the hook
+// to exist as a no-op so ContractDocuments renders without throwing.
+jest.mock('expo-print', () => ({
+    printToFileAsync: jest.fn(() => Promise.resolve({ uri: 'file:///mock.pdf' })),
+}));
+jest.mock('expo-sharing', () => ({
+    isAvailableAsync: jest.fn(() => Promise.resolve(true)),
+    shareAsync: jest.fn(() => Promise.resolve()),
+}));
+
 import { ContractWorkspace } from '../ContractWorkspace';
 
 describe('ContractWorkspace', () => {

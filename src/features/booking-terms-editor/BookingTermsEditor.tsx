@@ -13,6 +13,7 @@ import { PaymentStructurePicker } from './components/PaymentStructurePicker';
 import { CancellationPicker } from './components/CancellationPicker';
 import { NegotiableToggle } from './components/NegotiableToggle';
 import { BookingTermsPreviewModal } from './components/BookingTermsPreviewModal';
+import { CustomClausesEditor } from './components/CustomClausesEditor';
 
 const COLORS = {
     text0: '#F3EFE8', text1: '#B8B1A6', text2: '#6B6878', text3: '#3F3D4A',
@@ -31,6 +32,7 @@ export function BookingTermsEditor({ gigId }: Props) {
         paymentStructure: gig?.paymentStructure,
         cancellationPolicy: gig?.cancellationPolicy,
         cancellationForfeitPct: gig?.cancellationForfeitPct,
+        customClauses: gig?.customClauses,
         negotiable: gig?.compensation?.negotiable,
     });
 
@@ -125,6 +127,17 @@ export function BookingTermsEditor({ gigId }: Props) {
 
                 <Divider />
 
+                {/* Section: Custom clauses */}
+                <View style={{ paddingHorizontal: 24, paddingTop: 28, marginBottom: 28 }}>
+                    <SectionHeaderOptional title="Custom clauses" />
+                    <CustomClausesEditor
+                        clauses={edit.customClauses}
+                        onChange={edit.setCustomClauses}
+                    />
+                </View>
+
+                <Divider />
+
                 {/* Section: Negotiable */}
                 <View style={{ paddingHorizontal: 24, paddingTop: 28, marginBottom: 28 }}>
                     <SectionHeader title="Negotiation" />
@@ -146,6 +159,7 @@ export function BookingTermsEditor({ gigId }: Props) {
                 paymentStructure={edit.paymentStructure}
                 cancellationPolicy={edit.cancellationPolicy}
                 cancellationForfeitPct={edit.cancellationForfeitPct}
+                customClauses={edit.customClauses}
                 amount={compensationAmount}
                 negotiable={edit.negotiable}
                 termsAndConditions={gig.termsAndConditions}
@@ -160,6 +174,15 @@ function SectionHeader({ title }: { title: string }) {
         <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
             <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 18, color: COLORS.text0, letterSpacing: -0.2 }}>{title}</Text>
             <Text style={{ fontSize: 9, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' }}>Required</Text>
+        </View>
+    );
+}
+
+function SectionHeaderOptional({ title }: { title: string }) {
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
+            <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 18, color: '#F3EFE8', letterSpacing: -0.2 }}>{title}</Text>
+            <Text style={{ fontSize: 9, color: '#6B6878', fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' }}>Optional</Text>
         </View>
     );
 }

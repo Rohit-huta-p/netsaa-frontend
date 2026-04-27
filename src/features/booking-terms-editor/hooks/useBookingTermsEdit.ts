@@ -13,6 +13,7 @@ type Initial = {
     paymentStructure?: PaymentStructure;
     cancellationPolicy?: CancellationPolicy;
     cancellationForfeitPct?: number;
+    customClauses?: string[];
     negotiable?: boolean;
 };
 
@@ -20,6 +21,7 @@ export function useBookingTermsEdit(gigId: string, initial: Initial) {
     const [paymentStructure, setPaymentStructure] = useState<PaymentStructure>(initial.paymentStructure ?? 'full');
     const [cancellationPolicy, setCancellationPolicy] = useState<CancellationPolicy>(initial.cancellationPolicy ?? '48h');
     const [cancellationForfeitPct, setCancellationForfeitPct] = useState<number>(initial.cancellationForfeitPct ?? 100);
+    const [customClauses, setCustomClauses] = useState<string[]>(initial.customClauses ?? []);
     const [negotiable, setNegotiable] = useState<boolean>(initial.negotiable ?? false);
 
     const updateMutation = useUpdateGig();
@@ -29,11 +31,20 @@ export function useBookingTermsEdit(gigId: string, initial: Initial) {
         if (paymentStructure !== (initial.paymentStructure ?? 'full')) dirty.paymentStructure = paymentStructure;
         if (cancellationPolicy !== (initial.cancellationPolicy ?? '48h')) dirty.cancellationPolicy = cancellationPolicy;
         if (cancellationForfeitPct !== (initial.cancellationForfeitPct ?? 100)) dirty.cancellationForfeitPct = cancellationForfeitPct;
+        // Compare clauses by content (length + each entry).
+        const initialClauses = initial.customClauses ?? [];
+        const clausesChanged =
+            customClauses.length !== initialClauses.length ||
+            customClauses.some((c, i) => c !== initialClauses[i]);
+        if (clausesChanged) {
+            // Trim + drop empties before persisting.
+            dirty.customClauses = customClauses.map((c) => c.trim()).filter(Boolean);
+        }
         if (negotiable !== (initial.negotiable ?? false)) {
             dirty.compensation = { negotiable };
         }
         return dirty;
-    }, [paymentStructure, cancellationPolicy, cancellationForfeitPct, negotiable, initial]);
+    }, [paymentStructure, cancellationPolicy, cancellationForfeitPct, customClauses, negotiable, initial]);
 
     const isDirty = Object.keys(dirtyFields).length > 0;
 
@@ -46,6 +57,7 @@ export function useBookingTermsEdit(gigId: string, initial: Initial) {
         paymentStructure, setPaymentStructure,
         cancellationPolicy, setCancellationPolicy,
         cancellationForfeitPct, setCancellationForfeitPct,
+        customClauses, setCustomClauses,
         negotiable, setNegotiable,
         isDirty,
         isSaving: updateMutation.isPending,

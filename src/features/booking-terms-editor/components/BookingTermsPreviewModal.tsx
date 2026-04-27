@@ -19,6 +19,7 @@ type Props = {
     paymentStructure?: 'full' | 'advance_balance';
     cancellationPolicy?: '24h' | '48h' | '72h';
     cancellationForfeitPct?: number;
+    customClauses?: string[];   // NEW
     amount: number;
     negotiable: boolean;
     termsAndConditions?: string;
@@ -44,6 +45,7 @@ export function BookingTermsPreviewModal({
     paymentStructure = 'full',
     cancellationPolicy = '48h',
     cancellationForfeitPct,
+    customClauses,
     amount,
     negotiable,
     termsAndConditions,
@@ -78,6 +80,25 @@ export function BookingTermsPreviewModal({
                         </Text>
                         <FieldRow label="Pay" value={`${formattedAmount} · ${STRUCTURE_LABEL[paymentStructure]}`} />
                         <FieldRow label="Cancellation" value={`${cancellationPolicy} notice · ${cancellationForfeitPct ?? 100}% forfeit if within window`} />
+                        {customClauses && customClauses.length > 0 && (
+                            <View style={{ marginTop: 8 }}>
+                                <Text style={{ fontSize: 10, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>
+                                    Custom clauses
+                                </Text>
+                                <View style={{ gap: 8 }}>
+                                    {customClauses.map((clause, i) => (
+                                        <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                                            <Text style={{ color: COLORS.orange, fontSize: 12, fontWeight: '700', minWidth: 18 }}>
+                                                {String(i + 1).padStart(2, '0')}
+                                            </Text>
+                                            <Text style={{ flex: 1, color: COLORS.text1, fontSize: 13, lineHeight: 20 }}>
+                                                {clause}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        )}
                         {tc && (
                             <View style={{ marginTop: 8 }}>
                                 <Text style={{ fontSize: 10, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>

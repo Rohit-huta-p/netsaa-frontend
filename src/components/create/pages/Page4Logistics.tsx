@@ -27,6 +27,8 @@ import ChipPicker from '@/components/ui/ChipPicker';
 import { ANCILLARY_PRESETS } from '@/constants/ancillaryPresets';
 import gigService from '@/services/gigService';
 import dayjs from 'dayjs';
+// Phase 4A — custom contract clauses inline at gig posting time.
+import { CustomClausesEditor } from '@/features/booking-terms-editor/components/CustomClausesEditor';
 
 export interface Page4Value {
   ancillaryProvided?: string[];
@@ -42,6 +44,8 @@ export interface Page4Value {
   description: string;
   perks?: string[];
   termsAndConditions: string;
+  /** Phase 4A — custom contract clauses (1-5, ≤500 chars each). */
+  customClauses?: string[];
 }
 
 export interface Page4LogisticsProps {
@@ -231,6 +235,18 @@ export default function Page4Logistics({ value, onChange }: Page4LogisticsProps)
           />
         </InputGroup>
       </View>
+
+      {/* Phase 4A — custom contract clauses. Each gets joined into the
+          per-hire Contract.terms.customTerms at hire time so artists see
+          them on the contract they sign. */}
+      <InputGroup
+        label="Custom contract clauses (optional)"
+        subtitle="Up to 5 — show on every contract artists sign for this gig">
+        <CustomClausesEditor
+          clauses={value.customClauses ?? []}
+          onChange={(next) => update({ customClauses: next })}
+        />
+      </InputGroup>
     </View>
   );
 }

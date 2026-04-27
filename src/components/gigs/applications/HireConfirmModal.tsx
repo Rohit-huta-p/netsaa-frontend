@@ -181,6 +181,19 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
         setIsCreating(true);
         setErrorMessage(null);
 
+        // Phase 4A: join the gig's master custom clauses into the per-hire
+        // contract's customTerms. Numbered for readability when shown on
+        // the contract preview / sealed copy.
+        const customClauses: string[] = Array.isArray(gig.customClauses)
+            ? gig.customClauses.filter(Boolean)
+            : [];
+        const customTerms =
+            customClauses.length > 0
+                ? customClauses
+                      .map((c: string, i: number) => `${String(i + 1).padStart(2, '0')}. ${c}`)
+                      .join('\n')
+                : undefined;
+
         const terms = {
             gigTitle: summary.gigTitle,
             dates: {
@@ -205,6 +218,7 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
             amount: summary.amount,
             paymentStructure: summary.paymentStructure,
             cancellationTerms: summary.cancellationTerms,
+            ...(customTerms ? { customTerms } : {}),
         };
 
         let createdContractId: string | undefined;

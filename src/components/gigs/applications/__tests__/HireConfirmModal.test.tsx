@@ -18,6 +18,8 @@ const mockUpdateApplicationStatus = jest
     .fn()
     .mockResolvedValue({ _id: 'app-1', status: 'hired' });
 
+const mockInvalidateQueries = jest.fn();
+
 jest.mock('@/hooks/usePayments', () => ({
     useCreateContract: () => ({
         mutateAsync: (...args: any[]) => mockCreateContract(...args),
@@ -27,6 +29,12 @@ jest.mock('@/hooks/usePayments', () => ({
 jest.mock('@/hooks/useGigApplications', () => ({
     useUpdateApplicationStatus: () => ({
         mutateAsync: (...args: any[]) => mockUpdateApplicationStatus(...args),
+    }),
+}));
+
+jest.mock('@tanstack/react-query', () => ({
+    useQueryClient: () => ({
+        invalidateQueries: (...args: any[]) => mockInvalidateQueries(...args),
     }),
 }));
 
@@ -76,6 +84,7 @@ const sampleApplication = {
 beforeEach(() => {
     mockCreateContract.mockClear();
     mockUpdateApplicationStatus.mockClear();
+    mockInvalidateQueries.mockClear();
 });
 
 describe('HireConfirmModal', () => {
@@ -138,6 +147,98 @@ describe('HireConfirmModal', () => {
         await waitFor(() => {
             expect(onClose).toHaveBeenCalled();
         });
+    });
+
+    it('on successful hire, invalidates gigApplications + contracts caches', async () => {
+        const onClose = jest.fn();
+        const { getByLabelText } = render(
+            <HireConfirmModal
+                visible
+                gig={sampleGig}
+                application={sampleApplication}
+                onClose={onClose}
+            />,
+        );
+
+        fireEvent.press(getByLabelText('confirm-hire'));
+
+        await waitFor(() => {
+            expect(onClose).toHaveBeenCalled();
+        });
+
+        // Both query keys should have been invalidated so the hub refreshes
+        const calledKeys = mockInvalidateQueries.mock.calls.map(
+            (c) => c[0]?.queryKey,
+        );
+        expect(calledKeys).toEqual(
+            expect.arrayContaining([
+                ['gigApplications', 'gig-123'],
+                ['contracts'],
+            ]),
+        );
+    });
+
+    it('shows Already hired alert + View contract action when backend returns 409', async () => {
+        const Alert = require('react-native').Alert;
+        const alertSpy = jest
+            .spyOn(Alert, 'alert')
+            .mockImplementation(() => {});
+
+        // Backend now returns existingContractId in the 409 envelope
+        mockCreateContract.mockRejectedValueOnce({
+            response: {
+                status: 409,
+                data: {
+                    meta: {
+                        status: 409,
+                        message:
+                            'An active contract already exists for this gig and artist',
+                    },
+                    data: {
+                        existingContractId: 'existing-c1',
+                        status: 'sent',
+                    },
+                },
+            },
+        });
+
+        const onClose = jest.fn();
+        const { getByLabelText } = render(
+            <HireConfirmModal
+                visible
+                gig={sampleGig}
+                application={sampleApplication}
+                onClose={onClose}
+            />,
+        );
+
+        fireEvent.press(getByLabelText('confirm-hire'));
+
+        await waitFor(() => {
+            expect(alertSpy).toHaveBeenCalledWith(
+                'Already hired',
+                expect.any(String),
+                expect.arrayContaining([
+                    expect.objectContaining({ text: 'View contract' }),
+                ]),
+            );
+        });
+
+        // Application status should NOT have been flipped — contract create
+        // failed
+        expect(mockUpdateApplicationStatus).not.toHaveBeenCalled();
+
+        // Caches should still be invalidated so the stale applicants list
+        // catches up to reality
+        const calledKeys = mockInvalidateQueries.mock.calls.map(
+            (c) => c[0]?.queryKey,
+        );
+        expect(calledKeys).toEqual(
+            expect.arrayContaining([
+                ['gigApplications', 'gig-123'],
+                ['contracts'],
+            ]),
+        );
     });
 
     it('off-platform requires acknowledgement before Confirm enables', async () => {

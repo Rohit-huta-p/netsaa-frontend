@@ -303,6 +303,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                 gigAmount={gig.compensation?.amount || gig.compensation?.minAmount || 0}
                 isNegotiable={gig.compensation?.negotiable || false}
                 termsAndConditions={gig.termsAndConditions}
+                gig={gig}
                 onViewTerms={handleViewTerms}
                 hasTerms={!!gig.termsAndConditions}
                 draftId={resumeDraftId}

@@ -6,6 +6,8 @@ import { useApplyToGig } from '../../hooks/useGigApplications';
 import { X, Link as LinkIcon, Plus, Trash2, Check, ChevronDown, ChevronUp, Shield, FileText, Save } from 'lucide-react-native';
 import { ProfileCompletionModal } from '../common/ProfileCompletionModal';
 import { draftService, generateDraftId, type ApplicationDraft } from '../../services/draftService';
+import { useContractPdf } from '@/features/contract-pdf/hooks/useContractPdf';
+import { buildFromGig } from '@/features/contract-pdf/utils/buildContractData';
 
 /**
  * PRD v4 Gig Application Flow — Stage 1: Artist Applies
@@ -40,6 +42,13 @@ interface GigApplyModalProps {
     gigAmount?: number;
     isNegotiable?: boolean;
     termsAndConditions?: string;
+    /**
+     * Phase 4C — full gig object enables PDF contract preview.
+     * When present, Step 2 shows a "View full contract" button that
+     * generates the PDF on-device using the Phase 4B-Lite template.
+     * When absent, Step 2 falls back to the legacy text-terms flow.
+     */
+    gig?: any;
     onViewTerms?: () => void;
     hasTerms?: boolean;
     /**
@@ -54,7 +63,7 @@ interface GigApplyModalProps {
 export const GigApplyModal: React.FC<GigApplyModalProps> = ({
     visible, onClose, gigId, gigTitle,
     gigAmount = 0, isNegotiable = false,
-    termsAndConditions, onViewTerms, hasTerms,
+    termsAndConditions, gig, onViewTerms, hasTerms,
     draftId,
 }) => {
     const [step, setStep] = useState<1 | 2>(1); // 1 = form, 2 = terms
@@ -69,8 +78,29 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
 
     const applyMutation = useApplyToGig();
     const router = useRouter();
+    const pdf = useContractPdf();
 
     const tier = useMemo(() => getContractTier(gigAmount), [gigAmount]);
+
+    // Phase 4C — generate the contract PDF preview using the Phase 4B-Lite
+    // template. Hirer name lookup tries multiple shapes since gig population
+    // varies by call site. Falls back to "The hirer".
+    const handleViewContractPdf = async () => {
+        if (!gig) return;
+        try {
+            const hirerName =
+                gig.organizerSnapshot?.displayName ??
+                gig.organizerId?.displayName ??
+                'The hirer';
+            const data = buildFromGig(gig, {
+                hirerName,
+                artistName: 'You (the artist)',
+            });
+            await pdf.generateAndShare(data);
+        } catch (err: any) {
+            Alert.alert('Could not generate contract', err?.message ?? 'Try again.');
+        }
+    };
 
     // Plan 2, Task 17 — draft prefill + save-as-draft wiring.
     // Track whether we've already consumed the draftId so prefill runs
@@ -399,6 +429,65 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
                                             </View>
                                         )}
                                     </View>
+
+                                    {/* Phase 4C — Contract PDF preview affordance. Only renders when the
+                                        full gig prop is provided. Falls back to the legacy text-terms
+                                        block below if `gig` is absent. */}
+                                    {gig && (
+                                        <View style={styles.contractPreviewCard}>
+                                            <View style={styles.contractPreviewHeader}>
+                                                <FileText size={16} color="#FF6B35" />
+                                                <Text style={styles.contractPreviewTitle}>Booking contract</Text>
+                                            </View>
+                                            <Text style={styles.contractPreviewSubtitle}>
+                                                By applying, you agree to the contract terms below. Open the full PDF to review.
+                                            </Text>
+
+                                            <View style={styles.contractPreviewGrid}>
+                                                <View style={styles.contractPreviewCell}>
+                                                    <Text style={styles.contractPreviewCellLabel}>Pay</Text>
+                                                    <Text style={styles.contractPreviewCellValue}>
+                                                        ₹{(gig.compensation?.amount ?? 0).toLocaleString('en-IN')}
+                                                    </Text>
+                                                    <Text style={styles.contractPreviewCellSub}>
+                                                        {gig.paymentStructure === 'advance_balance' ? '30/70 advance' : 'Full upfront'}
+                                                    </Text>
+                                                </View>
+                                                <View style={styles.contractPreviewCell}>
+                                                    <Text style={styles.contractPreviewCellLabel}>Cancellation</Text>
+                                                    <Text style={styles.contractPreviewCellValue}>{gig.cancellationPolicy ?? '48h'}</Text>
+                                                    <Text style={styles.contractPreviewCellSub}>
+                                                        {gig.cancellationForfeitPct ?? 100}% forfeit if within
+                                                    </Text>
+                                                </View>
+                                                <View style={styles.contractPreviewCell}>
+                                                    <Text style={styles.contractPreviewCellLabel}>Clauses</Text>
+                                                    <Text style={styles.contractPreviewCellValue}>
+                                                        {(gig.customClauses ?? []).length === 0 ? 'None' : `${gig.customClauses.length} added`}
+                                                    </Text>
+                                                </View>
+                                                <View style={styles.contractPreviewCell}>
+                                                    <Text style={styles.contractPreviewCellLabel}>Negotiable</Text>
+                                                    <Text style={styles.contractPreviewCellValue}>
+                                                        {gig.compensation?.negotiable ? 'Yes' : 'No'}
+                                                    </Text>
+                                                </View>
+                                            </View>
+
+                                            <TouchableOpacity
+                                                onPress={handleViewContractPdf}
+                                                disabled={pdf.isGenerating}
+                                                accessibilityLabel="View full contract as PDF"
+                                                style={styles.contractPdfBtn}>
+                                                {pdf.isGenerating
+                                                    ? <ActivityIndicator size="small" color="#FF6B35" />
+                                                    : <FileText size={14} color="#FF6B35" />}
+                                                <Text style={styles.contractPdfBtnText}>
+                                                    {pdf.isGenerating ? 'Generating…' : 'View full contract PDF'}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
 
                                     {/* Terms content */}
                                     {tier === 'quick' ? (
@@ -837,5 +926,76 @@ const styles = {
         fontFamily: 'Outfit-SemiBold',
         fontSize: 14,
         color: '#F0ECE6',
+    },
+    // Phase 4C — Contract PDF preview card
+    contractPreviewCard: {
+        backgroundColor: '#0F0F16',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.06)',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+    },
+    contractPreviewHeader: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: 8,
+        marginBottom: 6,
+    },
+    contractPreviewTitle: {
+        color: '#F3EFE8',
+        fontFamily: 'DMSerifDisplay_400Regular',
+        fontSize: 18,
+        letterSpacing: -0.2,
+    },
+    contractPreviewSubtitle: {
+        color: '#B8B1A6',
+        fontSize: 12,
+        lineHeight: 18,
+        marginBottom: 14,
+    },
+    contractPreviewGrid: {
+        flexDirection: 'row' as const,
+        flexWrap: 'wrap' as const,
+        marginBottom: 14,
+    },
+    contractPreviewCell: {
+        width: '50%' as const,
+        paddingVertical: 8,
+    },
+    contractPreviewCellLabel: {
+        color: '#6B6878',
+        fontSize: 9,
+        fontWeight: '700' as const,
+        letterSpacing: 1.5,
+        textTransform: 'uppercase' as const,
+    },
+    contractPreviewCellValue: {
+        color: '#F3EFE8',
+        fontSize: 14,
+        fontWeight: '700' as const,
+        marginTop: 4,
+    },
+    contractPreviewCellSub: {
+        color: '#6B6878',
+        fontSize: 11,
+        marginTop: 2,
+    },
+    contractPdfBtn: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        gap: 8,
+        paddingVertical: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderStyle: 'dashed' as const,
+        borderColor: 'rgba(255,107,53,0.40)',
+        backgroundColor: 'rgba(255,107,53,0.06)',
+    },
+    contractPdfBtnText: {
+        color: '#FF6B35',
+        fontSize: 13,
+        fontWeight: '700' as const,
     },
 };

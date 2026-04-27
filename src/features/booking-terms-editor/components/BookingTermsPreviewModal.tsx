@@ -18,6 +18,7 @@ type Props = {
     visible: boolean;
     paymentStructure?: 'full' | 'advance_balance';
     cancellationPolicy?: '24h' | '48h' | '72h';
+    cancellationForfeitPct?: number;
     amount: number;
     negotiable: boolean;
     termsAndConditions?: string;
@@ -42,6 +43,7 @@ export function BookingTermsPreviewModal({
     visible,
     paymentStructure = 'full',
     cancellationPolicy = '48h',
+    cancellationForfeitPct,
     amount,
     negotiable,
     termsAndConditions,
@@ -75,7 +77,7 @@ export function BookingTermsPreviewModal({
                             Booking terms
                         </Text>
                         <FieldRow label="Pay" value={`${formattedAmount} · ${STRUCTURE_LABEL[paymentStructure]}`} />
-                        <FieldRow label="Cancellation" value={`${cancellationPolicy} notice · 100% forfeit if within window`} />
+                        <FieldRow label="Cancellation" value={`${cancellationPolicy} notice · ${cancellationForfeitPct ?? 100}% forfeit if within window`} />
                         {tc && (
                             <View style={{ marginTop: 8 }}>
                                 <Text style={{ fontSize: 10, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>

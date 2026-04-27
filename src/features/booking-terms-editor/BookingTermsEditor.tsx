@@ -30,6 +30,7 @@ export function BookingTermsEditor({ gigId }: Props) {
     const edit = useBookingTermsEdit(gigId, {
         paymentStructure: gig?.paymentStructure,
         cancellationPolicy: gig?.cancellationPolicy,
+        cancellationForfeitPct: gig?.cancellationForfeitPct,
         negotiable: gig?.compensation?.negotiable,
     });
 
@@ -117,6 +118,8 @@ export function BookingTermsEditor({ gigId }: Props) {
                     <CancellationPicker
                         value={edit.cancellationPolicy}
                         onChange={edit.setCancellationPolicy}
+                        forfeitPct={edit.cancellationForfeitPct}
+                        onForfeitPctChange={edit.setCancellationForfeitPct}
                     />
                 </View>
 
@@ -142,6 +145,7 @@ export function BookingTermsEditor({ gigId }: Props) {
                 visible={previewOpen}
                 paymentStructure={edit.paymentStructure}
                 cancellationPolicy={edit.cancellationPolicy}
+                cancellationForfeitPct={edit.cancellationForfeitPct}
                 amount={compensationAmount}
                 negotiable={edit.negotiable}
                 termsAndConditions={gig.termsAndConditions}

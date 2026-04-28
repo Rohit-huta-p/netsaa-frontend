@@ -1,30 +1,42 @@
+// netsa-mobile/src/features/hirer-hub/__tests__/HubTeamSection.test.tsx
+//
+// Post contract-rollback (Apr 28): HubTeamSection now mounts
+// HubTeamRowPayment (payment-driven) instead of the contract-driven
+// HubTeamRow. The previous contract-CTA navigation cases are no longer
+// applicable — restore them when contracts come back.
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { HubTeamSection } from '../components/HubTeamSection';
 
-// Mock router.push so we can spy on view-intent navigation
-const mockPush = jest.fn();
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+// HubTeamRowPayment loads useApplicationTransactions from usePayments —
+// mock at module boundary so authStore + expo-secure-store don't pull in.
+let mockTransactions: any = [];
+jest.mock('@/hooks/usePayments', () => ({
+    useApplicationTransactions: () => ({ data: mockTransactions, isLoading: false }),
+}));
 
-const sampleTeamRow = {
-    application: {
-        _id: 'a1',
-        artistSnapshot: { displayName: 'Priya Sharma' },
-    },
-    contract: {
-        _id: 'c1',
-        status: 'active',
-        paidAmount: 15000,
-        paymentMethod: 'on_platform',
-        terms: { amount: 50000, paymentStructure: 'advance_balance', dates: { start: new Date(Date.now() + 7 * 86_400_000).toISOString() } },
-    },
+beforeEach(() => {
+    mockTransactions = [];
+});
+
+const sampleApplication = {
+    _id: 'a1',
+    artistId: 'artist1',
+    artistSnapshot: { displayName: 'Priya Sharma' },
 };
+const sampleGig = { _id: 'g1', compensation: { amount: 50000 } };
+const sampleTeamRow = { application: sampleApplication, contract: null };
 
 describe('HubTeamSection', () => {
     it('renders team rows + empty slots', () => {
         const { getByText } = render(
-            <HubTeamSection teamRows={[sampleTeamRow as any]} slotsTotal={3} pendingApplicantsCount={5} />
+            <HubTeamSection
+                teamRows={[sampleTeamRow as any]}
+                gig={sampleGig}
+                slotsTotal={3}
+                pendingApplicantsCount={5}
+                onRequestRecordPayment={jest.fn()}
+            />
         );
         expect(getByText('Your team')).toBeTruthy();
         expect(getByText('Priya Sharma')).toBeTruthy();
@@ -33,92 +45,46 @@ describe('HubTeamSection', () => {
 
     it('hides empty slots when team is full', () => {
         const { queryByText } = render(
-            <HubTeamSection teamRows={[sampleTeamRow as any]} slotsTotal={1} pendingApplicantsCount={0} />
+            <HubTeamSection
+                teamRows={[sampleTeamRow as any]}
+                gig={sampleGig}
+                slotsTotal={1}
+                pendingApplicantsCount={0}
+                onRequestRecordPayment={jest.fn()}
+            />
         );
         expect(queryByText(/more slot/)).toBeNull();
     });
-});
 
-describe('HubTeamRow (via HubTeamSection)', () => {
-    beforeEach(() => {
-        mockPush.mockClear();
-    });
-
-    it('view intent routes to /contracts/[id]', () => {
-        // signed + advance paid + future event → action.intent === 'view'
-        const viewRow = {
-            application: { _id: 'av', artistSnapshot: { displayName: 'Aanya' } },
-            contract: {
-                _id: 'cv',
-                status: 'active',
-                paidAmount: 15000,
-                paymentMethod: 'on_platform',
-                terms: { amount: 50000, paymentStructure: 'advance_balance', dates: { start: new Date(Date.now() + 7 * 86_400_000).toISOString() } },
-            },
-        };
+    it('shows "Record payment" CTA when there are no transactions for that hire', () => {
+        const onRequest = jest.fn();
         const { getByLabelText } = render(
-            <HubTeamSection teamRows={[viewRow as any]} slotsTotal={1} pendingApplicantsCount={0} />
+            <HubTeamSection
+                teamRows={[sampleTeamRow as any]}
+                gig={sampleGig}
+                slotsTotal={1}
+                pendingApplicantsCount={0}
+                onRequestRecordPayment={onRequest}
+            />
         );
-        fireEvent.press(getByLabelText(/View for Aanya/i));
-        expect(mockPush).toHaveBeenCalledWith('/(app)/contracts/cv');
+        fireEvent.press(getByLabelText(/Record payment to Priya Sharma/i));
+        expect(onRequest).toHaveBeenCalledWith(sampleApplication);
     });
 
-    it('deferred intent (pay-advance) opens Coming soon alert', () => {
-        const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-        const payRow = {
-            application: { _id: 'ap', artistSnapshot: { displayName: 'Ravi' } },
-            contract: {
-                _id: 'cp',
-                status: 'active',
-                paidAmount: 0,
-                paymentMethod: 'on_platform',
-                terms: { amount: 50000, paymentStructure: 'advance_balance', dates: { start: new Date(Date.now() + 7 * 86_400_000).toISOString() } },
-            },
-        };
-        const { getByLabelText } = render(
-            <HubTeamSection teamRows={[payRow as any]} slotsTotal={1} pendingApplicantsCount={0} />
+    it('shows status pill instead of CTA when transactions exist', () => {
+        mockTransactions = [
+            { _id: 't1', status: 'recorded', amount: 50000, createdAt: '2027-03-15T10:00:00Z' },
+        ];
+        const { queryByLabelText, getByText } = render(
+            <HubTeamSection
+                teamRows={[sampleTeamRow as any]}
+                gig={sampleGig}
+                slotsTotal={1}
+                pendingApplicantsCount={0}
+                onRequestRecordPayment={jest.fn()}
+            />
         );
-        fireEvent.press(getByLabelText(/Pay .* for Ravi/i));
-        expect(alertSpy).toHaveBeenCalledWith('Coming soon', expect.stringContaining('follow-up release'));
-        expect(mockPush).not.toHaveBeenCalled();
-        alertSpy.mockRestore();
-    });
-
-    it('falls back to "Artist" when displayName is empty', () => {
-        const noNameRow = {
-            application: { _id: 'an', artistSnapshot: { displayName: '   ' } },
-            contract: {
-                _id: 'cn',
-                status: 'active',
-                paidAmount: 15000,
-                paymentMethod: 'on_platform',
-                terms: { amount: 50000, paymentStructure: 'advance_balance', dates: { start: new Date(Date.now() + 7 * 86_400_000).toISOString() } },
-            },
-        };
-        const { getByText } = render(
-            <HubTeamSection teamRows={[noNameRow as any]} slotsTotal={1} pendingApplicantsCount={0} />
-        );
-        expect(getByText('Artist')).toBeTruthy();
-    });
-
-    it('tapping the row body (not the CTA) routes to the contract page', () => {
-        // Use a row whose CTA is NOT 'view' so we can prove the row body itself
-        // navigates — i.e. a Pay-Advance state. The CTA would otherwise also
-        // route to contracts via Phase 1 deferred Alert.
-        const payRow = {
-            application: { _id: 'arow', artistSnapshot: { displayName: 'Aanya' } },
-            contract: {
-                _id: 'crow',
-                status: 'active',
-                paidAmount: 0,
-                paymentMethod: 'on_platform',
-                terms: { amount: 50000, paymentStructure: 'advance_balance', dates: { start: new Date(Date.now() + 7 * 86_400_000).toISOString() } },
-            },
-        };
-        const { getByLabelText } = render(
-            <HubTeamSection teamRows={[payRow as any]} slotsTotal={1} pendingApplicantsCount={0} />
-        );
-        fireEvent.press(getByLabelText(/Open contract for Aanya/i));
-        expect(mockPush).toHaveBeenCalledWith('/(app)/contracts/crow');
+        expect(queryByLabelText(/Record payment to/)).toBeNull();
+        expect(getByText('Pending confirmation')).toBeTruthy();
     });
 });

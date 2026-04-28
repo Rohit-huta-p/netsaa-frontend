@@ -1,17 +1,24 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import { HubTeamRow } from './HubTeamRow';
+// CONTRACTS-DISABLED: HubTeamRow (contract-driven) replaced by HubTeamRowPayment.
+// Restore HubTeamRow when the contract artifact comes back.
+// import { HubTeamRow } from './HubTeamRow';
+import { HubTeamRowPayment } from './HubTeamRowPayment';
 import type { TeamRowData } from '../hooks/useGigHubData';
 
 const COLORS = { text0: '#F3EFE8', text2: '#6B6878', text3: '#3F3D4A', line2: 'rgba(255,255,255,0.09)' };
 
 type Props = {
     teamRows: TeamRowData[];
+    /** The shared gig — passed to each row for compensation display. */
+    gig: any;
     slotsTotal: number;
     pendingApplicantsCount: number;
+    /** Fired when a row taps "Record payment" — Hub mounts the modal. */
+    onRequestRecordPayment: (application: any) => void;
 };
 
-export function HubTeamSection({ teamRows, slotsTotal, pendingApplicantsCount }: Props) {
+export function HubTeamSection({ teamRows, gig, slotsTotal, pendingApplicantsCount, onRequestRecordPayment }: Props) {
     const emptySlots = Math.max(0, slotsTotal - teamRows.length);
 
     return (
@@ -26,7 +33,12 @@ export function HubTeamSection({ teamRows, slotsTotal, pendingApplicantsCount }:
             </View>
 
             {teamRows.map((row, i) => (
-                <HubTeamRow key={row.application?._id ?? i} application={row.application} contract={row.contract} />
+                <HubTeamRowPayment
+                    key={row.application?._id ?? i}
+                    application={row.application}
+                    gig={gig}
+                    onRequestRecordPayment={onRequestRecordPayment}
+                />
             ))}
 
             {emptySlots > 0 && (

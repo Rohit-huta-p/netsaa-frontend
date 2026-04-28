@@ -436,6 +436,11 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
               isLoading={isLoading}
               onDraft={() => doSubmit(true)}
               onPublish={() => doSubmit(false)}
+              hirerName={
+                (currentUser as any)?.organizationName ||
+                (currentUser as any)?.displayName ||
+                undefined
+              }
             />
           )}
         </ScrollView>

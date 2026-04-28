@@ -3,7 +3,7 @@ import { View, Text, Modal, TextInput, TouchableOpacity, ScrollView, Alert, Acti
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApplyToGig } from '../../hooks/useGigApplications';
-import { X, Link as LinkIcon, Plus, Trash2, Check, ChevronDown, ChevronUp, Shield, FileText, Save } from 'lucide-react-native';
+import { X, Link as LinkIcon, Plus, Trash2, Check, Shield, FileText, Save } from 'lucide-react-native';
 import { ProfileCompletionModal } from '../common/ProfileCompletionModal';
 import { draftService, generateDraftId, type ApplicationDraft } from '../../services/draftService';
 // CONTRACTS-DISABLED: Phase 4C contract PDF preview imports retained below
@@ -73,7 +73,6 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
     const [portfolioLinks, setPortfolioLinks] = useState<string[]>(['']);
     const [proposedRate, setProposedRate] = useState('');
     const [termsAccepted, setTermsAccepted] = useState(false);
-    const [termsExpanded, setTermsExpanded] = useState(false);
     const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
     const [profileModalVisible, setProfileModalVisible] = useState(false);
     const [profileModalData, setProfileModalData] = useState<{ score: number; missing: string[] }>({ score: 0, missing: [] });
@@ -264,11 +263,11 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
         if (isBottom) setHasScrolledToBottom(true);
     };
 
-    // Default terms if hirer didn't set custom ones
-    const displayTerms = termsAndConditions || `By applying to this gig, you acknowledge:\n\n` +
-        `1. The agreed compensation is Rs. ${gigAmount.toLocaleString('en-IN')}${isNegotiable ? ' (negotiable)' : ''}.\n\n` +
-        `2. Cancellation by either party must follow the cancellation policy.\n\n` +
-        `3. This agreement becomes binding once both parties confirm the booking.`;
+    // The hirer-authored Terms & Conditions from the gig form (Page 4).
+    // Empty when the hirer left the field blank; the modal renders a clear
+    // "no specific terms" note in that case rather than fake boilerplate.
+    const hirerTerms = (termsAndConditions ?? '').trim();
+    const hasHirerTerms = hirerTerms.length > 0;
 
     return (
         <>
@@ -438,30 +437,26 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
                                         runs against gig.termsAndConditions. */}
                                     {/* preserved JSX skipped for brevity — see git history pre-rollback */}
 
-                                    {/* Terms content */}
-                                    {tier === 'quick' ? (
-                                        /* Quick: expandable summary */
-                                        <View>
-                                            <TouchableOpacity onPress={() => setTermsExpanded(!termsExpanded)} style={styles.termsToggle}>
-                                                <Text style={styles.termsToggleText}>View Booking Terms</Text>
-                                                {termsExpanded ? <ChevronUp size={16} color="#6B6878" /> : <ChevronDown size={16} color="#6B6878" />}
-                                            </TouchableOpacity>
-                                            {termsExpanded && (
-                                                <View style={styles.termsBox}>
-                                                    <Text style={styles.termsText}>{displayTerms}</Text>
-                                                </View>
-                                            )}
-                                        </View>
-                                    ) : (
-                                        /* Standard + Premium: full terms displayed */
-                                        <View style={styles.termsBox}>
-                                            <Text style={styles.termsHeading}>Booking Terms</Text>
-                                            <Text style={styles.termsText}>{displayTerms}</Text>
-                                            {tier === 'premium' && !hasScrolledToBottom && (
-                                                <Text style={styles.scrollHint}>Scroll to bottom to continue</Text>
-                                            )}
-                                        </View>
-                                    )}
+                                    {/* Terms & Conditions — always-visible section. Renders the
+                                        hirer's authored T&C from Page 4 of the gig form. When the
+                                        hirer left the field blank we show a clear "no specific
+                                        terms" note instead of fake boilerplate so the artist
+                                        knows the gig has none. The premium-tier scroll-gate still
+                                        applies (must scroll to bottom before the agreement
+                                        checkbox enables). */}
+                                    <View style={styles.termsBox} accessibilityLabel="apply-terms-section">
+                                        <Text style={styles.termsHeading}>Terms & Conditions</Text>
+                                        {hasHirerTerms ? (
+                                            <Text style={styles.termsText}>{hirerTerms}</Text>
+                                        ) : (
+                                            <Text style={[styles.termsText, { fontStyle: 'italic' }]}>
+                                                The hirer hasn't set specific terms for this gig. Standard NETSA platform terms apply.
+                                            </Text>
+                                        )}
+                                        {tier === 'premium' && hasHirerTerms && !hasScrolledToBottom && (
+                                            <Text style={styles.scrollHint}>Scroll to bottom to continue</Text>
+                                        )}
+                                    </View>
 
                                     {/* Agreement checkbox */}
                                     <TouchableOpacity

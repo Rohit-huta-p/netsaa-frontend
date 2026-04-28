@@ -68,10 +68,10 @@ describe('Page5SafetyReview', () => {
     expect(getByText(/Resolve required fixes/i)).toBeTruthy();
   });
 
-  // Phase 4D — Contract preview card before Publish. Hirer-facing version
-  // of the Phase 4C card on GigApplyModal Step 2. Closes the contract-first
-  // loop: hirer sees the same PDF the artist will sign, before publishing.
-  describe('Phase 4D — contract preview', () => {
+  // CONTRACTS-DISABLED: Phase 4D contract preview is hidden until the
+  // contract artifact is restored. Tests skipped (not deleted) so they
+  // re-activate cleanly when gating reverts.
+  describe.skip('Phase 4D — contract preview', () => {
     const previewGig = {
       title: 'Sangeet Choreography',
       compensation: { amount: 50000, negotiable: true },

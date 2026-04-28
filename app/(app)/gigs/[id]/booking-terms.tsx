@@ -1,16 +1,13 @@
-// app/(app)/gigs/[id]/booking-terms.tsx
+// CONTRACTS-DISABLED: Booking Terms editor route stubbed.
+// Master template editor is hidden until the contract artifact is restored.
+// Hirer-authored terms now live on Page 4 (Logistics) of the GigForm via
+// the simple termsAndConditions textarea + TermsTemplates chip row.
+// Restore original from git history. Last live revision: `fcac626` on develop.
 import React from 'react';
-import { useLocalSearchParams, Stack } from 'expo-router';
-import { BookingTermsEditor } from '@/features/booking-terms-editor/BookingTermsEditor';
+import { useLocalSearchParams, Redirect } from 'expo-router';
 
 export default function BookingTermsScreen() {
     const params = useLocalSearchParams<{ id?: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
-    if (!id) return null;
-    return (
-        <>
-            <Stack.Screen options={{ headerShown: false }} />
-            <BookingTermsEditor gigId={id} />
-        </>
-    );
+    return <Redirect href={id ? `/(app)/gigs/${id}/edit` : '/(app)/dashboard'} />;
 }

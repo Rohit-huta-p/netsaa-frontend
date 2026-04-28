@@ -6,8 +6,10 @@ import { useApplyToGig } from '../../hooks/useGigApplications';
 import { X, Link as LinkIcon, Plus, Trash2, Check, ChevronDown, ChevronUp, Shield, FileText, Save } from 'lucide-react-native';
 import { ProfileCompletionModal } from '../common/ProfileCompletionModal';
 import { draftService, generateDraftId, type ApplicationDraft } from '../../services/draftService';
-import { useContractPdf } from '@/features/contract-pdf/hooks/useContractPdf';
-import { buildFromGig } from '@/features/contract-pdf/utils/buildContractData';
+// CONTRACTS-DISABLED: Phase 4C contract PDF preview imports retained below
+// for fast revert when the contract artifact is restored.
+// import { useContractPdf } from '@/features/contract-pdf/hooks/useContractPdf';
+// import { buildFromGig } from '@/features/contract-pdf/utils/buildContractData';
 
 /**
  * PRD v4 Gig Application Flow — Stage 1: Artist Applies
@@ -78,13 +80,12 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
 
     const applyMutation = useApplyToGig();
     const router = useRouter();
-    const pdf = useContractPdf();
+    // CONTRACTS-DISABLED: Phase 4C PDF generation hook + handler retained below for fast revert.
+    // const pdf = useContractPdf();
 
     const tier = useMemo(() => getContractTier(gigAmount), [gigAmount]);
 
-    // Phase 4C — generate the contract PDF preview using the Phase 4B-Lite
-    // template. Hirer name lookup tries multiple shapes since gig population
-    // varies by call site. Falls back to "The hirer".
+    /*
     const handleViewContractPdf = async () => {
         if (!gig) return;
         try {
@@ -101,6 +102,7 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
             Alert.alert('Could not generate contract', err?.message ?? 'Try again.');
         }
     };
+    */
 
     // Plan 2, Task 17 — draft prefill + save-as-draft wiring.
     // Track whether we've already consumed the draftId so prefill runs
@@ -430,64 +432,11 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
                                         )}
                                     </View>
 
-                                    {/* Phase 4C — Contract PDF preview affordance. Only renders when the
-                                        full gig prop is provided. Falls back to the legacy text-terms
-                                        block below if `gig` is absent. */}
-                                    {gig && (
-                                        <View style={styles.contractPreviewCard}>
-                                            <View style={styles.contractPreviewHeader}>
-                                                <FileText size={16} color="#FF6B35" />
-                                                <Text style={styles.contractPreviewTitle}>Booking contract</Text>
-                                            </View>
-                                            <Text style={styles.contractPreviewSubtitle}>
-                                                By applying, you agree to the contract terms below. Open the full PDF to review.
-                                            </Text>
-
-                                            <View style={styles.contractPreviewGrid}>
-                                                <View style={styles.contractPreviewCell}>
-                                                    <Text style={styles.contractPreviewCellLabel}>Pay</Text>
-                                                    <Text style={styles.contractPreviewCellValue}>
-                                                        ₹{(gig.compensation?.amount ?? 0).toLocaleString('en-IN')}
-                                                    </Text>
-                                                    <Text style={styles.contractPreviewCellSub}>
-                                                        {gig.paymentStructure === 'advance_balance' ? '30/70 advance' : 'Full upfront'}
-                                                    </Text>
-                                                </View>
-                                                <View style={styles.contractPreviewCell}>
-                                                    <Text style={styles.contractPreviewCellLabel}>Cancellation</Text>
-                                                    <Text style={styles.contractPreviewCellValue}>{gig.cancellationPolicy ?? '48h'}</Text>
-                                                    <Text style={styles.contractPreviewCellSub}>
-                                                        {gig.cancellationForfeitPct ?? 100}% forfeit if within
-                                                    </Text>
-                                                </View>
-                                                <View style={styles.contractPreviewCell}>
-                                                    <Text style={styles.contractPreviewCellLabel}>Clauses</Text>
-                                                    <Text style={styles.contractPreviewCellValue}>
-                                                        {(gig.customClauses ?? []).length === 0 ? 'None' : `${gig.customClauses.length} added`}
-                                                    </Text>
-                                                </View>
-                                                <View style={styles.contractPreviewCell}>
-                                                    <Text style={styles.contractPreviewCellLabel}>Negotiable</Text>
-                                                    <Text style={styles.contractPreviewCellValue}>
-                                                        {gig.compensation?.negotiable ? 'Yes' : 'No'}
-                                                    </Text>
-                                                </View>
-                                            </View>
-
-                                            <TouchableOpacity
-                                                onPress={handleViewContractPdf}
-                                                disabled={pdf.isGenerating}
-                                                accessibilityLabel="View full contract as PDF"
-                                                style={styles.contractPdfBtn}>
-                                                {pdf.isGenerating
-                                                    ? <ActivityIndicator size="small" color="#FF6B35" />
-                                                    : <FileText size={14} color="#FF6B35" />}
-                                                <Text style={styles.contractPdfBtnText}>
-                                                    {pdf.isGenerating ? 'Generating…' : 'View full contract PDF'}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
+                                    {/* CONTRACTS-DISABLED: Phase 4C contract PDF preview hidden
+                                        until the contract artifact is restored. Apply Stage 1
+                                        ceremony (T&C scroll + agreement checkbox below) still
+                                        runs against gig.termsAndConditions. */}
+                                    {/* preserved JSX skipped for brevity — see git history pre-rollback */}
 
                                     {/* Terms content */}
                                     {tier === 'quick' ? (

@@ -15,11 +15,14 @@ import ScreenTooltip from '../../../src/components/mode/ScreenTooltip';
 import { queryKeys } from '../../../src/constants/queryKeys';
 
 import HeroGreetingHirer from '../../../src/components/dashboard/hirer/HeroGreetingHirer';
-import NextUpCardHirer from '../../../src/components/dashboard/hirer/NextUpCardHirer';
+// CONTRACTS-DISABLED: NextUpCardHirer + ContractsYouSentStrip pull from
+// the contracts collection which we no longer write to. Imports retained
+// for fast revert when the contract artifact is restored.
+// import NextUpCardHirer from '../../../src/components/dashboard/hirer/NextUpCardHirer';
 import PostedGigsSection from '../../../src/components/dashboard/hirer/PostedGigsSection';
 import ApplicantsInbox from '../../../src/components/dashboard/hirer/ApplicantsInbox';
 import HiredArtistsSection from '../../../src/components/dashboard/hirer/HiredArtistsSection';
-import ContractsYouSentStrip from '../../../src/components/dashboard/hirer/ContractsYouSentStrip';
+// import ContractsYouSentStrip from '../../../src/components/dashboard/hirer/ContractsYouSentStrip';
 import PaymentsStrip from '../../../src/components/dashboard/hirer/PaymentsStrip';
 import TrustTierProgress from '../../../src/components/dashboard/artist/TrustTierProgress';
 import MessagesPreview from '../../../src/components/dashboard/artist/MessagesPreview';
@@ -75,7 +78,9 @@ export default function HirerHome() {
 
         <HeroGreetingHirer />
 
-        <NextUpCardHirer />
+        {/* CONTRACTS-DISABLED: NextUpCardHirer + ContractsYouSentStrip hidden
+            until contract artifact restored. */}
+        {/* <NextUpCardHirer /> */}
 
         <PostedGigsSection />
 
@@ -83,7 +88,7 @@ export default function HirerHome() {
 
         <HiredArtistsSection />
 
-        <ContractsYouSentStrip />
+        {/* <ContractsYouSentStrip /> */}
 
         <PaymentsStrip />
 

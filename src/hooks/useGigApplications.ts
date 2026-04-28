@@ -13,8 +13,18 @@ export const useUpdateApplicationStatus = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ applicationId, status }: { applicationId: string; status: string }) =>
-            gigService.updateApplicationStatus(applicationId, status),
+        mutationFn: ({
+            applicationId,
+            status,
+            paymentMethod,
+        }: {
+            applicationId: string;
+            status: string;
+            // Optional — passed when transitioning to 'hired' so the
+            // hirer's payment-route intent is persisted alongside the
+            // status flip. Backend accepts on_platform | off_platform.
+            paymentMethod?: 'on_platform' | 'off_platform';
+        }) => gigService.updateApplicationStatus(applicationId, status, paymentMethod),
         onSuccess: (_, variables) => {
             // Invalidate all gig application queries or specific ones
             queryClient.invalidateQueries({ queryKey: ['gigApplications'] });

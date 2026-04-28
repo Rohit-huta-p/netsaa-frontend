@@ -36,11 +36,13 @@ jest.mock('@/components/gigs/applications/HireConfirmModal', () => ({
 import { HirerGigHub } from '../HirerGigHub';
 
 describe('HirerGigHub', () => {
-    it('renders all 4 main sections', () => {
+    it('renders all main sections (post contract-rollback)', () => {
+        // CONTRACTS-DISABLED: "Booking terms" section assertion removed — the
+        // Hub no longer mounts HubBookingTermsCard until the contract artifact
+        // is restored. Restore the assertion when the gating is reverted.
         const { getByText } = render(<HirerGigHub gigId="g1" />);
         expect(getByText('Sangeet Choreography')).toBeTruthy();
         expect(getByText('Your team')).toBeTruthy();
-        expect(getByText('Booking terms')).toBeTruthy();
         expect(getByText('Applicants')).toBeTruthy();
     });
 

@@ -88,12 +88,42 @@ export const transactionService = {
         const res = await API.get('/users/me/transactions', { params });
         return res.data;
     },
-    recordOffline: async (data: { toUserId: string; amount: number; method: string; gigId?: string; referenceId?: string; note?: string }) => {
+    recordOffline: async (data: {
+        toUserId: string;
+        amount: number;
+        method: 'upi' | 'bank_transfer' | 'cash' | 'google_pay' | 'credit_card' | 'debit_card' | 'other';
+        gigId?: string;
+        // Application reference for hires that don't have a Contract artifact.
+        // Added post contract-rollback (Apr 28).
+        applicationId?: string;
+        contractId?: string;
+        eventId?: string;
+        referenceId?: string;
+        note?: string;
+        paidAt?: string;
+        screenshotUrl?: string;
+    }) => {
         const res = await API.post('/transactions/offline', data);
         return res.data;
     },
     confirmOffline: async (id: string) => {
         const res = await API.patch(`/transactions/${id}/confirm-offline`);
+        return res.data;
+    },
+    disputeOffline: async (id: string, payload: { reason: string; evidenceUrls?: string[] }) => {
+        const res = await API.patch(`/transactions/${id}/dispute-offline`, payload);
+        return res.data;
+    },
+    /**
+     * List transactions for a specific application. Server filters via
+     * /users/me/transactions?applicationId=...; the GET endpoint accepts
+     * the param post contract-rollback. If the API ignores it, the client
+     * can post-filter the response.
+     */
+    listForApplication: async (applicationId: string) => {
+        const res = await API.get('/users/me/transactions', {
+            params: { applicationId },
+        });
         return res.data;
     },
 };

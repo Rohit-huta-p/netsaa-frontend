@@ -14,6 +14,7 @@ import { computeStickyCTA } from './utils/computeStickyCTA';
 import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 import { HireConfirmModal } from '@/components/gigs/applications/HireConfirmModal';
 import { RecordPaymentModal } from '@/features/payments/RecordPaymentModal';
+import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 
 import { HubHero } from './components/HubHero';
 import { HubKPIs } from './components/HubKPIs';
@@ -36,6 +37,9 @@ export function HirerGigHub({ gigId }: Props) {
     const data = useGigHubData(gigId);
     const scrollRef = useRef<ScrollView>(null);
     const applicantsYRef = useRef<number>(0);
+    // Tab-bar height — keeps the sticky CTA above the global bottom nav
+    // on mobile. Returns 0 on tablet/desktop widths (no nav rendered).
+    const tabBarHeight = useMobileTabBarHeight();
 
     const [hireTarget, setHireTarget] = useState<any | null>(null);
     const [recordPaymentTarget, setRecordPaymentTarget] = useState<any | null>(null);
@@ -122,7 +126,11 @@ export function HirerGigHub({ gigId }: Props) {
 
     return (
         <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-            <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            <ScrollView
+                ref={scrollRef}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: tabBarHeight + 100 }}
+            >
                 {/* Header */}
                 <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4, flexDirection: 'row', justifyContent: 'space-between' }}>
                     <TouchableOpacity onPress={() => router.back()} accessibilityLabel="Back">
@@ -198,11 +206,11 @@ export function HirerGigHub({ gigId }: Props) {
                     city={gig.location?.city}
                     scope={gig.description}
                     postedDate={gig.createdAt}
-                    onEditGig={() => router.push(`/(app)/gigs/${gigId}/edit` as any)}
+                    onEditGig={() => router.push(`/(app)/create?gigId=${gigId}` as any)}
                 />
             </ScrollView>
 
-            <View style={{ position: 'absolute', bottom: 16, left: 0, right: 0 }}>
+            <View style={{ position: 'absolute', bottom: tabBarHeight + 16, left: 0, right: 0 }}>
                 <HubStickyCTA cta={sticky} onPress={handleSticky} />
             </View>
 

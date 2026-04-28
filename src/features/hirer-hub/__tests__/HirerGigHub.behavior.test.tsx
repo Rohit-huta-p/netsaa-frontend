@@ -39,6 +39,11 @@ jest.mock('@/components/gigs/applications/HireConfirmModal', () => ({
 jest.mock('@/features/payments/RecordPaymentModal', () => ({
     RecordPaymentModal: () => null,
 }));
+// MobileTabBar imports expo-linear-gradient (ESM-only) — stub the hook so
+// the bottom-nav offset wiring doesn't drag native bindings into the test.
+jest.mock('@/components/MobileTabBar', () => ({
+    useMobileTabBarHeight: () => 0,
+}));
 
 import { HirerGigHub } from '../HirerGigHub';
 

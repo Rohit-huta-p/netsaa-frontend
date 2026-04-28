@@ -9,5 +9,6 @@ import { useLocalSearchParams, Redirect } from 'expo-router';
 export default function BookingTermsScreen() {
     const params = useLocalSearchParams<{ id?: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
-    return <Redirect href={id ? `/(app)/gigs/${id}/edit` : '/(app)/dashboard'} />;
+    // Edit lives on the shared /create route in edit mode (?gigId=...).
+    return <Redirect href={id ? `/(app)/create?gigId=${id}` : '/(app)/dashboard'} />;
 }

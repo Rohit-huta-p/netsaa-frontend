@@ -82,9 +82,6 @@ export interface Gig {
     // of these groups.
     eventFunction?: string;
     languagePreferences?: string[];
-    ancillaryLogistics?: {
-        provided: string[];
-    };
     musicDetails?: {
         genres?: string[];
         equipmentProvided?: boolean;

@@ -65,7 +65,6 @@ function initialState(): GigFormV2State {
     },
     p3: { music: {}, model: {}, visual: {}, crew: {} },
     p4: {
-      ancillaryProvided: [],
       mediaRequirements: {
         headshots: false,
         fullBody: false,
@@ -204,7 +203,6 @@ export function buildBackendPayload(state: GigFormV2State) {
     },
     crewDetails: state.p3.crew,
     languagePreferences: state.p2.languagePreferences ?? [],
-    ancillaryLogistics: { provided: state.p4.ancillaryProvided ?? [] },
     ...(cleanedCustomClauses.length > 0 ? { customClauses: cleanedCustomClauses } : {}),
     isUrgent: state.isUrgent,
     isFeatured: state.isFeatured,
@@ -275,7 +273,6 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
           crew: g.crewDetails ?? {},
         },
         p4: {
-          ancillaryProvided: g.ancillaryLogistics?.provided ?? [],
           mediaRequirements: {
             headshots: g.mediaRequirements?.headshots ?? false,
             fullBody: g.mediaRequirements?.fullBody ?? false,

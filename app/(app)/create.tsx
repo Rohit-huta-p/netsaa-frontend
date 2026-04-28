@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Briefcase, Calendar } from "lucide-react-native";
+import { ChevronLeft, Briefcase, Calendar, Pencil } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { GigForm, GigFormHandle } from "@/components/create/GigForm";
 import GigFormV2 from "@/components/create/GigFormV2";
@@ -18,6 +18,8 @@ import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 export default function CreateListing() {
     const router = useRouter();
     const { gigId, initialTab } = useLocalSearchParams();
+    const gigIdValue = Array.isArray(gigId) ? gigId[0] : gigId;
+    const isEditing = !!gigIdValue;
     const initialTabValue = (Array.isArray(initialTab) ? initialTab[0] : initialTab) === 'event' ? 'event' : 'gig';
     const [activeTab, setActiveTab] = useState<"gig" | "event">(initialTabValue);
 
@@ -40,7 +42,7 @@ export default function CreateListing() {
             if (router.canGoBack()) {
                 router.back();
             } else {
-                router.replace(`/gigs/${Array.isArray(gigId) ? gigId[0] : gigId}`);
+                router.replace(`/gigs/${gigIdValue}`);
             }
         } else {
             if (router.canGoBack()) {
@@ -87,66 +89,78 @@ export default function CreateListing() {
                     <ChevronLeft size={24} color="#FFFFFF" />
                 </TouchableOpacity>
 
-                {/* Tab Switcher */}
-                <View style={styles.tabContainer}>
-                    <TouchableOpacity
-                        style={styles.tab}
-                        onPress={() => setActiveTab("gig")}
-                        activeOpacity={0.9}
-                    >
-                        {activeTab === "gig" && (
-                            <LinearGradient
-                                colors={['#b835ff52', '#FF8C42']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.activeTabGradient}
-                            />
-                        )}
-                        <View style={styles.tabContent}>
-                            <Briefcase
-                                size={18}
-                                color={activeTab === "gig" ? "#FFFFFF" : "#71717A"}
-                            />
-                            <Text
-                                style={[
-                                    styles.tabText,
-                                    activeTab === "gig" ? styles.activeTabText : styles.inactiveTabText,
-                                ]}
-                            >
-                                Gig
-                            </Text>
+                {/* Edit-mode: tab switcher hidden (you can't morph a gig into
+                    an event mid-edit). Right-aligned "Edit gig" pill replaces
+                    it. Create-mode: standard gig/event tab switcher. */}
+                {isEditing ? (
+                    <>
+                        <View style={{ flex: 1 }} />
+                        <View style={styles.editPill} accessibilityLabel="edit-gig-indicator">
+                            <Pencil size={14} color="#FF8C42" />
+                            <Text style={styles.editPillText}>Edit gig</Text>
                         </View>
-                    </TouchableOpacity>
+                    </>
+                ) : (
+                    <View style={styles.tabContainer}>
+                        <TouchableOpacity
+                            style={styles.tab}
+                            onPress={() => setActiveTab("gig")}
+                            activeOpacity={0.9}
+                        >
+                            {activeTab === "gig" && (
+                                <LinearGradient
+                                    colors={['#b835ff52', '#FF8C42']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.activeTabGradient}
+                                />
+                            )}
+                            <View style={styles.tabContent}>
+                                <Briefcase
+                                    size={18}
+                                    color={activeTab === "gig" ? "#FFFFFF" : "#71717A"}
+                                />
+                                <Text
+                                    style={[
+                                        styles.tabText,
+                                        activeTab === "gig" ? styles.activeTabText : styles.inactiveTabText,
+                                    ]}
+                                >
+                                    Gig
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={styles.tab}
-                        onPress={() => setActiveTab("event")}
-                        activeOpacity={0.9}
-                    >
-                        {activeTab === "event" && (
-                            <LinearGradient
-                                colors={['#FF6B35', '#FF8C42']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.activeTabGradient}
-                            />
-                        )}
-                        <View style={styles.tabContent}>
-                            <Calendar
-                                size={18}
-                                color={activeTab === "event" ? "#FFFFFF" : "#71717A"}
-                            />
-                            <Text
-                                style={[
-                                    styles.tabText,
-                                    activeTab === "event" ? styles.activeTabText : styles.inactiveTabText,
-                                ]}
-                            >
-                                Event
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-                </View>
+                        <TouchableOpacity
+                            style={styles.tab}
+                            onPress={() => setActiveTab("event")}
+                            activeOpacity={0.9}
+                        >
+                            {activeTab === "event" && (
+                                <LinearGradient
+                                    colors={['#FF6B35', '#FF8C42']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.activeTabGradient}
+                                />
+                            )}
+                            <View style={styles.tabContent}>
+                                <Calendar
+                                    size={18}
+                                    color={activeTab === "event" ? "#FFFFFF" : "#71717A"}
+                                />
+                                <Text
+                                    style={[
+                                        styles.tabText,
+                                        activeTab === "event" ? styles.activeTabText : styles.inactiveTabText,
+                                    ]}
+                                >
+                                    Event
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </View>
 
             {/* Content */}
@@ -157,14 +171,14 @@ export default function CreateListing() {
                             ref={gigFormRef}
                             onPublish={handlePublish}
                             onCancel={handleCancel}
-                            gigId={Array.isArray(gigId) ? gigId[0] : gigId}
+                            gigId={gigIdValue}
                         />
                     ) : (
                         <GigForm
                             ref={gigFormRef}
                             onPublish={handlePublish}
                             onCancel={handleCancel}
-                            gigId={Array.isArray(gigId) ? gigId[0] : gigId}
+                            gigId={gigIdValue}
                         />
                     )
                 ) : (
@@ -249,6 +263,24 @@ const styles = StyleSheet.create({
     },
     inactiveTabText: {
         color: "#71717A",
+    },
+    // Edit-mode pill — sits at the right end of the header when editing.
+    editPill: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 999,
+        backgroundColor: "rgba(255,140,66,0.10)",
+        borderWidth: 1,
+        borderColor: "rgba(255,140,66,0.35)",
+    },
+    editPillText: {
+        color: "#FF8C42",
+        fontSize: 12,
+        fontWeight: "800",
+        letterSpacing: 0.5,
     },
     content: {
         flex: 1,

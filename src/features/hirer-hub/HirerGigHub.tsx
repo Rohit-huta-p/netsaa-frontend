@@ -13,7 +13,7 @@ import { useGigHubData } from './hooks/useGigHubData';
 import { computeStickyCTA } from './utils/computeStickyCTA';
 import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 import { HireConfirmModal } from '@/components/gigs/applications/HireConfirmModal';
-import { RecordPaymentModal } from '@/features/payments/RecordPaymentModal';
+import { ContactActionSheet, type ContactTarget } from '@/features/team/ContactActionSheet';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 
 import { HubHero } from './components/HubHero';
@@ -42,7 +42,7 @@ export function HirerGigHub({ gigId }: Props) {
     const tabBarHeight = useMobileTabBarHeight();
 
     const [hireTarget, setHireTarget] = useState<any | null>(null);
-    const [recordPaymentTarget, setRecordPaymentTarget] = useState<any | null>(null);
+    const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
     const [actionSheetTarget, setActionSheetTarget] = useState<any | null>(null);
     const updateStatusMutation = useUpdateApplicationStatus();
 
@@ -158,7 +158,14 @@ export function HirerGigHub({ gigId }: Props) {
                     gig={gig}
                     slotsTotal={data.kpis.slotsTotal}
                     pendingApplicantsCount={data.pendingApplicantsCount}
-                    onRequestRecordPayment={(application) => setRecordPaymentTarget(application)}
+                    onRequestContact={(application) =>
+                        setContactTarget({
+                            artistId: application?.artistId ?? '',
+                            displayName: application?.artistSnapshot?.displayName ?? 'Artist',
+                            phoneNumber: application?.artistSnapshot?.phoneNumber,
+                            gigTitle: gig?.title,
+                        })
+                    }
                 />
 
                 {/* CONTRACTS-DISABLED: Booking-terms card + master-template
@@ -230,15 +237,10 @@ export function HirerGigHub({ gigId }: Props) {
                 onClose={() => setHireTarget(null)}
                 onHired={() => setHireTarget(null)}
             />
-            <RecordPaymentModal
-                visible={!!recordPaymentTarget}
-                onClose={() => setRecordPaymentTarget(null)}
-                applicationId={recordPaymentTarget?._id ?? ''}
-                artistId={recordPaymentTarget?.artistId ?? ''}
-                gigId={gig._id}
-                defaultAmount={gig.compensation?.amount ?? 0}
-                artistName={recordPaymentTarget?.artistSnapshot?.displayName}
-                onRecorded={() => setRecordPaymentTarget(null)}
+            <ContactActionSheet
+                visible={!!contactTarget}
+                onClose={() => setContactTarget(null)}
+                target={contactTarget}
             />
         </View>
     );

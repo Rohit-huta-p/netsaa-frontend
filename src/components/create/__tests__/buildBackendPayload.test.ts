@@ -62,7 +62,6 @@ function makeBaseState() {
     },
     p3: { music: {}, model: {}, visual: {}, crew: {} },
     p4: {
-      ancillaryProvided: [] as string[],
       mediaRequirements: {
         headshots: false,
         fullBody: false,
@@ -139,12 +138,5 @@ describe('buildBackendPayload', () => {
     expect((payload.modelDetails as any)?.shootType).toBe('Fashion');
     expect((payload.modelDetails as any)?.nudityLevel).toBe('None');
     expect((payload.modelDetails as any)?.releaseRequired).toBe(true);
-  });
-
-  it('propagates ancillaryLogistics.provided from p4', () => {
-    const state = makeBaseState();
-    state.p4.ancillaryProvided = ['Sound system', 'Transport'];
-    const payload = buildBackendPayload(state as any);
-    expect(payload.ancillaryLogistics.provided).toEqual(['Sound system', 'Transport']);
   });
 });

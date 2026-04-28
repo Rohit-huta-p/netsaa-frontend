@@ -1,9 +1,9 @@
 // netsa-mobile/src/components/create/pages/Page4Logistics.tsx
 //
-// Page 4 of the GigForm v2 flow. Ancillary chips, 4 submission-media
-// toggles (via ChipPicker multi), a note field, deadline, max applicants,
-// description + perks + T&C (description and T&C each have an AI-rephrase
-// button wired to gigService.rephraseText).
+// Page 4 of the GigForm v2 flow. 4 submission-media toggles (via ChipPicker
+// multi), a note field, deadline, max applicants, description + perks + T&C
+// (description and T&C each have an AI-rephrase button wired to
+// gigService.rephraseText).
 //
 // The AI-rephrase handler mirrors the legacy GigForm pattern byte-for-byte
 // so the UX stays identical across the migration window.
@@ -24,7 +24,6 @@ import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { TextArea } from '@/components/ui/TextArea';
 import StyledTextInput from '@/components/ui/StyledTextInput';
 import ChipPicker from '@/components/ui/ChipPicker';
-import { ANCILLARY_PRESETS } from '@/constants/ancillaryPresets';
 import gigService from '@/services/gigService';
 import dayjs from 'dayjs';
 import { TermsTemplates } from './components/TermsTemplates';
@@ -33,7 +32,6 @@ import { TermsTemplates } from './components/TermsTemplates';
 // import { CustomClausesEditor } from '@/features/booking-terms-editor/components/CustomClausesEditor';
 
 export interface Page4Value {
-  ancillaryProvided?: string[];
   mediaRequirements: {
     headshots: boolean;
     fullBody: boolean;
@@ -109,21 +107,6 @@ export default function Page4Logistics({ value, onChange }: Page4LogisticsProps)
 
   return (
     <View style={styles.container}>
-      <InputGroup label="Ancillary provided" subtitle="What is included by the hirer?">
-        <TagInput
-          value={(value.ancillaryProvided ?? []).join(', ')}
-          onChangeTags={(v: string) =>
-            update({
-              ancillaryProvided: v
-                .split(',')
-                .map((s) => s.trim())
-                .filter(Boolean),
-            })
-          }
-          placeholder={ANCILLARY_PRESETS.slice(0, 3).join(', ')}
-        />
-      </InputGroup>
-
       <InputGroup label="Submission requirements" subtitle="What do applicants need to upload?">
         <ChipPicker
           mode="multi"

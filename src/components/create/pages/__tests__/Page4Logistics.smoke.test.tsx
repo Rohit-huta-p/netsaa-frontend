@@ -31,7 +31,7 @@ describe('Page4Logistics', () => {
     termsAndConditions: '',
   };
 
-  it('renders ancillary, submission, description, T&C sections + 2 AI buttons', () => {
+  it('renders submission, description, T&C sections + 2 AI buttons', () => {
     const { getByText, getAllByText } = render(
       <Page4Logistics value={initial} onChange={jest.fn()} />
     );

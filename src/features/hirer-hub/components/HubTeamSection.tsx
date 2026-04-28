@@ -14,11 +14,11 @@ type Props = {
     gig: any;
     slotsTotal: number;
     pendingApplicantsCount: number;
-    /** Fired when a row taps "Record payment" — Hub mounts the modal. */
-    onRequestRecordPayment: (application: any) => void;
+    /** Fired when a row taps the contact icon — Hub mounts the action sheet. */
+    onRequestContact: (application: any) => void;
 };
 
-export function HubTeamSection({ teamRows, gig, slotsTotal, pendingApplicantsCount, onRequestRecordPayment }: Props) {
+export function HubTeamSection({ teamRows, gig, slotsTotal, pendingApplicantsCount, onRequestContact }: Props) {
     const emptySlots = Math.max(0, slotsTotal - teamRows.length);
 
     return (
@@ -37,7 +37,7 @@ export function HubTeamSection({ teamRows, gig, slotsTotal, pendingApplicantsCou
                     key={row.application?._id ?? i}
                     application={row.application}
                     gig={gig}
-                    onRequestRecordPayment={onRequestRecordPayment}
+                    onRequestContact={onRequestContact}
                 />
             ))}
 

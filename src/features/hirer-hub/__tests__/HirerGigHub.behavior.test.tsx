@@ -36,8 +36,11 @@ jest.mock('@/hooks/usePayments', () => ({
 jest.mock('@/components/gigs/applications/HireConfirmModal', () => ({
     HireConfirmModal: () => null,
 }));
-jest.mock('@/features/payments/RecordPaymentModal', () => ({
-    RecordPaymentModal: () => null,
+// Apr 29: RecordPaymentModal moved out of HubMount; ContactActionSheet
+// took its place. Stub it so the test runner doesn't drag in lucide
+// icons + Linking.
+jest.mock('@/features/team/ContactActionSheet', () => ({
+    ContactActionSheet: () => null,
 }));
 // MobileTabBar imports expo-linear-gradient (ESM-only) — stub the hook so
 // the bottom-nav offset wiring doesn't drag native bindings into the test.

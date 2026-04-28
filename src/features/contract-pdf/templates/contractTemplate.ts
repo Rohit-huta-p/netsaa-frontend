@@ -180,9 +180,19 @@ export function renderContractHtml(data: ContractPdfData): string {
   </div>` : ''}
 
   <h2>Cancellation policy</h2>
-  <p>If cancelled within <strong>${data.cancellationPolicy}</strong> of the event date,
-    the artist forfeits <strong>${data.cancellationForfeitPct}%</strong> of the booking amount.
-    Any portion already paid is retained by the artist as compensation for time committed.</p>
+  <div class="field-grid">
+    <div>
+      <div class="field-label">Window</div>
+      <div class="field-value">${escape(data.cancellationPolicy)}</div>
+    </div>
+    <div>
+      <div class="field-label">Forfeit</div>
+      <div class="field-value">${data.cancellationForfeitPct}%</div>
+    </div>
+  </div>
+  ${data.cancellationCustomText && data.cancellationCustomText.trim() ? `
+    <p class="terms-paragraph" style="margin-top: 8pt;">${escape(data.cancellationCustomText.trim())}</p>
+  ` : ''}
 
   ${data.customClauses.length > 0 ? `
     <h2>Custom clauses</h2>

@@ -19,6 +19,7 @@ type Props = {
     paymentStructure?: 'full' | 'advance_balance';
     cancellationPolicy?: '24h' | '48h' | '72h';
     cancellationForfeitPct?: number;
+    cancellationCustomText?: string;
     customClauses?: string[];   // NEW
     amount: number;
     negotiable: boolean;
@@ -45,6 +46,7 @@ export function BookingTermsPreviewModal({
     paymentStructure = 'full',
     cancellationPolicy = '48h',
     cancellationForfeitPct,
+    cancellationCustomText,
     customClauses,
     amount,
     negotiable,
@@ -80,6 +82,16 @@ export function BookingTermsPreviewModal({
                         </Text>
                         <FieldRow label="Pay" value={`${formattedAmount} · ${STRUCTURE_LABEL[paymentStructure]}`} />
                         <FieldRow label="Cancellation" value={`${cancellationPolicy} notice · ${cancellationForfeitPct ?? 100}% forfeit if within window`} />
+                        {cancellationCustomText && cancellationCustomText.trim() && (
+                            <View style={{ marginTop: 8, marginBottom: 16 }}>
+                                <Text style={{ fontSize: 10, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+                                    Cancellation policy
+                                </Text>
+                                <Text style={{ fontSize: 14, color: COLORS.text1, lineHeight: 22 }}>
+                                    {cancellationCustomText.trim()}
+                                </Text>
+                            </View>
+                        )}
                         {customClauses && customClauses.length > 0 && (
                             <View style={{ marginTop: 8 }}>
                                 <Text style={{ fontSize: 10, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>

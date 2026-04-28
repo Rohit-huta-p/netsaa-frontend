@@ -13,6 +13,9 @@ export type ContractPdfData = {
     paymentStructure: 'full' | 'advance_balance';
     cancellationPolicy: '24h' | '48h' | '72h';
     cancellationForfeitPct: number;
+    /** Hirer-authored cancellation narrative. Rendered as a paragraph after
+        the structured Window + Forfeit fields when present. Omitted otherwise. */
+    cancellationCustomText?: string;
     customClauses: string[];
     scopeOfWork: string;
     termsAndConditions?: string;
@@ -38,6 +41,7 @@ type GigShape = {
     paymentStructure?: 'full' | 'advance_balance';
     cancellationPolicy?: '24h' | '48h' | '72h';
     cancellationForfeitPct?: number;
+    cancellationCustomText?: string;
     customClauses?: string[];
     termsAndConditions?: string;
 };
@@ -95,6 +99,7 @@ export function buildFromGig(gig: GigShape, opts: {
         paymentStructure: gig.paymentStructure ?? 'full',
         cancellationPolicy: gig.cancellationPolicy ?? '48h',
         cancellationForfeitPct: gig.cancellationForfeitPct ?? 100,
+        cancellationCustomText: gig.cancellationCustomText,
         customClauses: gig.customClauses ?? [],
         scopeOfWork: gig.description ?? gig.title,
         termsAndConditions: gig.termsAndConditions,
@@ -119,9 +124,10 @@ export function buildFromContract(contract: ContractShape): ContractPdfData {
         // contract.terms doesn't store policy enum — derive from cancellationTerms or default
         cancellationPolicy: '48h',
         cancellationForfeitPct: 100,
+        // Hirer-authored cancellation narrative lands here when sealed at hire time.
+        cancellationCustomText: t.cancellationTerms,
         customClauses: parseClausesFromCustomTerms(t.customTerms),
         scopeOfWork: t.scopeOfWork ?? '',
-        termsAndConditions: t.cancellationTerms,  // contract uses freeform cancellation paragraph
         eventDate: t.dates?.start,
         venue: t.location?.venue,
         city: t.location?.city,

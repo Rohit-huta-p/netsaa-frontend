@@ -155,6 +155,7 @@ export function HirerGigHub({ gigId }: Props) {
                     paymentStructure={gig.paymentStructure || gig.compensation?.structure || gig.compensation?.paymentStructure || 'advance_balance'}
                     cancellationPolicy={gig.cancellationPolicy}
                     cancellationForfeitPct={gig.cancellationForfeitPct}
+                    cancellationCustomText={gig.cancellationCustomText}
                     leadAmount={gig.compensation?.amount ?? gig.compensation?.leadAmount ?? 0}
                     subArtistAmount={gig.compensation?.subArtistAmount}
                     customClauses={gig.customClauses ?? []}

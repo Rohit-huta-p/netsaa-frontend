@@ -12,8 +12,7 @@
 // artists will see at apply time.
 
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { FileText } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import GuardrailPanel from '../guardrails/GuardrailPanel';
 import {
   runHardChecks,
@@ -22,8 +21,10 @@ import {
   type CheckableFormState,
 } from '../guardrails/checks';
 import { GigDetails } from '@/components/gigs/GigDetails';
-import { useContractPdf } from '@/features/contract-pdf/hooks/useContractPdf';
-import { buildFromGig } from '@/features/contract-pdf/utils/buildContractData';
+// CONTRACTS-DISABLED: Phase 4D contract preview imports retained below for fast revert.
+// import { FileText } from 'lucide-react-native';
+// import { useContractPdf } from '@/features/contract-pdf/hooks/useContractPdf';
+// import { buildFromGig } from '@/features/contract-pdf/utils/buildContractData';
 
 export interface Page5Props {
   formState: CheckableFormState;
@@ -58,9 +59,10 @@ export default function Page5SafetyReview({
 
   const canPublish = hardCount === 0;
 
+  // CONTRACTS-DISABLED: Phase 4D PDF generation hook + derived values
+  // retained below (commented) for fast revert.
+  /*
   const pdf = useContractPdf();
-
-  // Phase 4D — derive contract preview values from the in-progress payload.
   const amount = previewGig?.compensation?.amount ?? 0;
   const isAdvance = previewGig?.paymentStructure === 'advance_balance';
   const cancellationWindow = previewGig?.cancellationPolicy ?? '48h';
@@ -79,15 +81,17 @@ export default function Page5SafetyReview({
       Alert.alert('Could not generate contract', err?.message ?? 'Try again.');
     }
   };
+  */
 
   return (
     <View style={styles.container}>
       <Text style={styles.sectionLabel}>Safety checks</Text>
       <GuardrailPanel issues={issues} />
 
-      {/* Phase 4D — Contract preview card. Sits between safety and the
-          artist-side preview so the hirer reviews the contract artifact
-          (the thing artists will sign) before tapping Publish. */}
+      {/* CONTRACTS-DISABLED: Phase 4D contract preview hidden until the
+          contract artifact is restored. Block + handler retained below
+          (commented) for fast revert. */}
+      {/*
       <Text style={styles.sectionLabel}>Contract preview</Text>
       <View style={styles.contractCard}>
         <View style={styles.contractHeader}>
@@ -146,6 +150,7 @@ export default function Page5SafetyReview({
           </Text>
         </TouchableOpacity>
       </View>
+      */}
 
       <Text style={styles.sectionLabel}>Preview (artist side)</Text>
       <View style={styles.previewFrame}>

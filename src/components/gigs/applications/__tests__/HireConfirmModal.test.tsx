@@ -1,30 +1,21 @@
 // src/components/gigs/applications/__tests__/HireConfirmModal.test.tsx
 //
-// Verifies the PRD §8.3.2 Stage 2 contract-creation bridge:
-//   - Tapping "Confirm Hire" while on-platform is selected fires the
-//     createContract mutation FIRST, then flips the application status.
-//   - Off-platform requires explicit acknowledgement before the
-//     Confirm button is enabled.
+// Post contract-rollback (Apr 28): Confirm Hire is now a thin status flip
+// with the chosen payment method recorded on the application. No contract
+// artifact is created. Tests:
+//   - On confirm with on-platform: updateApplicationStatus called with
+//     status='hired' + paymentMethod='on_platform', cache invalidates,
+//     modal closes.
+//   - Off-platform requires explicit acknowledgement before Confirm fires.
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-
-// Hoist mocks for the two mutations the modal relies on
-const mockCreateContract = jest
-    .fn()
-    .mockResolvedValue({ data: { _id: 'contract-1', status: 'sent' } });
 
 const mockUpdateApplicationStatus = jest
     .fn()
     .mockResolvedValue({ _id: 'app-1', status: 'hired' });
 
 const mockInvalidateQueries = jest.fn();
-
-jest.mock('@/hooks/usePayments', () => ({
-    useCreateContract: () => ({
-        mutateAsync: (...args: any[]) => mockCreateContract(...args),
-    }),
-}));
 
 jest.mock('@/hooks/useGigApplications', () => ({
     useUpdateApplicationStatus: () => ({
@@ -82,74 +73,44 @@ const sampleApplication = {
 };
 
 beforeEach(() => {
-    mockCreateContract.mockClear();
     mockUpdateApplicationStatus.mockClear();
     mockInvalidateQueries.mockClear();
 });
 
-describe('HireConfirmModal', () => {
-    it('on Confirm Hire with on-platform, calls createContract then updateApplicationStatus', async () => {
+describe('HireConfirmModal (post contract-rollback)', () => {
+    it("on Confirm Hire with on-platform, calls updateApplicationStatus with status='hired' + paymentMethod", async () => {
         const onClose = jest.fn();
+        const onHired = jest.fn();
         const { getByLabelText } = render(
             <HireConfirmModal
                 visible
                 gig={sampleGig}
                 application={sampleApplication}
                 onClose={onClose}
+                onHired={onHired}
             />,
         );
 
         fireEvent.press(getByLabelText('confirm-hire'));
 
-        await waitFor(() => {
-            expect(mockCreateContract).toHaveBeenCalledTimes(1);
-        });
-
-        // 1. createContract was called with the right shape
-        const payload = mockCreateContract.mock.calls[0][0];
-        expect(payload).toEqual(
-            expect.objectContaining({
-                gigId: 'gig-123',
-                artistId: 'artist-1',
-                paymentMethod: 'on_platform',
-            }),
-        );
-        expect(payload.terms).toEqual(
-            expect.objectContaining({
-                gigTitle: 'Wedding Sangeet Dance Lead',
-                amount: 45000,
-                paymentStructure: 'full',
-                scopeOfWork: expect.any(String),
-            }),
-        );
-        expect(payload.terms.dates).toEqual(
-            expect.objectContaining({
-                start: expect.any(String),
-                end: expect.any(String),
-            }),
-        );
-        expect(payload.terms.location).toEqual(
-            expect.objectContaining({ city: 'Pune' }),
-        );
-
-        // 2. updateApplicationStatus was called next with status 'hired'
         await waitFor(() => {
             expect(mockUpdateApplicationStatus).toHaveBeenCalledTimes(1);
         });
-        expect(mockUpdateApplicationStatus.mock.calls[0][0]).toEqual(
-            expect.objectContaining({
-                applicationId: 'app-1',
-                status: 'hired',
-            }),
-        );
 
-        // 3. modal closes after the happy path
+        expect(mockUpdateApplicationStatus.mock.calls[0][0]).toEqual({
+            applicationId: 'app-1',
+            status: 'hired',
+            paymentMethod: 'on_platform',
+        });
+
+        // Modal closes + onHired fires after the happy path
         await waitFor(() => {
             expect(onClose).toHaveBeenCalled();
+            expect(onHired).toHaveBeenCalled();
         });
     });
 
-    it('on successful hire, invalidates gigApplications + contracts caches', async () => {
+    it('on successful hire, invalidates gigApplications cache', async () => {
         const onClose = jest.fn();
         const { getByLabelText } = render(
             <HireConfirmModal
@@ -166,78 +127,11 @@ describe('HireConfirmModal', () => {
             expect(onClose).toHaveBeenCalled();
         });
 
-        // Both query keys should have been invalidated so the hub refreshes
         const calledKeys = mockInvalidateQueries.mock.calls.map(
             (c) => c[0]?.queryKey,
         );
         expect(calledKeys).toEqual(
-            expect.arrayContaining([
-                ['gigApplications', 'gig-123'],
-                ['contracts'],
-            ]),
-        );
-    });
-
-    it('shows Already hired alert + View contract action when backend returns 409', async () => {
-        const Alert = require('react-native').Alert;
-        const alertSpy = jest
-            .spyOn(Alert, 'alert')
-            .mockImplementation(() => {});
-
-        // Backend now returns existingContractId in the 409 envelope
-        mockCreateContract.mockRejectedValueOnce({
-            response: {
-                status: 409,
-                data: {
-                    meta: {
-                        status: 409,
-                        message:
-                            'An active contract already exists for this gig and artist',
-                    },
-                    data: {
-                        existingContractId: 'existing-c1',
-                        status: 'sent',
-                    },
-                },
-            },
-        });
-
-        const onClose = jest.fn();
-        const { getByLabelText } = render(
-            <HireConfirmModal
-                visible
-                gig={sampleGig}
-                application={sampleApplication}
-                onClose={onClose}
-            />,
-        );
-
-        fireEvent.press(getByLabelText('confirm-hire'));
-
-        await waitFor(() => {
-            expect(alertSpy).toHaveBeenCalledWith(
-                'Already hired',
-                expect.any(String),
-                expect.arrayContaining([
-                    expect.objectContaining({ text: 'View contract' }),
-                ]),
-            );
-        });
-
-        // Application status should NOT have been flipped — contract create
-        // failed
-        expect(mockUpdateApplicationStatus).not.toHaveBeenCalled();
-
-        // Caches should still be invalidated so the stale applicants list
-        // catches up to reality
-        const calledKeys = mockInvalidateQueries.mock.calls.map(
-            (c) => c[0]?.queryKey,
-        );
-        expect(calledKeys).toEqual(
-            expect.arrayContaining([
-                ['gigApplications', 'gig-123'],
-                ['contracts'],
-            ]),
+            expect.arrayContaining([['gigApplications', 'gig-123']]),
         );
     });
 
@@ -258,9 +152,8 @@ describe('HireConfirmModal', () => {
         const confirmBtn = getByLabelText('confirm-hire');
         fireEvent.press(confirmBtn);
 
-        // Give any rejected promises a chance to settle
         await waitFor(() => {
-            expect(mockCreateContract).not.toHaveBeenCalled();
+            expect(mockUpdateApplicationStatus).not.toHaveBeenCalled();
         });
 
         // Tap the acknowledgement checkbox — Confirm should now be live
@@ -268,9 +161,9 @@ describe('HireConfirmModal', () => {
         fireEvent.press(confirmBtn);
 
         await waitFor(() => {
-            expect(mockCreateContract).toHaveBeenCalledTimes(1);
+            expect(mockUpdateApplicationStatus).toHaveBeenCalledTimes(1);
         });
-        expect(mockCreateContract.mock.calls[0][0]).toEqual(
+        expect(mockUpdateApplicationStatus.mock.calls[0][0]).toEqual(
             expect.objectContaining({ paymentMethod: 'off_platform' }),
         );
     });

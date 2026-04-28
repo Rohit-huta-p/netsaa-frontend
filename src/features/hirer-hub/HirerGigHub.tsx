@@ -17,7 +17,8 @@ import { HireConfirmModal } from '@/components/gigs/applications/HireConfirmModa
 import { HubHero } from './components/HubHero';
 import { HubKPIs } from './components/HubKPIs';
 import { HubTeamSection } from './components/HubTeamSection';
-import { HubBookingTermsCard } from './components/HubBookingTermsCard';
+// CONTRACTS-DISABLED: HubBookingTermsCard hidden until contract artifact is restored.
+// import { HubBookingTermsCard } from './components/HubBookingTermsCard';
 import { HubApplicantsSection } from './components/HubApplicantsSection';
 import { HubEssentials } from './components/HubEssentials';
 import { HubStickyCTA } from './components/HubStickyCTA';
@@ -148,6 +149,12 @@ export function HirerGigHub({ gigId }: Props) {
                     pendingApplicantsCount={data.pendingApplicantsCount}
                 />
 
+                {/* CONTRACTS-DISABLED: Booking-terms card + master-template
+                    editor are hidden until the contract artifact is restored.
+                    The gig still carries termsAndConditions free-form text on
+                    the artist side via Apply flow Stage 1. To re-enable,
+                    uncomment the import + this block. */}
+                {/*
                 <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 32 }} />
 
                 <HubBookingTermsCard
@@ -164,6 +171,7 @@ export function HirerGigHub({ gigId }: Props) {
                     negotiable={gig.compensation?.negotiable ?? false}
                     termsAndConditions={gig.termsAndConditions}
                 />
+                */}
 
                 <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 32 }} />
 

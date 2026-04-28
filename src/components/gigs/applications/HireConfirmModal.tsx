@@ -25,9 +25,7 @@ import {
     User as UserIcon,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCreateContract } from '@/hooks/usePayments';
 import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -48,7 +46,13 @@ interface HireConfirmModalProps {
           }
         | null;
     onClose: () => void;
-    onHired?: (contractId: string) => void;
+    /**
+     * Fired after the application status flips to 'hired'. Optional —
+     * callers use it to close the parent sheet / clear hire target. No
+     * contract id is passed because the contract artifact is disabled
+     * for now (rolled back to status-only hire).
+     */
+    onHired?: () => void;
 }
 
 const formatINR = (n: number) => `₹${(n || 0).toLocaleString('en-IN')}`;
@@ -78,16 +82,14 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
     onClose,
     onHired,
 }) => {
-    const router = useRouter();
     const queryClient = useQueryClient();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('on_platform');
     const [offPlatformAck, setOffPlatformAck] = useState(false);
-    const [isCreating, setIsCreating] = useState(false);
+    const [isHiring, setIsHiring] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    const createContract = useCreateContract();
     const updateApplicationStatus = useUpdateApplicationStatus();
 
     // Reset local state every time the modal becomes visible
@@ -95,7 +97,7 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
         if (visible) {
             setPaymentMethod('on_platform');
             setOffPlatformAck(false);
-            setIsCreating(false);
+            setIsHiring(false);
             setErrorMessage(null);
         }
     }, [visible]);
@@ -114,7 +116,10 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
         }
     }, [visible]);
 
-    // Derived booking summary fields — defensive against partial gig shapes
+    // Derived booking summary fields — defensive against partial gig shapes.
+    // Contract terms (cancellation, custom clauses) are intentionally absent;
+    // the contract-first flow is rolled back. If/when payments service ships
+    // (Phase 3B), the chosen paymentMethod is what carries forward.
     const summary = useMemo(() => {
         const artistName =
             application?.artistSnapshot?.displayName || 'this artist';
@@ -125,7 +130,6 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
         const endDate = gig?.schedule?.endDate || gig?.endDate || undefined;
         const city = gig?.location?.city || '';
         const state = gig?.location?.state;
-        const venue = gig?.location?.venueName || gig?.location?.venue;
         const cityLine = city
             ? state
                 ? `${city}, ${state}`
@@ -137,221 +141,55 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
             gig?.compensation?.minAmount ||
             0;
 
-        // Phase 2C: read booking terms from the gig (set via the
-        // /gigs/:id/booking-terms editor) so per-hire contracts inherit
-        // the master/template values instead of hardcoded defaults.
-        const paymentStructure: 'full' | 'advance_balance' =
-            gig?.paymentStructure ?? 'full';
-        const cancellationPolicy: '24h' | '48h' | '72h' =
-            gig?.cancellationPolicy ?? '48h';
-        const forfeitPct: number =
-            typeof gig?.cancellationForfeitPct === 'number'
-                ? gig.cancellationForfeitPct
-                : 100;
-
-        // Cancellation: use hirer's authored text verbatim if set; otherwise
-        // omit the narrative paragraph (contract still has structured fields
-        // via the dedicated paymentStructure + cancellationPolicy +
-        // cancellationForfeitPct fields on the gig snapshot).
-        const customCancellation = (gig?.cancellationCustomText ?? '').trim();
-        const cancellationTerms = customCancellation || undefined;
-
         return {
             artistName,
             avatar,
             gigTitle,
             startDate,
             endDate,
-            city,
-            state,
-            venue,
             cityLine,
             amount,
-            paymentStructure,
-            cancellationPolicy,
-            forfeitPct,
-            cancellationTerms,
         };
     }, [gig, application]);
 
     const confirmDisabled =
-        isCreating ||
+        isHiring ||
         !application ||
         (paymentMethod === 'off_platform' && !offPlatformAck);
 
     const handleConfirmHire = async () => {
         if (!application || !gig) return;
-        setIsCreating(true);
+        setIsHiring(true);
         setErrorMessage(null);
 
-        // Phase 4A: join the gig's master custom clauses into the per-hire
-        // contract's customTerms. Numbered for readability when shown on
-        // the contract preview / sealed copy.
-        const customClauses: string[] = Array.isArray(gig.customClauses)
-            ? gig.customClauses.filter(Boolean)
-            : [];
-        const customTerms =
-            customClauses.length > 0
-                ? customClauses
-                      .map((c: string, i: number) => `${String(i + 1).padStart(2, '0')}. ${c}`)
-                      .join('\n')
-                : undefined;
-
-        const terms = {
-            gigTitle: summary.gigTitle,
-            dates: {
-                start:
-                    typeof summary.startDate === 'string'
-                        ? summary.startDate
-                        : summary.startDate
-                          ? new Date(summary.startDate).toISOString()
-                          : new Date().toISOString(),
-                end: summary.endDate
-                    ? typeof summary.endDate === 'string'
-                        ? summary.endDate
-                        : new Date(summary.endDate).toISOString()
-                    : undefined,
-            },
-            location: {
-                city: summary.city || '',
-                state: summary.state || undefined,
-                venue: summary.venue || undefined,
-            },
-            scopeOfWork: gig?.description || summary.gigTitle,
-            amount: summary.amount,
-            paymentStructure: summary.paymentStructure,
-            ...(summary.cancellationTerms ? { cancellationTerms: summary.cancellationTerms } : {}),
-            ...(customTerms ? { customTerms } : {}),
-        };
-
-        let createdContractId: string | undefined;
-        try {
-            const res = await createContract.mutateAsync({
-                gigId: gig._id,
-                artistId: application.artistId,
-                paymentMethod,
-                terms,
-            });
-            // Endpoint returns { meta, data: contract, errors } — pull id from data
-            const contract = res?.data || res;
-            createdContractId = contract?._id || contract?.id;
-        } catch (err: any) {
-            const status =
-                err?.response?.status ??
-                err?.status ??
-                err?.response?.data?.meta?.status;
-            const data = err?.response?.data?.data ?? err?.data;
-
-            if (status === 409) {
-                // Already-hired branch: friendly recovery UX. The artist
-                // already has a non-terminal contract for this gig, so the
-                // backend dedup guard fired. Offer to view it instead of
-                // dead-ending on an error chip.
-                setIsCreating(false);
-                // Refresh caches so the stale applicants list drops the
-                // already-hired artist on next render.
-                queryClient.invalidateQueries({ queryKey: ['gigApplications', gig._id] });
-                queryClient.invalidateQueries({ queryKey: ['contracts'] });
-
-                const artistName =
-                    application.artistSnapshot?.displayName ?? 'This artist';
-                if (data?.existingContractId) {
-                    try {
-                        Alert.alert(
-                            'Already hired',
-                            `${artistName} is already on your team for this gig.`,
-                            [
-                                { text: 'OK', style: 'cancel' },
-                                {
-                                    text: 'View contract',
-                                    onPress: () => {
-                                        onClose();
-                                        try {
-                                            router?.push?.(
-                                                `/(app)/contracts/${data.existingContractId}` as any,
-                                            );
-                                        } catch {
-                                            /* navigation optional in tests */
-                                        }
-                                    },
-                                },
-                            ],
-                        );
-                    } catch {
-                        /* noop in test environments */
-                    }
-                } else {
-                    // Backend not yet enriched with existingContractId —
-                    // generic friendly fallback.
-                    try {
-                        Alert.alert(
-                            'Already hired',
-                            `${artistName} is already hired for this gig. Refresh to see them under Your team.`,
-                        );
-                    } catch {
-                        /* noop */
-                    }
-                }
-                return;
-            }
-
-            const msg =
-                err?.response?.data?.meta?.message ||
-                err?.message ||
-                'Unknown error';
-            setErrorMessage(`Couldn't create contract: ${msg}. Try again.`);
-            setIsCreating(false);
-            return;
-        }
-
-        // Contract created — now update the application status
         try {
             await updateApplicationStatus.mutateAsync({
                 applicationId: application._id,
                 status: 'hired',
+                paymentMethod,
             });
         } catch (err: any) {
-            // Contract is the source of truth — close modal but warn.
-            // Cache invalidation still matters: contract IS created, so the
-            // hub's contracts list must refresh even if the application-status
-            // update side-failed.
-            queryClient.invalidateQueries({ queryKey: ['gigApplications', gig._id] });
-            queryClient.invalidateQueries({ queryKey: ['contracts'] });
-            setIsCreating(false);
-            onClose();
-            try {
-                Alert.alert(
-                    'Contract created',
-                    "Contract created but couldn't update application. Refresh to sync.",
-                );
-            } catch {
-                /* noop in test environments */
-            }
-            if (createdContractId && onHired) onHired(createdContractId);
+            const msg =
+                err?.response?.data?.meta?.message ||
+                err?.message ||
+                'Unknown error';
+            setErrorMessage(`Couldn't confirm hire: ${msg}. Try again.`);
+            setIsHiring(false);
             return;
         }
 
-        // All good — invalidate both query keys so the just-hired artist
-        // drops off the pending applicants section in the gig hub and
-        // shows up under "Your team" / contracts list.
+        // Refresh the applicants list so the just-hired artist drops
+        // off pending and lands in Your team.
         queryClient.invalidateQueries({ queryKey: ['gigApplications', gig._id] });
-        queryClient.invalidateQueries({ queryKey: ['contracts'] });
 
-        setIsCreating(false);
+        setIsHiring(false);
         onClose();
         try {
-            Alert.alert('Hired!', `Contract sent to ${summary.artistName}`);
+            Alert.alert('Hire confirmed', `${summary.artistName} is now on your team.`);
         } catch {
-            /* noop */
+            /* noop in test environments */
         }
-        if (createdContractId) {
-            if (onHired) onHired(createdContractId);
-            try {
-                router?.push?.(`/contracts/${createdContractId}` as any);
-            } catch {
-                /* navigation optional */
-            }
-        }
+        if (onHired) onHired();
     };
 
     if (!visible || !application) return null;
@@ -370,7 +208,7 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
                 <TouchableOpacity
                     style={styles.backdrop}
                     activeOpacity={1}
-                    onPress={isCreating ? undefined : onClose}
+                    onPress={isHiring ? undefined : onClose}
                 />
 
                 <Animated.View
@@ -397,8 +235,8 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
                                 </Text>
                             </View>
                             <TouchableOpacity
-                                onPress={isCreating ? undefined : onClose}
-                                disabled={isCreating}
+                                onPress={isHiring ? undefined : onClose}
+                                disabled={isHiring}
                                 style={styles.closeBtn}
                             >
                                 <X size={18} color="#fff" />
@@ -488,21 +326,6 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
                                         {summary.cityLine}
                                     </Text>
                                 </View>
-
-                                <View style={styles.divider} />
-
-                                {/* Cancellation — structured fact always; custom narrative only when hirer-authored */}
-                                <Text style={styles.cancelLabel}>
-                                    Cancellation policy
-                                </Text>
-                                <Text style={styles.cancelText}>
-                                    {summary.cancellationPolicy} notice · {summary.forfeitPct}% forfeit if within window
-                                </Text>
-                                {summary.cancellationTerms && (
-                                    <Text style={[styles.cancelText, { marginTop: 8 }]}>
-                                        {summary.cancellationTerms}
-                                    </Text>
-                                )}
                             </View>
 
                             {/* ── Section B: Payment Method ── */}
@@ -544,14 +367,14 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
                                         </View>
                                         <Text style={styles.payBullets}>
                                             ✓ UPI / GPay / cards / netbanking{'\n'}
-                                            ✓ Instant receipt + downloadable
-                                            contract{'\n'}
+                                            ✓ Instant receipt + payment ledger{'\n'}
                                             ✓ Refund protection per cancellation
                                             policy
                                         </Text>
                                         <Text style={styles.payNote}>
                                             MVP: 0% platform fee. Razorpay
-                                            processing fee 2%.
+                                            processing fee 2%. (Live once
+                                            payments service ships.)
                                         </Text>
                                     </View>
                                     <View
@@ -662,8 +485,8 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
                         {/* Footer */}
                         <View style={styles.footer}>
                             <TouchableOpacity
-                                onPress={isCreating ? undefined : onClose}
-                                disabled={isCreating}
+                                onPress={isHiring ? undefined : onClose}
+                                disabled={isHiring}
                                 style={styles.cancelBtn}
                                 accessibilityLabel="cancel-hire"
                             >
@@ -685,8 +508,8 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
                             >
                                 <Shield size={14} color="#000" strokeWidth={3} />
                                 <Text style={styles.confirmTxt}>
-                                    {isCreating
-                                        ? 'Creating contract…'
+                                    {isHiring
+                                        ? 'Confirming…'
                                         : 'Confirm Hire'}
                                 </Text>
                             </TouchableOpacity>
@@ -804,15 +627,6 @@ const styles = StyleSheet.create({
     },
     summaryValue: { color: '#E4E4E7', fontSize: 13, fontWeight: '600' },
     summaryValueAmount: { color: '#FF6B35', fontSize: 18, fontWeight: '900', letterSpacing: -0.5 },
-    cancelLabel: {
-        color: '#71717A',
-        fontSize: 9,
-        fontWeight: '900',
-        letterSpacing: 2,
-        textTransform: 'uppercase',
-        marginBottom: 6,
-    },
-    cancelText: { color: '#A1A1AA', fontSize: 12, lineHeight: 18 },
     payCard: {
         marginBottom: 12,
         padding: 16,

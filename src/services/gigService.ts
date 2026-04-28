@@ -79,8 +79,14 @@ const gigService = {
         return res.data.data;
     },
 
-    updateApplicationStatus: async (applicationId: string, status: string): Promise<any> => {
-        const res = await API.patch(`/applications/${applicationId}/status`, { status });
+    updateApplicationStatus: async (
+        applicationId: string,
+        status: string,
+        paymentMethod?: 'on_platform' | 'off_platform'
+    ): Promise<any> => {
+        const body: Record<string, unknown> = { status };
+        if (paymentMethod) body.paymentMethod = paymentMethod;
+        const res = await API.patch(`/applications/${applicationId}/status`, body);
         return res.data.data;
     },
 

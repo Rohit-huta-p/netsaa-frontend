@@ -1,16 +1,9 @@
-// app/(app)/contracts/[id]/index.tsx
+// CONTRACTS-DISABLED: ContractWorkspace route stubbed.
+// Restore original (thin shell mounting <ContractWorkspace />) from git
+// history. Last live revision: commit `fcac626` on develop.
 import React from 'react';
-import { useLocalSearchParams, Stack } from 'expo-router';
-import { ContractWorkspace } from '@/features/contract-workspace/ContractWorkspace';
+import { Redirect } from 'expo-router';
 
 export default function ContractDetailScreen() {
-    const { id } = useLocalSearchParams<{ id?: string | string[] }>();
-    const contractId = Array.isArray(id) ? id[0] : id;
-    if (!contractId) return null;
-    return (
-        <>
-            <Stack.Screen options={{ headerShown: false }} />
-            <ContractWorkspace contractId={contractId} />
-        </>
-    );
+    return <Redirect href="/(app)/dashboard" />;
 }

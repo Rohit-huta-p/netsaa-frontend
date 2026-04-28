@@ -27,8 +27,10 @@ import ChipPicker from '@/components/ui/ChipPicker';
 import { ANCILLARY_PRESETS } from '@/constants/ancillaryPresets';
 import gigService from '@/services/gigService';
 import dayjs from 'dayjs';
-// Phase 4A — custom contract clauses inline at gig posting time.
-import { CustomClausesEditor } from '@/features/booking-terms-editor/components/CustomClausesEditor';
+import { TermsTemplates } from './components/TermsTemplates';
+// CONTRACTS-DISABLED: Phase 4A custom contract clauses hidden until the
+// contract artifact is restored. Import retained below for fast revert.
+// import { CustomClausesEditor } from '@/features/booking-terms-editor/components/CustomClausesEditor';
 
 export interface Page4Value {
   ancillaryProvided?: string[];
@@ -207,9 +209,13 @@ export default function Page4Logistics({ value, onChange }: Page4LogisticsProps)
         />
       </InputGroup>
 
-      {/* T&C with AI rephrase */}
+      {/* T&C with template chip row + AI rephrase */}
       <View>
-        <InputGroup label="Terms & conditions" subtitle="Expectations, cancellation, payment terms">
+        <InputGroup label="Terms & conditions" subtitle="Pick a starting template or write your own — artists must agree before applying">
+          <TermsTemplates
+            currentValue={value.termsAndConditions}
+            onSelect={(body) => update({ termsAndConditions: body })}
+          />
           <View style={styles.aiButtonRow}>
             <TouchableOpacity
               onPress={() => handleRephrase('termsAndConditions')}
@@ -228,17 +234,17 @@ export default function Page4Logistics({ value, onChange }: Page4LogisticsProps)
             </TouchableOpacity>
           </View>
           <TextArea
-            rows={4}
+            rows={6}
             value={value.termsAndConditions}
             onChangeText={(v: string) => update({ termsAndConditions: v })}
-            placeholder="Payment split, cancellation policy, expectations..."
+            placeholder="Payment terms, cancellation policy, expectations..."
           />
         </InputGroup>
       </View>
 
-      {/* Phase 4A — custom contract clauses. Each gets joined into the
-          per-hire Contract.terms.customTerms at hire time so artists see
-          them on the contract they sign. */}
+      {/* CONTRACTS-DISABLED: Phase 4A custom clauses hidden until the
+          contract artifact is restored. Block retained below for fast revert. */}
+      {/*
       <InputGroup
         label="Custom contract clauses (optional)"
         subtitle="Up to 5 — show on every contract artists sign for this gig">
@@ -247,6 +253,7 @@ export default function Page4Logistics({ value, onChange }: Page4LogisticsProps)
           onChange={(next) => update({ customClauses: next })}
         />
       </InputGroup>
+      */}
     </View>
   );
 }

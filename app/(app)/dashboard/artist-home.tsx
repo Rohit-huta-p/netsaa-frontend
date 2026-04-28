@@ -18,12 +18,16 @@ import useHeroData from '../../../src/hooks/useHeroData';
 import { queryKeys } from '../../../src/constants/queryKeys';
 
 import HeroGreeting from '../../../src/components/dashboard/artist/HeroGreeting';
-import NextUpCard from '../../../src/components/dashboard/artist/NextUpCard';
+// CONTRACTS-DISABLED: NextUpCard's primary "open contract" CTA is moot
+// without contract artifacts. ContractsStrip shows nothing when total=0
+// (which it always will be while contract creation is rolled back).
+// Imports retained for fast revert.
+// import NextUpCard from '../../../src/components/dashboard/artist/NextUpCard';
 import UpcomingSection from '../../../src/components/dashboard/artist/UpcomingSection';
 import AppliedSection from '../../../src/components/dashboard/artist/AppliedSection';
 import SavedSection from '../../../src/components/dashboard/artist/SavedSection';
 import DraftsSection from '../../../src/components/dashboard/artist/DraftsSection';
-import ContractsStrip from '../../../src/components/dashboard/artist/ContractsStrip';
+// import ContractsStrip from '../../../src/components/dashboard/artist/ContractsStrip';
 import TrustTierProgress from '../../../src/components/dashboard/artist/TrustTierProgress';
 import MessagesPreview from '../../../src/components/dashboard/artist/MessagesPreview';
 import PlaceholderCard from '../../../src/components/dashboard/PlaceholderCard';
@@ -74,7 +78,8 @@ export default function ArtistHome() {
 
         <HeroGreeting user={user} isLoading={isUserLoading} />
 
-        <NextUpCard />
+        {/* CONTRACTS-DISABLED: NextUpCard + ContractsStrip hidden until contract artifact restored. */}
+        {/* <NextUpCard /> */}
 
         <UpcomingSection />
 
@@ -84,7 +89,7 @@ export default function ArtistHome() {
 
         <DraftsSection />
 
-        <ContractsStrip />
+        {/* <ContractsStrip /> */}
 
         <TrustTierProgress />
 

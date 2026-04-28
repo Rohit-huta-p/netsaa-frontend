@@ -28,9 +28,16 @@ jest.mock('@/hooks/useGigApplications', () => ({
     useGigApplications: () => ({ data: mockSampleApps, isLoading: false, error: null }),
     useUpdateApplicationStatus: () => ({ mutate: jest.fn(), isPending: false }),
 }));
-jest.mock('@/hooks/usePayments', () => ({ useUserContracts: () => ({ data: { data: { contracts: mockSampleContracts } }, isLoading: false, error: null }) }));
+jest.mock('@/hooks/usePayments', () => ({
+    useUserContracts: () => ({ data: { data: { contracts: mockSampleContracts } }, isLoading: false, error: null }),
+    // HubTeamRowPayment fetches per-row transactions via this hook (Phase 3B-skeleton).
+    useApplicationTransactions: () => ({ data: [], isLoading: false }),
+}));
 jest.mock('@/components/gigs/applications/HireConfirmModal', () => ({
     HireConfirmModal: () => null,
+}));
+jest.mock('@/features/payments/RecordPaymentModal', () => ({
+    RecordPaymentModal: () => null,
 }));
 
 import { HirerGigHub } from '../HirerGigHub';

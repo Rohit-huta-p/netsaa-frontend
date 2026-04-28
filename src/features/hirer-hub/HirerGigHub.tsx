@@ -13,6 +13,7 @@ import { useGigHubData } from './hooks/useGigHubData';
 import { computeStickyCTA } from './utils/computeStickyCTA';
 import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 import { HireConfirmModal } from '@/components/gigs/applications/HireConfirmModal';
+import { RecordPaymentModal } from '@/features/payments/RecordPaymentModal';
 
 import { HubHero } from './components/HubHero';
 import { HubKPIs } from './components/HubKPIs';
@@ -37,6 +38,7 @@ export function HirerGigHub({ gigId }: Props) {
     const applicantsYRef = useRef<number>(0);
 
     const [hireTarget, setHireTarget] = useState<any | null>(null);
+    const [recordPaymentTarget, setRecordPaymentTarget] = useState<any | null>(null);
     const [actionSheetTarget, setActionSheetTarget] = useState<any | null>(null);
     const updateStatusMutation = useUpdateApplicationStatus();
 
@@ -145,8 +147,10 @@ export function HirerGigHub({ gigId }: Props) {
 
                 <HubTeamSection
                     teamRows={data.teamRows}
+                    gig={gig}
                     slotsTotal={data.kpis.slotsTotal}
                     pendingApplicantsCount={data.pendingApplicantsCount}
+                    onRequestRecordPayment={(application) => setRecordPaymentTarget(application)}
                 />
 
                 {/* CONTRACTS-DISABLED: Booking-terms card + master-template
@@ -217,6 +221,16 @@ export function HirerGigHub({ gigId }: Props) {
                 application={hireTarget ?? { _id: '', artistId: '', artistSnapshot: undefined }}
                 onClose={() => setHireTarget(null)}
                 onHired={() => setHireTarget(null)}
+            />
+            <RecordPaymentModal
+                visible={!!recordPaymentTarget}
+                onClose={() => setRecordPaymentTarget(null)}
+                applicationId={recordPaymentTarget?._id ?? ''}
+                artistId={recordPaymentTarget?.artistId ?? ''}
+                gigId={gig._id}
+                defaultAmount={gig.compensation?.amount ?? 0}
+                artistName={recordPaymentTarget?.artistSnapshot?.displayName}
+                onRecorded={() => setRecordPaymentTarget(null)}
             />
         </View>
     );

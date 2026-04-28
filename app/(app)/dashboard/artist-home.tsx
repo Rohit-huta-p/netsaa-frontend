@@ -28,6 +28,8 @@ import AppliedSection from '../../../src/components/dashboard/artist/AppliedSect
 import SavedSection from '../../../src/components/dashboard/artist/SavedSection';
 import DraftsSection from '../../../src/components/dashboard/artist/DraftsSection';
 // import ContractsStrip from '../../../src/components/dashboard/artist/ContractsStrip';
+// Phase 3B-skeleton: pending off-platform payment confirmations.
+import PaymentsToConfirmStrip from '../../../src/components/dashboard/artist/PaymentsToConfirmStrip';
 import TrustTierProgress from '../../../src/components/dashboard/artist/TrustTierProgress';
 import MessagesPreview from '../../../src/components/dashboard/artist/MessagesPreview';
 import PlaceholderCard from '../../../src/components/dashboard/PlaceholderCard';
@@ -82,6 +84,8 @@ export default function ArtistHome() {
         {/* <NextUpCard /> */}
 
         <UpcomingSection />
+
+        <PaymentsToConfirmStrip />
 
         <AppliedSection />
 

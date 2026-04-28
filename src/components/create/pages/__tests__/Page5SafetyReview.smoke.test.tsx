@@ -1,6 +1,6 @@
 // netsa-mobile/src/components/create/pages/__tests__/Page5SafetyReview.smoke.test.tsx
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import Page5SafetyReview from '../Page5SafetyReview';
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }), Link: 'Link' }));
@@ -11,6 +11,23 @@ jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }), Link: 
 jest.mock('@/components/gigs/GigDetails', () => ({
   GigDetails: 'GigDetails',
 }));
+
+// Phase 4D — mock expo-print/expo-sharing so the Contract preview card's
+// "View full contract PDF" button can fire without native bindings.
+const mockPrint = jest.fn().mockResolvedValue({ uri: 'file:///tmp/preview.pdf' });
+const mockShare = jest.fn().mockResolvedValue(undefined);
+jest.mock('expo-print', () => ({
+  printToFileAsync: (...args: unknown[]) => mockPrint(...args),
+}));
+jest.mock('expo-sharing', () => ({
+  isAvailableAsync: jest.fn().mockResolvedValue(true),
+  shareAsync: (...args: unknown[]) => mockShare(...args),
+}));
+
+beforeEach(() => {
+  mockPrint.mockClear();
+  mockShare.mockClear();
+});
 
 describe('Page5SafetyReview', () => {
   it('enables publish when form state has no hard issues', () => {
@@ -49,5 +66,76 @@ describe('Page5SafetyReview', () => {
     const publish = getByLabelText('Publish');
     expect(publish.props.accessibilityState?.disabled).toBe(true);
     expect(getByText(/Resolve required fixes/i)).toBeTruthy();
+  });
+
+  // Phase 4D — Contract preview card before Publish. Hirer-facing version
+  // of the Phase 4C card on GigApplyModal Step 2. Closes the contract-first
+  // loop: hirer sees the same PDF the artist will sign, before publishing.
+  describe('Phase 4D — contract preview', () => {
+    const previewGig = {
+      title: 'Sangeet Choreography',
+      compensation: { amount: 50000, negotiable: true },
+      paymentStructure: 'advance_balance',
+      cancellationPolicy: '48h',
+      cancellationForfeitPct: 75,
+      customClauses: ['Arrive 1h early', 'Bring own jewelry'],
+      schedule: { startDate: new Date('2027-03-15').toISOString() },
+      location: { city: 'Pune' },
+      description: 'Lead 6 dancers',
+    };
+
+    it('renders the Contract preview card with summary grid + PDF button', () => {
+      const { getByText, getByLabelText } = render(
+        <Page5SafetyReview
+          formState={{
+            title: 'Sangeet Choreography',
+            artistTypes: ['Dancer'],
+            eventFunction: 'Sangeet',
+            description: 'Lead 6 dancers',
+          }}
+          previewGig={previewGig}
+          hirerName="Sharma Wedding"
+          isLoading={false}
+          onDraft={jest.fn()}
+          onPublish={jest.fn()}
+        />
+      );
+
+      expect(getByText(/Contract preview/i)).toBeTruthy();
+      // 4-cell grid values: Pay (₹50,000), Cancellation (48h · 75%), Clauses (2 added), Negotiable (Yes)
+      expect(getByText(/30\/70 advance/i)).toBeTruthy();
+      expect(getByText(/2 added/i)).toBeTruthy();
+      // PDF download affordance
+      expect(getByLabelText(/View full contract as PDF/i)).toBeTruthy();
+    });
+
+    it('triggers PDF generation when "View full contract PDF" is tapped', async () => {
+      const { getByLabelText } = render(
+        <Page5SafetyReview
+          formState={{
+            title: 'Sangeet Choreography',
+            artistTypes: ['Dancer'],
+            eventFunction: 'Sangeet',
+            description: 'Lead 6 dancers',
+          }}
+          previewGig={previewGig}
+          hirerName="Sharma Wedding"
+          isLoading={false}
+          onDraft={jest.fn()}
+          onPublish={jest.fn()}
+        />
+      );
+
+      fireEvent.press(getByLabelText(/View full contract as PDF/i));
+
+      await waitFor(() => expect(mockPrint).toHaveBeenCalledTimes(1));
+      // The PDF HTML must include the gig title and the hirer name.
+      const html = mockPrint.mock.calls[0][0]?.html as string;
+      expect(html).toContain('Sangeet Choreography');
+      expect(html).toContain('Sharma Wedding');
+      expect(html).toContain('Arrive 1h early');
+      // expo-sharing should be invoked once the PDF is written.
+      await waitFor(() => expect(mockShare).toHaveBeenCalledTimes(1));
+    });
   });
 });

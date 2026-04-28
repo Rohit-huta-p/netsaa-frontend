@@ -29,6 +29,16 @@ jest.mock('@/services/gigService', () => ({
   __esModule: true,
   default: { rephraseText: jest.fn() },
 }));
+// Phase 4D — Page5 now imports useContractPdf which loads expo-print/sharing
+// (ESM-only). Mock at module boundary so the orchestrator smoke test can mount
+// without dragging the native bindings.
+jest.mock('expo-print', () => ({
+  printToFileAsync: jest.fn().mockResolvedValue({ uri: 'file:///tmp/preview.pdf' }),
+}));
+jest.mock('expo-sharing', () => ({
+  isAvailableAsync: jest.fn().mockResolvedValue(true),
+  shareAsync: jest.fn().mockResolvedValue(undefined),
+}));
 // authStore transitively pulls in expo-secure-store (ESM-only). Mock with
 // Zustand-selector-compatible shape — `useAuthStore((s) => s.user)` calls
 // the default export with a selector that gets applied to the fake store.

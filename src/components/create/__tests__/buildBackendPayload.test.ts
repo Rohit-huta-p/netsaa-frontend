@@ -35,6 +35,16 @@ jest.mock('@/services/gigService', () => ({
   __esModule: true,
   default: { rephraseText: jest.fn() },
 }));
+// Phase 4D — Page5 now imports useContractPdf which loads expo-print/sharing
+// (ESM-only). Mock at module boundary so this transform-only test can import
+// GigFormV2 without dragging the native bindings.
+jest.mock('expo-print', () => ({
+  printToFileAsync: jest.fn().mockResolvedValue({ uri: 'file:///tmp/preview.pdf' }),
+}));
+jest.mock('expo-sharing', () => ({
+  isAvailableAsync: jest.fn().mockResolvedValue(true),
+  shareAsync: jest.fn().mockResolvedValue(undefined),
+}));
 
 import { buildBackendPayload } from '../GigFormV2';
 

@@ -33,6 +33,16 @@ describe('buildFromGig', () => {
         expect(out.cancellationPolicy).toBe('48h');
         expect(out.cancellationForfeitPct).toBe(100);
         expect(out.customClauses).toEqual([]);
+        expect(out.cancellationCustomText).toBeUndefined();
+    });
+
+    it('passes through cancellationCustomText verbatim', () => {
+        const out = buildFromGig({
+            title: 'Sangeet',
+            compensation: { amount: 50000 },
+            cancellationCustomText: 'No refunds within 1 week of event.',
+        }, {});
+        expect(out.cancellationCustomText).toBe('No refunds within 1 week of event.');
     });
 });
 
@@ -70,5 +80,15 @@ describe('buildFromContract', () => {
         expect(out.hirerName).toBe('Hirer');
         expect(out.artistName).toBe('Artist');
         expect(out.customClauses).toEqual([]);
+    });
+
+    it('maps contract.terms.cancellationTerms onto cancellationCustomText', () => {
+        const out = buildFromContract({
+            terms: {
+                gigTitle: 'Sangeet',
+                cancellationTerms: 'No refunds within 1 week. Half refund beyond.',
+            },
+        });
+        expect(out.cancellationCustomText).toBe('No refunds within 1 week. Half refund beyond.');
     });
 });

@@ -79,8 +79,39 @@ describe('renderContractHtml', () => {
         expect(html).toMatch(/Signed .*2027/);
     });
 
-    it('renders forfeit percentage dynamically', () => {
+    it('renders forfeit percentage as a structured field', () => {
         const html = renderContractHtml({ ...baseData, cancellationForfeitPct: 50 });
-        expect(html).toMatch(/forfeits.*50%/);
+        // Structured fact (Window + Forfeit field labels) is always rendered
+        expect(html).toMatch(/<div class="field-label">Window<\/div>/);
+        expect(html).toMatch(/<div class="field-label">Forfeit<\/div>/);
+        expect(html).toMatch(/50%/);
+    });
+
+    it('renders the cancellation narrative paragraph only when cancellationCustomText is set', () => {
+        const withText = renderContractHtml({
+            ...baseData,
+            cancellationCustomText: 'No refunds within 1 week. Half refund within 30 days.',
+        });
+        expect(withText).toContain('No refunds within 1 week. Half refund within 30 days.');
+    });
+
+    it('omits the cancellation narrative paragraph when cancellationCustomText is empty/undefined', () => {
+        const withoutText = renderContractHtml({ ...baseData });
+        // No paragraph after the field-grid; only the structured Window + Forfeit fields
+        expect(withoutText).not.toMatch(/the artist forfeits/i);
+        expect(withoutText).toMatch(/<div class="field-label">Window<\/div>/);
+
+        const empty = renderContractHtml({ ...baseData, cancellationCustomText: '   ' });
+        // Whitespace-only text is treated as empty
+        expect(empty).not.toMatch(/<p class="terms-paragraph" style="margin-top: 8pt;">/);
+    });
+
+    it('escapes the hirer-authored cancellation narrative', () => {
+        const html = renderContractHtml({
+            ...baseData,
+            cancellationCustomText: '<script>x</script>No refunds.',
+        });
+        expect(html).not.toContain('<script>x</script>');
+        expect(html).toContain('&lt;script&gt;');
     });
 });

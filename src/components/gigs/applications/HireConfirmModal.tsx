@@ -149,9 +149,12 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
                 ? gig.cancellationForfeitPct
                 : 100;
 
-        const cancellationTerms =
-            gig?.cancellationTerms ??
-            `Cancellations within ${cancellationPolicy} of event date forfeit ${forfeitPct}% of the booking amount. Artist keeps any portion already paid.`;
+        // Cancellation: use hirer's authored text verbatim if set; otherwise
+        // omit the narrative paragraph (contract still has structured fields
+        // via the dedicated paymentStructure + cancellationPolicy +
+        // cancellationForfeitPct fields on the gig snapshot).
+        const customCancellation = (gig?.cancellationCustomText ?? '').trim();
+        const cancellationTerms = customCancellation || undefined;
 
         return {
             artistName,
@@ -217,7 +220,7 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
             scopeOfWork: gig?.description || summary.gigTitle,
             amount: summary.amount,
             paymentStructure: summary.paymentStructure,
-            cancellationTerms: summary.cancellationTerms,
+            ...(summary.cancellationTerms ? { cancellationTerms: summary.cancellationTerms } : {}),
             ...(customTerms ? { customTerms } : {}),
         };
 
@@ -488,13 +491,18 @@ export const HireConfirmModal: React.FC<HireConfirmModalProps> = ({
 
                                 <View style={styles.divider} />
 
-                                {/* Cancellation */}
+                                {/* Cancellation — structured fact always; custom narrative only when hirer-authored */}
                                 <Text style={styles.cancelLabel}>
                                     Cancellation policy
                                 </Text>
                                 <Text style={styles.cancelText}>
-                                    {summary.cancellationTerms}
+                                    {summary.cancellationPolicy} notice · {summary.forfeitPct}% forfeit if within window
                                 </Text>
+                                {summary.cancellationTerms && (
+                                    <Text style={[styles.cancelText, { marginTop: 8 }]}>
+                                        {summary.cancellationTerms}
+                                    </Text>
+                                )}
                             </View>
 
                             {/* ── Section B: Payment Method ── */}

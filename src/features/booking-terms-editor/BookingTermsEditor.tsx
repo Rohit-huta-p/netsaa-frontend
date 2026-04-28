@@ -32,6 +32,7 @@ export function BookingTermsEditor({ gigId }: Props) {
         paymentStructure: gig?.paymentStructure,
         cancellationPolicy: gig?.cancellationPolicy,
         cancellationForfeitPct: gig?.cancellationForfeitPct,
+        cancellationCustomText: gig?.cancellationCustomText,
         customClauses: gig?.customClauses,
         negotiable: gig?.compensation?.negotiable,
     });
@@ -122,6 +123,8 @@ export function BookingTermsEditor({ gigId }: Props) {
                         onChange={edit.setCancellationPolicy}
                         forfeitPct={edit.cancellationForfeitPct}
                         onForfeitPctChange={edit.setCancellationForfeitPct}
+                        customText={edit.cancellationCustomText}
+                        onCustomTextChange={edit.setCancellationCustomText}
                     />
                 </View>
 
@@ -159,6 +162,7 @@ export function BookingTermsEditor({ gigId }: Props) {
                 paymentStructure={edit.paymentStructure}
                 cancellationPolicy={edit.cancellationPolicy}
                 cancellationForfeitPct={edit.cancellationForfeitPct}
+                cancellationCustomText={edit.cancellationCustomText}
                 customClauses={edit.customClauses}
                 amount={compensationAmount}
                 negotiable={edit.negotiable}

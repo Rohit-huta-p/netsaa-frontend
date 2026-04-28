@@ -101,3 +101,26 @@ export function useConfirmOfflinePayment() {
         onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
     });
 }
+
+export function useDisputeOfflinePayment() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, reason, evidenceUrls }: { id: string; reason: string; evidenceUrls?: string[] }) =>
+            transactionService.disputeOffline(id, { reason, evidenceUrls }),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    });
+}
+
+/**
+ * Fetch all transactions tied to a specific GigApplication.
+ *
+ * Added post contract-rollback so the Hub team-row can show the current
+ * payment state for a hire even though no Contract artifact exists.
+ */
+export function useApplicationTransactions(applicationId?: string) {
+    return useQuery({
+        queryKey: ['transactions', 'application', applicationId],
+        queryFn: () => transactionService.listForApplication(applicationId as string),
+        enabled: !!applicationId,
+    });
+}

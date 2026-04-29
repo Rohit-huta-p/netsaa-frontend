@@ -71,21 +71,6 @@ describe('HubTeamSection', () => {
         expect(onRequest).toHaveBeenCalledWith(sampleApplication);
     });
 
-    it('status pill renders when transactions exist (contact icon stays)', () => {
-        mockTransactions = [
-            { _id: 't1', status: 'confirmed', amount: 50000, createdAt: '2027-03-15T10:00:00Z' },
-        ];
-        const { getByText, getByLabelText } = render(
-            <HubTeamSection
-                teamRows={[sampleTeamRow as any]}
-                gig={sampleGig}
-                slotsTotal={1}
-                pendingApplicantsCount={0}
-                onRequestContact={jest.fn()}
-            />
-        );
-        expect(getByText('Confirmed')).toBeTruthy();
-        // Contact icon is always present.
-        expect(getByLabelText(/Contact Priya Sharma/i)).toBeTruthy();
-    });
+    // PAYMENTS-DISABLED (Apr 29): status pill removed from Hub rows. Reactivate
+    // this case when on-platform Razorpay ships and the pill comes back.
 });

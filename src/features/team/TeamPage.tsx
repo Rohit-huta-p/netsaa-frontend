@@ -38,8 +38,10 @@ import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import { ContactActionSheet, type ContactTarget } from './ContactActionSheet';
 import { TeamRosterCard } from './components/TeamRosterCard';
 import { TeamGroupContactCard } from './components/TeamGroupContactCard';
-import { TeamKPIStrip } from './components/TeamKPIStrip';
-import { RecordPaymentModal } from '@/features/payments/RecordPaymentModal';
+// PAYMENTS-DISABLED: KPI strip + RecordPaymentModal hidden until
+// on-platform Razorpay ships. Imports retained for fast revert.
+// import { TeamKPIStrip } from './components/TeamKPIStrip';
+// import { RecordPaymentModal } from '@/features/payments/RecordPaymentModal';
 
 const COLORS = {
     bg: '#07070B',
@@ -93,10 +95,7 @@ export function TeamPage({ gigId, mode = 'hirer' }: TeamPageProps) {
     const appsQuery = useGigApplications(gigId);
 
     const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
-    const [recordPaymentTarget, setRecordPaymentTarget] = useState<{
-        application: any;
-        defaultAmount: number;
-    } | null>(null);
+    // PAYMENTS-DISABLED: recordPaymentTarget state removed.
 
     if (gigQuery.isLoading || appsQuery.isLoading) {
         return (
@@ -186,13 +185,15 @@ export function TeamPage({ gigId, mode = 'hirer' }: TeamPageProps) {
                     </View>
                 </View>
 
-                {/* KPI strip */}
-                {hiredApplications.length > 0 && (
-                    <TeamKPIStrip
-                        applicationIds={hiredApplications.map((a) => String(a._id))}
-                        perArtistAmount={gig?.compensation?.amount ?? 0}
-                    />
-                )}
+                {/* PAYMENTS-DISABLED: TeamKPIStrip hidden until on-platform pay ships.
+                    Restore by uncommenting:
+                    {hiredApplications.length > 0 && (
+                        <TeamKPIStrip
+                            applicationIds={hiredApplications.map((a) => String(a._id))}
+                            perArtistAmount={gig?.compensation?.amount ?? 0}
+                        />
+                    )}
+                */}
 
                 <View style={[styles.divider, { marginTop: 18 }]} />
 
@@ -221,9 +222,8 @@ export function TeamPage({ gigId, mode = 'hirer' }: TeamPageProps) {
                                     gigTitle: gig?.title,
                                 })
                             }
-                            onRecordPayment={(application, defaultAmount) =>
-                                setRecordPaymentTarget({ application, defaultAmount })
-                            }
+                            // PAYMENTS-DISABLED: no-op until on-platform pay ships.
+                            onRecordPayment={undefined}
                             onOpenProfile={(artistId) => {
                                 if (!artistId) return;
                                 try {
@@ -266,18 +266,18 @@ export function TeamPage({ gigId, mode = 'hirer' }: TeamPageProps) {
                 onClose={() => setContactTarget(null)}
                 target={contactTarget}
             />
-            <RecordPaymentModal
-                visible={!!recordPaymentTarget}
-                onClose={() => setRecordPaymentTarget(null)}
-                applicationId={recordPaymentTarget?.application?._id ?? ''}
-                artistId={recordPaymentTarget?.application?.artistId ?? ''}
-                gigId={gig._id}
-                // Q2 fix: prefill with REMAINING (not the full gig amount) so
-                // hirer doesn't accidentally double-record after partial pay.
-                defaultAmount={recordPaymentTarget?.defaultAmount ?? gig.compensation?.amount ?? 0}
-                artistName={recordPaymentTarget?.application?.artistSnapshot?.displayName}
-                onRecorded={() => setRecordPaymentTarget(null)}
-            />
+            {/* PAYMENTS-DISABLED: RecordPaymentModal mount hidden. Restore:
+                <RecordPaymentModal
+                    visible={!!recordPaymentTarget}
+                    onClose={() => setRecordPaymentTarget(null)}
+                    applicationId={recordPaymentTarget?.application?._id ?? ''}
+                    artistId={recordPaymentTarget?.application?.artistId ?? ''}
+                    gigId={gig._id}
+                    defaultAmount={recordPaymentTarget?.defaultAmount ?? gig.compensation?.amount ?? 0}
+                    artistName={recordPaymentTarget?.application?.artistSnapshot?.displayName}
+                    onRecorded={() => setRecordPaymentTarget(null)}
+                />
+            */}
         </View>
     );
 }

@@ -47,6 +47,11 @@ jest.mock('@/features/team/ContactActionSheet', () => ({
 jest.mock('@/components/MobileTabBar', () => ({
     useMobileTabBarHeight: () => 0,
 }));
+// Apr 30: HubTeamSection inlines TeamGroupContactCard (folded in from
+// the dropped TeamPage). Stub it so useUpdateGig + Linking don't pull in.
+jest.mock('@/features/team/components/TeamGroupContactCard', () => ({
+    TeamGroupContactCard: () => null,
+}));
 
 import { HirerGigHub } from '../HirerGigHub';
 

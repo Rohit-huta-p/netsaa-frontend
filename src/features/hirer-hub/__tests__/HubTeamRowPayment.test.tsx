@@ -73,7 +73,8 @@ describe('HubTeamRowPayment', () => {
             />
         );
         fireEvent.press(getByLabelText('team-row-app1'));
-        expect(mockPush).toHaveBeenCalledWith('/(app)/gigs/g1/team');
+        // Apr 30: dedicated team page dropped → row-tap goes to profile.
+        expect(mockPush).toHaveBeenCalledWith('/(app)/profile/artist1');
     });
 
     it('falls back to "Artist" when displayName missing', () => {

@@ -4,6 +4,7 @@ import { View, Text } from 'react-native';
 // Restore HubTeamRow when the contract artifact comes back.
 // import { HubTeamRow } from './HubTeamRow';
 import { HubTeamRowPayment } from './HubTeamRowPayment';
+import { TeamGroupContactCard } from '@/features/team/components/TeamGroupContactCard';
 import type { TeamRowData } from '../hooks/useGigHubData';
 
 const COLORS = { text0: '#F3EFE8', text2: '#6B6878', text3: '#3F3D4A', line2: 'rgba(255,255,255,0.09)' };
@@ -64,6 +65,15 @@ export function HubTeamSection({ teamRows, gig, slotsTotal, pendingApplicantsCou
                     <Text style={{ textAlign: 'center', fontSize: 12, color: COLORS.text2, marginTop: 12 }}>
                         {emptySlots} more {emptySlots === 1 ? 'slot' : 'slots'} needed · {pendingApplicantsCount} {pendingApplicantsCount === 1 ? 'applicant' : 'applicants'} waiting
                     </Text>
+                </View>
+            )}
+
+            {/* Group WhatsApp invite — folded in from the dropped TeamPage
+                (Apr 30). Only renders when at least one artist is hired,
+                so empty/applicant-only states stay tight. */}
+            {teamRows.length > 0 && (
+                <View style={{ paddingTop: 16 }}>
+                    <TeamGroupContactCard gig={gig} />
                 </View>
             )}
         </View>

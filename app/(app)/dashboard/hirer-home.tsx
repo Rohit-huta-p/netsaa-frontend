@@ -21,7 +21,10 @@ import HeroGreetingHirer from '../../../src/components/dashboard/hirer/HeroGreet
 // import NextUpCardHirer from '../../../src/components/dashboard/hirer/NextUpCardHirer';
 import PostedGigsSection from '../../../src/components/dashboard/hirer/PostedGigsSection';
 import ApplicantsInbox from '../../../src/components/dashboard/hirer/ApplicantsInbox';
-import HiredArtistsSection from '../../../src/components/dashboard/hirer/HiredArtistsSection';
+// Apr 30: HiredArtistsSection removed from hirer home — team management
+// lives on the per-gig Hub now (Your team section). Import retained for
+// fast revert.
+// import HiredArtistsSection from '../../../src/components/dashboard/hirer/HiredArtistsSection';
 // import ContractsYouSentStrip from '../../../src/components/dashboard/hirer/ContractsYouSentStrip';
 import PaymentsStrip from '../../../src/components/dashboard/hirer/PaymentsStrip';
 import TrustTierProgress from '../../../src/components/dashboard/artist/TrustTierProgress';
@@ -86,7 +89,7 @@ export default function HirerHome() {
 
         <ApplicantsInbox />
 
-        <HiredArtistsSection />
+        {/* Apr 30: <HiredArtistsSection /> removed — team is per-gig on the Hub now. */}
 
         {/* <ContractsYouSentStrip /> */}
 

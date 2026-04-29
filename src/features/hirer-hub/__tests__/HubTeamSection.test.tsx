@@ -14,6 +14,12 @@ jest.mock('@/hooks/usePayments', () => ({
 jest.mock('expo-router', () => ({
     useRouter: () => ({ push: jest.fn() }),
 }));
+// Apr 30: HubTeamSection now embeds TeamGroupContactCard inline (folded
+// in from the dropped TeamPage). The card pulls in useUpdateGig + Linking
+// + lucide. Stub it for these structural tests.
+jest.mock('@/features/team/components/TeamGroupContactCard', () => ({
+    TeamGroupContactCard: () => null,
+}));
 
 beforeEach(() => {
     mockTransactions = [];

@@ -60,15 +60,11 @@ export function HubTeamRowPayment({ application, gig, onRequestContact }: Props)
         }
     };
 
-    const goToTeamPage = () => {
-        const gigId = gig?._id;
-        if (!gigId) return;
-        try {
-            router.push(`/(app)/gigs/${gigId}/team` as any);
-        } catch {
-            /* noop in test */
-        }
-    };
+    // Apr 30: dedicated team page removed; team is a Hub section now.
+    // Whole-row tap routes to the artist's profile (same as the
+    // avatar/name tap). Slightly redundant with `goToProfile` but keeps
+    // the entire row tappable, not just the left half.
+    const goToTeamPage = goToProfile;
 
     return (
         <TouchableOpacity

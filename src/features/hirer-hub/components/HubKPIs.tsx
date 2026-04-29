@@ -39,7 +39,7 @@ type Props = { kpis: HubKPIData };
 export function HubKPIs({ kpis }: Props) {
     return (
         <View style={{ paddingHorizontal: 24, paddingBottom: 40 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around' }}>
                 <View>
                     <Text style={{ fontSize: 10, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' }}>
                         Applied
@@ -57,20 +57,10 @@ export function HubKPIs({ kpis }: Props) {
                         <Text style={{ fontSize: 18, color: COLORS.text3 }}>/{kpis.slotsTotal}</Text>
                     </Text>
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontSize: 10, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                        Paid · Due
-                    </Text>
-                    <View style={{ flexDirection: 'row', marginTop: 4 }}>
-                        <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: COLORS.green }}>
-                            {inrShort(kpis.paidAmount)}
-                        </Text>
-                        <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: COLORS.text3 }}> · </Text>
-                        <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: COLORS.gold }}>
-                            {inrShort(kpis.dueAmount)}
-                        </Text>
-                    </View>
-                </View>
+                {/* PAYMENTS-DISABLED (Apr 30): Paid · Due cell removed.
+                    Was reading contract.paidAmount which is always 0 since
+                    contract rollback. Restore when on-platform Razorpay
+                    ships and aggregation reads from confirmed Transactions. */}
             </View>
         </View>
     );

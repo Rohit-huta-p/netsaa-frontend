@@ -53,10 +53,15 @@ jest.mock('../ContactActionSheet', () => ({
 jest.mock('@/features/payments/RecordPaymentModal', () => ({
     RecordPaymentModal: () => null,
 }));
+// TeamKPIStrip uses useQueries (transactions per application). Stub the
+// component itself — its behavior is covered by TeamKPIStrip.test.tsx.
+jest.mock('../components/TeamKPIStrip', () => ({
+    TeamKPIStrip: () => null,
+}));
 
 jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
-import { TeamPage } from '../TeamPage';
+import { TeamPage, computePerformanceCountdown } from '../TeamPage';
 
 beforeEach(() => {
     mockGig = sampleGig;
@@ -121,5 +126,61 @@ describe('TeamPage', () => {
         const { getByLabelText } = render(<TeamPage gigId="g1" />);
         fireEvent.press(getByLabelText('Back'));
         expect(mockBack).toHaveBeenCalled();
+    });
+});
+
+describe('computePerformanceCountdown', () => {
+    const today = (offsetDays: number) => {
+        const d = new Date();
+        d.setDate(d.getDate() + offsetDays);
+        return d.toISOString();
+    };
+
+    it('returns "Today!" + urgent for the day-of', () => {
+        const out = computePerformanceCountdown(today(0));
+        expect(out).toEqual({ label: 'Today!', urgent: true });
+    });
+
+    it('returns "Tomorrow" + urgent for +1 day', () => {
+        const out = computePerformanceCountdown(today(1));
+        expect(out).toEqual({ label: 'Tomorrow', urgent: true });
+    });
+
+    it('returns "N days to go" + urgent for ≤2 days', () => {
+        const out = computePerformanceCountdown(today(2));
+        expect(out?.label).toBe('2 days to go');
+        expect(out?.urgent).toBe(true);
+    });
+
+    it('returns "N days to go" + non-urgent for 3-7 days', () => {
+        const out = computePerformanceCountdown(today(5));
+        expect(out?.label).toBe('5 days to go');
+        expect(out?.urgent).toBe(false);
+    });
+
+    it('returns "in N days" for >7 days out', () => {
+        const out = computePerformanceCountdown(today(14));
+        expect(out?.label).toBe('in 14 days');
+        expect(out?.urgent).toBe(false);
+    });
+
+    it('returns "Yesterday" for -1 day', () => {
+        const out = computePerformanceCountdown(today(-1));
+        expect(out?.label).toBe('Yesterday');
+    });
+
+    it('returns "N days ago" for past gigs within 30d', () => {
+        const out = computePerformanceCountdown(today(-5));
+        expect(out?.label).toBe('5 days ago');
+    });
+
+    it('returns null for stale gigs >30 days ago', () => {
+        const out = computePerformanceCountdown(today(-31));
+        expect(out).toBeNull();
+    });
+
+    it('returns null for missing / invalid date', () => {
+        expect(computePerformanceCountdown(undefined)).toBeNull();
+        expect(computePerformanceCountdown('not-a-date' as any)).toBeNull();
     });
 });

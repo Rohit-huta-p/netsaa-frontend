@@ -449,6 +449,9 @@ export default function RegisterScreen() {
                         <Text style={s.fineprint}>
                             By continuing, you agree to the NETSA Terms and Privacy Policy.
                         </Text>
+                        <Text style={s.fineprint}>
+                            Your phone number stays private during apply / shortlist phases. It's shared with a hirer only after they hire you, so they can coordinate the gig.
+                        </Text>
                     </View>
                 );
 

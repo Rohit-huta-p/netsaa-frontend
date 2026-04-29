@@ -26,7 +26,8 @@ const COLORS = {
     waBg: 'rgba(37,211,102,0.10)',
 };
 
-const WA_HINT = 'Paste a WhatsApp group invite URL (https://chat.whatsapp.com/...). Hired artists can tap to join.';
+const WA_HINT =
+    "Create a WhatsApp group with your team, copy the invite link, paste it here. Everyone you've hired can tap to join from this page — no need to re-share manually.";
 
 export interface TeamGroupContactCardProps {
     gig: any;

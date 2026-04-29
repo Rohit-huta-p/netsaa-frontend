@@ -38,6 +38,7 @@ import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import { ContactActionSheet, type ContactTarget } from './ContactActionSheet';
 import { TeamRosterCard } from './components/TeamRosterCard';
 import { TeamGroupContactCard } from './components/TeamGroupContactCard';
+import { TeamKPIStrip } from './components/TeamKPIStrip';
 import { RecordPaymentModal } from '@/features/payments/RecordPaymentModal';
 
 const COLORS = {
@@ -48,6 +49,34 @@ const COLORS = {
     orange: '#FF6B35',
     orangeBg: 'rgba(255,107,53,0.10)',
 };
+
+/**
+ * Convert a gig event date into a friendly countdown label.
+ * Returns null when the date is missing or unparseable.
+ *   - Today                       → "Today!"  (urgent)
+ *   - Tomorrow                    → "Tomorrow"  (urgent)
+ *   - 2..7 days away              → "N days to go"  (urgent if ≤2)
+ *   - >7 days away                → "in N days"
+ *   - 1 day ago                   → "Yesterday"
+ *   - 2..30 days ago              → "N days ago"
+ *   - >30 days ago                → null (don't surface stale gigs)
+ */
+export function computePerformanceCountdown(eventDate?: string | Date): { label: string; urgent: boolean } | null {
+    if (!eventDate) return null;
+    const d = new Date(eventDate);
+    if (isNaN(d.getTime())) return null;
+    const now = new Date();
+    const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+    const diffMs = startOfDay(d).getTime() - startOfDay(now).getTime();
+    const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    if (days === 0) return { label: 'Today!', urgent: true };
+    if (days === 1) return { label: 'Tomorrow', urgent: true };
+    if (days > 1 && days <= 7) return { label: `${days} days to go`, urgent: days <= 2 };
+    if (days > 7) return { label: `in ${days} days`, urgent: false };
+    if (days === -1) return { label: 'Yesterday', urgent: false };
+    if (days < -1 && days >= -30) return { label: `${Math.abs(days)} days ago`, urgent: false };
+    return null;
+}
 
 export type TeamPageMode = 'hirer' | 'lead-artist';
 
@@ -64,7 +93,10 @@ export function TeamPage({ gigId, mode = 'hirer' }: TeamPageProps) {
     const appsQuery = useGigApplications(gigId);
 
     const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
-    const [recordPaymentTarget, setRecordPaymentTarget] = useState<any | null>(null);
+    const [recordPaymentTarget, setRecordPaymentTarget] = useState<{
+        application: any;
+        defaultAmount: number;
+    } | null>(null);
 
     if (gigQuery.isLoading || appsQuery.isLoading) {
         return (
@@ -131,12 +163,38 @@ export function TeamPage({ gigId, mode = 'hirer' }: TeamPageProps) {
                     <Text style={styles.title} numberOfLines={2}>
                         {gig.title || 'Team'}
                     </Text>
-                    <Text style={styles.subtitle}>
-                        {hiredApplications.length} {hiredApplications.length === 1 ? 'artist' : 'artists'} hired
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                        <Text style={styles.subtitle}>
+                            {hiredApplications.length} {hiredApplications.length === 1 ? 'artist' : 'artists'} hired
+                        </Text>
+                        {(() => {
+                            const countdown = computePerformanceCountdown(
+                                gig?.schedule?.startDate ?? gig?.startDate
+                            );
+                            if (!countdown) return null;
+                            return (
+                                <>
+                                    <View style={styles.subtitleDot} />
+                                    <Text
+                                        accessibilityLabel="performance-countdown"
+                                        style={[styles.subtitle, countdown.urgent && styles.subtitleUrgent]}>
+                                        {countdown.label}
+                                    </Text>
+                                </>
+                            );
+                        })()}
+                    </View>
                 </View>
 
-                <View style={styles.divider} />
+                {/* KPI strip */}
+                {hiredApplications.length > 0 && (
+                    <TeamKPIStrip
+                        applicationIds={hiredApplications.map((a) => String(a._id))}
+                        perArtistAmount={gig?.compensation?.amount ?? 0}
+                    />
+                )}
+
+                <View style={[styles.divider, { marginTop: 18 }]} />
 
                 {/* Roster */}
                 <View style={{ paddingTop: 24, paddingBottom: 8 }}>
@@ -163,7 +221,9 @@ export function TeamPage({ gigId, mode = 'hirer' }: TeamPageProps) {
                                     gigTitle: gig?.title,
                                 })
                             }
-                            onRecordPayment={(application) => setRecordPaymentTarget(application)}
+                            onRecordPayment={(application, defaultAmount) =>
+                                setRecordPaymentTarget({ application, defaultAmount })
+                            }
                             onOpenProfile={(artistId) => {
                                 if (!artistId) return;
                                 try {
@@ -209,11 +269,13 @@ export function TeamPage({ gigId, mode = 'hirer' }: TeamPageProps) {
             <RecordPaymentModal
                 visible={!!recordPaymentTarget}
                 onClose={() => setRecordPaymentTarget(null)}
-                applicationId={recordPaymentTarget?._id ?? ''}
-                artistId={recordPaymentTarget?.artistId ?? ''}
+                applicationId={recordPaymentTarget?.application?._id ?? ''}
+                artistId={recordPaymentTarget?.application?.artistId ?? ''}
                 gigId={gig._id}
-                defaultAmount={gig.compensation?.amount ?? 0}
-                artistName={recordPaymentTarget?.artistSnapshot?.displayName}
+                // Q2 fix: prefill with REMAINING (not the full gig amount) so
+                // hirer doesn't accidentally double-record after partial pay.
+                defaultAmount={recordPaymentTarget?.defaultAmount ?? gig.compensation?.amount ?? 0}
+                artistName={recordPaymentTarget?.application?.artistSnapshot?.displayName}
                 onRecorded={() => setRecordPaymentTarget(null)}
             />
         </View>
@@ -269,7 +331,9 @@ const styles = StyleSheet.create({
         letterSpacing: -0.5,
         lineHeight: 32,
     },
-    subtitle: { color: COLORS.text2, fontSize: 13, marginTop: 6 },
+    subtitle: { color: COLORS.text2, fontSize: 13 },
+    subtitleUrgent: { color: COLORS.orange, fontWeight: '700' },
+    subtitleDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: COLORS.text2 },
     divider: { height: 1, backgroundColor: COLORS.line, marginHorizontal: 24 },
     sectionLabel: {
         color: COLORS.text2,

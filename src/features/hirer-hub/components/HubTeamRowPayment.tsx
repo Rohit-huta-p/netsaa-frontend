@@ -1,26 +1,20 @@
 // netsa-mobile/src/features/hirer-hub/components/HubTeamRowPayment.tsx
 //
-// Post contract-rollback team row — payment-driven instead of contract-
-// driven. Restored layout (Apr 29):
+// Compact team row for the Project Hub. Shows artist + amount + role +
+// Contact icon. Whole-row tap opens the per-gig TeamPage.
 //
-//   [avatar] Priya Sharma                          [💬 contact]  [pill]
-//            ₹50,000 · Lead dancer
-//
-//   - avatar + name + sub-line tap → artist profile
-//   - whole-row tap (background) → team page (/gigs/[id]/team)
-//   - contact button (MessageCircle) → ContactActionSheet (WA + call)
-//   - status pill: PaymentStatusPill driven by useApplicationTransactions
-//
-// "Record payment" was moved out of the row into the team page per the
-// Apr 29 product call (contact icon takes its place — keeps the row
-// focused on at-a-glance state, not actions).
+// PAYMENTS-DISABLED (Apr 29): payment-status pill + transaction lookup
+// removed until on-platform Razorpay ships. Card was previously wired
+// to useApplicationTransactions to show recorded/confirmed/disputed
+// states inline; that's all gone now.
 
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MessageCircle } from 'lucide-react-native';
-import { useApplicationTransactions } from '@/hooks/usePayments';
-import { PaymentStatusPill } from './PaymentStatusPill';
+// PAYMENTS-DISABLED imports retained for fast revert:
+// import { useApplicationTransactions } from '@/hooks/usePayments';
+// import { PaymentStatusPill } from './PaymentStatusPill';
 
 const COLORS = {
     text0: '#F3EFE8',
@@ -37,20 +31,8 @@ type Props = {
     onRequestContact: (application: any) => void;
 };
 
-function readTransactionsArray(raw: any): any[] {
-    if (!raw) return [];
-    if (Array.isArray(raw)) return raw;
-    if (Array.isArray(raw.transactions)) return raw.transactions;
-    if (Array.isArray(raw.data)) return raw.data;
-    if (Array.isArray(raw.data?.transactions)) return raw.data.transactions;
-    return [];
-}
-
 export function HubTeamRowPayment({ application, gig, onRequestContact }: Props) {
     const router = useRouter();
-    const txQuery = useApplicationTransactions(application?._id);
-    const transactions = readTransactionsArray(txQuery.data);
-    const hasTransactions = transactions.length > 0;
 
     const displayName = ((application?.artistSnapshot?.displayName ?? '') as string).trim() || 'Artist';
     const artistType = ((application?.artistSnapshot?.artistType ?? '') as string).trim();
@@ -95,9 +77,6 @@ export function HubTeamRowPayment({ application, gig, onRequestContact }: Props)
             activeOpacity={0.7}
             style={{ paddingHorizontal: 24, paddingVertical: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                {/* Avatar + name + sub-line. Tappable — short-circuits the
-                    row-tap (which would route to the team page) and goes to
-                    the artist's profile instead. */}
                 <TouchableOpacity
                     onPress={goToProfile}
                     accessibilityLabel={`Open profile for ${displayName}`}
@@ -133,9 +112,7 @@ export function HubTeamRowPayment({ application, gig, onRequestContact }: Props)
                                     <Text style={{ color: COLORS.text2, fontSize: 12 }}>{artistType}</Text>
                                 </>
                             ) : null}
-                            {hasTransactions ? (
-                                <PaymentStatusPill transactions={transactions} />
-                            ) : null}
+                            {/* PAYMENTS-DISABLED: PaymentStatusPill + transactions hook removed. */}
                         </View>
                     </View>
                 </TouchableOpacity>

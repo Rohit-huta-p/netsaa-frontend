@@ -8,6 +8,32 @@ interface OrganizerInfoCardProps {
     displayName?: string;
     profileImageUrl?: string;
     rating?: string | number;
+    /**
+     * Plan 5 — count of non-draft gigs this organizer has hosted
+     * (refreshed server-side on every getGigById read). When >0, surfaces
+     * as "N gigs hosted" beside the rating row. Hidden when 0/undefined.
+     */
+    gigsHosted?: number;
+    /**
+     * Plan 5 — average minutes between an applicant's first message and
+     * the organizer's first reply. When set + reasonable (<24h), surfaces
+     * as "Replies in <Xm" or "<Xh". Hidden when undefined or > 24h.
+     */
+    avgReplyMinutes?: number;
+}
+
+/**
+ * Shorten a minutes value to a human-friendly reply-speed badge.
+ * Returns null for empty / unreasonable inputs (negative, > 24h) so
+ * the caller can omit the cell entirely.
+ */
+function formatReplySpeed(mins: number | undefined): string | null {
+    if (typeof mins !== 'number' || !isFinite(mins) || mins < 0) return null;
+    if (mins > 24 * 60) return null; // stale signal — don't surface
+    if (mins < 60) return `Replies in <${Math.max(1, Math.round(mins))}m`;
+    const hrs = mins / 60;
+    if (hrs < 10) return `Replies in <${hrs.toFixed(1)}h`;
+    return `Replies in <${Math.round(hrs)}h`;
 }
 
 /**
@@ -19,14 +45,23 @@ export const OrganizerInfoCard: React.FC<OrganizerInfoCardProps> = ({
     displayName,
     profileImageUrl,
     rating,
+    gigsHosted,
+    avgReplyMinutes,
 }) => {
     const router = useRouter();
+
+    const showGigsHosted = typeof gigsHosted === 'number' && gigsHosted > 0;
+    const replySpeed = formatReplySpeed(avgReplyMinutes);
 
     return (
         <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => router.push(`/profile/${organizerId}`)}
             className="flex-row items-center gap-4 mb-5 bg-white/10 py-5 px-1 rounded-2xl"
+            accessibilityRole="button"
+            accessibilityLabel={`Organizer ${displayName || ''}${
+                showGigsHosted ? `, ${gigsHosted} gigs hosted` : ''
+            }`}
         >
             <View className="relative">
                 <View className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/10">
@@ -52,7 +87,7 @@ export const OrganizerInfoCard: React.FC<OrganizerInfoCardProps> = ({
                 <Text className="text-md font-black text-white mb-1">
                     {displayName || 'Organizer'}
                 </Text>
-                <View className="flex-row items-center gap-3">
+                <View className="flex-row items-center flex-wrap gap-3">
                     <View className="flex-row items-center gap-1">
                         {[1, 2, 3, 4].map((i) => (
                             <Star key={i} size={10} color="#EAB308" fill="#EAB308" />
@@ -62,6 +97,25 @@ export const OrganizerInfoCard: React.FC<OrganizerInfoCardProps> = ({
                             {rating || '4.9'}
                         </Text>
                     </View>
+
+                    {showGigsHosted ? (
+                        <Text
+                            className="text-[10px] font-semibold text-zinc-400"
+                            testID="organizer-gigs-hosted"
+                        >
+                            {gigsHosted} {gigsHosted === 1 ? 'gig' : 'gigs'} hosted
+                        </Text>
+                    ) : null}
+
+                    {replySpeed ? (
+                        <Text
+                            className="text-[10px] font-semibold text-emerald-400"
+                            testID="organizer-reply-speed"
+                        >
+                            {replySpeed}
+                        </Text>
+                    ) : null}
+
                     <View className="bg-emerald-500/10 px-2 py-1 rounded">
                         <Text className="text-emerald-500 text-[6px] font-black uppercase tracking-widest">
                             VERIFIED

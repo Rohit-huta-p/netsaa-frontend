@@ -1,10 +1,20 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, ScrollView, Alert, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { FlatList } from 'react-native-gesture-handler';
 
 // Custom hook — all action handlers, modal state, and application data
 import { useGigActions } from '@/hooks/useGigActions';
+
+// Plan 5 — viewer's profile city is read off the persisted authStore so
+// QuickMetaRow can render an "in your city" soft fallback without any
+// extra network calls.
+import { useAuthStore } from '@/stores/authStore';
+
+// Plan 5 — device GPS coords for the precise "1.4 km" distance line.
+// Silent — never auto-prompts (autoRequest defaults to false). When perm
+// is already granted we get coords; otherwise the city soft-match handles
+// the fallback. A future "Show distance" tap could call hook.request().
+import { useViewerCoords } from '@/hooks/useViewerCoords';
 
 // Tab bar height for dynamic padding
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
@@ -15,18 +25,37 @@ import { OrganizerInfoCard } from './OrganizerInfoCard';
 import { QuickMetaRow } from './QuickMetaRow';
 import { CompensationSidebar } from './CompensationSidebar';
 import { MobileApplyFooter } from './MobileApplyFooter';
+// Plan 5 — gig detail v2 mockup wiring.
+import { StatusPillRow } from './StatusPillRow';
+import { PayHero } from './PayHero';
+import { GigTagline } from './GigTagline';
+import { TrustStripInline } from './TrustStripInline';
+import { AboutSection } from './sections/AboutSection';
+import { WhatYoullDoSection } from './sections/WhatYoullDoSection';
+import { LookingForSection } from './sections/LookingForSection';
+import { CompensationPerksSection } from './sections/CompensationPerksSection';
 
 // Highlight & trust components (pre-existing)
 import { GigHighlightsSection } from './GigHighlightsSection';
-import { OrganizerTrustCard } from './OrganizerTrustCard';
+// Apr 30: OrganizerTrustCard import unmounted from artist view (Talent
+// Criteria card replaces it). File retained at ./OrganizerTrustCard for
+// fast revert if we change our mind.
+// import { OrganizerTrustCard } from './OrganizerTrustCard';
 import { OrganizerDashboardCard } from './OrganizerDashboardCard';
 
 // Tab content components
-import { AboutTab } from './tabs/AboutTab';
-import { TalentTab } from './tabs/TalentTab';
-import { ScheduleTab } from './tabs/ScheduleTab';
-import { ApplyTab } from './tabs/ApplyTab';
-import { TermsTab } from './tabs/TermsTab';
+// Plan 5 v2 — full mockup replication: About + Terms also moved INLINE
+// (AboutSection + termsAndConditions inline). Tab nav reduced to just
+// Discussion (+ Applications for organizers). AboutTab and TermsTab
+// imports kept commented for fast revert if we want tabs back.
+// import { AboutTab } from './tabs/AboutTab';
+// import { TermsTab } from './tabs/TermsTab';
+// Discussion thread (GigComment-backed). Same component used on Event detail.
+// Open Q&A — anyone authenticated can read/post. No application gating.
+import DiscussionTab from '@/components/common/DiscussionTab';
+// Apr 30 Talent Criteria — non-card iconified-rows replacement for the old
+// OrganizerTrustCard slot. Renders inline on the artist-side gig page.
+import { TalentCriteriaInline } from './TalentCriteriaInline';
 
 // Application management (pre-existing)
 import { ApplicationsTab, ApplicationsBottomSheet } from './applications';
@@ -67,6 +96,14 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
     const tabBarHeight = useMobileTabBarHeight();
     const isMobileWidth = width < 768;
     const router = useRouter();
+
+    // Plan 5 — viewer's profile city for the QuickMetaRow distance fallback.
+    const authUser = useAuthStore((s) => s.user);
+    // Plan 5 — viewer's GPS coords for the precise distance line.
+    // No autoRequest → we never trigger an OS permission dialog from the
+    // gig detail page itself. If the user has already granted location
+    // (e.g. via the LocationPickerModal flow) we'll silently re-use that.
+    const { coords: viewerCoords } = useViewerCoords();
 
     // All state, handlers, and derived data from custom hook
     const {
@@ -122,14 +159,11 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
         }
     }, [tab, isOrganizer, setActiveTab]);
 
-    // Tab configuration
+    // Plan 5 v2 — full mockup replication: About + Terms also moved INLINE.
+    // Tab nav reduced to Discussion only (+ Applications for organizers).
     const tabs = [
         ...(isOrganizer ? [{ key: 'applications', label: 'Applications' }] : []),
-        { key: 'about', label: 'About' },
-        { key: 'talent', label: 'Talent Criteria' },
-        { key: 'schedule', label: 'Schedule & Pay' },
-        { key: 'apply', label: 'How to Apply' },
-        ...(gig.termsAndConditions ? [{ key: 'terms', label: 'Terms' }] : []),
+        { key: 'discussion', label: 'Discussion' },
     ];
 
     return (
@@ -160,47 +194,121 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                     <View className="items-start md:flex-row md:justify-between gap-5">
                         {/* Left Column */}
                         <View className={`pt-1 ${isMobileWidth ? 'w-full' : 'w-1/2'}`}>
-                            {/* Title */}
+                            {/* Plan 5 — v2 status row sits ABOVE the title:
+                                gig type · deadline countdown · applied count. */}
+                            <StatusPillRow
+                                typeLabel={
+                                    gig.eventFunction ||
+                                    gig.artistTypes?.[0] ||
+                                    (typeof gig.category === 'string' ? gig.category : undefined)
+                                }
+                                applicationDeadline={gig.applicationDeadline}
+                                appliedCount={gig.stats?.applications ?? totalCount}
+                            />
+
+                            {/* Title + tagline */}
                             <View>
-                                <Text className="lg:text-3xl text-2xl font-black text-white leading-tight mb-4 mt-3 mb-5">
+                                <Text className="lg:text-3xl text-2xl font-black text-white leading-tight mt-1 mb-1">
                                     {gig.title}
                                 </Text>
-                                {/* <hr className="w-full border-white/10 mb-5" /> */}
 
-                                {/* Organizer Card (non-organizer only) */}
+                                {/* Plan 5 v2 — derived tagline under title
+                                    ("3-song fusion · Bharatanatyam · Pune · May 12") */}
+                                <GigTagline
+                                    artistTypes={gig.artistTypes}
+                                    tags={gig.tags}
+                                    city={gig.location?.city}
+                                    startDate={gig.schedule?.startDate}
+                                />
+
+                                {/* Organizer Card (non-organizer only).
+                                    Plan 5 — also surfaces gigsHosted and
+                                    avgReplyMinutes from the refreshed
+                                    organizerSnapshot. */}
                                 {!isOrganizer && (
                                     <OrganizerInfoCard
                                         organizerId={gig.organizerId._id}
                                         displayName={gig.organizerSnapshot?.displayName}
                                         profileImageUrl={gig.organizerSnapshot?.profileImageUrl}
                                         rating={gig.organizerSnapshot?.rating}
+                                        gigsHosted={gig.organizerSnapshot?.gigsHosted}
+                                        avgReplyMinutes={gig.organizerSnapshot?.avgReplyMinutes}
                                     />
                                 )}
-                                <hr className="w-full border-white/10 mb-5" />
+
+                                {/* Plan 5 v2 — standalone "Verified producer"
+                                    pill below the producer card. */}
+                                {!isOrganizer && (
+                                    <TrustStripInline
+                                        isVerified={!!gig.organizerSnapshot?.isVerified}
+                                    />
+                                )}
                             </View>
 
-                            {/* Quick Meta */}
+                            {/* Plan 5 — v2 pay hero. Big orange amount,
+                                aux line ("per artist · negotiable"), no card.
+                                Renders on mobile only — desktop uses the
+                                CompensationSidebar (right column) below. */}
+                            {isMobileWidth && !isOrganizer ? (
+                                <PayHero
+                                    amount={gig.compensation?.amount}
+                                    minAmount={gig.compensation?.minAmount}
+                                    maxAmount={gig.compensation?.maxAmount}
+                                    currency={gig.compensation?.currency}
+                                    negotiable={gig.compensation?.negotiable}
+                                />
+                            ) : null}
+
+                            {/* Quick Meta — Plan 5 v2: 3-col editorial stat
+                                line (When · Where · Slots) with hairline
+                                rules top + bottom, no card. */}
                             <QuickMetaRow
                                 location={gig.location}
                                 schedule={gig.schedule}
-                                gigType={gig.type}
+                                slots={gig.maxApplications}
+                                viewerCity={authUser?.location ?? null}
+                                viewerCoords={viewerCoords}
                             />
 
-                            {/* Gig Highlights & Trust (for artists) */}
+                            {/* ─── Plan 5 v2 inline section stack ───
+                                Replaces the old tab content + the prior
+                                GigHighlightsSection / TalentCriteriaInline
+                                pair on the artist view. Each section
+                                auto-hides when its data is empty so legacy
+                                gigs degrade gracefully. */}
                             {!isOrganizer && (
                                 <>
-                                    <GigHighlightsSection gig={gig} isOrganizer={isOrganizer} />
-                                    <OrganizerTrustCard
-                                        organizer={{
-                                            _id: gig.organizerId._id || gig.organizerId,
-                                            displayName: gig.organizerSnapshot?.displayName,
-                                            profileImageUrl: gig.organizerSnapshot?.profileImageUrl,
-                                            rating: gig.organizerSnapshot?.rating,
-                                            gigsHosted: gig.organizerSnapshot?.gigsHosted,
-                                            testimonials: gig.organizerSnapshot?.testimonials,
-                                        }}
-                                        isOrganizer={isOrganizer}
+                                    <AboutSection description={gig.description} />
+                                    <WhatYoullDoSection
+                                        responsibilities={gig.responsibilities}
                                     />
+                                    <LookingForSection
+                                        artistTypes={gig.artistTypes}
+                                        experienceLevel={gig.experienceLevel}
+                                        genderPreference={gig.genderPreference}
+                                        ageRange={gig.ageRange}
+                                        heightRequirements={gig.heightRequirements}
+                                        requiredSkills={gig.requiredSkills}
+                                        slots={gig.maxApplications}
+                                    />
+                                    <CompensationPerksSection
+                                        amount={gig.compensation?.amount}
+                                        minAmount={gig.compensation?.minAmount}
+                                        maxAmount={gig.compensation?.maxAmount}
+                                        perks={gig.compensation?.perks}
+                                    />
+
+                                    {/* Plan 5 v2 — Terms folded inline. */}
+                                    {gig.termsAndConditions ? (
+                                        <View className="mb-7" testID="terms-inline-section">
+                                            <Text className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-400 mb-3.5">
+                                                Terms
+                                            </Text>
+                                            <Text className="text-[14px] leading-[22px] text-zinc-300 font-light">
+                                                {gig.termsAndConditions}
+                                            </Text>
+                                        </View>
+                                    ) : null}
                                 </>
                             )}
 
@@ -220,65 +328,81 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                         <CompensationSidebar gig={gig} hasApplied={hasApplied} onApply={handleApply} />
                     </View>
 
-                    {/* TABS */}
-                    <View className="w-full bg-surface">
+                    {/* TABS — Plan 5 v2: no card. Tab row + content sit
+                        flat on the page background. Single hairline below
+                        the row separates nav from thread, brand-orange
+                        underline marks the active tab. */}
+                    <View className="w-full mt-6">
                         {/* Tab Headers */}
-                        <FlatList
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={{
-                                paddingVertical: 10,
-                                paddingHorizontal: 20,
-                                width: width >= 1024 ? '100%' : 'auto',
-                                justifyContent: width >= 1024 ? 'space-around' : 'flex-start',
+                        <View
+                            style={{
+                                flexDirection: 'row',
+                                borderBottomWidth: 1,
+                                borderBottomColor: 'rgba(255,255,255,0.06)',
                             }}
-                            data={tabs}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    key={item.key}
-                                    onPress={() => setActiveTab(item.key as any)}
-                                    className={`px-4 py-4 mb-5 flex-row items-center gap-2 ${activeTab === item.key
-                                        ? 'border-b-2 border-blue-500 bg-[#171730ff]'
-                                        : ''
-                                        }`}
-                                >
-                                    <View className="flex-row items-center">
-                                        <Text
-                                            className={`text-[11px] font-black uppercase tracking-[0.15em] ${activeTab === item.key ? 'text-white' : 'text-zinc-500'
+                        >
+                            {tabs.map((item) => {
+                                const isActive = activeTab === item.key;
+                                return (
+                                    <TouchableOpacity
+                                        key={item.key}
+                                        onPress={() => setActiveTab(item.key as any)}
+                                        style={{
+                                            paddingRight: 18,
+                                            paddingTop: 4,
+                                            paddingBottom: 12,
+                                            // Active tab underline overlaps the
+                                            // hairline below so it feels stamped
+                                            // into the page, not floating.
+                                            borderBottomWidth: 2,
+                                            borderBottomColor: isActive
+                                                ? '#FF6B35'
+                                                : 'transparent',
+                                            marginBottom: -1,
+                                        }}
+                                    >
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Text
+                                                className={`text-[11px] font-black uppercase tracking-[0.15em] ${
+                                                    isActive ? 'text-white' : 'text-zinc-500'
                                                 }`}
-                                        >
-                                            {item.label}
-                                            {item.key === 'applications' && applications && (
-                                                <Text className="text-blue-400"> ({applications.length})</Text>
-                                            )}
-                                        </Text>
-
-                                        {isOrganizer && item.key !== 'applications' && activeTab === item.key && (
-                                            <TouchableOpacity
-                                                className="ml-2 w-6 h-6 items-center justify-center bg-white/10 rounded-full"
-                                                onPress={() => {
-                                                    setEditTargetTab(item.key);
-                                                    setEditModalVisible(true);
-                                                }}
                                             >
-                                                <Edit2 size={12} color="#FF6B35" />
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                </TouchableOpacity>
-                            )}
-                        />
+                                                {item.label}
+                                                {item.key === 'applications' && applications && (
+                                                    <Text className="text-orange-400"> ({applications.length})</Text>
+                                                )}
+                                            </Text>
 
-                        {/* Tab Content */}
-                        {activeTab === 'about' && <AboutTab gig={gig} />}
-                        {activeTab === 'talent' && <TalentTab gig={gig} />}
-                        {activeTab === 'schedule' && <ScheduleTab gig={gig} />}
-                        {activeTab === 'apply' && <ApplyTab gig={gig} />}
-                        {activeTab === 'terms' && gig.termsAndConditions && (
-                            <TermsTab termsAndConditions={gig.termsAndConditions} />
-                        )}
+                                            {isOrganizer && item.key !== 'applications' && isActive && (
+                                                <TouchableOpacity
+                                                    className="ml-2 w-6 h-6 items-center justify-center bg-white/10 rounded-full"
+                                                    onPress={() => {
+                                                        setEditTargetTab(item.key);
+                                                        setEditModalVisible(true);
+                                                    }}
+                                                >
+                                                    <Edit2 size={12} color="#FF6B35" />
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+
+                        {/* Tab Content — Plan 5 v2: About + Terms moved
+                            INLINE above. Tab nav only switches between
+                            Discussion + Applications (organizer-only). */}
                         {activeTab === 'applications' && isOrganizer && (
                             <ApplicationsTab gigId={gig._id} gig={gig} />
+                        )}
+                        {activeTab === 'discussion' && (
+                            <DiscussionTab
+                                id={gig._id}
+                                type="gig"
+                                ownerId={typeof gig.organizerId === 'object' ? gig.organizerId?._id : gig.organizerId}
+                                inline
+                            />
                         )}
                     </View>
                 </View>

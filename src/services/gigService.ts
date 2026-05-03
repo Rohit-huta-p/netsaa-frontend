@@ -100,6 +100,26 @@ const gigService = {
         return res.data;
     },
 
+    /**
+     * Toggle pin on a gig discussion comment. Organizer-only — backend
+     * returns 403 for non-owners. Pin cap of 3 per gig is enforced server
+     * side; the oldest pinned comment auto-unpins when a 4th is pinned.
+     */
+    togglePinGigComment: async (gigId: string, commentId: string): Promise<any> => {
+        const res = await API.put(`/gigs/${gigId}/discussion/${commentId}/pin`);
+        return res.data;
+    },
+
+    /**
+     * Soft-delete a gig discussion comment. Authority enforced server side:
+     * author OR gig organizer OR platform admin. Returns the masked comment
+     * (text replaced with "[deleted]") plus deletedReason for UI labeling.
+     */
+    deleteGigComment: async (gigId: string, commentId: string): Promise<any> => {
+        const res = await API.delete(`/gigs/${gigId}/discussion/${commentId}`);
+        return res.data;
+    },
+
     getSavedGigs: async (params?: { limit?: number }): Promise<any> => {
         const res = await API.get('/users/me/saved-gigs', { params });
         return res.data;

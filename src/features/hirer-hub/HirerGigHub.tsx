@@ -25,6 +25,10 @@ import { HubApplicantsSection } from './components/HubApplicantsSection';
 import { HubEssentials } from './components/HubEssentials';
 import { HubStickyCTA } from './components/HubStickyCTA';
 import { ApplicantActionSheet } from './components/ApplicantActionSheet';
+// Discussion section — backed by GigComment model. Same component used on
+// Event detail screens. Pulls socket (live updates) + gigService for the
+// REST round-trip. No gating beyond auth: anyone signed in can read/post.
+import DiscussionTab from '@/components/common/DiscussionTab';
 
 const COLORS = { bg: '#07070B', line: 'rgba(255,255,255,0.05)' };
 
@@ -202,6 +206,22 @@ export function HirerGigHub({ gigId }: Props) {
                         onQuickHire={handleQuickHire}
                         onQuickReject={handleQuickReject}
                         onSeeAll={() => router.push(`/(app)/gigs/${gigId}?tab=applicants` as any)}
+                    />
+                </View>
+
+                <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 24 }} />
+
+                {/* Discussion — open Q&A thread on the gig. Authenticated users
+                    only (backend-enforced via `protect`). Optimistic posts +
+                    socket-pushed updates. Sits between Applicants and
+                    Essentials so the reactive surfaces stack together.
+                    ownerId enables pin + delete-any owner actions for the
+                    Hub viewer (who is always the gig owner here). */}
+                <View style={{ paddingHorizontal: 16 }}>
+                    <DiscussionTab
+                        id={gigId}
+                        type="gig"
+                        ownerId={typeof gig.organizerId === 'object' ? gig.organizerId?._id : gig.organizerId}
                     />
                 </View>
 

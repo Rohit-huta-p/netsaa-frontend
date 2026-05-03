@@ -81,6 +81,37 @@ class SocketService {
         };
     }
 
+    /**
+     * Subscribe to pin-state changes. Server emits a partial payload with at
+     * least `_id` and `isPinned`. Returns an unsubscribe fn — call it on
+     * unmount or when the topic changes.
+     */
+    public onDiscussionPin(callback: (payload: { _id: string; isPinned: boolean; pinnedAt?: string; pinnedBy?: string }) => void): () => void {
+        if (this.socket) {
+            this.socket.on('discussion:pin', callback);
+        }
+        return () => {
+            if (this.socket) {
+                this.socket.off('discussion:pin', callback);
+            }
+        };
+    }
+
+    /**
+     * Subscribe to soft-delete events. Payload is the masked comment (text
+     * replaced server-side) so the consumer can splice it directly in.
+     */
+    public onDiscussionDelete(callback: (payload: any) => void): () => void {
+        if (this.socket) {
+            this.socket.on('discussion:delete', callback);
+        }
+        return () => {
+            if (this.socket) {
+                this.socket.off('discussion:delete', callback);
+            }
+        };
+    }
+
     private setupListeners() {
         if (!this.socket) return;
 

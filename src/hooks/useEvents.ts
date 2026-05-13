@@ -43,6 +43,8 @@ export function useRegisterForEvent(eventId: string) {
     mutationFn: (visibility: 'public' | 'private') => eventService.register(eventId, visibility),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
+      // Invalidate registration probe so EventCtaBar flips to "Cancel registration"
+      qc.invalidateQueries({ queryKey: ['myRegistration', eventId] });
     },
   });
 }
@@ -53,6 +55,8 @@ export function useCancelMyRegistration(eventId: string) {
     mutationFn: () => eventService.cancelMyRegistration(eventId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
+      // Also invalidate the per-user registration probe so EventCtaBar reverts to "Register"
+      qc.invalidateQueries({ queryKey: ['myRegistration', eventId] });
     },
   });
 }

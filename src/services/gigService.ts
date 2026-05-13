@@ -38,7 +38,7 @@ const gigService = {
         return res.data;
     },
 
-    applyToGig: async (id: string, payload: { coverNote: string, portfolioLinks?: string[] }): Promise<GigResponse> => {
+    applyToGig: async (id: string, payload: { coverNote: string, portfolioLinks?: string[], proposedRate?: number, termsAcknowledged?: boolean, contractTier?: string, source?: string }): Promise<GigResponse> => {
         const res = await API.post(`/gigs/${id}/apply`, payload);
         return res.data;
     },

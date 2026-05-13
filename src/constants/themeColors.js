@@ -120,3 +120,18 @@ module.exports = {
         cyan: 'rgba(6, 182, 212, 0.15)',
     },
 };
+
+// Events MVP dark editorial palette tokens (named export for typed callers)
+module.exports.eventTokens = {
+    bg: '#0B0A0F',
+    bgAlt: '#13121A',
+    surface: '#1C1B24',
+    textPrimary: '#F5F4F0',
+    textSecondary: '#A8A6B0',
+    textMuted: '#6E6C76',
+    brand: '#FF6B35',
+    purple: '#8B5CF6',
+    gold: '#F59E0B',
+    capacityFill: '#FF6B35',
+    capacityUrgent: '#EF4444',
+};

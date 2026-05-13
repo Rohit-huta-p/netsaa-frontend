@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useLocalSearchParams, Redirect, Stack } from 'expo-router';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useEvent } from '@/hooks/useEvents';
@@ -8,8 +9,13 @@ import EventCapacityBar from '@/components/events/detail/EventCapacityBar';
 import EventCtaBar from '@/components/events/detail/EventCtaBar';
 
 export default function EventDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, openRegister } = useLocalSearchParams<{ id: string; openRegister?: string }>();
+  const [sheetOpenForce, setSheetOpenForce] = useState(false);
   const { data: event, isLoading, error } = useEvent(id);
+
+  useEffect(() => {
+    if (openRegister === '1') setSheetOpenForce(true);
+  }, [openRegister]);
   const userId = useAuthStore((s) => s.user?._id);
 
   if (isLoading) {
@@ -71,7 +77,7 @@ export default function EventDetailScreen() {
         />
         <View style={{ height: 120 }} />
       </ScrollView>
-      <EventCtaBar event={event} />
+      <EventCtaBar event={event} initialOpen={sheetOpenForce} onInitialOpenConsumed={() => setSheetOpenForce(false)} />
     </View>
   );
 }

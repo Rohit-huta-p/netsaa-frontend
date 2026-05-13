@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { EventDoc } from '@/services/eventService';
@@ -7,10 +7,19 @@ import EventRegisterSheetV2 from '@/components/events/register/EventRegisterShee
 
 interface Props {
   event: EventDoc;
+  initialOpen?: boolean;
+  onInitialOpenConsumed?: () => void;
 }
 
-export default function EventCtaBar({ event }: Props) {
+export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  useEffect(() => {
+    if (initialOpen) {
+      setSheetOpen(true);
+      onInitialOpenConsumed?.();
+    }
+  }, [initialOpen]);
   const slotsLeft = computeSlotsLeft(event.capacity.total, event.capacity.registeredCount);
   const urgent = isCapacityUrgent(event.capacity.total, event.capacity.registeredCount);
   const isFull = slotsLeft === 0;

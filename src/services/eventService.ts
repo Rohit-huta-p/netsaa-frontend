@@ -108,4 +108,9 @@ export const eventService = {
     const r = await client.get('/v1/admin/events/tags/suggestions', { params: { limit } });
     return r.data.data;
   },
+
+  submitTag: async (rawInput: string): Promise<{ created: boolean; normalizedId: string; displayName: string }> => {
+    const r = await client.post('/v1/admin/events/tags/submit', { rawInput });
+    return r.data.data;
+  },
 };

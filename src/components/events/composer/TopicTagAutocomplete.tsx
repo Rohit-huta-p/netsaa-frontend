@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { View, Text, TextInput, Pressable, FlatList } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useTopicTagSuggestions } from '@/hooks/useTopicTags';
+import { eventService } from '@/services/eventService';
 import { eventTokens } from '@/lib/eventTokens';
 
 interface Props {
@@ -10,31 +11,54 @@ interface Props {
   max?: number;
 }
 
+function normalize(raw: string): string {
+  return raw
+    .normalize('NFC')
+    .toLowerCase()
+    .replace(/[​-‍﻿]/g, '')
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .slice(0, 30);
+}
+
 export default function TopicTagAutocomplete({ selected, onChange, max = 3 }: Props) {
   const [query, setQuery] = useState('');
+  const [debounced, setDebounced] = useState('');
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data } = useTopicTagSuggestions(40);
 
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setDebounced(query.trim()), 250);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [query]);
+
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debounced.toLowerCase();
     const pool = data?.tags ?? [];
     if (!q) return pool.slice(0, 8);
     return pool.filter((t) => t._id.includes(q) || t.displayName.toLowerCase().includes(q)).slice(0, 8);
-  }, [data, query]);
+  }, [data, debounced]);
 
-  const add = (tagId: string) => {
+  const normalizedQuery = normalize(debounced);
+  const canCreateNew = normalizedQuery.length >= 2 && !filtered.some((t) => t._id === normalizedQuery);
+
+  const add = async (raw: string) => {
+    const id = normalize(raw);
+    if (!id) return;
     if (selected.length >= max) return;
-    if (selected.includes(tagId)) return;
-    onChange([...selected, tagId]);
+    if (selected.includes(id)) return;
+    onChange([...selected, id]);
     setQuery('');
+    // Fire-and-forget tag submit (backend dedups; safe if it already exists)
+    eventService.submitTag(raw).catch(() => { /* swallow */ });
   };
 
   const remove = (tagId: string) => onChange(selected.filter((t) => t !== tagId));
 
-  const canCreateNew = query.trim().length >= 2 && !filtered.some((t) => t._id === query.trim().toLowerCase());
-
   return (
     <View className="gap-3">
-      {/* Selected pills */}
       {selected.length > 0 ? (
         <View className="flex-row flex-wrap gap-2">
           {selected.map((tag) => (
@@ -50,7 +74,6 @@ export default function TopicTagAutocomplete({ selected, onChange, max = 3 }: Pr
         </View>
       ) : null}
 
-      {/* Input */}
       {selected.length < max ? (
         <View className="rounded-2xl bg-event-surface border border-event-border px-4 py-3">
           <TextInput
@@ -60,13 +83,13 @@ export default function TopicTagAutocomplete({ selected, onChange, max = 3 }: Pr
             placeholderTextColor={eventTokens.textMuted ?? '#6E6C76'}
             autoCorrect={false}
             autoCapitalize="none"
+            onSubmitEditing={() => canCreateNew && add(query)}
             className="font-outfit text-event-textPrimary text-base"
             style={{ minHeight: 24 }}
           />
         </View>
       ) : null}
 
-      {/* Suggestions */}
       {selected.length < max && (filtered.length > 0 || canCreateNew) ? (
         <View className="rounded-2xl bg-event-surface border border-event-border overflow-hidden">
           <FlatList
@@ -83,10 +106,11 @@ export default function TopicTagAutocomplete({ selected, onChange, max = 3 }: Pr
             )}
             ListFooterComponent={canCreateNew ? (
               <Pressable
-                onPress={() => add(query.trim().toLowerCase().replace(/\s+/g, '-'))}
-                className="px-4 py-3"
+                onPress={() => add(query)}
+                className="px-4 py-3 bg-event-surfaceAlt"
               >
-                <Text className="font-outfit text-event-brand">+ Create "{query.trim()}"</Text>
+                <Text className="font-outfit text-event-brand">+ Create "{normalizedQuery}"</Text>
+                <Text className="font-outfit text-event-textMuted text-[10px] mt-1">Tags new to the platform go to moderation. You can still use it immediately.</Text>
               </Pressable>
             ) : null}
           />
@@ -94,7 +118,7 @@ export default function TopicTagAutocomplete({ selected, onChange, max = 3 }: Pr
       ) : null}
 
       <Text className="font-outfit text-event-textMuted text-xs">
-        Pick up to {max} topics. Suggestions come from approved tags; new ones go to moderation.
+        Pick up to {max} topics.
       </Text>
     </View>
   );

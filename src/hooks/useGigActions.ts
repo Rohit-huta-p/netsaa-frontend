@@ -32,9 +32,14 @@ export function useGigActions(gig: any) {
         missing: [],
     });
     const [isSaved, setIsSaved] = useState(false);
+    // Plan 5 v2 — gig-detail tab nav reduced to Discussion (+ Applications
+    // for organizers). Old tab keys ('about' | 'schedule' | 'apply' | 'terms')
+    // are kept in the union for backward-compat with deep-link query params
+    // and the GigEditModal `editTargetTab` state, but no longer addressable
+    // from the visible nav.
     const [activeTab, setActiveTab] = useState<
-        'about' | 'talent' | 'schedule' | 'apply' | 'applications' | 'terms'
-    >(isOrganizer ? 'applications' : 'about');
+        'about' | 'talent' | 'schedule' | 'apply' | 'applications' | 'terms' | 'discussion'
+    >(isOrganizer ? 'applications' : 'discussion');
     const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
 
     // Edit Modal State

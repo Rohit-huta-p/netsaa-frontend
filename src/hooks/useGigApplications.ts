@@ -36,7 +36,7 @@ export const useApplyToGig = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ gigId, payload }: { gigId: string; payload: { coverNote: string; portfolioLinks?: string[]; proposedRate?: number; termsAcknowledged?: boolean; contractTier?: string } }) =>
+        mutationFn: ({ gigId, payload }: { gigId: string; payload: { coverNote: string; portfolioLinks?: string[]; proposedRate?: number; termsAcknowledged?: boolean; contractTier?: string; source?: string } }) =>
             gigService.applyToGig(gigId, payload),
         onSuccess: (_, variables) => {
             // Invalidate queries to refresh data if needed (e.g., if we show "Applied" status on gig details)

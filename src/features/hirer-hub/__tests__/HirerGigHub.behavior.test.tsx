@@ -52,6 +52,13 @@ jest.mock('@/components/MobileTabBar', () => ({
 jest.mock('@/features/team/components/TeamGroupContactCard', () => ({
     TeamGroupContactCard: () => null,
 }));
+// Apr 30: Discussion section mounted on the Hub. The component pulls
+// socketService + gigService + lucide. Stub it to keep this behaviour
+// test focused on Hub structure.
+jest.mock('@/components/common/DiscussionTab', () => ({
+    __esModule: true,
+    default: () => null,
+}));
 
 import { HirerGigHub } from '../HirerGigHub';
 

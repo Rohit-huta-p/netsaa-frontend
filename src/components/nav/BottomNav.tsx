@@ -35,10 +35,24 @@ const HIRER_TABS: TabDef[] = [
   { id: 'profile',  label: 'Profile',  icon: UserIcon, route: '/(app)/profile' },
 ];
 
+// Deep event screens hide the bottom nav so sticky CTAs / wizard footers
+// have full edge access. The /events listing keeps the nav visible.
+const HIDE_NAV_PATTERNS: RegExp[] = [
+  /^\/events\/[^/]+(\/.*)?$/,   // /events/:id detail + nested (manage tabs, register, manage/overview, manage/roster)
+  /^\/events\/compose$/,        // 7-step composer
+];
+
+function shouldHideNav(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return HIDE_NAV_PATTERNS.some((re) => re.test(pathname));
+}
+
 export default function BottomNav() {
   const { mode } = useMode();
   const router = useRouter();
   const pathname = usePathname();
+
+  if (shouldHideNav(pathname)) return null;
 
   const tabs = mode === 'hirer' ? HIRER_TABS : ARTIST_TABS;
 

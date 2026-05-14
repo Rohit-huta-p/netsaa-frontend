@@ -6,21 +6,23 @@ import { computeSlotsLeft, isCapacityUrgent } from '@/lib/eventTokens';
 interface Props {
   event: EventDoc;
   variant?: 'tall' | 'wide';
+  /** When true, card stretches to parent width (used by simple vertical list). */
+  fullWidth?: boolean;
 }
 
-export default function EventCardV2({ event, variant = 'tall' }: Props) {
+export default function EventCardV2({ event, variant = 'tall', fullWidth = false }: Props) {
   const router = useRouter();
   const slotsLeft = computeSlotsLeft(event.capacity.total, event.capacity.registeredCount);
   const urgent = isCapacityUrgent(event.capacity.total, event.capacity.registeredCount);
   const hero = event.media.find((m) => m.isHero) ?? event.media[0];
   const start = new Date(event.startsAt);
-  const width = variant === 'tall' ? 230 : 300;
+  const width = fullWidth ? undefined : (variant === 'tall' ? 230 : 300);
 
   return (
     <Pressable
       onPress={() => router.push(`/events/${event._id}`)}
-      style={{ width }}
-      className="bg-event-surface rounded-2xl overflow-hidden border border-event-border"
+      style={width !== undefined ? { width } : undefined}
+      className={`bg-event-surface rounded-2xl overflow-hidden border border-event-border${fullWidth ? ' w-full' : ''}`}
     >
       <View style={{ aspectRatio: variant === 'tall' ? 3 / 4 : 16 / 9 }} className="bg-event-bgAlt">
         {hero?.url ? (

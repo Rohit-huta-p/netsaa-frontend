@@ -3,6 +3,15 @@ import type { EventLocation, EventMedia } from '@/services/eventService';
 
 export type ComposerStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
+export type RefundPolicy = 'flex_24h' | 'firm' | 'custom';
+
+export interface ComposerPricing {
+  amount: number;
+  currency: 'INR';
+  refundPolicy: RefundPolicy;
+  refundCustomNote?: string;
+}
+
 export interface ComposerForm {
   title: string;
   tagline?: string;
@@ -16,6 +25,7 @@ export interface ComposerForm {
   durationKind: 'm30' | 'h1' | 'h2' | 'h3' | 'half' | 'full' | 'multi' | null;
   location: EventLocation;
   capacity: { total: number };
+  pricing: ComposerPricing;
   media: EventMedia[];
 }
 
@@ -32,6 +42,7 @@ const initialForm: ComposerForm = {
   durationKind: null,
   location: { kind: 'in_person' },
   capacity: { total: 50 },
+  pricing: { amount: 0, currency: 'INR', refundPolicy: 'flex_24h' },
   media: [],
 };
 

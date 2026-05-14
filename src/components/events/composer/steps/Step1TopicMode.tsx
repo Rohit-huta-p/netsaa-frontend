@@ -34,7 +34,7 @@ export default function Step1TopicMode({ onNext }: { onNext: () => void }) {
                 <Text className="font-outfit text-event-textSecondary text-xs mt-1">
                   {mode === 'free_rsvp'
                     ? 'Anyone with the link can register up to capacity. Recommended.'
-                    : 'Charge a ticket fee. (Coming soon — locked for now.)'}
+                    : 'Single ticket price. You\'ll set the amount + refund policy in the next steps.'}
                 </Text>
               </Pressable>
             );

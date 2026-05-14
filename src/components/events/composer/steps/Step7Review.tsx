@@ -17,6 +17,7 @@ export default function Step7Review() {
   const submit = async () => {
     setSubmitting(true);
     try {
+      const isPaid = form.registrationMode === 'paid_ticket';
       const payload = {
         title: form.title,
         tagline: form.tagline || undefined,
@@ -30,6 +31,17 @@ export default function Step7Review() {
         durationKind: form.durationKind!,
         location: form.location,
         capacity: { total: form.capacity.total },
+        pricing: isPaid
+          ? {
+              amount: form.pricing.amount,
+              currency: form.pricing.currency,
+              refundPolicy: form.pricing.refundPolicy,
+              refundCustomNote:
+                form.pricing.refundPolicy === 'custom'
+                  ? form.pricing.refundCustomNote
+                  : undefined,
+            }
+          : undefined,
         media: form.media,
       };
       const result = await mutation.mutateAsync(payload as any);
@@ -121,8 +133,24 @@ export default function Step7Review() {
         )}
       </ReviewBlock>
 
-      <ReviewBlock label="Capacity" onEdit={() => setStep(4)}>
+      <ReviewBlock label="Capacity & Pricing" onEdit={() => setStep(4)}>
         <Text className="font-outfit text-event-textPrimary text-base">{form.capacity.total} people</Text>
+        {form.registrationMode === 'paid_ticket' ? (
+          <View className="mt-2 gap-1">
+            <Text className="font-outfit text-event-textPrimary text-sm">
+              ₹{form.pricing.amount} per ticket · {form.pricing.currency}
+            </Text>
+            <Text className="font-outfit text-event-textMuted text-xs">
+              Refund: {form.pricing.refundPolicy === 'flex_24h'
+                ? 'Flexible (24h before)'
+                : form.pricing.refundPolicy === 'firm'
+                  ? 'Firm (no refunds)'
+                  : form.pricing.refundCustomNote || 'Custom'}
+            </Text>
+          </View>
+        ) : (
+          <Text className="font-outfit text-event-textMuted text-xs mt-1">Free RSVP</Text>
+        )}
       </ReviewBlock>
 
       <ReviewBlock label="About" onEdit={() => setStep(5)}>

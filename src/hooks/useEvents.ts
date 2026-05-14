@@ -40,7 +40,8 @@ export function useCreateEvent() {
 export function useRegisterForEvent(eventId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (visibility: 'public' | 'private') => eventService.register(eventId, visibility),
+    mutationFn: (payload: import('@/services/eventService').RegisterPayload) =>
+      eventService.register(eventId, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
       // Invalidate registration probe so EventCtaBar flips to "Cancel registration"

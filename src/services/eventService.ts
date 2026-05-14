@@ -55,6 +55,16 @@ export interface EventDoc {
   updatedAt: string;
 }
 
+export interface RegisterPayload {
+  visibility?: 'public' | 'private';
+  attendeeName: string;
+  attendeePhone: string;
+  attendeeEmail?: string;
+  attendeeCount: number;        // 1-5
+  guestNames?: string[];
+  notes?: string;
+}
+
 export interface EventListParams {
   topicTag?: string;
   city?: string;
@@ -94,8 +104,11 @@ export const eventService = {
     return r.data.data.event;
   },
 
-  register: async (eventId: string, visibility: 'public' | 'private' = 'private'): Promise<{ ok: true; visibility: string }> => {
-    const r = await client.post(`/api/events/${eventId}/register`, { visibility });
+  register: async (
+    eventId: string,
+    payload: RegisterPayload,
+  ): Promise<{ ok: true; visibility: string; attendeeCount: number }> => {
+    const r = await client.post(`/api/events/${eventId}/register`, payload);
     return r.data.data;
   },
 

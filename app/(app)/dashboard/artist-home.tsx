@@ -11,7 +11,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
-import ModeToggle from '../../../src/components/mode/ModeToggle';
+// ModeToggle moved into Navbar profile dropdown — no longer rendered on dashboard.
 import ScreenTooltip from '../../../src/components/mode/ScreenTooltip';
 
 import useHeroData from '../../../src/hooks/useHeroData';
@@ -72,8 +72,6 @@ export default function ArtistHome() {
           />
         }
       >
-
-        <ModeToggle />
 
         {/* Spec §4.1 order. NextUpCard returns null when neither a pending
             contract nor a hired gig exists. ContractsStrip returns null when

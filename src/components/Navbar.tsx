@@ -12,10 +12,11 @@ import useAuthStore from '../stores/authStore';
 import {
     Bell, User as UserIcon, ChevronDown, Settings, LogOut, HelpCircle,
     Briefcase, Calendar, Users, LayoutDashboard, Search, X, Music,
-    Mail, ChevronRight
+    Mail, ChevronRight, Repeat
 } from 'lucide-react-native';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useSearchPreview } from '@/hooks/useSearchQueries';
+import { useMode } from '../hooks/useMode';
 import type { User } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -125,7 +126,12 @@ function ProfileMenu({
     router: any;
     isMobileView?: boolean;
 }) {
-    const role = user?.role || 'User';
+    const { mode, switchMode } = useMode();
+    const otherMode = mode === 'artist' ? 'hirer' : 'artist';
+    const modeColor = mode === 'artist' ? '#8B5CF6' : '#FF6B35';
+    const modeLabel = mode === 'artist' ? 'Artist' : 'Hirer';
+    const otherModeLabel = otherMode === 'artist' ? 'Artist' : 'Hirer';
+
     const displayName = user?.displayName || (user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'No Name');
     const email = user?.email || '';
 
@@ -232,18 +238,37 @@ function ProfileMenu({
                     <Text style={{ color: '#9CA3AF', fontFamily: F.bodyMedium, fontSize: 11 }} numberOfLines={1}>{email}</Text>
                     <View style={{
                         marginTop: 4,
-                        backgroundColor: 'rgba(147, 51, 234, 0.2)',
-                        paddingHorizontal: 6,
-                        paddingVertical: 1,
-                        borderRadius: 4,
-                        alignSelf: 'flex-start'
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                        backgroundColor: `${modeColor}1F`,
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: `${modeColor}55`,
+                        alignSelf: 'flex-start',
                     }}>
-                        <Text style={{ color: '#C084FC', fontSize: 9, fontFamily: F.bodySemiBold, textTransform: 'capitalize' }}>{role}</Text>
+                        <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: modeColor }} />
+                        <Text style={{ color: modeColor, fontSize: 9, fontFamily: F.bodySemiBold, letterSpacing: 0.5 }}>
+                            {modeLabel.toUpperCase()} MODE
+                        </Text>
                     </View>
                 </View>
             </TouchableOpacity>
 
             <ScrollView bounces={false} style={{ maxHeight: isMobileView ? 350 : 450 }}>
+                <MenuSection title="Mode">
+                    <MenuItem
+                        icon={Repeat}
+                        label={`Switch to ${otherModeLabel}`}
+                        color={otherMode === 'artist' ? '#8B5CF6' : '#FF6B35'}
+                        onPress={() => {
+                            switchMode(otherMode);
+                            onClose();
+                        }}
+                    />
+                </MenuSection>
                 <MenuSection title="Workspace">
                     <MenuItem
                         icon={LayoutDashboard}

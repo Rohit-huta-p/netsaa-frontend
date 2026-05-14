@@ -9,7 +9,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
-import ModeToggle from '../../../src/components/mode/ModeToggle';
+// ModeToggle moved into Navbar profile dropdown — no longer rendered on dashboard.
 import ScreenTooltip from '../../../src/components/mode/ScreenTooltip';
 
 import { queryKeys } from '../../../src/constants/queryKeys';
@@ -72,8 +72,6 @@ export default function HirerHome() {
           />
         }
       >
-        <ModeToggle />
-
         {/* Spec §5.1 order. NextUpCardHirer returns null when no contract
             and no pending applicant. ContractsYouSentStrip returns null
             when total=0. Both suppress their own empty chrome so layout

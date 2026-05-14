@@ -21,6 +21,26 @@ module.exports = {
                 'brand-gold': themeColors.netsa.gold,
                 'brand-cyan': themeColors.accent.cyan,
                 'brand-green': themeColors.accent.green,
+                // Events MVP dark editorial palette
+                event: {
+                    bg: '#0B0A0F',
+                    bgAlt: '#13121A',
+                    surface: '#1C1B24',
+                    surfaceAlt: '#252330',
+                    textPrimary: '#F5F4F0',
+                    textSecondary: '#A8A6B0',
+                    textMuted: '#6E6C76',
+                    border: 'rgba(255, 255, 255, 0.08)',
+                    borderStrong: 'rgba(255, 255, 255, 0.16)',
+                    brand: '#FF6B35',
+                    brandSoft: '#FF8A5C',
+                    purple: '#8B5CF6',
+                    purpleDeep: '#6D23B6',
+                    gold: '#F59E0B',
+                    successGreen: '#22C55E',
+                    capacityFill: '#FF6B35',
+                    capacityUrgent: '#EF4444',
+                },
             },
             // Spacing scale (8px grid)
             spacing: {
@@ -62,6 +82,9 @@ module.exports = {
 
                 // Default body font
                 sans: ['SourceSans3-Regular', 'sans-serif'],
+
+                // Space Mono — data/metadata labels (Events MVP)
+                mono: ['SpaceMono'],
             },
         },
     },

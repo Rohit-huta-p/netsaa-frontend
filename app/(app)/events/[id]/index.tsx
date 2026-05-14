@@ -1,67 +1,83 @@
-import React, { useCallback } from 'react';
-import { View, Text } from 'react-native';
-import { useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
-import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
-import { EventDetails } from '@/components/events/EventDetails';
+import { useEffect, useState } from 'react';
+import { useLocalSearchParams, Redirect, Stack } from 'expo-router';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useEvent } from '@/hooks/useEvents';
+import { useAuthStore } from '@/stores/authStore';
+import EventHeroGallery from '@/components/events/detail/EventHeroGallery';
+import EventDetailSections from '@/components/events/detail/EventDetailSections';
+import EventCapacityBar from '@/components/events/detail/EventCapacityBar';
+import EventCtaBar from '@/components/events/detail/EventCtaBar';
 
-import { OrganizerEventDetails } from '@/components/events/OrganizerEventDetails';
-import useAuthStore from '@/stores/authStore';
+export default function EventDetailScreen() {
+  const { id, openRegister } = useLocalSearchParams<{ id: string; openRegister?: string }>();
+  const [sheetOpenForce, setSheetOpenForce] = useState(false);
+  const { data: event, isLoading, error } = useEvent(id);
 
-export default function EventDetailsPage() {
-    const { id } = useLocalSearchParams();
-    const eventId = Array.isArray(id) ? id[0] : id;
-    const { data: event, isLoading, error, refetch } = useEvent(eventId || '');
-    const user = useAuthStore((state) => state.user);
+  useEffect(() => {
+    if (openRegister === '1') setSheetOpenForce(true);
+  }, [openRegister]);
+  const userId = useAuthStore((s) => s.user?._id);
 
-
-    useFocusEffect(
-        useCallback(() => {
-            if (eventId) {
-                refetch();
-            }
-        }, [eventId, refetch])
-    );
-
-    if (isLoading) {
-        return (
-            <View className="flex-1 bg-black justify-center items-center">
-                <LoadingAnimation
-                    source="https://lottie.host/a9975e00-d157-4513-b40f-77f83c2039be/fJeNBIUK06.lottie"
-                    width={200}
-                    height={200}
-                />
-            </View>
-        );
-    }
-
-    if (error || !event) {
-        return (
-            <View className="flex-1 bg-black justify-center items-center">
-                <Text className="text-red-500">Failed to load event details.</Text>
-            </View>
-        );
-    }
-
-    // Determine if the current user is the organizer of this event
-    const isOrganizer = user?._id === event.organizerId;
-
+  if (isLoading) {
     return (
-        <View className="flex-1 bg-black">
-            <Stack.Screen options={{
-                title: isOrganizer ? 'Manage Event' : 'Event Details',
-                headerStyle: { backgroundColor: '#000' },
-                headerTintColor: '#fff',
-                headerBackTitle: '',
-                headerShown: false, // Ensure header is shown
-                headerShadowVisible: false, // Clean look
-            }} />
-
-            {isOrganizer ? (
-                <OrganizerEventDetails event={event} key={event.updatedAt || event._id} />
-            ) : (
-                <EventDetails event={event} key={event.updatedAt || event._id} isOrganizer={isOrganizer} />
-            )}
-        </View>
+      <View className="flex-1 items-center justify-center bg-event-bg">
+        <ActivityIndicator color="#FF6B35" />
+      </View>
     );
+  }
+
+  if (error) {
+    const status = (error as any)?.response?.status;
+    if (status === 404) {
+      return (
+        <View className="flex-1 items-center justify-center bg-event-bg p-6">
+          <Text className="font-serif text-event-textPrimary text-2xl mb-2">Not found</Text>
+          <Text className="font-outfit text-event-textSecondary text-center">
+            This event doesn't exist or is no longer visible.
+          </Text>
+        </View>
+      );
+    }
+    if (status === 410) {
+      return (
+        <View className="flex-1 items-center justify-center bg-event-bg p-6">
+          <Text className="font-serif text-event-textPrimary text-2xl mb-2">Cancelled</Text>
+          <Text className="font-outfit text-event-textSecondary text-center">
+            The organizer has cancelled this event.
+          </Text>
+        </View>
+      );
+    }
+    return (
+      <View className="flex-1 items-center justify-center bg-event-bg p-6">
+        <Text className="font-outfit text-event-textSecondary">Couldn't load event. Try again.</Text>
+      </View>
+    );
+  }
+
+  if (!event) return null;
+
+  // Organizer view → redirect to manage
+  const organizerIdResolved = typeof event.organizerId === 'string'
+    ? event.organizerId
+    : event.organizerId?._id;
+  if (organizerIdResolved && userId && organizerIdResolved === userId) {
+    return <Redirect href={`/events/${event._id}/manage/overview`} />;
+  }
+
+  return (
+    <View className="flex-1 bg-event-bg">
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView contentInsetAdjustmentBehavior="never" showsVerticalScrollIndicator={false}>
+        <EventHeroGallery media={event.media} title={event.title} />
+        <EventDetailSections event={event} />
+        <EventCapacityBar
+          total={event.capacity.total}
+          registeredCount={event.capacity.registeredCount}
+        />
+        <View style={{ height: 120 }} />
+      </ScrollView>
+      <EventCtaBar event={event} initialOpen={sheetOpenForce} onInitialOpenConsumed={() => setSheetOpenForce(false)} />
+    </View>
+  );
 }

@@ -38,7 +38,7 @@ const gigService = {
         return res.data;
     },
 
-    applyToGig: async (id: string, payload: { coverNote: string, portfolioLinks?: string[] }): Promise<GigResponse> => {
+    applyToGig: async (id: string, payload: { coverNote: string, portfolioLinks?: string[], proposedRate?: number, termsAcknowledged?: boolean, contractTier?: string, source?: string }): Promise<GigResponse> => {
         const res = await API.post(`/gigs/${id}/apply`, payload);
         return res.data;
     },
@@ -97,6 +97,26 @@ const gigService = {
 
     postGigDiscussion: async (gigId: string, text: string): Promise<any> => {
         const res = await API.post(`/gigs/${gigId}/discussion`, { text });
+        return res.data;
+    },
+
+    /**
+     * Toggle pin on a gig discussion comment. Organizer-only — backend
+     * returns 403 for non-owners. Pin cap of 3 per gig is enforced server
+     * side; the oldest pinned comment auto-unpins when a 4th is pinned.
+     */
+    togglePinGigComment: async (gigId: string, commentId: string): Promise<any> => {
+        const res = await API.put(`/gigs/${gigId}/discussion/${commentId}/pin`);
+        return res.data;
+    },
+
+    /**
+     * Soft-delete a gig discussion comment. Authority enforced server side:
+     * author OR gig organizer OR platform admin. Returns the masked comment
+     * (text replaced with "[deleted]") plus deletedReason for UI labeling.
+     */
+    deleteGigComment: async (gigId: string, commentId: string): Promise<any> => {
+        const res = await API.delete(`/gigs/${gigId}/discussion/${commentId}`);
         return res.data;
     },
 

@@ -3,6 +3,7 @@ import { View, Text, Modal, TextInput, TouchableOpacity, ScrollView, Alert, Acti
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApplyToGig } from '../../hooks/useGigApplications';
+import { useEventFunnelSource } from '../../hooks/useEventFunnelSource';
 import { X, Link as LinkIcon, Plus, Trash2, Check, Shield, FileText, Save } from 'lucide-react-native';
 import { ProfileCompletionModal } from '../common/ProfileCompletionModal';
 import { draftService, generateDraftId, type ApplicationDraft } from '../../services/draftService';
@@ -68,7 +69,11 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
     termsAndConditions, gig, onViewTerms, hasTerms,
     draftId,
 }) => {
-    const [step, setStep] = useState<1 | 2>(1); // 1 = form, 2 = terms
+    // step 1 = form · 2 = terms · 'success' = post-submit confirmation.
+    // 'success' renders an inline confirmation panel inside the same
+    // Modal so the user gets unmissable feedback even on Android (where
+    // an Alert dialog stacked on top of a Modal can fail to render).
+    const [step, setStep] = useState<1 | 2 | 'success'>(1);
     const [coverNote, setCoverNote] = useState('');
     const [portfolioLinks, setPortfolioLinks] = useState<string[]>(['']);
     const [proposedRate, setProposedRate] = useState('');
@@ -79,6 +84,10 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
 
     const applyMutation = useApplyToGig();
     const router = useRouter();
+    // Plan 7 Task 18 — reads ?from=event:<id> query param when the artist
+    // enters the apply flow from an event context (e.g. a related-gig CTA).
+    // Forwarded to gigApplication.source on the backend (Plan 6 Task 21).
+    const funnelSource = useEventFunnelSource();
     // CONTRACTS-DISABLED: Phase 4C PDF generation hook + handler retained below for fast revert.
     // const pdf = useContractPdf();
 
@@ -220,15 +229,22 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
                     proposedRate: proposedRate ? parseInt(proposedRate) : undefined,
                     termsAcknowledged: true,
                     contractTier: tier,
+                    // Plan 7 Task 18 — funnel source wiring. Undefined when
+                    // the artist navigates directly (no ?from= param); omitted
+                    // from the API body in that case (backend treats absent
+                    // source as organic / direct).
+                    source: funnelSource,
                 }
             },
             {
                 onSuccess: () => {
-                    Alert.alert(
-                        'Application Submitted',
-                        'Your application has been sent. The hirer will review it and you\'ll be notified when they respond.',
-                        [{ text: 'OK', onPress: resetAndClose }]
-                    );
+                    // Plan 5 — inline success step instead of Alert.alert.
+                    // RN Alerts stacked on top of an open Modal can fail
+                    // to render on some Android builds (200 status comes
+                    // back, but the user sees nothing). Switching to an
+                    // in-modal success panel removes that whole class
+                    // of bug + gives a more on-brand confirmation.
+                    setStep('success');
                 },
                 onError: (error: any) => {
                     const meta = error.response?.data?.meta;
@@ -242,6 +258,22 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
             }
         );
     };
+
+    /*
+     * Auto-close the modal 3.5s after the success panel mounts. Long
+     * enough for the user to read the confirmation, short enough to
+     * respect their flow. They can tap "Done" to close immediately.
+     * The cleanup clears the timer if the modal is dismissed earlier
+     * by some other path (e.g. parent unmounts the modal).
+     */
+    useEffect(() => {
+        if (step !== 'success') return;
+        const t = setTimeout(() => {
+            resetAndClose();
+        }, 3500);
+        return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step]);
 
     const resetAndClose = () => {
         setCoverNote('');
@@ -279,21 +311,83 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
                         <View style={styles.header}>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.headerTitle}>
-                                    {step === 1 ? 'Apply for Gig' : getTierLabel(tier)}
+                                    {step === 1
+                                        ? 'Apply for Gig'
+                                        : step === 'success'
+                                            ? 'Application sent'
+                                            : getTierLabel(tier)}
                                 </Text>
                                 <Text style={styles.headerSub} numberOfLines={1}>{gigTitle}</Text>
                             </View>
-                            {/* Step indicator */}
-                            <View style={styles.stepIndicator}>
-                                <View style={[styles.stepDot, step >= 1 && styles.stepDotActive]} />
-                                <View style={[styles.stepDot, step >= 2 && styles.stepDotActive]} />
-                            </View>
+                            {/* Step indicator (hidden on success) */}
+                            {step !== 'success' && (
+                                <View style={styles.stepIndicator}>
+                                    <View style={[styles.stepDot, (step === 1 || step === 2) && styles.stepDotActive]} />
+                                    <View style={[styles.stepDot, step === 2 && styles.stepDotActive]} />
+                                </View>
+                            )}
                             <TouchableOpacity onPress={resetAndClose} style={styles.closeBtn}>
                                 <X size={20} color="#F0ECE6" />
                             </TouchableOpacity>
                         </View>
 
-                        {step === 1 ? (
+                        {step === 'success' ? (
+                            /* ═══════ SUCCESS PANEL ═══════
+                               Replaces the Alert.alert flow that some
+                               Android builds were swallowing. Renders
+                               inside the same Modal so it's guaranteed
+                               visible regardless of OS-level dialog
+                               layering quirks. */
+                            <View
+                                testID="apply-success-panel"
+                                style={{ paddingHorizontal: 24, paddingVertical: 32, alignItems: 'center' }}
+                            >
+                                <View
+                                    style={{
+                                        width: 72, height: 72, borderRadius: 36,
+                                        backgroundColor: 'rgba(74,222,128,0.12)',
+                                        borderWidth: 1, borderColor: 'rgba(74,222,128,0.32)',
+                                        alignItems: 'center', justifyContent: 'center',
+                                        marginBottom: 18,
+                                    }}
+                                >
+                                    <Check size={36} color="#4ADE80" strokeWidth={2.5} />
+                                </View>
+                                <Text
+                                    style={{
+                                        fontSize: 18, fontWeight: '700', color: '#F0ECE6',
+                                        textAlign: 'center', marginBottom: 8,
+                                    }}
+                                >
+                                    Application sent
+                                </Text>
+                                <Text
+                                    style={{
+                                        fontSize: 13, color: '#A89578', textAlign: 'center',
+                                        lineHeight: 19, marginBottom: 24, paddingHorizontal: 12,
+                                    }}
+                                >
+                                    The hirer will review it and you'll be notified the moment they respond.
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={resetAndClose}
+                                    activeOpacity={0.85}
+                                    style={{
+                                        backgroundColor: '#FF6B35',
+                                        paddingVertical: 14, paddingHorizontal: 36,
+                                        borderRadius: 10, minWidth: 160, alignItems: 'center',
+                                    }}
+                                    testID="apply-success-done"
+                                >
+                                    <Text style={{ color: '#1A0A04', fontWeight: '700', fontSize: 14 }}>
+                                        Done
+                                    </Text>
+                                </TouchableOpacity>
+                                <Text style={{ fontSize: 11, color: '#57524C', marginTop: 14 }}>
+                                    Closing automatically…
+                                </Text>
+                            </View>
+                        ) : step === 1 ? (
                             /* ═══════ STEP 1: Application Form ═══════ */
                             <>
                                 <ScrollView style={styles.body} contentContainerStyle={{ paddingBottom: 20 }}>

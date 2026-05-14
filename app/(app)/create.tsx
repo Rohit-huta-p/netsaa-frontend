@@ -11,7 +11,7 @@ import { ChevronLeft, Briefcase, Calendar, Pencil } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { GigForm, GigFormHandle } from "@/components/create/GigForm";
 import GigFormV2 from "@/components/create/GigFormV2";
-import { EventForm, EventFormHandle } from "@/components/create/EventForm";
+// EventForm is replaced by the 7-step composer at /events/compose (Task 9)
 import { useStepBackGuard } from "@/hooks/useStepBackGuard";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
@@ -24,7 +24,7 @@ export default function CreateListing() {
     const [activeTab, setActiveTab] = useState<"gig" | "event">(initialTabValue);
 
     const gigFormRef = useRef<GigFormHandle>(null);
-    const eventFormRef = useRef<EventFormHandle>(null);
+    // eventFormRef removed — Event tab now routes to /events/compose
     const { newGigForm } = useFeatureFlags();
 
     // Keep activeTab in a ref so handleBack (read via onBackRef inside the hook)
@@ -67,9 +67,7 @@ export default function CreateListing() {
         if (activeTabRef.current === 'gig' && gigFormRef.current) {
             return gigFormRef.current.handleBack();
         }
-        if (activeTabRef.current === 'event' && eventFormRef.current) {
-            return eventFormRef.current.handleBack();
-        }
+        // Event tab now navigates away to /events/compose; no inline step to intercept
         return false;
     };
 
@@ -133,7 +131,7 @@ export default function CreateListing() {
 
                         <TouchableOpacity
                             style={styles.tab}
-                            onPress={() => setActiveTab("event")}
+                            onPress={() => router.push('/events/compose')}
                             activeOpacity={0.9}
                         >
                             {activeTab === "event" && (
@@ -181,13 +179,7 @@ export default function CreateListing() {
                             gigId={gigIdValue}
                         />
                     )
-                ) : (
-                    <EventForm
-                        ref={eventFormRef}
-                        onPublish={handlePublish}
-                        onCancel={handleCancel}
-                    />
-                )}
+                ) : null /* Event tab navigates to /events/compose — should not reach here */}
             </View>
         </SafeAreaView>
     );

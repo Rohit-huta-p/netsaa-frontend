@@ -12,6 +12,18 @@ export interface Gig {
         organizationName: string;
         profileImageUrl: string;
         rating: number;
+        /**
+         * Plan 5 — gig detail redesign. Count of non-draft gigs this
+         * organizer has hosted (excludes the current gig). Refreshed by
+         * the backend on every getGigById read so it never goes stale.
+         */
+        gigsHosted?: number;
+        /**
+         * Plan 5 — average minutes between an applicant's first message
+         * and the organizer's first reply. Optional — undefined when the
+         * organizer has no message history yet.
+         */
+        avgReplyMinutes?: number;
     };
 
     artistTypes: string[];
@@ -37,6 +49,17 @@ export interface Gig {
         venueName?: string;
         address?: string;
         isRemote?: boolean;
+        /**
+         * Plan 5 — geocoded venue coordinates, populated server-side by a
+         * Mongoose pre-save hook. Used to compute distance from the artist
+         * for the "1.4 km" line on the gig detail page. Optional because
+         * geocoding can fail (offline / unparseable address) and we render
+         * a city-only fallback in that case.
+         */
+        geo?: {
+            lat: number;
+            lng: number;
+        };
     };
 
     schedule: {
@@ -66,6 +89,14 @@ export interface Gig {
 
     applicationDeadline: string | Date;
     maxApplications?: number;
+
+    /**
+     * Plan 5 — short list of gig-specific responsibilities the hirer
+     * writes when posting. Rendered as the "What you'll do" bullet
+     * list on the artist-side detail page. Optional — UI auto-hides
+     * when empty.
+     */
+    responsibilities?: string[];
 
     mediaRequirements?: {
         headshots?: boolean;

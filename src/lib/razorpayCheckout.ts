@@ -1,27 +1,15 @@
 import RazorpayCheckout from 'react-native-razorpay';
+import type { OpenCheckoutParams, CheckoutSuccess } from './razorpayCheckout.types';
 
-export interface OpenCheckoutParams {
-    key_id: string;
-    order_id: string;
-    amount: number;            // paise
-    currency: string;
-    eventTitle: string;
-    prefill: {
-        name?: string;
-        email?: string;
-        contact?: string;
-    };
-}
-
-export interface CheckoutSuccess {
-    razorpay_payment_id: string;
-    razorpay_order_id: string;
-    razorpay_signature: string;
-}
+export type { OpenCheckoutParams, CheckoutSuccess };
 
 /**
- * Opens the native Razorpay checkout sheet. Returns resolved data on success.
+ * Opens the native Razorpay checkout sheet (iOS/Android). Returns resolved data on success.
  * Throws on user-cancel or payment failure — caller surfaces error UI.
+ *
+ * Metro auto-resolves to razorpayCheckout.web.ts on web — that variant uses
+ * the Razorpay Web Standard SDK (checkout.js) since react-native-razorpay
+ * is iOS/Android only.
  *
  * Note: the actual payment confirmation comes from the Razorpay webhook on
  * the backend (Plan 8 Task 3). Mobile observes results by polling

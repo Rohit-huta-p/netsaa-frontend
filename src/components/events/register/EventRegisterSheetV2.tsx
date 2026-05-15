@@ -12,10 +12,25 @@ import {
   Platform,
 } from 'react-native';
 import { X, Minus, Plus } from 'lucide-react-native';
+import { useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import { useRegisterForEvent } from '@/hooks/useEvents';
 import { useEvent } from '@/hooks/useEvents';
 import { useAuthStore } from '@/stores/authStore';
 import { eventTokens, computeSlotsLeft } from '@/lib/eventTokens';
+import { openRazorpayCheckout } from '@/lib/razorpayCheckout';
+
+async function pollUntilConfirmed(eventId: string, qc: QueryClient): Promise<boolean> {
+  for (let i = 0; i < 5; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    await qc.invalidateQueries({ queryKey: ['myRegistration', eventId] });
+    const cached = qc.getQueriesData<any>({ queryKey: ['myRegistration', eventId] });
+    const data = cached?.[0]?.[1];
+    if (data?.paymentStatus === 'completed') return true;
+    if (data?.paymentStatus === 'failed') return false;
+  }
+  return false; // timed out — webhook may still arrive after we close
+}
 
 interface Props {
   eventId: string;
@@ -43,7 +58,9 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
 
   const [submitted, setSubmitted] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [paymentInFlight, setPaymentInFlight] = useState(false);
   const mutation = useRegisterForEvent(eventId);
+  const queryClient = useQueryClient();
 
   // Pre-fill from auth user on open
   useEffect(() => {
@@ -98,7 +115,7 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
     setValidationError(null);
 
     try {
-      await mutation.mutateAsync({
+      const registerResp = await mutation.mutateAsync({
         visibility: showPublic ? 'public' : 'private',
         attendeeName: name.trim(),
         attendeePhone: phone.trim(),
@@ -107,11 +124,47 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
         guestNames: guestNames.map((g) => g.trim()).filter(Boolean),
         notes: notes.trim() || undefined,
       });
-      setSubmitted(true);
-      setTimeout(() => {
-        setSubmitted(false);
-        onClose();
-      }, 1400);
+
+      // FREE — done.
+      if (!registerResp.paymentRequired) {
+        setSubmitted(true);
+        setTimeout(() => {
+          setSubmitted(false);
+          onClose();
+        }, 1400);
+        return;
+      }
+
+      // PAID — open Razorpay checkout
+      setPaymentInFlight(true);
+      try {
+        await openRazorpayCheckout({
+          key_id: registerResp.key_id!,
+          order_id: registerResp.order_id!,
+          amount: registerResp.amount!,
+          currency: registerResp.currency!,
+          eventTitle: event?.title ?? 'Event',
+          prefill: registerResp.prefill ?? { name: name, email, contact: phone },
+        });
+
+        // Razorpay returned success — webhook will eventually flip status to confirmed.
+        // Poll /registrations/me for up to 15s.
+        await pollUntilConfirmed(eventId, queryClient);
+
+        setSubmitted(true);
+        setTimeout(() => {
+          setSubmitted(false);
+          onClose();
+        }, 1400);
+      } catch (rzpErr: any) {
+        // User cancelled or payment failed
+        const desc = rzpErr?.description ?? rzpErr?.message ?? 'Payment cancelled.';
+        setValidationError(
+          `${desc} Your seat hold expires in 15 minutes if not retried.`,
+        );
+      } finally {
+        setPaymentInFlight(false);
+      }
     } catch {
       // mutation.isError shows below
     }
@@ -315,8 +368,8 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                       </Text>
                     </View>
                     <Text className="font-outfit text-event-textMuted text-[10px]">
-                      Payment processing rolls out shortly. Until then, paid registrations
-                      are accepted but you won't be charged.
+                      Razorpay secure checkout · UPI · cards · netbanking. We confirm via
+                      push + email after payment captures.
                     </Text>
                   </View>
                 ) : null}
@@ -337,10 +390,12 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                 {/* CTA */}
                 <Pressable
                   onPress={onConfirm}
-                  disabled={mutation.isPending}
-                  className={`rounded-2xl py-4 items-center ${mutation.isPending ? 'bg-event-surface' : 'bg-event-brand'}`}
+                  disabled={mutation.isPending || paymentInFlight}
+                  className={`rounded-2xl py-4 items-center ${
+                    mutation.isPending || paymentInFlight ? 'bg-event-surface' : 'bg-event-brand'
+                  }`}
                 >
-                  {mutation.isPending ? (
+                  {mutation.isPending || paymentInFlight ? (
                     <ActivityIndicator color={eventTokens.textPrimary} />
                   ) : (
                     <Text className="font-outfit font-bold text-white text-base">

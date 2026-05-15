@@ -65,6 +65,19 @@ export interface RegisterPayload {
   notes?: string;
 }
 
+export interface RegisterResponse {
+  ok: true;
+  visibility: 'public' | 'private';
+  attendeeCount: number;
+  paymentRequired: boolean;
+  // Present when paymentRequired === true:
+  order_id?: string;
+  amount?: number;            // paise
+  currency?: string;
+  key_id?: string;
+  prefill?: { name?: string; email?: string; contact?: string };
+}
+
 export interface EventListParams {
   topicTag?: string;
   city?: string;
@@ -107,7 +120,7 @@ export const eventService = {
   register: async (
     eventId: string,
     payload: RegisterPayload,
-  ): Promise<{ ok: true; visibility: string; attendeeCount: number }> => {
+  ): Promise<RegisterResponse> => {
     const r = await client.post(`/api/events/${eventId}/register`, payload);
     return r.data.data;
   },

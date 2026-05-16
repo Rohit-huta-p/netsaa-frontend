@@ -15,8 +15,9 @@
  *
  * Data: useCityPulse(city) once backend ships. Static content for v1.
  */
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, AccessibilityInfo } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 
 interface DispatchEntry {
   id: string;
@@ -61,6 +62,14 @@ export default function DispatchSection({
   ageHint = '1H AGO',
   entries = DEFAULT,
 }: Props) {
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => sub.remove();
+  }, []);
+
   return (
     <View style={styles.section}>
       <View style={styles.headRow}>
@@ -69,16 +78,26 @@ export default function DispatchSection({
       </View>
       <Text style={styles.eyebrow}>Three things shifting in your city this week.</Text>
 
-      {entries.map((e, i) => (
-        <View key={e.id} style={[styles.entry, i === entries.length - 1 && styles.entryLast]}>
-          <Text style={styles.numeral}>{e.numeral}</Text>
-          <View style={styles.entryBody}>
-            <Text style={styles.tag}>{e.tag.toUpperCase()}</Text>
-            <Text style={styles.title}>{e.title}</Text>
-            <Text style={styles.body}>{e.body}</Text>
-          </View>
-        </View>
-      ))}
+      {entries.map((e, i) => {
+        const Container = reduceMotion ? View : Animated.View;
+        const entering = reduceMotion
+          ? undefined
+          : FadeInUp.delay(120 + i * 140).duration(700);
+        return (
+          <Container
+            key={e.id}
+            style={[styles.entry, i === entries.length - 1 && styles.entryLast]}
+            entering={entering as any}
+          >
+            <Text style={styles.numeral}>{e.numeral}</Text>
+            <View style={styles.entryBody}>
+              <Text style={styles.tag}>{e.tag.toUpperCase()}</Text>
+              <Text style={styles.title}>{e.title}</Text>
+              <Text style={styles.body}>{e.body}</Text>
+            </View>
+          </Container>
+        );
+      })}
     </View>
   );
 }
@@ -87,7 +106,7 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 40 },
   headRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   h2: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, letterSpacing: -0.8, color: '#F3EFE8' },
-  mono: { fontSize: 10, color: '#6B6878', fontFamily: 'Outfit_500Medium', letterSpacing: 1.5 },
+  mono: { fontSize: 10, color: '#6B6878', fontFamily: 'Outfit-Medium', letterSpacing: 1.5 },
   eyebrow: {
     fontFamily: 'DMSerifDisplay_400Regular', fontStyle: 'italic',
     fontSize: 12, color: '#6B6878', marginTop: 4, marginBottom: 20,
@@ -105,7 +124,7 @@ const styles = StyleSheet.create({
     fontSize: 22, color: '#3F3D4A', lineHeight: 24,
   },
   entryBody: { flex: 1 },
-  tag: { fontSize: 9, color: '#6B6878', fontFamily: 'Outfit_700Bold', letterSpacing: 2, marginBottom: 8 },
+  tag: { fontSize: 9, color: '#6B6878', fontFamily: 'Outfit-Bold', letterSpacing: 2, marginBottom: 8 },
   title: {
     fontFamily: 'DMSerifDisplay_400Regular',
     fontSize: 18, lineHeight: 21, letterSpacing: -0.3,

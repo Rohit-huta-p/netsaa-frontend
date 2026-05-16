@@ -18,6 +18,7 @@ import { queryKeys } from '../../../src/constants/queryKeys';
 // Old import retained commented for fast revert during the redesign rollout.
 // import HeroGreetingHirer from '../../../src/components/dashboard/hirer/HeroGreetingHirer';
 import EditorialHeroHirer from '../../../src/components/dashboard/hirer/EditorialHeroHirer';
+import DispatchSection from '../../../src/components/dashboard/hirer/DispatchSection';
 // CONTRACTS-DISABLED: NextUpCardHirer + ContractsYouSentStrip pull from
 // the contracts collection which we no longer write to. Imports retained
 // for fast revert when the contract artifact is restored.
@@ -114,6 +115,10 @@ export default function HirerHome() {
         />
 
         <MessagesPreview />
+
+        {/* Dispatch — editorial city pulse, plan §6.7. Static content for v1
+            until useCityPulse(city) hook ships. */}
+        <DispatchSection />
       </ScrollView>
 
       <ScreenTooltip

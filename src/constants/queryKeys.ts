@@ -69,5 +69,12 @@ export const queryKeys = {
 
     hiredArtists: () => ['hirer', 'hiredArtists'] as const,
     contracts: () => ['hirer', 'contracts'] as const,
+
+    // Organizer-posted events (hirer home "Your posts" section).
+    // Same prefix-match pattern as postedGigs / applicants.
+    events: (filter?: string) =>
+      (filter && filter.length > 0
+        ? (['hirer', 'events', 'byFilter', filter] as const)
+        : (['hirer', 'events'] as const)),
   },
 } as const;

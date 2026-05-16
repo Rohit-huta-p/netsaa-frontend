@@ -1,20 +1,17 @@
 /**
- * YourPostsSection — evolves PostedGigsSection into the editorial card layout.
+ * YourPostsSection — editorial card layout for the hirer home "Your posts" feed.
  *
  * Design source: DOCS/designs/hirer-home-v1.html (Your posts section).
  * Plan: DOCS/NETSA_Hirer_Home_RN_Translation.md §6.4.
+ * Architecture plan: ~/.gstack/projects/NETSA-React/ceo-plans/2026-05-16-your-posts-redesign.md.
  *
- * Uses the same data source (usePostedGigs + POSTED_GIGS_FILTERS) so the
- * underlying contract is unchanged. New presentation only:
- *   - Section header + italic eyebrow ("X postings, alive in the world.")
- *   - Tab row (Draft / Live / Closed) instead of chip carousel
- *   - Card rows: pill + category micro + price (right) + serif title +
- *     date + footer with applicants/views + Open → button
- *   - Reanimated FadeInUp stagger on each card
+ * Now reads from useOrganizerPosts, which fans out parallel queries to
+ * gigService.getOrganizerGigs and eventService.getOrganizerEvents,
+ * normalizes both into PostRow[], and slices the top 5 by createdAt DESC.
  *
- * Price + date pulled from the real Gig type when present; rendered as
- * em-dash placeholders when missing (mirrors the empty-state HTML
- * treatment for fields the backend hasn't shipped yet).
+ * The pill color discriminates gig (orange) from event (purple). Tap routes
+ * to the appropriate detail screen. Per-source error pill renders above the
+ * card list when one source fails — the other source still renders cards.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -26,60 +23,18 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { usePostedGigs } from '@/hooks/usePostedGigs';
 import {
-  POSTED_GIGS_FILTERS,
-  type PostedGigFilter,
-} from '@/constants/postedGigsStatus';
+  useOrganizerPosts,
+  type PostRow,
+} from '@/hooks/useOrganizerPosts';
 
-interface GigRow {
-  _id?: string;
-  id?: string;
-  title?: string;
-  status?: string;
-  category?: string;
-  stats?: { applicationsCount?: number; viewsCount?: number };
-  createdAt?: string;
-  /** Best-effort price fields — backend may use different names. */
-  price?: number | { amount?: number; currency?: string };
-  budget?: number;
-  /** Best-effort date fields. */
-  startsAt?: string;
-  gigDate?: string;
-  dates?: { start?: string };
-}
+type TabKey = 'active' | 'draft' | 'past';
 
-function unwrapGigs(data: any): GigRow[] {
-  if (!data) return [];
-  if (Array.isArray(data.gigs)) return data.gigs;
-  if (Array.isArray(data?.data?.gigs)) return data.data.gigs;
-  if (Array.isArray(data)) return data;
-  return [];
-}
-
-function readPrice(g: GigRow): string {
-  if (typeof g.price === 'number') return `₹${g.price.toLocaleString('en-IN')}`;
-  if (g.price && typeof g.price === 'object' && typeof g.price.amount === 'number') {
-    return `₹${g.price.amount.toLocaleString('en-IN')}`;
-  }
-  if (typeof g.budget === 'number') return `₹${g.budget.toLocaleString('en-IN')}`;
-  return '—';
-}
-
-function readDate(g: GigRow): string {
-  const raw = g.startsAt ?? g.gigDate ?? g.dates?.start ?? g.createdAt;
-  if (!raw) return '—';
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
-}
-
-function readCategory(g: GigRow): string {
-  if (typeof g.category === 'string' && g.category.length > 0) {
-    return g.category.replace(/_/g, ' ');
-  }
-  return 'General';
-}
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'active', label: 'Active' },
+  { key: 'draft', label: 'Drafts' },
+  { key: 'past', label: 'Past' },
+];
 
 function eyebrowForCount(n: number): string {
   if (n === 0) return 'Your stage is open. What do you want to bring to it?';
@@ -95,12 +50,28 @@ function eyebrowForCount(n: number): string {
   return `${n} postings, alive in the world.`;
 }
 
-export default function YourPostsSection() {
-  const [selected, setSelected] = useState<PostedGigFilter>(
-    // Default to Live so the user sees their active posts on landing.
-    POSTED_GIGS_FILTERS.find((f) => f.backendStatus === 'published') ??
-      POSTED_GIGS_FILTERS[0]
+function metaLineForRow(row: PostRow): React.ReactNode {
+  if (row.kind === 'event' && row.seats) {
+    const { taken, total } = row.seats;
+    return (
+      <Text style={styles.statText}>
+        <Text style={styles.statText}>{taken} / {total}</Text>
+        <Text style={styles.statTextMuted}> seats</Text>
+      </Text>
+    );
+  }
+  const applicants = row.applicants ?? 0;
+  const views = row.views ?? 0;
+  return (
+    <Text style={styles.statText}>
+      <Text style={styles.statText}>{applicants} {applicants === 1 ? 'applicant' : 'applicants'}</Text>
+      <Text style={styles.statTextMuted}> · {views} {views === 1 ? 'view' : 'views'}</Text>
+    </Text>
   );
+}
+
+export default function YourPostsSection() {
+  const [tab, setTab] = useState<TabKey>('active');
   const router = useRouter();
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -110,9 +81,11 @@ export default function YourPostsSection() {
     return () => sub.remove();
   }, []);
 
-  const { data, isLoading, error, refetch } = usePostedGigs(selected.backendStatus, 5);
-  const gigs = useMemo(() => unwrapGigs(data), [data]);
-  const eyebrow = eyebrowForCount(gigs.length);
+  const { items, totalCount, isLoading, sourceErrors, refetch } = useOrganizerPosts(tab, 5);
+
+  const eyebrow = useMemo(() => eyebrowForCount(items.length), [items.length]);
+  const bothFailed = sourceErrors.gigs && sourceErrors.events;
+  const partialFailure = (sourceErrors.gigs || sourceErrors.events) && !bothFailed;
 
   return (
     <View style={styles.section}>
@@ -129,79 +102,82 @@ export default function YourPostsSection() {
       <Text style={styles.eyebrow}>{eyebrow}</Text>
 
       <View style={styles.tabs} accessibilityRole="tablist" accessibilityLabel="Post status filter">
-        {POSTED_GIGS_FILTERS.map((f) => {
-          const active = f.backendStatus === selected.backendStatus;
+        {TABS.map((t) => {
+          const active = t.key === tab;
           return (
             <Pressable
-              key={f.backendStatus}
-              onPress={() => setSelected(f)}
+              key={t.key}
+              onPress={() => setTab(t.key)}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               style={[styles.tab, active && styles.tabActive]}
               hitSlop={6}
             >
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                {f.label}
-              </Text>
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>{t.label}</Text>
             </Pressable>
           );
         })}
       </View>
 
+      {partialFailure && (
+        <View style={styles.partialBanner}>
+          <Text style={styles.partialBannerText}>
+            Couldn't load {sourceErrors.gigs ? 'gigs' : 'events'}.{' '}
+            <Text style={styles.partialBannerLink} onPress={() => refetch()}>Retry</Text>
+          </Text>
+        </View>
+      )}
+
       {isLoading ? (
         <View style={styles.cardSkeleton} accessibilityElementsHidden />
-      ) : error ? (
+      ) : bothFailed ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>Couldn't load your posts.</Text>
           <Pressable onPress={() => refetch()} accessibilityRole="button">
             <Text style={styles.errorRetry}>Retry</Text>
           </Pressable>
         </View>
-      ) : gigs.length === 0 ? (
+      ) : items.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No {selected.label.toLowerCase()} posts</Text>
+          <Text style={styles.emptyTitle}>No {TABS.find((t) => t.key === tab)?.label.toLowerCase()} posts</Text>
           <Text style={styles.emptyBody}>
-            {selected.backendStatus === 'draft'
-              ? 'Drafts you save while composing a gig land here.'
-              : selected.backendStatus === 'closed'
-              ? 'Closed gigs move here when applications stop.'
-              : 'Post a gig to start receiving applicants.'}
+            {tab === 'draft'
+              ? 'Drafts you save while composing land here.'
+              : tab === 'past'
+              ? 'Posts move here once closed or completed.'
+              : 'Post a gig or host an event to start receiving applicants and RSVPs.'}
           </Text>
         </View>
       ) : (
-        gigs.map((g, i) => {
-          const id = g._id ?? g.id ?? `row-${i}`;
+        items.map((row, i) => {
           const Card = reduceMotion ? View : Animated.View;
           const entering = reduceMotion ? undefined : FadeInUp.delay(80 + i * 60).duration(600);
-          const title = g.title ?? 'Untitled gig';
-          const applicants = g.stats?.applicationsCount ?? 0;
-          const views = g.stats?.viewsCount ?? 0;
+          const isEvent = row.kind === 'event';
           return (
             <Pressable
-              key={id}
-              onPress={() => router.push({ pathname: '/(app)/gigs/[id]', params: { id } })}
+              key={row.id}
+              onPress={() => router.push(row.href as any)}
               accessibilityRole="button"
-              accessibilityLabel={`Open post ${title}`}
+              accessibilityLabel={`Open ${row.kind} ${row.title}`}
             >
               <Card style={styles.card} entering={entering as any}>
                 <View style={styles.cardHead}>
                   <View style={styles.pillRow}>
-                    <View style={styles.pillGig}>
-                      <Text style={styles.pillGigText}>GIG</Text>
+                    <View style={[styles.pill, isEvent ? styles.pillEvent : styles.pillGig]}>
+                      <Text style={[styles.pillText, isEvent ? styles.pillTextEvent : styles.pillTextGig]}>
+                        {isEvent ? 'EVENT' : 'GIG'}
+                      </Text>
                     </View>
-                    <Text style={styles.micro}>{readCategory(g).toUpperCase()}</Text>
+                    {row.category ? (
+                      <Text style={styles.micro}>{row.category.toUpperCase()}</Text>
+                    ) : null}
                   </View>
-                  <Text style={styles.price}>{readPrice(g)}</Text>
+                  <Text style={styles.price}>{row.price}</Text>
                 </View>
-                <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
-                <Text style={styles.cardDate}>Pune · {readDate(g)}</Text>
+                <Text style={styles.cardTitle} numberOfLines={1}>{row.title}</Text>
+                <Text style={styles.cardDate}>{row.date === '—' ? '' : `Pune · ${row.date}`}</Text>
                 <View style={styles.cardFoot}>
-                  <View style={styles.cardFootLeft}>
-                    <Text style={styles.statText}>
-                      {applicants} {applicants === 1 ? 'applicant' : 'applicants'}
-                    </Text>
-                    <Text style={styles.statTextMuted}> · {views} {views === 1 ? 'view' : 'views'}</Text>
-                  </View>
+                  <View style={styles.cardFootLeft}>{metaLineForRow(row)}</View>
                   <Text style={styles.openLink}>Open →</Text>
                 </View>
               </Card>
@@ -235,15 +211,20 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(243,239,232,0.05)',
     marginBottom: 16,
   },
-  tab: {
-    paddingTop: 8,
-    paddingBottom: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
+  tab: { paddingTop: 8, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: '#FF6B35' },
   tabText: { fontFamily: 'Outfit-Medium', fontSize: 14, color: '#6B6878' },
   tabTextActive: { fontFamily: 'Outfit-SemiBold', color: '#F3EFE8' },
+
+  partialBanner: {
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  partialBannerText: { color: '#F59E0B', fontSize: 12 },
+  partialBannerLink: { fontFamily: 'Outfit-Bold' },
 
   card: {
     backgroundColor: '#0D0B12',
@@ -260,40 +241,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pillRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  pillGig: {
-    backgroundColor: 'rgba(255,107,53,0.12)',
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  pillGigText: {
-    color: '#FF6B35',
-    fontFamily: 'Outfit-Bold',
-    fontSize: 9,
-    letterSpacing: 1,
-  },
-  micro: {
-    fontSize: 9,
-    letterSpacing: 1.6,
-    fontFamily: 'Outfit-Bold',
-    color: '#6B6878',
-  },
-  price: {
-    fontFamily: 'SpaceMono-Bold',
-    fontSize: 11,
-    color: '#F59E0B',
-  },
+  pill: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
+  pillGig: { backgroundColor: 'rgba(255,107,53,0.12)' },
+  pillEvent: { backgroundColor: 'rgba(139,92,246,0.12)' },
+  pillText: { fontFamily: 'Outfit-Bold', fontSize: 9, letterSpacing: 1 },
+  pillTextGig: { color: '#FF6B35' },
+  pillTextEvent: { color: '#8B5CF6' },
+  micro: { fontSize: 9, letterSpacing: 1.6, fontFamily: 'Outfit-Bold', color: '#6B6878' },
+  price: { fontFamily: 'SpaceMono-Bold', fontSize: 11, color: '#F59E0B' },
   cardTitle: {
     fontFamily: 'Outfit-SemiBold',
     fontSize: 15,
     color: '#F3EFE8',
     lineHeight: 20,
   },
-  cardDate: {
-    fontSize: 12,
-    color: '#B8B1A6',
-    marginTop: 4,
-  },
+  cardDate: { fontSize: 12, color: '#B8B1A6', marginTop: 4, minHeight: 14 },
   cardFoot: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -305,18 +267,11 @@ const styles = StyleSheet.create({
   },
   cardFootLeft: { flexDirection: 'row', alignItems: 'center' },
   statText: { fontSize: 12, fontFamily: 'Outfit-SemiBold', color: '#F3EFE8' },
-  statTextMuted: { fontSize: 12, color: '#B8B1A6' },
+  statTextMuted: { fontSize: 12, color: '#B8B1A6', fontFamily: 'Outfit-Regular' },
   openLink: { color: '#FF6B35', fontFamily: 'Outfit-Bold', fontSize: 12 },
 
-  cardSkeleton: {
-    height: 120,
-    borderRadius: 14,
-    backgroundColor: '#0D0B12',
-  },
-  errorBox: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
+  cardSkeleton: { height: 120, borderRadius: 14, backgroundColor: '#0D0B12' },
+  errorBox: { paddingVertical: 16, alignItems: 'center' },
   errorText: { color: '#B8B1A6', fontSize: 13, marginBottom: 4 },
   errorRetry: { color: '#FF6B35', fontFamily: 'Outfit-Bold', fontSize: 12 },
 
@@ -336,11 +291,5 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
     marginBottom: 6,
   },
-  emptyBody: {
-    fontSize: 12,
-    color: '#B8B1A6',
-    textAlign: 'center',
-    lineHeight: 18,
-    maxWidth: 280,
-  },
+  emptyBody: { fontSize: 12, color: '#B8B1A6', textAlign: 'center', lineHeight: 18, maxWidth: 280 },
 });

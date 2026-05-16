@@ -139,4 +139,38 @@ export const eventService = {
     const r = await client.post('/v1/admin/events/tags/submit', { rawInput });
     return r.data.data;
   },
+
+  /**
+   * Hirer dashboard "Your posts" section — events the current organizer has posted.
+   *
+   * Endpoint: GET /v1/organizers/me/events (events.routes.ts:28 → events.ts:79).
+   * The events controller still reads organizerId from req.query (TODO in source
+   * targets req.user._id migration, filed as TODOS P3.2). Until that lands the
+   * frontend passes organizerId explicitly so the call works against any
+   * backend version (stale dist + fresh source both accept the param).
+   *
+   * Response shape (per events.ts:84-89):
+   *   { meta: { status, message, total }, data: EventDoc[], errors: [] }
+   *
+   * Filter mapping (events status enum: draft | pending_review | live | cancelled | completed):
+   *   Draft  → status='draft'
+   *   Live   → status='live'
+   *   Closed → status='completed' OR status='cancelled' (caller decides)
+   *
+   * Backend currently returns ALL events regardless of status filter — the
+   * status query param exists in the request but the controller ignores it.
+   * Caller is responsible for client-side filtering until backend honors it.
+   */
+  getOrganizerEvents: async (params: {
+    organizerId: string;
+    status?: 'draft' | 'pending_review' | 'live' | 'cancelled' | 'completed';
+    limit?: number;
+  }): Promise<EventDoc[]> => {
+    const r = await client.get('/v1/organizers/me/events', { params });
+    // Backend returns data as the array directly (not wrapped in { events }).
+    const data = r.data?.data;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.events)) return data.events;
+    return [];
+  },
 };

@@ -19,6 +19,7 @@ import { useEvent } from '@/hooks/useEvents';
 import { useAuthStore } from '@/stores/authStore';
 import { eventTokens, computeSlotsLeft } from '@/lib/eventTokens';
 import { openRazorpayCheckout } from '@/lib/razorpayCheckout';
+import { eventService } from '@/services/eventService';
 
 async function pollUntilConfirmed(eventId: string, qc: QueryClient): Promise<boolean> {
   for (let i = 0; i < 5; i++) {
@@ -157,11 +158,20 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
           onClose();
         }, 1400);
       } catch (rzpErr: any) {
-        // User cancelled or payment failed
+        // User cancelled or payment failed. Clean up the pending_payment row
+        // server-side so the seat is released immediately and the CTA flips
+        // back to "Register" — otherwise the row sits in pending_payment until
+        // the stale-pending cron sweeps it 15min later.
+        try {
+          await eventService.cancelMyRegistration(eventId);
+        } catch {
+          // best-effort cleanup; stale-pending cron is the backstop
+        }
+        await queryClient.invalidateQueries({ queryKey: ['myRegistration', eventId] });
+        await queryClient.invalidateQueries({ queryKey: ['events', 'detail', eventId] });
+
         const desc = rzpErr?.description ?? rzpErr?.message ?? 'Payment cancelled.';
-        setValidationError(
-          `${desc} Your seat hold expires in 15 minutes if not retried.`,
-        );
+        setValidationError(`${desc} Your seat has been released.`);
       } finally {
         setPaymentInFlight(false);
       }

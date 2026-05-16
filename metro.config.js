@@ -8,4 +8,9 @@ const config = getDefaultConfig(__dirname, {
     isCSSEnabled: true,
 });
 
+// Add 'web' so Metro resolves *.web.ts/tsx variants when bundling for browser.
+// Without this, web bundle picks the native variant — breaks libs like
+// react-native-razorpay that have no web implementation.
+config.resolver.platforms = ['ios', 'android', 'web'];
+
 module.exports = withNativeWind(config, { input: "./global.css" });

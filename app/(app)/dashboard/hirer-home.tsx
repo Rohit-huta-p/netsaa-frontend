@@ -14,7 +14,10 @@ import ScreenTooltip from '../../../src/components/mode/ScreenTooltip';
 
 import { queryKeys } from '../../../src/constants/queryKeys';
 
-import HeroGreetingHirer from '../../../src/components/dashboard/hirer/HeroGreetingHirer';
+// HeroGreetingHirer replaced by EditorialHeroHirer (plan §6.1, §7 step 2).
+// Old import retained commented for fast revert during the redesign rollout.
+// import HeroGreetingHirer from '../../../src/components/dashboard/hirer/HeroGreetingHirer';
+import EditorialHeroHirer from '../../../src/components/dashboard/hirer/EditorialHeroHirer';
 // CONTRACTS-DISABLED: NextUpCardHirer + ContractsYouSentStrip pull from
 // the contracts collection which we no longer write to. Imports retained
 // for fast revert when the contract artifact is restored.
@@ -77,7 +80,7 @@ export default function HirerHome() {
             when total=0. Both suppress their own empty chrome so layout
             stays tight. */}
 
-        <HeroGreetingHirer />
+        <EditorialHeroHirer />
 
         {/* CONTRACTS-DISABLED: NextUpCardHirer + ContractsYouSentStrip hidden
             until contract artifact restored. */}

@@ -32,6 +32,10 @@ import {
     SourceSans3_800ExtraBold,
     SourceSans3_900Black,
 } from '@expo-google-fonts/source-sans-3';
+import {
+    SpaceMono_400Regular,
+    SpaceMono_700Bold,
+} from '@expo-google-fonts/space-mono';
 
 import Navbar from "../src/components/Navbar";
 import Footer from "../src/components/Footer";
@@ -81,6 +85,10 @@ export default function RootLayout() {
         'SourceSans3-Bold': SourceSans3_700Bold,
         'SourceSans3-ExtraBold': SourceSans3_800ExtraBold,
         'SourceSans3-Black': SourceSans3_900Black,
+
+        // Space Mono (numeric stamps + micro labels on hirer home)
+        'SpaceMono-Regular': SpaceMono_400Regular,
+        'SpaceMono-Bold': SpaceMono_700Bold,
     });
 
     useEffect(() => {

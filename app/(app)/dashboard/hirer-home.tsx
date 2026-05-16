@@ -29,13 +29,16 @@ import TrustAnchorCard from '../../../src/components/dashboard/hirer/TrustAnchor
 // Old import retained commented for fast revert during rollout.
 // import PostedGigsSection from '../../../src/components/dashboard/hirer/PostedGigsSection';
 import YourPostsSection from '../../../src/components/dashboard/hirer/YourPostsSection';
-import ApplicantsInbox from '../../../src/components/dashboard/hirer/ApplicantsInbox';
+// ApplicantsInbox + PaymentsStrip consolidated into ActionQueueTile on the
+// hirer home (plan §6.3). Old imports retained commented for fast revert.
+// import ApplicantsInbox from '../../../src/components/dashboard/hirer/ApplicantsInbox';
+import ActionQueueTile from '../../../src/components/dashboard/hirer/ActionQueueTile';
 // Apr 30: HiredArtistsSection removed from hirer home — team management
 // lives on the per-gig Hub now (Your team section). Import retained for
 // fast revert.
 // import HiredArtistsSection from '../../../src/components/dashboard/hirer/HiredArtistsSection';
 // import ContractsYouSentStrip from '../../../src/components/dashboard/hirer/ContractsYouSentStrip';
-import PaymentsStrip from '../../../src/components/dashboard/hirer/PaymentsStrip';
+// import PaymentsStrip from '../../../src/components/dashboard/hirer/PaymentsStrip';
 // TrustTierProgress replaced by TrustAnchorCard on the hirer home only.
 // Artist home still uses TrustTierProgress directly; this import retained
 // commented for fast revert during the redesign rollout.
@@ -97,13 +100,13 @@ export default function HirerHome() {
 
         <YourPostsSection />
 
-        <ApplicantsInbox />
+        <ActionQueueTile />
 
         {/* Apr 30: <HiredArtistsSection /> removed — team is per-gig on the Hub now. */}
-
         {/* <ContractsYouSentStrip /> */}
-
-        <PaymentsStrip />
+        {/* PaymentsStrip moved into ActionQueueTile (balance_due + refund_decision
+            categories) once payment hooks ship. Stub PaymentsStrip currently
+            renders nothing visible. */}
 
         <TrustAnchorCard />
 

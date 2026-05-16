@@ -4,57 +4,36 @@
  * Design source: DOCS/designs/hirer-home-v1.html (Today / Action queue section).
  * Plan: DOCS/NETSA_Hirer_Home_RN_Translation.md §6.3.
  *
- * Consolidates these existing surfaces into a single priority-sorted list:
- *   - ApplicantsInbox (new applicants)
- *   - PaymentsStrip (balance due, refund decisions)
- *   - (future) booking confirmations, venue changes, sub-artist payments, messages
+ * Consolidates these surfaces into one priority-sorted tile:
+ *   - ApplicantsInbox (new applicants) — live via useActionQueue
+ *   - PaymentsStrip (balance due, refund decisions) — stubbed, returns when
+ *     payment hooks ship (PAYMENTS-DISABLED on PaymentsStrip today)
+ *   - Future categories (booking confirm, venue change, etc.) — empty until
+ *     their backends ship per §6.3
  *
- * Categories with color coding:
- *   - applicants_new       → red (urgent)
- *   - booking_confirm      → gold
- *   - balance_due          → gold
- *   - refund_decision      → purple
- *   - venue_change         → gold
- *   - subartist_payment    → gold
- *   - message_pending      → purple
- *
- * Empty state: dashed-border tile with green check + "All clear" + "Post your first gig" CTA.
- *
- * TODO §6.3 — build unified useActionQueue() hook that aggregates the categories
- * and returns sorted, typed actions.
+ * Categories with color coding match the finalized HTML mock:
+ *   applicants_new       → red (urgent)
+ *   booking_confirm      → gold
+ *   balance_due          → gold
+ *   refund_decision      → purple
+ *   venue_change         → gold
+ *   subartist_payment    → gold
+ *   message_pending      → purple
  */
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  AccessibilityInfo,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-// TODO §4: import Animated for live-dot pulse + reveal entry.
-
-type ActionCategory =
-  | 'applicants_new'
-  | 'booking_confirm'
-  | 'balance_due'
-  | 'refund_decision'
-  | 'venue_change'
-  | 'subartist_payment'
-  | 'message_pending';
-
-interface ActionItem {
-  id: string;
-  category: ActionCategory;
-  title: string;       // "5 new applicants · Bharatanatyam"
-  subtitle: string;    // "Pune wedding · Dec 4 · ₹35K"
-  /** Route to navigate when pressed. Use Expo Router href shape. */
-  href: string;
-  /** Optional overdue / urgency flag. */
-  overdue?: boolean;
-}
-
-interface Props {
-  items?: ActionItem[];
-  totalCount?: number;
-  /** Max items to render before showing "See N more →". */
-  displayLimit?: number;
-  isLoading?: boolean;
-}
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import {
+  useActionQueue,
+  type ActionCategory,
+} from '@/hooks/useActionQueue';
 
 const CATEGORY_COLOR: Record<ActionCategory, { tint: string; bg: string; chevron: string }> = {
   applicants_new:    { tint: '#EF4444', bg: 'rgba(239,68,68,0.12)',  chevron: '#FF6B35' },
@@ -66,50 +45,57 @@ const CATEGORY_COLOR: Record<ActionCategory, { tint: string; bg: string; chevron
   message_pending:   { tint: '#8B5CF6', bg: 'rgba(139,92,246,0.12)', chevron: '#8B5CF6' },
 };
 
-export default function ActionQueueTile({
-  items = [],
-  totalCount,
-  displayLimit = 4,
-  isLoading,
-}: Props) {
+interface Props {
+  /** Max items to render before showing "See N more →". Default 4. */
+  displayLimit?: number;
+}
+
+export default function ActionQueueTile({ displayLimit = 4 }: Props) {
   const router = useRouter();
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const { items, totalCount, isLoading } = useActionQueue(displayLimit);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => sub.remove();
+  }, []);
 
   if (isLoading) {
-    // TODO §8: skeleton matching the tile height (~280-360px depending on row count).
-    return <View style={styles.skeleton} />;
+    return <View style={styles.skeleton} accessibilityElementsHidden />;
   }
 
   if (!items.length) {
     return <EmptyAllClear />;
   }
 
-  const total = totalCount ?? items.length;
-  const visible = items.slice(0, displayLimit);
-  const moreCount = Math.max(0, total - visible.length);
+  const moreCount = Math.max(0, totalCount - items.length);
+
+  const Container = reduceMotion ? View : Animated.View;
+  const tileEntering = reduceMotion ? undefined : FadeInUp.delay(120).duration(700);
 
   return (
     <View style={styles.section}>
       <View style={styles.sectionHead}>
         <Text style={styles.h2}>Today</Text>
-        <Text style={styles.mono}>{String(total).padStart(2, '0')} · open</Text>
+        <Text style={styles.mono}>{String(totalCount).padStart(2, '0')} · open</Text>
       </View>
       <Text style={styles.eyebrow}>The matters you began. Each waiting on a decision only you can make.</Text>
 
-      <View style={styles.tile}>
+      <Container style={styles.tile} entering={tileEntering as any}>
         <View style={styles.tileHead}>
-          {/* TODO §4: animated pulse on dot (Animated.loop) */}
           <View style={styles.tileHeadLeft}>
             <View style={styles.liveDot} />
             <Text style={styles.tileLabel}>ACTION QUEUE</Text>
           </View>
           <View style={styles.pillUrgent}>
-            <Text style={styles.pillUrgentText}>{total} OPEN</Text>
+            <Text style={styles.pillUrgentText}>{totalCount} OPEN</Text>
           </View>
         </View>
 
-        {visible.map((item, idx) => {
+        {items.map((item, idx) => {
           const colors = CATEGORY_COLOR[item.category];
-          const isLast = idx === visible.length - 1 && moreCount === 0;
+          const isLast = idx === items.length - 1 && moreCount === 0;
           return (
             <Pressable
               key={item.id}
@@ -119,7 +105,6 @@ export default function ActionQueueTile({
               accessibilityLabel={`${item.title}. ${item.subtitle}`}
             >
               <View style={[styles.iconChip, { backgroundColor: colors.bg }]}>
-                {/* TODO §6.3: per-category icon SVG */}
                 <View style={[styles.iconDot, { backgroundColor: colors.tint }]} />
               </View>
               <View style={styles.rowText}>
@@ -130,12 +115,12 @@ export default function ActionQueueTile({
             </Pressable>
           );
         })}
-      </View>
+      </Container>
 
       {moreCount > 0 && (
         <Pressable
           style={styles.seeMore}
-          onPress={() => router.push('/dashboard/actions' as any)}
+          onPress={() => router.push('/gigs?mine=1&tab=applicants' as any)}
           accessibilityRole="button"
         >
           <Text style={styles.seeMoreText}>See {moreCount} more →</Text>
@@ -161,14 +146,14 @@ function EmptyAllClear() {
         </View>
         <Text style={styles.emptyTitle}>All clear</Text>
         <Text style={styles.emptyBody}>
-          Once you post a gig or event, applicant decisions, confirmations, and payment matters will surface here.
+          Once applicants land or a booking needs confirming, it'll surface here.
         </Text>
         <Pressable
           style={styles.emptyCta}
           onPress={() => router.push('/gigs/new' as any)}
           accessibilityRole="button"
         >
-          <Text style={styles.emptyCtaText}>+ Post your first gig</Text>
+          <Text style={styles.emptyCtaText}>+ Post a gig</Text>
         </Pressable>
       </View>
     </View>
@@ -179,7 +164,7 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: 24, paddingBottom: 32 },
   sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   h2: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, letterSpacing: -0.8, color: '#F3EFE8' },
-  mono: { fontSize: 10, color: '#6B6878', fontFamily: 'Outfit_500Medium', letterSpacing: 1.5 },
+  mono: { fontSize: 10, color: '#6B6878', fontFamily: 'Outfit-Medium', letterSpacing: 1.5 },
   eyebrow: {
     fontFamily: 'DMSerifDisplay_400Regular',
     fontStyle: 'italic',
@@ -198,7 +183,7 @@ const styles = StyleSheet.create({
   tileHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   tileHeadLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   liveDot: { width: 8, height: 8, borderRadius: 99, backgroundColor: '#EF4444' },
-  tileLabel: { fontSize: 13, fontWeight: '600', color: '#F3EFE8', letterSpacing: 0.3 },
+  tileLabel: { fontSize: 13, fontFamily: 'Outfit-SemiBold', color: '#F3EFE8', letterSpacing: 0.3 },
 
   pillUrgent: {
     backgroundColor: 'rgba(239,68,68,0.12)',
@@ -206,7 +191,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 999,
   },
-  pillUrgentText: { color: '#EF4444', fontSize: 9, fontWeight: '700', letterSpacing: 1 },
+  pillUrgentText: { color: '#EF4444', fontSize: 9, fontFamily: 'Outfit-Bold', letterSpacing: 1 },
 
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -215,11 +200,11 @@ const styles = StyleSheet.create({
   },
   rowLast: { borderBottomWidth: 0 },
   iconChip: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  iconDot: { width: 12, height: 12, borderRadius: 6 }, // TODO: real svg
+  iconDot: { width: 12, height: 12, borderRadius: 6 },
   rowText: { flex: 1, minWidth: 0 },
-  rowTitle: { fontSize: 14, fontWeight: '600', color: '#F3EFE8', lineHeight: 18 },
+  rowTitle: { fontSize: 14, fontFamily: 'Outfit-SemiBold', color: '#F3EFE8', lineHeight: 18 },
   rowSubtitle: { fontSize: 11, color: '#6B6878', marginTop: 2 },
-  chevron: { fontSize: 18, fontWeight: '700' },
+  chevron: { fontSize: 18, fontFamily: 'Outfit-Bold' },
 
   seeMore: {
     marginTop: 12, paddingVertical: 12, paddingHorizontal: 16,
@@ -227,7 +212,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(243,239,232,0.09)', borderWidth: 1, borderStyle: 'dashed',
     borderRadius: 14, alignItems: 'center',
   },
-  seeMoreText: { color: '#FF6B35', fontSize: 12, fontWeight: '700' },
+  seeMoreText: { color: '#FF6B35', fontSize: 12, fontFamily: 'Outfit-Bold' },
 
   emptyTile: {
     backgroundColor: '#11111A',
@@ -242,13 +227,19 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 16,
   },
-  emptyCheck: { color: '#22C55E', fontSize: 22, fontWeight: '700' },
+  emptyCheck: { color: '#22C55E', fontSize: 22, fontFamily: 'Outfit-Bold' },
   emptyTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: '#F3EFE8', letterSpacing: -0.5, marginBottom: 8 },
   emptyBody: { textAlign: 'center', fontSize: 12, color: '#B8B1A6', lineHeight: 18, maxWidth: 280, marginBottom: 20 },
   emptyCta: {
     backgroundColor: '#F3EFE8', paddingVertical: 12, paddingHorizontal: 18, borderRadius: 12,
   },
-  emptyCtaText: { color: '#0A0A0F', fontWeight: '800', fontSize: 12, letterSpacing: 0.3 },
+  emptyCtaText: { color: '#0A0A0F', fontFamily: 'Outfit-Bold', fontSize: 12, letterSpacing: 0.3 },
 
-  skeleton: { height: 320, marginHorizontal: 24, marginBottom: 32, borderRadius: 22, backgroundColor: '#0D0B12' },
+  skeleton: {
+    height: 320,
+    marginHorizontal: 24,
+    marginBottom: 32,
+    borderRadius: 22,
+    backgroundColor: '#0D0B12',
+  },
 });

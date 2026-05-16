@@ -11,9 +11,10 @@
  * Data source: useRecommendedArtists({ gigIds, cityFilter, limit }) — wired to Visibility Engine
  * once that ships (PRD §3). Stub with mocked entries for v1.
  */
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, AccessibilityInfo } from 'react-native';
 import { useRouter } from 'expo-router';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 
 type Trust = 'new' | 'rising' | 'trusted' | 'verified';
 
@@ -55,9 +56,19 @@ const MOCK: Artist[] = [
 
 export default function MatchForYourGigsStrip({ artists = MOCK, preview = false }: Props) {
   const router = useRouter();
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => sub.remove();
+  }, []);
+
+  const Container = reduceMotion ? View : Animated.View;
+  const entering = reduceMotion ? undefined : FadeInUp.delay(160).duration(700);
 
   return (
-    <View style={styles.tile}>
+    <Container style={styles.tile} entering={entering as any}>
       <View style={styles.head}>
         <View style={styles.headLeft}>
           {/* TODO: real star SVG icon */}
@@ -110,7 +121,7 @@ export default function MatchForYourGigsStrip({ artists = MOCK, preview = false 
           </Pressable>
         ))}
       </ScrollView>
-    </View>
+    </Container>
   );
 }
 
@@ -146,6 +157,6 @@ const styles = StyleSheet.create({
   trustRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   trustDot: { width: 5, height: 5, borderRadius: 99 },
   trustLabel: { fontSize: 9, color: '#6B6878' },
-  fitText: { fontFamily: 'Outfit_700Bold', fontSize: 10, color: '#FF6B35', marginTop: 2 },
-  fitTextPreview: { color: '#6B6878', fontFamily: 'Outfit_400Regular', fontWeight: '400' },
+  fitText: { fontFamily: 'Outfit-Bold', fontSize: 10, color: '#FF6B35', marginTop: 2 },
+  fitTextPreview: { color: '#6B6878', fontFamily: 'Outfit-Regular', fontWeight: '400' },
 });

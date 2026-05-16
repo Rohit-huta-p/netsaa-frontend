@@ -19,6 +19,7 @@ import { queryKeys } from '../../../src/constants/queryKeys';
 // import HeroGreetingHirer from '../../../src/components/dashboard/hirer/HeroGreetingHirer';
 import EditorialHeroHirer from '../../../src/components/dashboard/hirer/EditorialHeroHirer';
 import DispatchSection from '../../../src/components/dashboard/hirer/DispatchSection';
+import MatchForYourGigsStrip from '../../../src/components/dashboard/hirer/MatchForYourGigsStrip';
 // CONTRACTS-DISABLED: NextUpCardHirer + ContractsYouSentStrip pull from
 // the contracts collection which we no longer write to. Imports retained
 // for fast revert when the contract artifact is restored.
@@ -98,6 +99,13 @@ export default function HirerHome() {
         <PaymentsStrip />
 
         <TrustTierProgress />
+
+        {/* Match strip — plan §6.6. Mock data v1 until Visibility Engine ships
+            useRecommendedArtists. Will eventually live inside ByTheNumbersSection
+            (plan §6.5) but stands alone for now. */}
+        <View style={{ paddingHorizontal: 24, paddingBottom: 24 }}>
+          <MatchForYourGigsStrip />
+        </View>
 
         <PlaceholderCard
           title="Reviews given"

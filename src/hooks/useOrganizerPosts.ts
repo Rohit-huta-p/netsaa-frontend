@@ -75,14 +75,14 @@ function readGigPrice(g: any): string {
 }
 
 function readEventPrice(e: EventDoc): string {
-  // Free RSVP events have no price line. Paid tickets carry pricing.amount in paise (Razorpay convention).
+  // Free RSVP events have no price line.
   const pricing = (e as any).pricing;
   if (e.registrationMode === 'free_rsvp') return 'Free';
   if (pricing && typeof pricing.amount === 'number') {
-    // Backend stores in paise OR in rupees inconsistently across services — heuristic:
-    // amounts < 1000 are almost certainly rupees (₹500 ticket), larger values are paise (50000 = ₹500).
-    const inRupees = pricing.amount < 1000 ? pricing.amount : Math.round(pricing.amount / 100);
-    return `₹${inRupees.toLocaleString('en-IN')}`;
+    // events-service stores pricing.amount in RUPEES (see Event schema +
+    // razorpay.service.ts:createEventOrder which does the ×100 to paise
+    // at order-create time, not at storage time). Use as-is.
+    return `₹${pricing.amount.toLocaleString('en-IN')}`;
   }
   return '—';
 }

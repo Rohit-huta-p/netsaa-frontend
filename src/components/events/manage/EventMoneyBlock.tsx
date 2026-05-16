@@ -34,7 +34,10 @@ function formatRupees(amount: number): string {
 function readTicketAmountRupees(event: EventDoc): number {
   const pricing = (event as any).pricing;
   if (!pricing || typeof pricing.amount !== 'number') return 0;
-  return pricing.amount < 1000 ? pricing.amount : Math.round(pricing.amount / 100);
+  // events-service stores pricing.amount in rupees (see events-service
+  // Event schema + razorpay.service.ts:createEventOrder which does the
+  // ×100 conversion to paise at order-create time). Use the value as-is.
+  return pricing.amount;
 }
 
 interface Props {

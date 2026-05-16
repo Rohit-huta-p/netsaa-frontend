@@ -25,7 +25,10 @@ import TrustAnchorCard from '../../../src/components/dashboard/hirer/TrustAnchor
 // the contracts collection which we no longer write to. Imports retained
 // for fast revert when the contract artifact is restored.
 // import NextUpCardHirer from '../../../src/components/dashboard/hirer/NextUpCardHirer';
-import PostedGigsSection from '../../../src/components/dashboard/hirer/PostedGigsSection';
+// PostedGigsSection replaced by YourPostsSection on the hirer home.
+// Old import retained commented for fast revert during rollout.
+// import PostedGigsSection from '../../../src/components/dashboard/hirer/PostedGigsSection';
+import YourPostsSection from '../../../src/components/dashboard/hirer/YourPostsSection';
 import ApplicantsInbox from '../../../src/components/dashboard/hirer/ApplicantsInbox';
 // Apr 30: HiredArtistsSection removed from hirer home — team management
 // lives on the per-gig Hub now (Your team section). Import retained for
@@ -92,7 +95,7 @@ export default function HirerHome() {
             until contract artifact restored. */}
         {/* <NextUpCardHirer /> */}
 
-        <PostedGigsSection />
+        <YourPostsSection />
 
         <ApplicantsInbox />
 

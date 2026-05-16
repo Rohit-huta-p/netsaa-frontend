@@ -48,8 +48,19 @@ const gigService = {
         return res.data;
     },
 
-    getOrganizerGigs: async (params?: { status?: 'draft' | 'published' | 'closed'; limit?: number }): Promise<GigsListResponse> => {
-        // Backend resolves identity from req.user._id; no organizerId param needed.
+    getOrganizerGigs: async (params?: {
+        status?: 'draft' | 'published' | 'closed';
+        limit?: number;
+        /**
+         * Defensive query param to satisfy stale gigs-service `dist/` binaries
+         * (controller still expects `req.query.organizerId`). Fresh source
+         * controller reads `req.user.id` and ignores this. Filed for cleanup
+         * once the aggregator endpoint lands (TODOS.md P3.1). Passing both
+         * sides of the migration keeps the call working against any backend
+         * version.
+         */
+        organizerId?: string;
+    }): Promise<GigsListResponse> => {
         const res = await API.get('/organizers/me/gigs', { params });
         return res.data;
     },

@@ -174,6 +174,9 @@ export function useOrganizerPosts(
             // Pull a wider page than `limit` so the merge has headroom to pick
             // top items by createdAt across both sources.
             limit: Math.max(limit * 4, 20),
+            // Defensive: stale gigs-service dist/ still expects this in the query.
+            // Cleanup tracked in TODOS.md P3.1 + P3.2.
+            organizerId: userId as string,
           }),
         enabled: !!userId,
         staleTime: 1000 * 30,

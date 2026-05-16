@@ -20,6 +20,7 @@ import { queryKeys } from '../../../src/constants/queryKeys';
 import EditorialHeroHirer from '../../../src/components/dashboard/hirer/EditorialHeroHirer';
 import DispatchSection from '../../../src/components/dashboard/hirer/DispatchSection';
 import MatchForYourGigsStrip from '../../../src/components/dashboard/hirer/MatchForYourGigsStrip';
+import TrustAnchorCard from '../../../src/components/dashboard/hirer/TrustAnchorCard';
 // CONTRACTS-DISABLED: NextUpCardHirer + ContractsYouSentStrip pull from
 // the contracts collection which we no longer write to. Imports retained
 // for fast revert when the contract artifact is restored.
@@ -32,7 +33,10 @@ import ApplicantsInbox from '../../../src/components/dashboard/hirer/ApplicantsI
 // import HiredArtistsSection from '../../../src/components/dashboard/hirer/HiredArtistsSection';
 // import ContractsYouSentStrip from '../../../src/components/dashboard/hirer/ContractsYouSentStrip';
 import PaymentsStrip from '../../../src/components/dashboard/hirer/PaymentsStrip';
-import TrustTierProgress from '../../../src/components/dashboard/artist/TrustTierProgress';
+// TrustTierProgress replaced by TrustAnchorCard on the hirer home only.
+// Artist home still uses TrustTierProgress directly; this import retained
+// commented for fast revert during the redesign rollout.
+// import TrustTierProgress from '../../../src/components/dashboard/artist/TrustTierProgress';
 import MessagesPreview from '../../../src/components/dashboard/artist/MessagesPreview';
 import PlaceholderCard from '../../../src/components/dashboard/PlaceholderCard';
 
@@ -98,7 +102,7 @@ export default function HirerHome() {
 
         <PaymentsStrip />
 
-        <TrustTierProgress />
+        <TrustAnchorCard />
 
         {/* Match strip — plan §6.6. Mock data v1 until Visibility Engine ships
             useRecommendedArtists. Will eventually live inside ByTheNumbersSection

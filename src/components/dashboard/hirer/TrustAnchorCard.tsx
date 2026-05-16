@@ -4,70 +4,121 @@
  * Design source: DOCS/designs/hirer-home-v1.html (Trust anchor section).
  * Plan: DOCS/NETSA_Hirer_Home_RN_Translation.md §6.2.
  *
- * Layout:
- *   - Orange-tint gradient + radial glow top-right
- *   - "Standing" micro label
- *   - Tier name (serif 30pt) with status dot
- *   - Right-aligned mono "PROGRESS" + serif fraction (e.g., 7/10)
- *   - Animated progress bar (0 to target on mount)
- *   - Footer copy with next-tier callout
+ * Replaces TrustTierProgress on the hirer home with a richer editorial
+ * presentation. Reads the same data model:
+ *   - `user.trustScore` (0-100)
+ *   - `computeTierProgress(score)` returns
+ *     { currentTier, nextTier, currentScore, pointsToNext, progressPct }
  *
- * Replaces (or supplements) TrustTierProgress.
- *
- * TODO §6.2 — wire to existing tier/hire data. Decide whether to retire
- * TrustTierProgress or keep both for one release.
+ * Visual language matches the finalized HTML mock:
+ *   - Orange-tinted gradient overlay + radial glow.
+ *   - "Standing" eyebrow + hairline rule.
+ *   - Tier name (DM Serif 30pt) with status dot.
+ *   - Right-aligned mono "PROGRESS" + serif fraction.
+ *   - Animated progress bar (0 to progressPct on viewport-enter).
+ *   - Next-tier callout copy underneath.
  */
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-// TODO §4: import LinearGradient from 'react-native-linear-gradient' (or 'expo-linear-gradient' if already used).
-// TODO §4: import Animated, useSharedValue, useAnimatedStyle, withTiming from 'react-native-reanimated'.
+import React, { useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Animated as RNAnimated,
+  Easing,
+  AccessibilityInfo,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import useHeroDataHirer from '@/hooks/useHeroDataHirer';
+import { computeTierProgress, type TrustTier } from '@/constants/trustTiers';
 
-type Tier = 'new' | 'rising' | 'trusted' | 'verified';
-
-const TIER_LABEL: Record<Tier, string> = {
+const TIER_LABEL: Record<TrustTier, string> = {
   new: 'New',
   rising: 'Rising',
   trusted: 'Trusted',
   verified: 'Verified',
 };
 
-const TIER_DOT_COLOR: Record<Tier, string> = {
+const TIER_DOT_COLOR: Record<TrustTier, string> = {
   new: '#6B6878',
   rising: '#8B5CF6',
   trusted: '#22C55E',
   verified: '#F59E0B',
 };
 
-const TIER_NEXT_LABEL: Record<Tier, string | null> = {
-  new: 'Rising',
-  rising: 'Trusted',
-  trusted: 'Verified',
-  verified: null,
+const TIER_OF_FOUR: Record<TrustTier, 1 | 2 | 3 | 4> = {
+  new: 1,
+  rising: 2,
+  trusted: 3,
+  verified: 4,
 };
 
-interface Props {
-  tier?: Tier;
-  /** Current count toward the next tier (e.g., 7). */
-  progress?: number;
-  /** Required count for the next tier (e.g., 10). */
-  goal?: number;
-}
+const NEXT_TIER_ACCENT: Record<TrustTier, string> = {
+  new: '#8B5CF6',
+  rising: '#22C55E',
+  trusted: '#F59E0B',
+  verified: '#F59E0B',
+};
 
-export default function TrustAnchorCard({
-  tier = 'trusted',
-  progress = 7,
-  goal = 10,
-}: Props) {
-  const fillPct = goal > 0 ? Math.min(1, progress / goal) : 0;
-  const nextTier = TIER_NEXT_LABEL[tier];
-  const remaining = Math.max(0, goal - progress);
-  const tierLabel = TIER_LABEL[tier];
-  const dotColor = TIER_DOT_COLOR[tier];
+export default function TrustAnchorCard() {
+  const { user, isLoading } = useHeroDataHirer();
+  const widthAnim = useRef(new RNAnimated.Value(0)).current;
+
+  const rawScore =
+    typeof (user as any)?.trustScore === 'number' ? (user as any).trustScore : 0;
+
+  const { currentTier, nextTier, currentScore, pointsToNext, progressPct } =
+    computeTierProgress(rawScore);
+
+  useEffect(() => {
+    if (isLoading || !user) return;
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((rm) => {
+      if (cancelled) return;
+      const target = Math.max(0, Math.min(1, progressPct / 100));
+      RNAnimated.timing(widthAnim, {
+        toValue: target,
+        duration: rm ? 0 : 1000,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, user, progressPct, widthAnim]);
+
+  if (isLoading || !user) {
+    return <View style={styles.skeleton} accessibilityElementsHidden />;
+  }
+
+  const tierLabel = TIER_LABEL[currentTier];
+  const dotColor = TIER_DOT_COLOR[currentTier];
+  const nextLabel = nextTier ? TIER_LABEL[nextTier] : null;
+  const nextAccent = NEXT_TIER_ACCENT[currentTier];
+  const tierOf = TIER_OF_FOUR[currentTier];
+  const fillWidth = widthAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
 
   return (
     <View style={styles.wrap}>
-      {/* TODO §4: wrap with LinearGradient + radial glow overlay */}
       <View style={styles.card}>
+        <LinearGradient
+          colors={['rgba(255,107,53,0.10)', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0.7 }}
+          style={StyleSheet.absoluteFillObject}
+          pointerEvents="none"
+        />
+        <LinearGradient
+          colors={['rgba(255,107,53,0.30)', 'transparent']}
+          start={{ x: 0.8, y: 0 }}
+          end={{ x: 1.3, y: 0.5 }}
+          style={styles.glow}
+          pointerEvents="none"
+        />
+
         <View style={styles.headerRow}>
           <Text style={styles.micro}>STANDING</Text>
           <View style={styles.rule} />
@@ -80,16 +131,17 @@ export default function TrustAnchorCard({
               <Text style={styles.tierName}>{tierLabel}</Text>
             </View>
             <Text style={styles.tierCaption}>
-              {tier === 'new'
-                ? 'Build your standing with each clean hire · Tier 1 of 4'
-                : `Reputation in good standing · Tier ${tier === 'rising' ? 2 : tier === 'trusted' ? 3 : 4} of 4`}
+              {currentTier === 'verified'
+                ? 'Top tier · keep delivering'
+                : `Reputation in good standing · Tier ${tierOf} of 4`}
             </Text>
           </View>
 
           <View style={styles.progressRight}>
-            <Text style={styles.progressLabel}>PROGRESS</Text>
-            <Text style={styles.progressFraction}>
-              {progress}<Text style={styles.progressDenom}>/{goal}</Text>
+            <Text style={styles.progressLabel}>SCORE</Text>
+            <Text style={styles.progressFraction} numberOfLines={1}>
+              {currentScore}
+              <Text style={styles.progressDenom}>/100</Text>
             </Text>
           </View>
         </View>
@@ -97,18 +149,27 @@ export default function TrustAnchorCard({
         <View
           style={styles.barTrack}
           accessibilityRole="progressbar"
-          accessibilityValue={{ now: progress, min: 0, max: goal }}
+          accessibilityValue={{ now: Math.round(progressPct), min: 0, max: 100 }}
+          accessibilityLabel={
+            nextLabel
+              ? `${tierLabel} tier, ${pointsToNext} points to ${nextLabel}`
+              : `${tierLabel} tier, top tier`
+          }
         >
-          {/* TODO §4: width animates from 0 to fillPct on mount via Reanimated useAnimatedStyle */}
-          <View style={[styles.barFill, { width: `${fillPct * 100}%` }]} />
+          <RNAnimated.View
+            style={[
+              styles.barFill,
+              { width: fillWidth, backgroundColor: dotColor },
+            ]}
+          />
         </View>
 
-        {nextTier ? (
+        {nextLabel ? (
           <Text style={styles.footnote}>
-            {remaining === 1
-              ? `One more clean hire earns `
-              : `${remaining} more clean hires earns `}
-            <Text style={styles.footnoteTier}>{nextTier}</Text>
+            {pointsToNext} {pointsToNext === 1 ? 'point' : 'points'} to{' '}
+            <Text style={[styles.footnoteTier, { color: nextAccent }]}>
+              {nextLabel}
+            </Text>
             .
           </Text>
         ) : (
@@ -129,16 +190,30 @@ const styles = StyleSheet.create({
     padding: 20,
     overflow: 'hidden',
   },
+  glow: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 140,
+    height: 140,
+  },
+
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   micro: {
     fontSize: 9,
     letterSpacing: 2,
-    fontFamily: 'Outfit_700Bold',
+    fontFamily: 'Outfit-Bold',
     color: '#B8B1A6',
   },
   rule: { flex: 1, height: 1, backgroundColor: 'rgba(243,239,232,0.14)' },
 
-  tierRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, gap: 16 },
+  tierRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 16,
+  },
   tierLeft: { flex: 1 },
   dotWithName: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   dot: { width: 6, height: 6, borderRadius: 99 },
@@ -147,12 +222,22 @@ const styles = StyleSheet.create({
     fontSize: 30,
     letterSpacing: -1,
     color: '#F3EFE8',
+    lineHeight: 32,
   },
   tierCaption: { fontSize: 12, color: '#6B6878' },
 
   progressRight: { alignItems: 'flex-end' },
-  progressLabel: { fontSize: 10, color: '#6B6878', fontFamily: 'Outfit_700Bold', letterSpacing: 1 },
-  progressFraction: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#F59E0B' },
+  progressLabel: {
+    fontSize: 10,
+    color: '#6B6878',
+    fontFamily: 'Outfit-Bold',
+    letterSpacing: 1,
+  },
+  progressFraction: {
+    fontFamily: 'DMSerifDisplay_400Regular',
+    fontSize: 24,
+    color: '#F59E0B',
+  },
   progressDenom: { color: '#3F3D4A' },
 
   barTrack: {
@@ -160,15 +245,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(243,239,232,0.05)',
     borderRadius: 99,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  barFill: {
-    height: '100%',
-    backgroundColor: '#22C55E',
-    // TODO §4: animate via Reanimated. Static fill for now.
-    borderRadius: 99,
-  },
+  barFill: { height: '100%', borderRadius: 99 },
 
   footnote: { fontSize: 11, color: '#6B6878' },
-  footnoteTier: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 13, color: '#F59E0B' },
+  footnoteTier: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 13 },
+
+  skeleton: {
+    marginHorizontal: 24,
+    marginBottom: 28,
+    height: 160,
+    borderRadius: 22,
+    backgroundColor: '#0D0B12',
+  },
 });

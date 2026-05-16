@@ -5,7 +5,7 @@
 // stays untouched in app/(app)/gigs/[id].tsx.
 
 import React, { useMemo, useRef, useState } from 'react';
-import { View, ScrollView, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, MoreHorizontal } from 'lucide-react-native';
 
@@ -44,6 +44,22 @@ export function HirerGigHub({ gigId }: Props) {
     // Tab-bar height — keeps the sticky CTA above the global bottom nav
     // on mobile. Returns 0 on tablet/desktop widths (no nav rendered).
     const tabBarHeight = useMobileTabBarHeight();
+    // The chevron header is mobile-only. On tablet/desktop the global
+    // app shell (Navbar) provides navigation, so this duplicate is hidden.
+    const { width } = useWindowDimensions();
+    const showMobileHeader = width < 768;
+
+    const handleBack = () => {
+        // On the web, deep-linking to /gigs/[id] yields an empty history
+        // stack — router.back() silently no-ops. canGoBack() returns false
+        // in that case and we fall through to the hirer home as the safe
+        // parent route. Native always has a stack when reached via push().
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.replace('/dashboard/hirer-home' as any);
+        }
+    };
 
     const [hireTarget, setHireTarget] = useState<any | null>(null);
     const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
@@ -135,15 +151,18 @@ export function HirerGigHub({ gigId }: Props) {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: tabBarHeight + 100 }}
             >
-                {/* Header */}
-                <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4, flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <TouchableOpacity onPress={() => router.back()} accessibilityLabel="Back">
-                        <ChevronLeft size={20} color="#B8B1A6" />
-                    </TouchableOpacity>
-                    <TouchableOpacity accessibilityLabel="More">
-                        <MoreHorizontal size={18} color="#B8B1A6" />
-                    </TouchableOpacity>
-                </View>
+                {/* Mobile-only header. Desktop relies on the global Navbar
+                    for navigation; rendering this would duplicate the chrome. */}
+                {showMobileHeader && (
+                    <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4, flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <TouchableOpacity onPress={handleBack} accessibilityLabel="Back" hitSlop={12}>
+                            <ChevronLeft size={20} color="#B8B1A6" />
+                        </TouchableOpacity>
+                        <TouchableOpacity accessibilityLabel="More" hitSlop={12}>
+                            <MoreHorizontal size={18} color="#B8B1A6" />
+                        </TouchableOpacity>
+                    </View>
+                )}
 
                 <HubHero
                     title={gig.title}

@@ -21,6 +21,8 @@ import { NotificationsBell } from '@/components/notifications/NotificationsBell'
 import { usePYMK, type PYMKSuggestion } from '@/hooks/useConnectionMeta';
 import { useFollowCounts, useMyFollowing, useFollowMutations, type FollowListUser } from '@/hooks/useFollow';
 import { interpretConnectionError } from '@/utils/connectionErrors';
+import { PYMKCarousel } from '@/components/network/PYMKCarousel';
+import { usePymk, useDismissPymk } from '@/hooks/usePymk';
 
 // ─── Design palette (from connections-page.html) ───
 const C = {
@@ -338,6 +340,21 @@ export default function NetworkPage() {
     const { data: followCounts } = useFollowCounts(currentUserId);
     const { data: followingList = [] } = useMyFollowing(100);
 
+    // PYMK v2 — artist-search-v2 carousel (new pymkService)
+    const { data: pymkV2Data } = usePymk(1, 10);
+    const dismissV2Mutation = useDismissPymk();
+
+    const handlePymkV2Connect = async (artistId: string) => {
+        try {
+            await connectionService.sendConnectionRequest(artistId);
+        } catch (e: any) {
+            const info = interpretConnectionError(e);
+            if (!info.swallow) {
+                Alert.alert(info.title, info.message);
+            }
+        }
+    };
+
     // PYMK — People You May Know
     const { data: pymkData } = usePYMK(12);
     const [dismissedPymk, setDismissedPymk] = useState<Set<string>>(new Set());
@@ -639,6 +656,14 @@ export default function NetworkPage() {
                                 </View>
                             </View>
                         )}
+
+                        {/* PYMK v2 carousel — artist-search-v2 (new pymkService) */}
+                        <PYMKCarousel
+                            items={pymkV2Data?.items ?? []}
+                            onConnect={handlePymkV2Connect}
+                            onDismiss={(id) => dismissV2Mutation.mutate(id)}
+                            onSeeAll={() => router.push('/(app)/network/pymk' as any)}
+                        />
 
                         {/* PYMK — People You May Know (PRD §8.9.8) */}
                         {visiblePymk.length > 0 && (

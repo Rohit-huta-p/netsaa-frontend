@@ -4,10 +4,11 @@ import {
     View,
     Text,
     TouchableOpacity,
-    ScrollView,
-    ActivityIndicator
+    ActivityIndicator,
+    Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSearchPreview, useSearchPeople, useSearchGigs, useSearchEvents } from "@/hooks/useSearchQueries";
 import connectionService from "@/services/connectionService";
@@ -18,45 +19,86 @@ import { EventItem } from "@/components/search/items/EventItem";
 
 type Category = "All" | "People" | "Gigs" | "Events";
 
-// --- Tab pill ---
-const TabPill = ({ label, isActive, onPress }: { label: string; isActive: boolean; onPress: () => void }) => (
-    <TouchableOpacity
-        onPress={onPress}
-        className={`px-4 py-1.5 rounded-full mr-2 ${
-            isActive ? "bg-white" : "bg-transparent"
-        }`}
-    >
-        <Text className={`text-sm ${isActive ? "text-black font-semibold" : "text-gray-400"}`}>
+const GOLD = "#D4A155";          // muted verified-gold for hairlines + counts
+const ORANGE = "#FF6B35";        // brand orange — active accent
+const PAPER_TINT = "rgba(255, 200, 140, 0.04)";
+
+// ── Tab: editorial underline (active = orange rule, no fill) ──
+const Tab = ({ label, isActive, onPress }: { label: string; isActive: boolean; onPress: () => void }) => (
+    <TouchableOpacity onPress={onPress} className="mr-6 pb-2">
+        <Text
+            className={`font-outfit-semibold text-[13px] tracking-wide ${
+                isActive ? "text-white" : "text-zinc-500"
+            }`}
+        >
             {label}
         </Text>
+        {isActive ? (
+            <View style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: 1.5, backgroundColor: ORANGE }} />
+        ) : null}
     </TouchableOpacity>
 );
 
-// --- Section header (compact, no card wrapper around the list) ---
+// ── Section header: hairline + serif title + mono count ──
 const SectionHeader = ({ title, count, onSeeAll }: { title: string; count?: number; onSeeAll?: () => void }) => (
-    <View className="flex-row items-center justify-between mt-6 mb-1">
-        <View className="flex-row items-baseline">
-            <Text className="text-white text-base font-semibold">{title}</Text>
-            {typeof count === "number" ? (
-                <Text className="text-gray-500 text-xs ml-2">{count}</Text>
+    <View className="mt-10 mb-3">
+        <View className="flex-row items-center">
+            <View style={{ flex: 1, height: 1, backgroundColor: GOLD, opacity: 0.25 }} />
+            <Text
+                className="font-serif text-white text-2xl px-4"
+                style={Platform.OS === "web" ? ({ fontStyle: "italic" as any } as any) : undefined}
+            >
+                {title}
+            </Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: GOLD, opacity: 0.25 }} />
+        </View>
+        <View className="flex-row items-center justify-between mt-2">
+            <Text className="font-mono text-[10px] tracking-widest" style={{ color: GOLD }}>
+                {typeof count === "number" ? String(count).padStart(2, "0") : ""}
+                {typeof count === "number" ? "  ENTRIES" : ""}
+            </Text>
+            {onSeeAll ? (
+                <TouchableOpacity onPress={onSeeAll}>
+                    <Text className="font-outfit-medium text-[11px] uppercase tracking-widest" style={{ color: GOLD }}>
+                        See all →
+                    </Text>
+                </TouchableOpacity>
             ) : null}
         </View>
-        {onSeeAll ? (
-            <TouchableOpacity onPress={onSeeAll}>
-                <Text className="text-purple-300 text-xs font-medium">See all</Text>
-            </TouchableOpacity>
-        ) : null}
     </View>
 );
 
-// Empty state — minimal
 const EmptyState = ({ query }: { query: string }) => (
-    <View className="mt-20 items-center">
-        <Text className="text-gray-500 text-sm">No results for "{query}"</Text>
+    <View className="mt-24 items-center">
+        <Text className="font-serif text-zinc-500 text-2xl mb-3" style={{ fontStyle: "italic" as any }}>
+            ⋄
+        </Text>
+        <Text className="font-outfit text-zinc-500 text-sm">
+            Nothing found for{" "}
+            <Text className="font-serif text-zinc-300" style={{ fontStyle: "italic" as any }}>
+                "{query}"
+            </Text>
+        </Text>
+        <Text className="font-mono text-[10px] text-zinc-700 mt-3 tracking-widest">TRY ANOTHER NAME</Text>
     </View>
 );
 
-// --- Screen ---
+const QueryHeader = ({ query }: { query: string }) => (
+    <View className="px-5 pt-4 pb-3">
+        <Text className="font-mono text-[10px] text-zinc-500 tracking-[0.3em] mb-1">DIRECTORY</Text>
+        <View className="flex-row items-baseline">
+            <Text className="font-outfit text-zinc-500 text-sm mr-2">searching</Text>
+            <Text
+                className="font-serif text-white text-2xl"
+                style={{ fontStyle: "italic" as any }}
+                numberOfLines={1}
+            >
+                "{query}"
+            </Text>
+        </View>
+    </View>
+);
+
 export default function SearchScreen() {
     const params = useLocalSearchParams();
     const router = useRouter();
@@ -107,25 +149,34 @@ export default function SearchScreen() {
         (previewData.people?.length || previewData.gigs?.length || previewData.events?.length);
 
     return (
-        <View className="flex-1 bg-[#09090b]">
+        <View className="flex-1 bg-[#0a0807]">
+            {/* Warm-tinted radial glow on top — adds atmosphere vs flat black */}
+            <LinearGradient
+                colors={[PAPER_TINT, "rgba(255, 107, 53, 0.025)", "transparent"]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 0.5 }}
+                style={{ position: "absolute", top: 0, left: 0, right: 0, height: 320 }}
+            />
+
             <SafeAreaView edges={["top"]} className="flex-1">
-                {/* Tabs */}
-                <View className="flex-row px-5 pt-3 pb-3 border-b border-white/5">
+                {/* Query header — editorial */}
+                <QueryHeader query={searchQuery} />
+
+                {/* Tab strip — minimal underlined */}
+                <View className="px-5 flex-row border-b border-white/[0.06]">
                     {(["All", "People", "Gigs", "Events"] as Category[]).map((t) => (
-                        <TabPill
-                            key={t}
-                            label={t}
-                            isActive={activeTab === t}
-                            onPress={() => setActiveTab(t)}
-                        />
+                        <Tab key={t} label={t} isActive={activeTab === t} onPress={() => setActiveTab(t)} />
                     ))}
                 </View>
 
                 {/* Content */}
                 <AppScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
                     {loading ? (
-                        <View className="mt-20 items-center justify-center">
-                            <ActivityIndicator size="large" color="#a78bfa" />
+                        <View className="mt-24 items-center justify-center">
+                            <ActivityIndicator size="small" color={GOLD} />
+                            <Text className="font-mono text-[10px] tracking-widest mt-3" style={{ color: GOLD, opacity: 0.5 }}>
+                                FETCHING
+                            </Text>
                         </View>
                     ) : (
                         <>
@@ -190,8 +241,8 @@ export default function SearchScreen() {
 
                             {/* People */}
                             {activeTab === "People" && peopleData && (
-                                <View className="mt-2">
-                                    <Text className="text-gray-500 text-xs mb-1">{peopleData.total || 0} results</Text>
+                                <View>
+                                    <SectionHeader title="People" count={peopleData.total || 0} />
                                     {peopleData.results?.map((person: any) => (
                                         <PersonItem
                                             key={person._id || person.id}
@@ -200,13 +251,14 @@ export default function SearchScreen() {
                                             onPress={() => router.push(`/profile/${person._id || person.id}`)}
                                         />
                                     ))}
+                                    {(peopleData.results?.length ?? 0) === 0 && <EmptyState query={searchQuery} />}
                                 </View>
                             )}
 
                             {/* Gigs */}
                             {activeTab === "Gigs" && gigsData && (
-                                <View className="mt-2">
-                                    <Text className="text-gray-500 text-xs mb-1">{gigsData.total || 0} results</Text>
+                                <View>
+                                    <SectionHeader title="Gigs" count={gigsData.total || 0} />
                                     {gigsData.results?.map((gig: any) => (
                                         <GigItem
                                             key={gig._id}
@@ -214,13 +266,14 @@ export default function SearchScreen() {
                                             onPress={() => router.push(`/gigs/${gig._id}`)}
                                         />
                                     ))}
+                                    {(gigsData.results?.length ?? 0) === 0 && <EmptyState query={searchQuery} />}
                                 </View>
                             )}
 
                             {/* Events */}
                             {activeTab === "Events" && eventsData && (
-                                <View className="mt-2">
-                                    <Text className="text-gray-500 text-xs mb-1">{eventsData.total || 0} results</Text>
+                                <View>
+                                    <SectionHeader title="Events" count={eventsData.total || 0} />
                                     {eventsData.results?.map((event: any) => (
                                         <EventItem
                                             key={event._id}
@@ -228,8 +281,16 @@ export default function SearchScreen() {
                                             onPress={() => router.push(`/events/${event._id}`)}
                                         />
                                     ))}
+                                    {(eventsData.results?.length ?? 0) === 0 && <EmptyState query={searchQuery} />}
                                 </View>
                             )}
+
+                            {/* Bottom flourish */}
+                            <View className="items-center py-12">
+                                <Text className="font-serif text-zinc-700 text-2xl" style={{ fontStyle: "italic" as any }}>
+                                    ✦
+                                </Text>
+                            </View>
                         </>
                     )}
                 </AppScrollView>

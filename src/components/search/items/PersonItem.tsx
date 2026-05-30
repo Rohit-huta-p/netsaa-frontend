@@ -7,6 +7,7 @@ import {
     Image,
     ActivityIndicator,
     Alert,
+    Platform,
 } from 'react-native';
 import { UserPlus, Check } from 'lucide-react-native';
 import noAvatar from '@/assets/no-avatar.jpg';
@@ -21,9 +22,12 @@ interface PersonItemProps {
     onPress?: () => void;
 }
 
+const GOLD = '#D4A155';
+
 export const PersonItem = ({ item, status: initialStatus, onPress }: PersonItemProps) => {
     const [status, setStatus] = useState<ConnectionStatus>(initialStatus);
     const [isLoading, setIsLoading] = useState(false);
+    const [hover, setHover] = useState(false);
 
     useEffect(() => {
         setStatus(initialStatus);
@@ -47,58 +51,108 @@ export const PersonItem = ({ item, status: initialStatus, onPress }: PersonItemP
         }
     };
 
-    // Build the single meta line: artistType + city, separated by middle dot.
-    // Hide entirely when neither is set.
-    const name = [item.firstName, item.lastName].filter(Boolean).join(' ').trim() || item.displayName || item.title;
+    const name =
+        [item.firstName, item.lastName].filter(Boolean).join(' ').trim() ||
+        item.displayName ||
+        item.title;
+
     const metaParts: string[] = [];
     if (item.artistType) metaParts.push(String(item.artistType));
     if (item.city) metaParts.push(String(item.city));
     const meta = metaParts.join(' · ');
 
-    return (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center py-3">
-            {/* Avatar — smaller, no extra border */}
-            <Image
-                source={item?.profileImageUrl ? { uri: item.profileImageUrl } : noAvatar}
-                style={{ width: 44, height: 44, borderRadius: 22 }}
-                className="bg-white/5"
-                resizeMode="cover"
-            />
+    const webHover =
+        Platform.OS === 'web'
+            ? {
+                  onMouseEnter: () => setHover(true),
+                  onMouseLeave: () => setHover(false),
+              }
+            : {};
 
-            {/* Info — name + single meta line */}
-            <View className="flex-1 ml-3 mr-2">
-                <Text className="text-white font-semibold text-[15px]" numberOfLines={1}>{name}</Text>
+    return (
+        <TouchableOpacity
+            onPress={onPress}
+            activeOpacity={0.85}
+            {...(webHover as any)}
+            style={{
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(212, 161, 85, 0.10)', // gold hairline
+                backgroundColor: hover ? 'rgba(255, 200, 140, 0.025)' : 'transparent',
+            }}
+            className="flex-row items-center py-4 px-1"
+        >
+            {/* Avatar with subtle gold ring on hover */}
+            <View
+                style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    padding: 1.5,
+                    backgroundColor: hover ? GOLD : 'rgba(255,255,255,0.06)',
+                }}
+            >
+                <Image
+                    source={item?.profileImageUrl ? { uri: item.profileImageUrl } : noAvatar}
+                    style={{ width: '100%', height: '100%', borderRadius: 24 }}
+                    resizeMode="cover"
+                />
+            </View>
+
+            {/* Info */}
+            <View className="flex-1 ml-4 mr-3">
+                <Text className="font-outfit-semibold text-white text-[15px]" numberOfLines={1}>
+                    {name}
+                </Text>
                 {meta ? (
-                    <Text className="text-gray-400 text-xs mt-0.5" numberOfLines={1}>{meta}</Text>
+                    <Text
+                        className="font-outfit text-zinc-500 text-[12px] mt-0.5"
+                        numberOfLines={1}
+                        style={{ letterSpacing: 0.2 }}
+                    >
+                        {meta}
+                    </Text>
                 ) : null}
             </View>
 
-            {/* Action — minimal connect button on the right */}
+            {/* Connect action */}
             <TouchableOpacity
                 onPress={(e) => {
                     e.stopPropagation();
                     handleConnect();
                 }}
                 disabled={status !== 'none' || isLoading}
-                className={`px-3 py-1.5 rounded-full border ${
-                    status === 'connected' || status === 'pending'
-                        ? 'border-white/15'
-                        : 'border-white/35'
-                }`}
+                style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 6,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor:
+                        status === 'connected' || status === 'pending'
+                            ? 'rgba(255,255,255,0.15)'
+                            : hover
+                            ? GOLD
+                            : 'rgba(255,255,255,0.35)',
+                }}
             >
                 {isLoading ? (
                     <ActivityIndicator size="small" color="#fff" />
                 ) : status === 'connected' ? (
-                    <Text className="text-gray-400 font-semibold text-xs">Following</Text>
+                    <Text className="font-outfit-semibold text-zinc-400 text-[11px] tracking-wide">
+                        FOLLOWING
+                    </Text>
                 ) : status === 'pending' ? (
                     <View className="flex-row items-center">
-                        <Check size={13} color="#9ca3af" />
-                        <Text className="text-gray-400 font-semibold text-xs ml-1">Pending</Text>
+                        <Check size={12} color="#9ca3af" />
+                        <Text className="font-outfit-semibold text-zinc-400 text-[11px] ml-1 tracking-wide">
+                            PENDING
+                        </Text>
                     </View>
                 ) : (
                     <View className="flex-row items-center">
-                        <UserPlus size={13} color="#fff" />
-                        <Text className="text-white font-semibold text-xs ml-1">Connect</Text>
+                        <UserPlus size={12} color="#fff" />
+                        <Text className="font-outfit-semibold text-white text-[11px] ml-1 tracking-wide">
+                            CONNECT
+                        </Text>
                     </View>
                 )}
             </TouchableOpacity>

@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
-    ChevronLeft, Search, Check, X, Clock, Send, Users, Sparkles,
+    ChevronLeft, ChevronRight, Search, Check, X, Clock, Send, Users, Sparkles,
     MessageCircle, ChevronDown, ChevronUp, ArrowUpDown, CheckCheck,
     UserPlus,
 } from 'lucide-react-native';
@@ -583,45 +583,35 @@ export default function NetworkPage() {
                             </View>
                         )}
 
-                        {/* Invitations hero */}
-                        {inviteCount > 0 && (
-                            <View style={s.invitesHero}>
-                                <View style={s.invitesHead}>
-                                    <View style={s.invitesPulse}>
-                                        <PulseDot />
-                                        <Text style={s.invitesLabel}>Invitations</Text>
-                                    </View>
-                                    <LinearGradient
-                                        colors={[C.pink, C.orange]}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={s.invitesCountBadge}
-                                    >
-                                        <Text style={s.invitesCountText}>{inviteCount} NEW</Text>
-                                    </LinearGradient>
+                        {/* Invitations link — opens /network/invitations (Received / Sent tabs) */}
+                        {(inviteCount > 0 || sentCount > 0) && (
+                            <Pressable
+                                onPress={() => router.push('/(app)/network/invitations' as any)}
+                                style={({ pressed }) => [s.invitesLink, pressed && { opacity: 0.85 }]}
+                            >
+                                <View style={s.invitesLinkLeft}>
+                                    {inviteCount > 0 ? <PulseDot /> : null}
+                                    <Text style={s.invitesLinkTitle}>Invitations</Text>
+                                    {inviteCount > 0 ? (
+                                        <LinearGradient
+                                            colors={[C.pink, C.orange]}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                            style={s.invitesLinkBadge}
+                                        >
+                                            <Text style={s.invitesLinkBadgeText}>{inviteCount}</Text>
+                                        </LinearGradient>
+                                    ) : null}
                                 </View>
-                                <View style={{ gap: 10 }}>
-                                    {invitations.slice(0, 3).map(inv => (
-                                        <InviteRow
-                                            key={inv._id}
-                                            item={inv}
-                                            onAccept={handleAccept}
-                                            onIgnore={handleIgnore}
-                                            onPressUser={goProfile}
-                                            busy={busyIds.has(inv._id)}
-                                        />
-                                    ))}
+                                <View style={s.invitesLinkRight}>
+                                    <Text style={s.invitesLinkMeta}>
+                                        {inviteCount > 0 ? `${inviteCount} received` : ''}
+                                        {inviteCount > 0 && sentCount > 0 ? '  ·  ' : ''}
+                                        {sentCount > 0 ? `${sentCount} sent` : ''}
+                                    </Text>
+                                    <ChevronRight size={16} color={C.text3} strokeWidth={2} />
                                 </View>
-                                {inviteCount > 3 && (
-                                    <View style={s.invitesFooter}>
-                                        <View style={s.invitesExpire}>
-                                            <Clock size={10} color={C.text3} strokeWidth={2} />
-                                            <Text style={s.invitesExpireText}>Expires in 30 days</Text>
-                                        </View>
-                                        <Text style={s.viewAllBtn}>VIEW ALL {inviteCount}</Text>
-                                    </View>
-                                )}
-                            </View>
+                            </Pressable>
                         )}
 
                         {/* Inbox zero — have connections but no invites */}
@@ -770,42 +760,7 @@ export default function NetworkPage() {
                             </View>
                         )}
 
-                        {/* Sent requests collapsible */}
-                        {sentCount > 0 && (
-                            <>
-                                <Pressable
-                                    onPress={() => setSentOpen(v => !v)}
-                                    style={({ pressed }) => [s.collapse, pressed && { opacity: 0.8 }]}
-                                >
-                                    <View style={s.collapseLeft}>
-                                        <View style={s.collapseIcon}>
-                                            <Send size={14} color={C.text2} strokeWidth={2} />
-                                        </View>
-                                        <Text style={s.collapseTitle}>Sent Requests</Text>
-                                        <Text style={s.collapseCount}>{sentCount}</Text>
-                                    </View>
-                                    {sentOpen ? (
-                                        <ChevronUp size={16} color={C.text3} strokeWidth={2} />
-                                    ) : (
-                                        <ChevronDown size={16} color={C.text3} strokeWidth={2} />
-                                    )}
-                                </Pressable>
-                                {sentOpen && (
-                                    <View style={s.sentList}>
-                                        {sentRequests.map(r => (
-                                            <SentItem
-                                                key={r._id}
-                                                item={r}
-                                                currentUserId={currentUserId}
-                                                onWithdraw={handleWithdraw}
-                                                onPressUser={goProfile}
-                                                busy={busyIds.has(r._id)}
-                                            />
-                                        ))}
-                                    </View>
-                                )}
-                            </>
-                        )}
+                        {/* Sent requests moved to /network/invitations (Sent tab) */}
 
                         {/* Following collapsible (PRD §8.9.5) */}
                         {followingList.length > 0 && (
@@ -886,7 +841,28 @@ const s = StyleSheet.create({
         width: 8, height: 8, borderRadius: 4, backgroundColor: C.pink,
     },
 
-    // Invites hero
+    // Invites link row (replaces former hero) — opens /network/invitations
+    invitesLink: {
+        marginHorizontal: 14, marginTop: 10, marginBottom: 8,
+        paddingVertical: 14, paddingHorizontal: 16,
+        borderRadius: 14,
+        backgroundColor: 'rgba(236,72,153,0.06)',
+        borderWidth: 1, borderColor: 'rgba(236,72,153,0.18)',
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    },
+    invitesLinkLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    invitesLinkRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    invitesLinkTitle: {
+        fontSize: 14, color: C.text, fontFamily: 'Outfit-SemiBold',
+        letterSpacing: 0.2,
+    },
+    invitesLinkBadge: {
+        paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, minWidth: 22, alignItems: 'center',
+    },
+    invitesLinkBadgeText: { color: '#fff', fontSize: 11, fontFamily: 'Outfit-ExtraBold' },
+    invitesLinkMeta: { color: C.text3, fontSize: 11, fontFamily: 'Outfit-Regular' },
+
+    // Invites hero (kept for any legacy refs)
     invitesHero: {
         marginHorizontal: 14, marginTop: 8,
         borderRadius: 22,

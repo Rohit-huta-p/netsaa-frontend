@@ -1,37 +1,25 @@
 // app/(app)/search/index.tsx
 import React, { useState, useEffect } from "react";
-import noAvatar from "@/assets/no-avatar.jpg";
 import {
     View,
     Text,
     TouchableOpacity,
     ScrollView,
-    Image,
-    FlatList,
-    useWindowDimensions,
     ActivityIndicator
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-    Search as SearchIcon,
-    Filter,
-    UserPlus,
-    Briefcase,
-    Calendar,
-    MapPin,
     ArrowRight,
-    Users,
-    MoreHorizontal,
-    Check
 } from "lucide-react-native";
 import { useSearchPreview, useSearchPeople, useSearchGigs, useSearchEvents } from "@/hooks/useSearchQueries";
 import connectionService from "@/services/connectionService";
 import AppScrollView from "@/components/AppScrollView";
 import { TopRightIcons } from "@/components/common/TopRightIcons";
-import { interpretConnectionError } from "@/utils/connectionErrors";
-import { Alert } from "react-native";
+import { PersonItem } from "@/components/search/items/PersonItem";
+import { GigItem } from "@/components/search/items/GigItem";
+import { EventItem } from "@/components/search/items/EventItem";
 
 
 
@@ -52,144 +40,6 @@ const FilterPill = ({ label, isActive, onPress }: { label: string, isActive: boo
         <Text className={`font-bold text-sm ${isActive ? "text-green-400" : "text-gray-400"}`}>
             {label}
         </Text>
-    </TouchableOpacity>
-);
-
-// 1. People List Item (LinkedIn Style)
-const PersonItem = ({ item, status: initialStatus, onPress }: { item: any, status: 'none' | 'pending' | 'connected', onPress?: () => void }) => {
-    const [status, setStatus] = useState<'none' | 'pending' | 'connected'>(initialStatus);
-    const [isLoading, setIsLoading] = useState(false);
-
-    // Sync if initial status changes (e.g. after fetch)
-    useEffect(() => {
-        setStatus(initialStatus);
-    }, [initialStatus]);
-
-    const handleConnect = async () => {
-        if (status !== 'none' || isLoading) return;
-
-        try {
-            setIsLoading(true);
-            await connectionService.sendConnectionRequest(item.id);
-            setStatus('pending');
-        } catch (error: any) {
-            const info = interpretConnectionError(error);
-            if (info.swallow) {
-                // Already connected/pending — sync local state silently
-                setStatus('pending');
-            } else {
-                Alert.alert(info.title, info.message);
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center py-4 border-b border-white/5">
-            {/* Avatar */}
-            <View className="w-14 h-14 rounded-full overflow-hidden border border-white/10 relative">
-                <Image
-                    source={item?.profileImageUrl ? { uri: item.profileImageUrl } : noAvatar}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' } as any}
-                    className="rounded-full mr-4 bg-gray-800"
-                    resizeMode="cover"
-                />
-            </View>
-
-            {/* Info */}
-            <View className="flex-1">
-                <Text className="text-white font-bold text-base">{item.firstName} {item.lastName} {item.title}</Text>
-                <Text className="text-gray-400 text-sm mb-0.5" numberOfLines={1}>
-                    {item.artistType || "Member"}
-                </Text>
-                <Text className="text-gray-500 text-xs">
-                    {item.city || "Unknown Location"} • {status === 'connected' ? 'Connected' : (status === 'pending' ? 'Pending' : 'Connect')}
-                </Text>
-            </View>
-
-            {/* Action Button */}
-            <TouchableOpacity
-                onPress={(e) => {
-                    e.stopPropagation();
-                    handleConnect();
-                }}
-                disabled={status !== 'none' || isLoading}
-                className={`px-4 py-2 rounded-full border ${status === 'connected' || status === 'pending'
-                    ? "bg-white/5 border-white/20"
-                    : "bg-transparent border-white/40"
-                    }`}
-            >
-                {isLoading ? (
-                    <ActivityIndicator size="small" color="white" />
-                ) : status === 'connected' ? (
-                    <Text className="text-gray-400 font-bold text-sm">Following</Text>
-                ) : status === 'pending' ? (
-                    <View className="flex-row items-center">
-                        <Check size={16} color="#9ca3af" className="mr-1" />
-                        <Text className="text-gray-400 font-bold text-sm">Pending</Text>
-                    </View>
-                ) : (
-                    <View className="flex-row items-center">
-                        <UserPlus size={16} color="white" className="mr-1" />
-                        <Text className="text-white font-bold text-sm">Connect</Text>
-                    </View>
-                )}
-            </TouchableOpacity>
-        </TouchableOpacity>
-    );
-};
-
-
-// 2. Gig List Item
-const GigItem = ({ item, onPress }: { item: any, onPress?: () => void }) => (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-start py-4 border-b border-white/5">
-        <View className="w-12 h-12 bg-white/10 rounded-lg items-center justify-center mr-4 border border-white/5">
-            {/* Use Logo image if available, else Icon */}
-            <Briefcase size={20} color="#a1a1aa" />
-        </View>
-
-        <View className="flex-1">
-            <Text className="text-white font-bold text-base mb-0.5">{item.title}</Text>
-            <Text className="text-gray-300 text-sm mb-1">{item.organizerName || "Organizer"}</Text>
-            <View className="flex-row items-center gap-3">
-                <Text className="text-gray-500 text-xs">{item.city || "Remote"}</Text>
-                <Text className="text-green-400 text-xs font-bold">{new Date(item.createdAt).toLocaleDateString()}</Text>
-            </View>
-        </View>
-
-        <View className="mt-1">
-            <View className="bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
-                <Text className="text-white text-xs font-bold">View</Text>
-            </View>
-        </View>
-    </TouchableOpacity>
-);
-
-// 3. Event List Item
-const EventItem = ({ item, onPress }: { item: any, onPress?: () => void }) => (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center py-4 border-b border-white/5">
-        {/* Calendar Box */}
-        <View className="w-14 h-14 bg-white/5 rounded-xl border border-white/10 items-center justify-center mr-4">
-            <Text className="text-red-400 text-xs font-bold uppercase mb-0.5">
-                {new Date(item.date).toLocaleString('default', { month: 'short' })}
-            </Text>
-            <Text className="text-white text-xl font-bold">
-                {new Date(item.date).getDate()}
-            </Text>
-        </View>
-
-        <View className="flex-1">
-            <Text className="text-white font-bold text-base mb-0.5">{item.title}</Text>
-            <Text className="text-gray-400 text-sm mb-1">{item.eventType}</Text>
-            <View className="flex-row items-center">
-                <Text className="text-gray-500 text-xs">{item.attendeeCount || 0} attendees</Text>
-            </View>
-        </View>
-
-        <View className="bg-white/10 p-2 rounded-full">
-            <MoreHorizontal size={20} color="gray" />
-        </View>
     </TouchableOpacity>
 );
 

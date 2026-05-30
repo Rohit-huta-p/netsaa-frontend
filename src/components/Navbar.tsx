@@ -64,25 +64,16 @@ function SearchResultRow({
     onPress: () => void;
     isLast: boolean;
 }) {
+    const [hover, setHover] = React.useState(false);
     const isPerson = item.type === 'artist' || item.type === 'organizer';
 
-    const getCategoryIcon = () => {
-        switch (item.type) {
-            case 'gig': return <Briefcase size={15} color="#ff006e" />;
-            case 'event': return <Calendar size={15} color="#8338ec" />;
-            default: return <Search size={15} color="#888" />;
-        }
-    };
-
-    // People (artist/organizer) → profile pic if present, else no-avatar fallback (round).
-    // Gigs/events → category icon in a rounded-square tile.
     const Thumb = () => {
         if (isPerson) {
             const src = item.image ? { uri: item.image } : noAvatar;
             return (
                 <Image
                     source={src as any}
-                    style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)' }}
+                    style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)' }}
                 />
             );
         }
@@ -90,45 +81,73 @@ function SearchResultRow({
             return (
                 <Image
                     source={{ uri: item.image }}
-                    style={{ width: 28, height: 28, borderRadius: 6 }}
+                    style={{ width: 32, height: 32, borderRadius: 6 }}
                 />
             );
         }
+        const tileBg = item.type === 'gig' ? 'rgba(255, 107, 53, 0.08)' : 'rgba(212, 161, 85, 0.10)';
+        const tileBorder = item.type === 'gig' ? 'rgba(255, 107, 53, 0.20)' : 'rgba(212, 161, 85, 0.25)';
+        const Icon = item.type === 'gig' ? Briefcase : Calendar;
+        const iconColor = item.type === 'gig' ? '#FF6B35' : '#D4A155';
         return (
-            <View style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(168,85,247,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                {getCategoryIcon()}
+            <View style={{
+                width: 32, height: 32, borderRadius: 6,
+                backgroundColor: tileBg,
+                borderWidth: 1, borderColor: tileBorder,
+                alignItems: 'center', justifyContent: 'center',
+            }}>
+                <Icon size={14} color={iconColor} strokeWidth={1.5} />
             </View>
         );
     };
 
+    const webHover = Platform.OS === 'web'
+        ? { onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false) }
+        : {};
+
     return (
         <TouchableOpacity
             onPress={onPress}
+            {...(webHover as any)}
             style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                padding: 12,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
                 borderBottomWidth: isLast ? 0 : 1,
-                borderBottomColor: 'rgba(255,255,255,0.05)',
+                borderBottomColor: 'rgba(212, 161, 85, 0.10)',
+                backgroundColor: hover ? 'rgba(255, 200, 140, 0.03)' : 'transparent',
             }}
         >
-            <View style={{ marginRight: 10 }}>
+            <View style={{ marginRight: 12 }}>
                 <Thumb />
             </View>
-            <View style={{ flex: 1 }}>
-                <Text style={{ color: '#fff', fontSize: 13, fontFamily: F.heading }} numberOfLines={1}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ color: '#F5F0EB', fontSize: 14, fontFamily: 'Outfit-SemiBold' }} numberOfLines={1}>
                     {item.title}
                 </Text>
                 {item.subtitle ? (
-                    <Text style={{ color: '#71717a', fontSize: 11, marginTop: 2 }} numberOfLines={1}>
+                    <Text style={{ color: '#A19BAA', fontSize: 11, marginTop: 1, letterSpacing: 0.2 }} numberOfLines={1}>
                         {item.subtitle}
                     </Text>
                 ) : null}
             </View>
-            <Text style={{ color: '#6b7280', fontSize: 10, textTransform: 'capitalize', backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                {item.type}
-            </Text>
         </TouchableOpacity>
+    );
+}
+
+// ----- Section label inside dropdown -----
+function DropdownSectionLabel({ label, count }: { label: string; count: number }) {
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
+            <Text style={{ color: '#D4A155', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2.5 }}>
+                {label.toUpperCase()}
+            </Text>
+            <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 1.5, marginLeft: 8 }}>
+                {String(count).padStart(2, '0')}
+            </Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(212, 161, 85, 0.15)', marginLeft: 10 }} />
+        </View>
     );
 }
 
@@ -440,31 +459,60 @@ export default function Navbar() {
     // --- Shared dropdown content ---
     const renderDropdown = () => {
         if (isSearching) return (
-            <View style={{ padding: 16, alignItems: 'center' }}>
-                <ActivityIndicator size="small" color="#A855F7" />
+            <View style={{ paddingVertical: 22, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#D4A155" />
+                <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2.5, marginTop: 8 }}>
+                    SEARCHING
+                </Text>
             </View>
         );
         if (results.length === 0) return (
-            <View style={{ padding: 16, alignItems: 'center' }}>
-                <Text style={{ color: '#71717a', fontSize: 13 }}>No results found</Text>
+            <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                <Text style={{ color: '#4A4656', fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, marginBottom: 6 }}>⋄</Text>
+                <Text style={{ color: '#A19BAA', fontSize: 12 }}>
+                    Nothing for{' '}
+                    <Text style={{ color: '#D4D0CB', fontFamily: 'DMSerifDisplay_400Regular', ...(isWeb ? { fontStyle: 'italic' as any } : {}) }}>
+                        "{debouncedQuery}"
+                    </Text>
+                </Text>
             </View>
         );
+
+        // Group results by type for sectioned rendering
+        const people = results.filter(r => r.type === 'artist' || r.type === 'organizer');
+        const gigs   = results.filter(r => r.type === 'gig');
+        const events = results.filter(r => r.type === 'event');
+
+        const renderGroup = (label: string, items: SearchResultItem[]) => (
+            items.length === 0 ? null : (
+                <View key={label}>
+                    <DropdownSectionLabel label={label} count={items.length} />
+                    {items.map((item, i) => (
+                        <SearchResultRow
+                            key={`${item.type}-${item.id}`}
+                            item={item}
+                            onPress={() => handleResultClick(item.type, item.id)}
+                            isLast={i === items.length - 1}
+                        />
+                    ))}
+                </View>
+            )
+        );
+
         return (
-            <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 320 }}>
-                {results.map((item, i) => (
-                    <SearchResultRow
-                        key={`${item.type}-${item.id}`}
-                        item={item}
-                        onPress={() => handleResultClick(item.type, item.id)}
-                        isLast={i === results.length - 1}
-                    />
-                ))}
-                <TouchableOpacity
-                    onPress={handleViewAll}
-                    style={{ padding: 12, alignItems: 'center' }}
-                >
-                    <Text style={{ color: '#a855f7', fontSize: 12, fontFamily: F.bodySemiBold }}>View all results →</Text>
-                </TouchableOpacity>
+            <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 380 }}>
+                {renderGroup('People', people)}
+                {renderGroup('Gigs', gigs)}
+                {renderGroup('Events', events)}
+                <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(212, 161, 85, 0.12)', marginTop: 4 }}>
+                    <TouchableOpacity
+                        onPress={handleViewAll}
+                        style={{ paddingVertical: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                    >
+                        <Text style={{ color: '#D4A155', fontSize: 12, fontFamily: 'Outfit-SemiBold' }}>View all results</Text>
+                        <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2 }}>{isWeb ? '↵ ENTER' : 'TAP'}</Text>
+                    </TouchableOpacity>
+                </View>
             </ScrollView>
         );
     };
@@ -546,10 +594,10 @@ export default function Navbar() {
                             {showDropdown && (
                                 <View style={{
                                     position: 'absolute', top: 56, left: 0, right: 10,
-                                    backgroundColor: '#1a1a24', borderRadius: 14,
-                                    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+                                    backgroundColor: '#13110f', borderRadius: 14,
+                                    borderWidth: 1, borderColor: 'rgba(212, 161, 85, 0.20)',
                                     overflow: 'hidden', zIndex: 999,
-                                    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16,
+                                    shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 24,
                                     elevation: 10,
                                 }}>
                                     {renderDropdown()}
@@ -677,33 +725,65 @@ export default function Navbar() {
                                             {/* Results */}
                                             <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
                                                 {debouncedQuery.length < 2 ? (
-                                                    <View style={{ padding: 32, alignItems: 'center' }}>
-                                                        <Search size={40} color="rgba(168,85,247,0.25)" />
-                                                        <Text style={{ color: '#555', fontSize: 14, marginTop: 12, fontFamily: F.bodyMedium }}>Start typing to search...</Text>
+                                                    <View style={{ paddingVertical: 64, alignItems: 'center' }}>
+                                                        <Text style={{ color: '#4A4656', fontFamily: 'DMSerifDisplay_400Regular', fontSize: 32, marginBottom: 8 }}>⋄</Text>
+                                                        <Text style={{ color: '#A19BAA', fontSize: 13 }}>Start typing to search</Text>
+                                                        <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2.5, marginTop: 6 }}>
+                                                            PEOPLE · GIGS · EVENTS
+                                                        </Text>
                                                     </View>
                                                 ) : isSearching ? (
-                                                    <View style={{ padding: 32, alignItems: 'center' }}>
-                                                        <ActivityIndicator size="large" color="#A855F7" />
+                                                    <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+                                                        <ActivityIndicator size="small" color="#D4A155" />
+                                                        <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2.5, marginTop: 10 }}>
+                                                            SEARCHING
+                                                        </Text>
                                                     </View>
                                                 ) : results.length === 0 ? (
-                                                    <View style={{ padding: 32, alignItems: 'center' }}>
-                                                        <Text style={{ color: '#555', fontSize: 14, fontFamily: F.bodyMedium }}>No results found</Text>
+                                                    <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+                                                        <Text style={{ color: '#4A4656', fontFamily: 'DMSerifDisplay_400Regular', fontSize: 26, marginBottom: 6 }}>⋄</Text>
+                                                        <Text style={{ color: '#A19BAA', fontSize: 13 }}>
+                                                            Nothing for{' '}
+                                                            <Text style={{ color: '#D4D0CB', fontFamily: 'DMSerifDisplay_400Regular', ...(isWeb ? { fontStyle: 'italic' as any } : {}) }}>
+                                                                "{debouncedQuery}"
+                                                            </Text>
+                                                        </Text>
                                                     </View>
                                                 ) : (
                                                     <>
-                                                        {results.map((item, i) => (
-                                                            <SearchResultRow
-                                                                key={`${item.type}-${item.id}`}
-                                                                item={item}
-                                                                onPress={() => { closeFullSearch(); handleResultClick(item.type, item.id); }}
-                                                                isLast={i === results.length - 1}
-                                                            />
-                                                        ))}
+                                                        {(() => {
+                                                            const people = results.filter(r => r.type === 'artist' || r.type === 'organizer');
+                                                            const gigs   = results.filter(r => r.type === 'gig');
+                                                            const events = results.filter(r => r.type === 'event');
+                                                            const renderGroup = (label: string, items: SearchResultItem[]) => (
+                                                                items.length === 0 ? null : (
+                                                                    <View key={label}>
+                                                                        <DropdownSectionLabel label={label} count={items.length} />
+                                                                        {items.map((item, i) => (
+                                                                            <SearchResultRow
+                                                                                key={`${item.type}-${item.id}`}
+                                                                                item={item}
+                                                                                onPress={() => { closeFullSearch(); handleResultClick(item.type, item.id); }}
+                                                                                isLast={i === items.length - 1}
+                                                                            />
+                                                                        ))}
+                                                                    </View>
+                                                                )
+                                                            );
+                                                            return (
+                                                                <>
+                                                                    {renderGroup('People', people)}
+                                                                    {renderGroup('Gigs', gigs)}
+                                                                    {renderGroup('Events', events)}
+                                                                </>
+                                                            );
+                                                        })()}
                                                         <TouchableOpacity
                                                             onPress={() => { closeFullSearch(); handleViewAll(); }}
-                                                            style={{ margin: 16, padding: 14, alignItems: 'center' }}
+                                                            style={{ paddingVertical: 16, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(212, 161, 85, 0.12)', marginTop: 8 }}
                                                         >
-                                                            <Text style={{ color: '#a855f7', fontSize: 13, fontFamily: F.bodySemiBold }}>View all results →</Text>
+                                                            <Text style={{ color: '#D4A155', fontSize: 13, fontFamily: 'Outfit-SemiBold' }}>View all results</Text>
+                                                            <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2 }}>TAP</Text>
                                                         </TouchableOpacity>
                                                     </>
                                                 )}
@@ -761,13 +841,14 @@ export default function Navbar() {
                                             top: 44,
                                             right: ICONS_WIDTH,
                                             width: width - ICONS_WIDTH - 24,
-                                            backgroundColor: '#1a1a24',
+                                            backgroundColor: '#13110f',
                                             borderRadius: 14,
                                             borderWidth: 1,
-                                            borderColor: 'rgba(168,85,247,0.3)',
+                                            borderColor: 'rgba(212, 161, 85, 0.22)',
                                             overflow: 'hidden',
                                             zIndex: 9999,
                                             elevation: 30,
+                                            shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 24,
                                         }}>
                                             {renderDropdown()}
                                         </View>

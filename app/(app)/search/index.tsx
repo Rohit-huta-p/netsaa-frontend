@@ -139,8 +139,9 @@ export default function SearchScreen() {
 
                 {/* 1. HEADER (Filters only now, search moved to Navbar) */}
 
-                {/* 2. FILTER TABS */}
-                <View className="pb-2 pt-2 border-b border-white/5">
+                {/* 2. FILTER TABS — pt-14 reserves vertical space for the absolute-positioned <TopRightIcons /> cluster
+                       so the Network + Bell icons don't collide with the rightmost tab (Events). */}
+                <View className="pb-2 pt-14 border-b border-white/5">
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}

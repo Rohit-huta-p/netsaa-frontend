@@ -28,6 +28,8 @@ import { NotificationsBell } from '@/components/notifications/NotificationsBell'
 import { useMutualConnections, useConnectionDegree } from '@/hooks/useConnectionMeta';
 import { useFollowStatus, useFollowCounts, useFollowMutations } from '@/hooks/useFollow';
 import { Rss, UserCheck } from 'lucide-react-native';
+import { SimilarRail } from '@/components/profile/SimilarRail';
+import { useSimilarRail } from '@/hooks/useSimilar';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -79,6 +81,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const { data: followStatus } = useFollowStatus(isOwner ? undefined : userId);
     const { data: followCounts } = useFollowCounts(userId);
     const { follow: followMut, unfollow: unfollowMut } = useFollowMutations(isOwner ? undefined : userId);
+    const { data: similarData } = useSimilarRail(!isOwner ? userId : '');
 
     const user = isOwner ? authUser : fetchedUser;
 
@@ -650,6 +653,18 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                                 <Text style={s.emptyCtaText}>Complete Profile</Text><ChevronRight size={16} color="#fff" />
                             </LinearGradient>
                         </Pressable>
+                    </View>
+                )}
+
+                {/* ═══ 17. SIMILAR ARTISTS RAIL (visitor-only) ═══ */}
+                {!isOwner && (
+                    <View style={{ marginHorizontal: SECTION_PX }}>
+                        <SimilarRail
+                            items={similarData?.items ?? []}
+                            total={similarData?.total ?? 0}
+                            onSeeAll={() => router.push(`/profile/similar/${userId}` as any)}
+                            onItemPress={(peerId) => router.push(`/profile/${peerId}` as any)}
+                        />
                     </View>
                 )}
 

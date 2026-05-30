@@ -16,7 +16,6 @@ import {
 import { useSearchPreview, useSearchPeople, useSearchGigs, useSearchEvents } from "@/hooks/useSearchQueries";
 import connectionService from "@/services/connectionService";
 import AppScrollView from "@/components/AppScrollView";
-import { TopRightIcons } from "@/components/common/TopRightIcons";
 import { PersonItem } from "@/components/search/items/PersonItem";
 import { GigItem } from "@/components/search/items/GigItem";
 import { EventItem } from "@/components/search/items/EventItem";
@@ -126,7 +125,6 @@ export default function SearchScreen() {
 
     return (
         <View className="flex-1 bg-[#09090b]">
-            <TopRightIcons />
             {/* Background Glow */}
             <LinearGradient
                 colors={['#1e1b4b', '#09090b']}
@@ -139,9 +137,8 @@ export default function SearchScreen() {
 
                 {/* 1. HEADER (Filters only now, search moved to Navbar) */}
 
-                {/* 2. FILTER TABS — pt-14 reserves vertical space for the absolute-positioned <TopRightIcons /> cluster
-                       so the Network + Bell icons don't collide with the rightmost tab (Events). */}
-                <View className="pb-2 pt-14 border-b border-white/5">
+                {/* 2. FILTER TABS */}
+                <View className="pb-2 pt-2 border-b border-white/5">
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import logo from '@/assets/logo-black.jpeg';
+import noAvatar from '@/assets/no-avatar.jpg';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
     View, Text, TouchableOpacity, Dimensions, Platform,
@@ -63,15 +64,41 @@ function SearchResultRow({
     onPress: () => void;
     isLast: boolean;
 }) {
-    console.log("search result in drop down: ", item)
-    const getIcon = () => {
+    const isPerson = item.type === 'artist' || item.type === 'organizer';
+
+    const getCategoryIcon = () => {
         switch (item.type) {
             case 'gig': return <Briefcase size={15} color="#ff006e" />;
             case 'event': return <Calendar size={15} color="#8338ec" />;
-            case 'artist': return <Music size={15} color="#3b82f6" />;
-            case 'organizer': return <Users size={15} color="#10b981" />;
             default: return <Search size={15} color="#888" />;
         }
+    };
+
+    // People (artist/organizer) → profile pic if present, else no-avatar fallback (round).
+    // Gigs/events → category icon in a rounded-square tile.
+    const Thumb = () => {
+        if (isPerson) {
+            const src = item.image ? { uri: item.image } : noAvatar;
+            return (
+                <Image
+                    source={src as any}
+                    style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)' }}
+                />
+            );
+        }
+        if (item.image) {
+            return (
+                <Image
+                    source={{ uri: item.image }}
+                    style={{ width: 28, height: 28, borderRadius: 6 }}
+                />
+            );
+        }
+        return (
+            <View style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(168,85,247,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                {getCategoryIcon()}
+            </View>
+        );
     };
 
     return (
@@ -85,15 +112,8 @@ function SearchResultRow({
                 borderBottomColor: 'rgba(255,255,255,0.05)',
             }}
         >
-            <View style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(168,85,247,0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                {item.image ? (
-                    <Image
-                        source={{ uri: item.image }}
-                        style={{ width: 28, height: 28, borderRadius: 6 }}
-                    />
-                ) : (
-                    getIcon()
-                )}
+            <View style={{ marginRight: 10 }}>
+                <Thumb />
             </View>
             <View style={{ flex: 1 }}>
                 <Text style={{ color: '#fff', fontSize: 13, fontFamily: F.heading }} numberOfLines={1}>

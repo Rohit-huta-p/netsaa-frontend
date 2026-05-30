@@ -461,7 +461,7 @@ export default function Navbar() {
                 ))}
                 <TouchableOpacity
                     onPress={handleViewAll}
-                    style={{ padding: 12, alignItems: 'center', backgroundColor: 'rgba(168,85,247,0.1)' }}
+                    style={{ padding: 12, alignItems: 'center' }}
                 >
                     <Text style={{ color: '#a855f7', fontSize: 12, fontFamily: F.bodySemiBold }}>View all results →</Text>
                 </TouchableOpacity>
@@ -701,7 +701,7 @@ export default function Navbar() {
                                                         ))}
                                                         <TouchableOpacity
                                                             onPress={() => { closeFullSearch(); handleViewAll(); }}
-                                                            style={{ margin: 16, padding: 14, alignItems: 'center', backgroundColor: 'rgba(168,85,247,0.12)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(168,85,247,0.25)' }}
+                                                            style={{ margin: 16, padding: 14, alignItems: 'center' }}
                                                         >
                                                             <Text style={{ color: '#a855f7', fontSize: 13, fontFamily: F.bodySemiBold }}>View all results →</Text>
                                                         </TouchableOpacity>

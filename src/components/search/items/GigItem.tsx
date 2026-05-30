@@ -8,25 +8,25 @@ interface GigItemProps {
     onPress?: () => void;
 }
 
-export const GigItem = ({ item, onPress }: GigItemProps) => (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-start py-4 border-b border-white/5">
-        <View className="w-12 h-12 bg-white/10 rounded-lg items-center justify-center mr-4 border border-white/5">
-            <Briefcase size={20} color="#a1a1aa" />
-        </View>
-
-        <View className="flex-1">
-            <Text className="text-white font-bold text-base mb-0.5">{item.title}</Text>
-            <Text className="text-gray-300 text-sm mb-1">{item.organizerName || 'Organizer'}</Text>
-            <View className="flex-row items-center gap-3">
-                <Text className="text-gray-500 text-xs">{item.city || 'Remote'}</Text>
-                <Text className="text-green-400 text-xs font-bold">{new Date(item.createdAt).toLocaleDateString()}</Text>
+export const GigItem = ({ item, onPress }: GigItemProps) => {
+    // Single meta line: organizer · city · createdAt (only the parts that exist)
+    const meta: string[] = [];
+    if (item.organizerName) meta.push(String(item.organizerName));
+    if (item.city) meta.push(String(item.city));
+    if (item.createdAt) {
+        try { meta.push(new Date(item.createdAt).toLocaleDateString()); } catch { /* skip */ }
+    }
+    return (
+        <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center py-3">
+            <View className="w-11 h-11 rounded-lg bg-white/5 items-center justify-center">
+                <Briefcase size={18} color="#a78bfa" />
             </View>
-        </View>
-
-        <View className="mt-1">
-            <View className="bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
-                <Text className="text-white text-xs font-bold">View</Text>
+            <View className="flex-1 ml-3">
+                <Text className="text-white font-semibold text-[15px]" numberOfLines={1}>{item.title}</Text>
+                {meta.length > 0 ? (
+                    <Text className="text-gray-400 text-xs mt-0.5" numberOfLines={1}>{meta.join(' · ')}</Text>
+                ) : null}
             </View>
-        </View>
-    </TouchableOpacity>
-);
+        </TouchableOpacity>
+    );
+};

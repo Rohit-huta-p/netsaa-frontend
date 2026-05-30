@@ -31,7 +31,6 @@ export const PersonItem = ({ item, status: initialStatus, onPress }: PersonItemP
 
     const handleConnect = async () => {
         if (status !== 'none' || isLoading) return;
-
         try {
             setIsLoading(true);
             await connectionService.sendConnectionRequest(item.id);
@@ -48,54 +47,58 @@ export const PersonItem = ({ item, status: initialStatus, onPress }: PersonItemP
         }
     };
 
+    // Build the single meta line: artistType + city, separated by middle dot.
+    // Hide entirely when neither is set.
+    const name = [item.firstName, item.lastName].filter(Boolean).join(' ').trim() || item.displayName || item.title;
+    const metaParts: string[] = [];
+    if (item.artistType) metaParts.push(String(item.artistType));
+    if (item.city) metaParts.push(String(item.city));
+    const meta = metaParts.join(' · ');
+
     return (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center py-4 border-b border-white/5">
-            {/* Avatar */}
-            <View className="w-14 h-14 rounded-full overflow-hidden border border-white/10 relative">
-                <Image
-                    source={item?.profileImageUrl ? { uri: item.profileImageUrl } : noAvatar}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' } as any}
-                    className="rounded-full mr-4 bg-gray-800"
-                    resizeMode="cover"
-                />
+        <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center py-3">
+            {/* Avatar — smaller, no extra border */}
+            <Image
+                source={item?.profileImageUrl ? { uri: item.profileImageUrl } : noAvatar}
+                style={{ width: 44, height: 44, borderRadius: 22 }}
+                className="bg-white/5"
+                resizeMode="cover"
+            />
+
+            {/* Info — name + single meta line */}
+            <View className="flex-1 ml-3 mr-2">
+                <Text className="text-white font-semibold text-[15px]" numberOfLines={1}>{name}</Text>
+                {meta ? (
+                    <Text className="text-gray-400 text-xs mt-0.5" numberOfLines={1}>{meta}</Text>
+                ) : null}
             </View>
 
-            {/* Info */}
-            <View className="flex-1">
-                <Text className="text-white font-bold text-base">{item.firstName} {item.lastName} {item.title}</Text>
-                <Text className="text-gray-400 text-sm mb-0.5" numberOfLines={1}>
-                    {item.artistType || 'Member'}
-                </Text>
-                <Text className="text-gray-500 text-xs">
-                    {item.city || 'Unknown Location'} • {status === 'connected' ? 'Connected' : (status === 'pending' ? 'Pending' : 'Connect')}
-                </Text>
-            </View>
-
-            {/* Action Button */}
+            {/* Action — minimal connect button on the right */}
             <TouchableOpacity
                 onPress={(e) => {
                     e.stopPropagation();
                     handleConnect();
                 }}
                 disabled={status !== 'none' || isLoading}
-                className={`px-4 py-2 rounded-full border ${status === 'connected' || status === 'pending'
-                    ? 'bg-white/5 border-white/20'
-                    : 'bg-transparent border-white/40'
-                    }`}
+                className={`px-3 py-1.5 rounded-full border ${
+                    status === 'connected' || status === 'pending'
+                        ? 'border-white/15'
+                        : 'border-white/35'
+                }`}
             >
                 {isLoading ? (
-                    <ActivityIndicator size="small" color="white" />
+                    <ActivityIndicator size="small" color="#fff" />
                 ) : status === 'connected' ? (
-                    <Text className="text-gray-400 font-bold text-sm">Following</Text>
+                    <Text className="text-gray-400 font-semibold text-xs">Following</Text>
                 ) : status === 'pending' ? (
                     <View className="flex-row items-center">
-                        <Check size={16} color="#9ca3af" className="mr-1" />
-                        <Text className="text-gray-400 font-bold text-sm">Pending</Text>
+                        <Check size={13} color="#9ca3af" />
+                        <Text className="text-gray-400 font-semibold text-xs ml-1">Pending</Text>
                     </View>
                 ) : (
                     <View className="flex-row items-center">
-                        <UserPlus size={16} color="white" className="mr-1" />
-                        <Text className="text-white font-bold text-sm">Connect</Text>
+                        <UserPlus size={13} color="#fff" />
+                        <Text className="text-white font-semibold text-xs ml-1">Connect</Text>
                     </View>
                 )}
             </TouchableOpacity>

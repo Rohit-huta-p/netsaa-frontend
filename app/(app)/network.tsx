@@ -477,10 +477,16 @@ export default function NetworkPage() {
     const openMessage = async (conn: Connection) => {
         const other = conn.requesterId._id === currentUserId ? conn.recipientId : conn.requesterId;
         try {
-            await conversationService.createConversation(other._id);
-            router.push('/connections' as any);
+            const convo = await conversationService.createConversation(other._id);
+            const convoId = (convo as any)?._id;
+            if (convoId) {
+                router.push(`/(app)/messages?c=${convoId}` as any);
+            } else {
+                router.push('/(app)/messages' as any);
+            }
         } catch (e) {
             console.error('[network] openMessage failed', e);
+            router.push('/(app)/messages' as any);
         }
     };
 

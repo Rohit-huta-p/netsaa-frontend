@@ -458,14 +458,7 @@ export default function Navbar() {
 
     // --- Shared dropdown content ---
     const renderDropdown = () => {
-        if (isSearching) return (
-            <View style={{ paddingVertical: 22, alignItems: 'center' }}>
-                <ActivityIndicator size="small" color="#D4A155" />
-                <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2.5, marginTop: 8 }}>
-                    SEARCHING
-                </Text>
-            </View>
-        );
+        // No loading state — keepPreviousData keeps prior results visible while refetching.
         if (results.length === 0) return (
             <View style={{ paddingVertical: 24, alignItems: 'center' }}>
                 <Text style={{ color: '#4A4656', fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, marginBottom: 6 }}>⋄</Text>
@@ -568,9 +561,7 @@ export default function Navbar() {
                                 borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
                                 width: 260,
                             }}>
-                                {isSearching
-                                    ? <ActivityIndicator size="small" color="#ff006e" />
-                                    : <Search size={16} color="#888" />}
+                                <Search size={16} color="#888" />
                                 <TextInput
                                     ref={searchInputRef}
                                     value={searchQuery}
@@ -697,9 +688,7 @@ export default function Navbar() {
                                                     paddingHorizontal: 12, paddingVertical: 10,
                                                     borderWidth: 1, borderColor: 'rgba(168,85,247,0.4)',
                                                 }}>
-                                                    {isSearching
-                                                        ? <ActivityIndicator size="small" color="#A855F7" />
-                                                        : <Search size={16} color="#A855F7" />}
+                                                    <Search size={16} color="#A855F7" />
                                                     <TextInput
                                                         ref={fullSearchRef}
                                                         value={searchQuery}
@@ -730,13 +719,6 @@ export default function Navbar() {
                                                         <Text style={{ color: '#A19BAA', fontSize: 13 }}>Start typing to search</Text>
                                                         <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2.5, marginTop: 6 }}>
                                                             PEOPLE · GIGS · EVENTS
-                                                        </Text>
-                                                    </View>
-                                                ) : isSearching ? (
-                                                    <View style={{ paddingVertical: 48, alignItems: 'center' }}>
-                                                        <ActivityIndicator size="small" color="#D4A155" />
-                                                        <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2.5, marginTop: 10 }}>
-                                                            SEARCHING
                                                         </Text>
                                                     </View>
                                                 ) : results.length === 0 ? (

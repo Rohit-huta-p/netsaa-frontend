@@ -1,4 +1,4 @@
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, usePathname } from "expo-router";
 import { View } from "react-native";
 import useAuthStore from "@/stores/authStore";
 import ProfileCompletionModal from "@/components/common/ProfileCompletionModal";
@@ -6,12 +6,14 @@ import AccountDeletionScheduledModal from "@/components/settings/AccountDeletion
 import { computeOverallScore, computeMissing, computeOrganizerScore, computeOrganizerMissing } from "@/components/profile/ProfileStrengthWidget";
 import BottomNav from "@/components/nav/BottomNav";
 import { useModeStore } from "@/stores/modeStore";
-import { isValidMode } from "@/lib/modeInference";
+import { resolveBootstrapMode } from "@/lib/modeInference";
 import { useState, useEffect } from "react";
 
 /**
  * App Layout - All routes under (app) require authentication.
- * Unauthenticated users are redirected to "/" (landing page).
+ * Unauthenticated users are redirected to "/(auth)/login" (a protected route
+ * should bounce to login, not the marketing landing). The bare root "/" is
+ * what shows the landing page — see app/index.tsx.
  */
 export default function AppLayout() {
     const { isHydrated, isAuthLoading, user, accessToken } = useAuthStore();
@@ -50,28 +52,34 @@ export default function AppLayout() {
     }, [isHydrated, isAuthLoading, user?.accountStatus]);
 
     /**
-     * Layer 2 bootstrap — spec §2.4 mode resolution.
+     * Mode bootstrap — spec §2.4 mode resolution.
      *
-     * When the app boots, mode resolves in this order:
-     *   Layer 1 (local, persistent): AsyncStorage via zustand persist — fires before this effect.
-     *   Layer 2 (server mirror):     user.lastActiveMode, read here on login.
-     *   Layer 3 (inference):         behavioural fallback (currently only used at onboarding).
+     *   Layer 1 (local, persistent): zustand persist rehydrates the last mode
+     *     BEFORE this effect runs. If the user has explicitly switched mode on
+     *     this device (modeExplicitlyChosen), that choice is authoritative.
+     *   Layer 2 (server mirror): user.lastActiveMode only SEEDS mode on a device
+     *     with no explicit local choice yet (fresh login / new device).
      *
-     * Tradeoff: on every login we prefer the server value. This means if a user switches
-     * to 'artist' on device B and server still had 'hirer' from device A's last session,
-     * device B can get flipped to 'hirer' on next app launch. For MVP we bias toward
-     * cross-device continuity — device A (where the switch happened) will have synced
-     * 'artist' to the server already via modeService, so normal flows stay consistent.
-     * hasBootstrappedMode prevents re-running within a single session.
+     * Biasing to the local explicit choice — rather than re-applying the server
+     * value on every boot — fixes the bug where switching to Hirer reverted to
+     * Artist after a web refresh: this effect re-runs on every web reload because
+     * hasBootstrappedMode is in-memory only, so it must not clobber a deliberate
+     * on-device switch. See resolveBootstrapMode().
      */
     useEffect(() => {
         if (!isHydrated || isAuthLoading || !user) return;
-        const { hasBootstrappedMode, setMode, setBootstrapped } = useModeStore.getState();
+        const { hasBootstrappedMode, modeExplicitlyChosen, mode, setBootstrapped } = useModeStore.getState();
         if (hasBootstrappedMode) return;
 
-        const serverMode = (user as any).lastActiveMode;
-        if (isValidMode(serverMode)) {
-            setMode(serverMode);
+        const resolved = resolveBootstrapMode({
+            localMode: mode,
+            modeExplicitlyChosen,
+            serverMode: (user as any).lastActiveMode,
+        });
+        // Raw seed (not a user choice) — setState directly so it does not pin
+        // modeExplicitlyChosen; a fresh device should still defer to the server.
+        if (resolved !== mode) {
+            useModeStore.setState({ mode: resolved });
         }
         setBootstrapped(true);
     }, [isHydrated, isAuthLoading, user]);
@@ -86,11 +94,16 @@ export default function AppLayout() {
         return null;
     }
 
+    // Hide the global BottomNav on routes where it gets in the way of bottom
+    // affordances (e.g. /messages compose box, full-screen chat).
+    const pathname = usePathname();
+    const hideBottomNav = pathname?.startsWith('/messages') ?? false;
+
     return (
         <View className="flex-1">
             <Stack screenOptions={{ headerShown: false }} />
 
-            <BottomNav />
+            {!hideBottomNav && <BottomNav />}
 
             {/* Profile completion modal — artists/organizers with incomplete profiles */}
             {showProfileModal && (

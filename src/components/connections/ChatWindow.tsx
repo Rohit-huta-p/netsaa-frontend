@@ -15,11 +15,10 @@ import {
 import {
     X,
     Send,
-    Phone,
-    Video,
     AlertCircle
 } from "lucide-react-native";
 import { useAuthStore } from "@/stores/authStore";
+import noAvatar from '@/assets/no-avatar.jpg';
 
 import messageService from "@/services/messageService";
 import { socketService } from "@/services/socketService";
@@ -32,6 +31,8 @@ export interface UserBasic {
     _id: string;
     displayName: string;
     profilePicture?: string;
+    /** Backend sometimes serves this instead of `profilePicture` — both are accepted. */
+    profileImageUrl?: string;
     email?: string;
     role?: string;
 }
@@ -42,6 +43,11 @@ interface ChatWindowProps {
     conversationId: string;
     recipient?: UserBasic; // Made optional
     onClose: () => void;
+    /**
+     * Hide the close (X) button in the chat header. Useful when the parent
+     * page already provides its own back/close affordance (e.g. /messages).
+     */
+    hideClose?: boolean;
 }
 
 interface SocketMessagePayload {
@@ -53,7 +59,7 @@ interface SocketMessagePayload {
     clientMessageId?: string;
 }
 
-export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClose }: ChatWindowProps) => {
+export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClose, hideClose }: ChatWindowProps) => {
     const currentUserId = useAuthStore.getState().user?._id || "me";
 
     // State
@@ -395,7 +401,8 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
         );
     }
 
-    const displayUser = recipient || { _id: "unknown", displayName: "Loading...", profilePicture: "" };
+    const displayUser = recipient || { _id: "unknown", displayName: "Loading...", profilePicture: "", profileImageUrl: "" };
+    const avatarUri = displayUser.profilePicture || displayUser.profileImageUrl;
 
     return (
         <View className="flex-1 bg-[#09090b] border-l border-white/10">
@@ -404,7 +411,7 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                 <View className="flex-row items-center">
                     <View>
                         <Image
-                            source={{ uri: displayUser.profilePicture || "https://i.pravatar.cc/150?img=5" }}
+                            source={avatarUri ? { uri: avatarUri } : noAvatar}
                             className="w-10 h-10 rounded-full bg-gray-800 mr-3"
                         />
                         {isOnline && (
@@ -415,13 +422,13 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                         <Text className="text-white font-bold">{displayUser.displayName}</Text>
                     </View>
                 </View>
-                <View className="flex-row items-center gap-4">
-                    <TouchableOpacity><Phone size={20} color="#9ca3af" /></TouchableOpacity>
-                    <TouchableOpacity><Video size={20} color="#9ca3af" /></TouchableOpacity>
-                    <TouchableOpacity onPress={onClose} className="bg-white/10 p-1.5 rounded-full">
-                        <X size={20} color="white" />
-                    </TouchableOpacity>
-                </View>
+                {!hideClose ? (
+                    <View className="flex-row items-center gap-4">
+                        <TouchableOpacity onPress={onClose} className="bg-white/10 p-1.5 rounded-full">
+                            <X size={20} color="white" />
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
             </View>
 
             {/* Messages Area - Always render list to show optimistic updates even if loading history */}

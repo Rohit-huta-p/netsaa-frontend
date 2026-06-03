@@ -431,12 +431,15 @@ export default function MessagesPage() {
 
     const recipient: UserBasic | undefined = useMemo(() => {
         if (!activeConvo) return undefined;
-        const o = otherParticipant(activeConvo, selfId);
+        const o = otherParticipant(activeConvo, selfId) as any;
         if (!o) return undefined;
         return {
             _id: o._id,
             displayName: o.displayName,
-            profilePicture: o.profilePicture,
+            // Backend populates either `profilePicture` or `profileImageUrl` depending on
+            // service shape. Pass both — ChatWindow falls through.
+            profilePicture: o.profilePicture ?? o.profileImageUrl,
+            profileImageUrl: o.profileImageUrl ?? o.profilePicture,
         };
     }, [activeConvo, selfId]);
 
@@ -504,6 +507,7 @@ export default function MessagesPage() {
                                         conversationId={activeId}
                                         recipient={recipient}
                                         onClose={handleBackToList}
+                                        hideClose
                                     />
                                 ) : null}
                             </View>
@@ -548,6 +552,7 @@ export default function MessagesPage() {
                                 conversationId={activeId}
                                 recipient={recipient}
                                 onClose={() => setActiveId(undefined)}
+                                hideClose
                             />
                         ) : (
                             <ChatEmpty />

@@ -411,7 +411,7 @@ export default function MessagesPage() {
     const params = useLocalSearchParams<{ c?: string }>();
     const { user } = useAuthStore();
     const selfId = user?._id;
-    const { width, height } = useWindowDimensions();
+    const { width } = useWindowDimensions();
     const isDesktop = width >= DESKTOP_BREAKPOINT;
 
     const [conversations, setConversations] = useState<PopulatedConversation[]>([]);
@@ -507,8 +507,8 @@ export default function MessagesPage() {
     // ── Mobile layout: show one panel at a time ──
     if (!isDesktop) {
         return (
-            <View style={{ flex: 1, backgroundColor: C.bg }}>
-                <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+            <View style={{ flex: 1, minHeight: 0, backgroundColor: C.bg }}>
+                <SafeAreaView edges={['top']} style={{ flex: 1, minHeight: 0 }}>
                     {!activeId ? (
                         <Sidebar
                             conversations={conversations}
@@ -522,7 +522,9 @@ export default function MessagesPage() {
                     ) : (
                         // Let ChatWindow own the chat view fully on mobile.
                         // Its onClose acts as our 'back to list' affordance.
-                        <View style={{ flex: 1, backgroundColor: C.panel }}>
+                        // minHeight:0 so ChatWindow's internal scroll area can shrink
+                        // on web and the input bar stays in view.
+                        <View style={{ flex: 1, minHeight: 0, backgroundColor: C.panel }}>
                             <ChatWindow
                                 conversationId={activeId}
                                 recipient={recipient}
@@ -537,13 +539,15 @@ export default function MessagesPage() {
 
     // ── Desktop layout: 2-column ──
     return (
-        <View style={{ flex: 1, backgroundColor: C.bg }}>
-            <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+        <View style={{ flex: 1, minHeight: 0, backgroundColor: C.bg }}>
+            <SafeAreaView edges={['top']} style={{ flex: 1, minHeight: 0 }}>
                 <View
                     style={{
-                        // Explicit pixel height removes the nested-flex height ambiguity
-                        // on web that was collapsing the chat pane to zero height.
-                        height: height - 28,
+                        flex: 1,
+                        // minHeight:0 lets this flex child shrink on web so descendant
+                        // scroll areas (the message list) don't force overflow that
+                        // pushes the input bar out of view.
+                        minHeight: 0,
                         flexDirection: 'row',
                         maxWidth: 1400,
                         width: '100%',
@@ -565,7 +569,7 @@ export default function MessagesPage() {
                             onSelect={handleSelect}
                         />
                     </View>
-                    <View style={{ flex: 1, backgroundColor: C.panel }}>
+                    <View style={{ flex: 1, minHeight: 0, backgroundColor: C.panel }}>
                         {activeId ? (
                             // Always mount when an active id exists; ChatWindow's own
                             // getConversationById fetch will fill in the recipient

@@ -151,6 +151,17 @@ function DropdownSectionLabel({ label, count }: { label: string; count: number }
     );
 }
 
+// ----- Top-nav profile avatar (real user pic, with fallback) -----
+function NavAvatar({ user, size = 32 }: { user: User | null; size?: number }) {
+    const uri = user?.profileImageUrl;
+    return (
+        <Image
+            source={uri ? { uri } : noAvatar}
+            style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#1a1a24' }}
+        />
+    );
+}
+
 // ----- Profile Dropdown Menu -----
 function ProfileMenu({
     user,
@@ -253,13 +264,10 @@ function ProfileMenu({
                 }}
             >
                 <View style={{ position: 'relative' }}>
-                    {user?.profileImageUrl ? (
-                        <Image source={{ uri: user.profileImageUrl }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-                    ) : (
-                        <View style={{ width: 40, height: 40, backgroundColor: '#9333EA', borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
-                            <UserIcon size={20} color="white" />
-                        </View>
-                    )}
+                    <Image
+                        source={user?.profileImageUrl ? { uri: user.profileImageUrl } : noAvatar}
+                        style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#1a1a24' }}
+                    />
                     <View style={{
                         position: 'absolute',
                         bottom: 0,
@@ -609,9 +617,7 @@ export default function Navbar() {
                             {/* Profile dropdown */}
                             <View style={{ position: 'relative', zIndex: 60 }}>
                                 <TouchableOpacity onPress={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <View style={{ width: 32, height: 32, backgroundColor: '#9333EA', borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
-                                        <UserIcon size={18} color="white" />
-                                    </View>
+                                    <NavAvatar user={user} size={32} />
                                     <ChevronDown size={16} color="white" style={{ transform: [{ rotate: isProfileDropdownOpen ? '180deg' : '0deg' }], marginLeft: 4 }} />
                                 </TouchableOpacity>
 
@@ -847,9 +853,7 @@ export default function Navbar() {
                             {/* Profile avatar + dropdown */}
                             <View style={{ position: 'relative', zIndex: 60 }}>
                                 <TouchableOpacity onPress={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}>
-                                    <View style={{ width: 32, height: 32, backgroundColor: '#9333EA', borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
-                                        <UserIcon size={18} color="white" />
-                                    </View>
+                                    <NavAvatar user={user} size={32} />
                                 </TouchableOpacity>
 
                                 {isProfileDropdownOpen && (

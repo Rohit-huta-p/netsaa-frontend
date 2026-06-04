@@ -49,11 +49,18 @@ const timeAgo = (iso?: string) => {
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
+// Robust other-participant extractor. Backend may serve participants as either
+// populated user objects ({_id, displayName, profilePicture}) OR raw ObjectId
+// strings. Normalise both to an object shape (with whatever fields exist).
 const otherParticipant = (
     convo: PopulatedConversation,
     selfId?: string
-): PopulatedConversation['participants'][number] | undefined => {
-    return convo.participants?.find((p) => p._id !== selfId) ?? convo.participants?.[0];
+): { _id: string; displayName?: string; profilePicture?: string; profileImageUrl?: string } | undefined => {
+    const list = (convo as any)?.participants;
+    if (!Array.isArray(list) || list.length === 0) return undefined;
+    const normalise = (p: any) => (typeof p === 'string' ? { _id: p } : p);
+    const others = list.map(normalise).filter((p) => p && p._id && p._id !== selfId);
+    return others[0] ?? normalise(list[0]);
 };
 
 // ── Conversation row in the sidebar ──
@@ -533,7 +540,11 @@ export default function MessagesPage() {
                         />
                     </View>
                     <View style={{ flex: 1, backgroundColor: C.panel }}>
-                        {activeId && recipient ? (
+                        {activeId ? (
+                            // Always mount when an active id exists; ChatWindow's own
+                            // getConversationById fetch will fill in the recipient
+                            // when our local memo can't resolve it (e.g. backend
+                            // returns participants as raw ObjectId strings).
                             <ChatWindow
                                 conversationId={activeId}
                                 recipient={recipient}

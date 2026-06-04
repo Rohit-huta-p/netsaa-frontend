@@ -489,58 +489,14 @@ export default function MessagesPage() {
                             onBack={() => router.back()}
                         />
                     ) : (
+                        // Let ChatWindow own the chat view fully on mobile.
+                        // Its onClose acts as our 'back to list' affordance.
                         <View style={{ flex: 1, backgroundColor: C.panel }}>
-                            {/* Mobile chat header w/ back */}
-                            <View
-                                style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    paddingHorizontal: 12,
-                                    paddingVertical: 10,
-                                    borderBottomWidth: 1,
-                                    borderBottomColor: C.borderSoft,
-                                }}
-                            >
-                                <Pressable
-                                    onPress={handleBackToList}
-                                    style={({ pressed }) => ({
-                                        width: 34,
-                                        height: 34,
-                                        borderRadius: 17,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        opacity: pressed ? 0.5 : 1,
-                                        marginRight: 8,
-                                    })}
-                                >
-                                    <ChevronLeft size={18} color={C.text2} />
-                                </Pressable>
-                                <Image
-                                    source={recipient?.profilePicture ? { uri: recipient.profilePicture } : noAvatar}
-                                    style={{ width: 34, height: 34, borderRadius: 17, marginRight: 10 }}
-                                />
-                                <Text
-                                    style={{
-                                        color: C.text1,
-                                        fontFamily: 'Outfit-SemiBold',
-                                        fontSize: 15,
-                                        flex: 1,
-                                    }}
-                                    numberOfLines={1}
-                                >
-                                    {recipient?.displayName ?? 'Conversation'}
-                                </Text>
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                {activeId ? (
-                                    <ChatWindow
-                                        conversationId={activeId}
-                                        recipient={recipient}
-                                        onClose={handleBackToList}
-                                        hideClose
-                                    />
-                                ) : null}
-                            </View>
+                            <ChatWindow
+                                conversationId={activeId}
+                                recipient={recipient}
+                                onClose={handleBackToList}
+                            />
                         </View>
                     )}
                 </SafeAreaView>

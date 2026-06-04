@@ -3,7 +3,7 @@ import { View, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { UserPen, Settings, MessageCircle } from 'lucide-react-native';
 
-type ConnectionState = 'none' | 'pending' | 'connected' | 'following';
+type ConnectionState = 'none' | 'pending' | 'connected';
 
 type Props = {
     isOwner: boolean;
@@ -17,7 +17,6 @@ const CONNECT_LABELS: Record<ConnectionState, string> = {
     none: 'Connect',
     pending: 'Pending',
     connected: 'Connected',
-    following: 'Following',
 };
 
 export const ProfileActions: React.FC<Props> = ({

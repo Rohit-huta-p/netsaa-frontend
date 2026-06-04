@@ -25,9 +25,7 @@ import { ProfileEditModal } from '@/features/profile/components/ProfileEditModal
 import { ProfileData } from '@/components/profile/types';
 import type { ConnectionContext } from '@/types/connection';
 import { NotificationsBell } from '@/components/notifications/NotificationsBell';
-import { useMutualConnections, useConnectionDegree } from '@/hooks/useConnectionMeta';
-import { useFollowStatus, useFollowCounts, useFollowMutations } from '@/hooks/useFollow';
-import { Rss, UserCheck } from 'lucide-react-native';
+import { useMutualConnections, useConnectionDegree, useMyConnectionsCount } from '@/hooks/useConnectionMeta';
 import { SimilarRail } from '@/components/profile/SimilarRail';
 import { useSimilarRail } from '@/hooks/useSimilar';
 
@@ -78,10 +76,10 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     // every hook above the loading guards. ──
     const { data: mutualData } = useMutualConnections(isOwner ? undefined : userId);
     const { data: degreeData } = useConnectionDegree(isOwner ? undefined : userId);
-    const { data: followStatus } = useFollowStatus(isOwner ? undefined : userId);
-    const { data: followCounts } = useFollowCounts(userId);
-    const { follow: followMut, unfollow: unfollowMut } = useFollowMutations(isOwner ? undefined : userId);
     const { data: similarData } = useSimilarRail(!isOwner ? userId : '');
+    // Owner-only: User doc has no stats.connections counter, so mirror /network
+    // and derive count from the accepted-connections list.
+    const { data: myConnectionsCount } = useMyConnectionsCount(isOwner);
 
     const user = isOwner ? authUser : fetchedUser;
 
@@ -130,18 +128,13 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const totalHired = u.stats?.totalHired || u.organizerDetails?.hirerStats?.artistsHired || 0;
     const hirerRating = u.cached?.hirerRating || u.organizerDetails?.hirerStats?.averageRating || 0;
     const eventsHosted = u.stats?.eventsHosted || u.organizerDetails?.hirerStats?.eventsCreated || 0;
-    const connections = u.stats?.connections || 0;
+    const connections = isOwner ? (myConnectionsCount ?? 0) : (u.stats?.connections || 0);
 
     // Derived values from the connection / follow hooks (which run above the
     // early returns to satisfy the rules-of-hooks). These are pure reads,
     // safe to compute here.
     const mutualConnections = mutualData?.count ?? 0;
     const connectionDegree = degreeData?.degree ?? null;
-    const iFollow = followStatus?.iFollow ?? false;
-    const followsMe = followStatus?.followsMe ?? false;
-    const followerCount = followCounts?.followers ?? 0;
-    const followingCount = followCounts?.following ?? 0;
-    const isFollowLoading = followMut.isPending || unfollowMut.isPending;
     const profileScore = isOwner ? computeOverallScore(u) : null;
     const initials = displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -305,10 +298,6 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                             <View style={s.dot} />
                             <Text style={s.mutualText}>{mutualConnections} mutual</Text>
                         </>}
-                        {followerCount > 0 && <>
-                            <View style={s.dot} />
-                            <Text style={s.mutualText}>{followerCount} {followerCount === 1 ? 'follower' : 'followers'}</Text>
-                        </>}
                     </Pressable>
                 )}
 
@@ -344,27 +333,6 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                                         <UserPlus size={18} color="#fff" />}
                                 </LinearGradient>
                                 <Text style={s.ctaLabel}>{connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'pending' ? 'Pending' : 'Connect'}</Text>
-                            </Pressable>
-                            {/* Follow button (PRD §8.9.5) — one-way, no approval. Always available on non-owner profiles. */}
-                            <Pressable
-                                onPress={() => {
-                                    if (isFollowLoading) return;
-                                    if (iFollow) unfollowMut.mutate();
-                                    else followMut.mutate();
-                                }}
-                                disabled={isFollowLoading}
-                                style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}
-                            >
-                                <View style={[s.ctaIconOutline, iFollow && { borderColor: '#EC4899', backgroundColor: 'rgba(236,72,153,0.08)' }]}>
-                                    {isFollowLoading
-                                        ? <ActivityIndicator size="small" color={iFollow ? '#EC4899' : '#6B6878'} />
-                                        : iFollow
-                                            ? <UserCheck size={18} color="#EC4899" />
-                                            : <Rss size={18} color="#6B6878" />}
-                                </View>
-                                <Text style={[s.ctaLabel, iFollow && { color: '#EC4899' }]}>
-                                    {iFollow ? 'Following' : followsMe ? 'Follow back' : 'Follow'}
-                                </Text>
                             </Pressable>
                             <Pressable style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
                                 <View style={s.ctaIconOutline}><MessageCircle size={18} color="#6B6878" /></View>
@@ -884,7 +852,7 @@ function ConnectionRequestSheet({ recipientName, isLoading, onSend, onClose }: {
 type ActionKey = 'remove' | 'withdraw' | 'block' | 'block_report';
 
 function ConnectionActionMenu({ status, recipientName, onClose, onAction }: {
-    status: 'none' | 'pending' | 'connected' | 'following';
+    status: 'none' | 'pending' | 'connected';
     recipientName: string;
     onClose: () => void;
     onAction: (a: ActionKey) => void;

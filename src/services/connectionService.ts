@@ -154,53 +154,6 @@ const connectionService = {
             cached?: boolean;
         };
     },
-
-    // ─── Follow system (PRD §8.9.5) ─────────────────────────────────
-
-    /** Start following another user (one-way, no approval needed). */
-    followUser: async (userId: string) => {
-        const { data } = await API.post(`/follow/${userId}`);
-        return data;
-    },
-
-    /** Stop following a user. Silent — no notification to them per PRD. */
-    unfollowUser: async (userId: string) => {
-        const { data } = await API.delete(`/follow/${userId}`);
-        return data.data as { removed: boolean };
-    },
-
-    /** Am I following them? Are they following me back? */
-    getFollowStatus: async (userId: string) => {
-        const { data } = await API.get(`/follow-status/${userId}`);
-        return data.data as { iFollow: boolean; followsMe: boolean };
-    },
-
-    /** Follower + following counts for a given user (any user, public data). */
-    getFollowCounts: async (userId: string) => {
-        const { data } = await API.get(`/follow-counts/${userId}`);
-        return data.data as { followers: number; following: number };
-    },
-
-    /** Users the current user is following (paginated, most recent first). */
-    getFollowing: async (limit = 50, skip = 0) => {
-        const { data } = await API.get('/following', { params: { limit, skip } });
-        return data.data as Array<FollowListUser>;
-    },
-
-    /** Users following the current user (paginated, most recent first). */
-    getFollowers: async (limit = 50, skip = 0) => {
-        const { data } = await API.get('/followers', { params: { limit, skip } });
-        return data.data as Array<FollowListUser>;
-    },
-};
-
-export type FollowListUser = {
-    _id: string;
-    displayName: string;
-    profileImageUrl?: string;
-    role?: string;
-    artistType?: string | string[];
-    followedAt: string;
 };
 
 export default connectionService;

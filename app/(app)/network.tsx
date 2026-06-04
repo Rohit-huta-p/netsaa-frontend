@@ -7,8 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
-    ChevronLeft, ChevronRight, Search, Check, X, Clock, Send, Users, Sparkles,
-    MessageCircle, ChevronDown, ChevronUp, ArrowUpDown, CheckCheck,
+    ChevronLeft, ChevronRight, Search, Check, X, Users, Sparkles,
+    MessageCircle, ArrowUpDown, CheckCheck,
     UserPlus,
 } from 'lucide-react-native';
 
@@ -20,7 +20,6 @@ import { Connection, ConnectionRequest } from '@/types/connection';
 import { NotificationsBell } from '@/components/notifications/NotificationsBell';
 import { usePYMK, type PYMKSuggestion } from '@/hooks/useConnectionMeta';
 import { usePresence } from '@/hooks/usePresence';
-import { useFollowCounts, useMyFollowing, useFollowMutations, type FollowListUser } from '@/hooks/useFollow';
 import { interpretConnectionError } from '@/utils/connectionErrors';
 import { PYMKCarousel } from '@/components/network/PYMKCarousel';
 import { usePymk, useDismissPymk } from '@/hooks/usePymk';
@@ -223,33 +222,6 @@ const ConnItem = ({ item, currentUserId, onMessage, onPressUser, online = false 
     );
 };
 
-const FollowingItem = ({ user, onPressUser }: {
-    user: FollowListUser;
-    onPressUser: (id: string) => void;
-}) => {
-    const { unfollow } = useFollowMutations(user._id);
-    return (
-        <View style={[s.connRow, { paddingHorizontal: 4 }]}>
-            <Pressable onPress={() => onPressUser(user._id)}>
-                <Avatar uri={user.profileImageUrl} name={user.displayName} size={40} />
-            </Pressable>
-            <Pressable style={s.connInfo} onPress={() => onPressUser(user._id)}>
-                <Text style={s.connName} numberOfLines={1}>{user.displayName}</Text>
-                <Text style={s.connMeta} numberOfLines={1}>{roleLabel(user)}</Text>
-            </Pressable>
-            <Pressable
-                onPress={() => unfollow.mutate()}
-                disabled={unfollow.isPending}
-                style={({ pressed }) => [s.withdrawBtn, pressed && { opacity: 0.5 }]}
-            >
-                {unfollow.isPending
-                    ? <ActivityIndicator size="small" color={C.text2} />
-                    : <Text style={s.withdrawBtnText}>Unfollow</Text>}
-            </Pressable>
-        </View>
-    );
-};
-
 const PymkCard = ({ suggestion, busy, onConnect, onDismiss, onOpenProfile }: {
     suggestion: PYMKSuggestion;
     busy: boolean;
@@ -356,11 +328,6 @@ export default function NetworkPage() {
     const [searchOpen, setSearchOpen] = useState(false);
     const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
     const [sentOpen, setSentOpen] = useState(false);
-    const [followingOpen, setFollowingOpen] = useState(false);
-
-    // Follow system (PRD §8.9.5)
-    const { data: followCounts } = useFollowCounts(currentUserId);
-    const { data: followingList = [] } = useMyFollowing(100);
 
     // PYMK v2 — artist-search-v2 carousel (new pymkService)
     const { data: pymkV2Data } = usePymk(1, 10);
@@ -552,8 +519,8 @@ export default function NetworkPage() {
     const inviteCount = invitations.length;
     const sentCount = sentRequests.length;
     // hasAny = should we render the rich-state body (vs the empty hero)?
-    // User has content if they have connections, invites, or anyone they follow.
-    const hasAny = inviteCount + connCount + followingList.length > 0;
+    // User has content if they have connections or pending invites.
+    const hasAny = inviteCount + connCount > 0;
 
     // ──────────────────────────────────────────────────────────
     //  Render
@@ -667,17 +634,12 @@ export default function NetworkPage() {
                             <View style={s.statsStrip}>
                                 <View style={s.statPill}>
                                     <Text style={s.statNum}>{connCount}</Text>
-                                    <Text style={s.statName}>connections</Text>
+                                    <Text style={s.statName}>{connCount === 1 ? 'connection' : 'connections'}</Text>
                                 </View>
                                 <View style={s.statSep} />
                                 <View style={s.statPill}>
-                                    <Text style={s.statNum}>{followCounts?.followers ?? 0}</Text>
-                                    <Text style={s.statName}>{(followCounts?.followers ?? 0) === 1 ? 'follower' : 'followers'}</Text>
-                                </View>
-                                <View style={s.statSep} />
-                                <View style={s.statPill}>
-                                    <Text style={s.statNum}>{followCounts?.following ?? 0}</Text>
-                                    <Text style={s.statName}>following</Text>
+                                    <Text style={s.statNum}>{inviteCount}</Text>
+                                    <Text style={s.statName}>{inviteCount === 1 ? 'invite' : 'invites'}</Text>
                                 </View>
                             </View>
                         )}
@@ -800,42 +762,6 @@ export default function NetworkPage() {
                         )}
 
                         {/* Sent requests moved to /network/invitations (Sent tab) */}
-
-                        {/* Following collapsible (PRD §8.9.5) */}
-                        {followingList.length > 0 && (
-                            <>
-                                <Pressable
-                                    onPress={() => setFollowingOpen(v => !v)}
-                                    style={({ pressed }) => [s.collapse, pressed && { opacity: 0.8 }]}
-                                >
-                                    <View style={s.collapseLeft}>
-                                        <View style={s.collapseIcon}>
-                                            <UserPlus size={14} color={C.text2} strokeWidth={2} />
-                                        </View>
-                                        <Text style={s.collapseTitle}>Following</Text>
-                                        <Text style={s.collapseCount}>
-                                            {followingList.length} {followingList.length === 1 ? 'artist' : 'artists'}
-                                        </Text>
-                                    </View>
-                                    {followingOpen ? (
-                                        <ChevronUp size={16} color={C.text3} strokeWidth={2} />
-                                    ) : (
-                                        <ChevronDown size={16} color={C.text3} strokeWidth={2} />
-                                    )}
-                                </Pressable>
-                                {followingOpen && (
-                                    <View style={s.sentList}>
-                                        {followingList.map(f => (
-                                            <FollowingItem
-                                                key={f._id}
-                                                user={f}
-                                                onPressUser={goProfile}
-                                            />
-                                        ))}
-                                    </View>
-                                )}
-                            </>
-                        )}
                     </AppScrollView>
                 )}
             </SafeAreaView>

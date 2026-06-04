@@ -29,13 +29,26 @@ import { Connection } from "@/types/connection";
 
 export interface UserBasic {
     _id: string;
-    displayName: string;
+    displayName?: string;
+    /** Backend sometimes populates first/last instead of displayName. */
+    firstName?: string;
+    lastName?: string;
+    username?: string;
     profilePicture?: string;
     /** Backend sometimes serves this instead of `profilePicture` — both are accepted. */
     profileImageUrl?: string;
     email?: string;
     role?: string;
 }
+
+const composeName = (u?: { displayName?: string; firstName?: string; lastName?: string; username?: string } | null): string => {
+    if (!u) return 'Loading...';
+    if (u.displayName) return u.displayName;
+    const composed = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+    if (composed) return composed;
+    if (u.username) return u.username;
+    return 'Loading...';
+};
 
 import conversationService from "@/services/conversationService";
 
@@ -401,8 +414,9 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
         );
     }
 
-    const displayUser = recipient || { _id: "unknown", displayName: "Loading...", profilePicture: "", profileImageUrl: "" };
-    const avatarUri = displayUser.profilePicture || displayUser.profileImageUrl;
+    const displayUser = recipient || { _id: "unknown", profilePicture: "", profileImageUrl: "" };
+    const displayName = composeName(displayUser as any);
+    const avatarUri = (displayUser as any).profilePicture || (displayUser as any).profileImageUrl;
 
     return (
         <View className="flex-1 bg-[#09090b] border-l border-white/10">
@@ -419,7 +433,7 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                         )}
                     </View>
                     <View>
-                        <Text className="text-white font-bold">{displayUser.displayName}</Text>
+                        <Text className="text-white font-bold">{displayName}</Text>
                     </View>
                 </View>
                 {!hideClose ? (
@@ -508,7 +522,7 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
             {remoteIsTyping && (
                 <View className="px-4 py-2 bg-[#09090b]">
                     <Text className="text-gray-400 text-xs italic">
-                        {displayUser.displayName} is typing...
+                        {displayName} is typing...
                     </Text>
                 </View>
             )}

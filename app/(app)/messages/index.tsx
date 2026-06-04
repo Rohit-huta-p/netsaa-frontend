@@ -49,18 +49,42 @@ const timeAgo = (iso?: string) => {
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
+// Resolve a usable display name from whatever shape the backend hands back.
+// Server populate currently selects 'username firstName lastName displayName
+// profilePicture profileImageUrl', so any of these may be present.
+const resolveName = (u: any): string | undefined => {
+    if (!u || typeof u !== 'object') return undefined;
+    if (u.displayName) return String(u.displayName);
+    const composed = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+    if (composed) return composed;
+    if (u.username) return String(u.username);
+    return undefined;
+};
+
 // Robust other-participant extractor. Backend may serve participants as either
-// populated user objects ({_id, displayName, profilePicture}) OR raw ObjectId
-// strings. Normalise both to an object shape (with whatever fields exist).
+// populated user objects OR raw ObjectId strings. Normalise both to an object
+// shape (with whatever fields exist) and compute a sensible name + avatar.
 const otherParticipant = (
     convo: PopulatedConversation,
     selfId?: string
-): { _id: string; displayName?: string; profilePicture?: string; profileImageUrl?: string } | undefined => {
+): {
+    _id: string;
+    displayName?: string;
+    profilePicture?: string;
+    profileImageUrl?: string;
+} | undefined => {
     const list = (convo as any)?.participants;
     if (!Array.isArray(list) || list.length === 0) return undefined;
     const normalise = (p: any) => (typeof p === 'string' ? { _id: p } : p);
     const others = list.map(normalise).filter((p) => p && p._id && p._id !== selfId);
-    return others[0] ?? normalise(list[0]);
+    const raw = others[0] ?? normalise(list[0]);
+    if (!raw) return undefined;
+    return {
+        _id: raw._id,
+        displayName: resolveName(raw),
+        profilePicture: raw.profilePicture ?? raw.profileImageUrl,
+        profileImageUrl: raw.profileImageUrl ?? raw.profilePicture,
+    };
 };
 
 // ── Conversation row in the sidebar ──

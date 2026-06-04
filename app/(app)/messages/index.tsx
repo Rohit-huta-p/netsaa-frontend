@@ -391,21 +391,51 @@ export default function MessagesPage() {
         try {
             const list = await conversationService.getConversations();
             setConversations(list || []);
-            // Auto-select first conversation on desktop when nothing chosen
-            if (!activeId && (list?.length ?? 0) > 0) {
-                // Only autoselect on desktop; mobile starts on the list
-                // (width may not be ready yet but useEffect below handles it)
-            }
         } catch (e) {
             console.error('[messages] fetch failed', e);
         } finally {
             setLoading(false);
         }
-    }, [activeId]);
+    }, []);
 
     useEffect(() => {
         fetchAll();
     }, [fetchAll]);
+
+    // Keep activeId in sync with the URL — handles inbound navigation from
+    // /network's message-bubble tap that arrives as ?c=<id>.
+    useEffect(() => {
+        const incoming = params.c as string | undefined;
+        if (incoming && incoming !== activeId) {
+            setActiveId(incoming);
+        }
+    }, [params.c]);
+
+    // If the URL points at a conversation we don't have in the list yet (e.g.
+    // just created via /network → openMessage), fetch it by id and inject so
+    // the chat pane can render immediately.
+    useEffect(() => {
+        if (!activeId) return;
+        const present = conversations.some((c) => c._id === activeId);
+        if (present) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const convo = await conversationService.getConversationById(activeId);
+                if (!cancelled && convo) {
+                    setConversations((prev) => {
+                        if (prev.some((c) => c._id === convo._id)) return prev;
+                        return [convo, ...prev];
+                    });
+                }
+            } catch (e) {
+                console.error('[messages] fetch by id failed', e);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [activeId, conversations]);
 
     // Auto-pick first convo on desktop when none selected and list is ready
     useEffect(() => {

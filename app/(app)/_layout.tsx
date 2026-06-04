@@ -18,6 +18,9 @@ import { useState, useEffect } from "react";
 export default function AppLayout() {
     const { isHydrated, isAuthLoading, user, accessToken } = useAuthStore();
     const router = useRouter();
+    // Must be called unconditionally, before any early return, to satisfy the
+    // Rules of Hooks. Used below to hide BottomNav on /messages.
+    const pathname = usePathname();
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [showDeletionModal, setShowDeletionModal] = useState(false);
 
@@ -96,7 +99,6 @@ export default function AppLayout() {
 
     // Hide the global BottomNav on routes where it gets in the way of bottom
     // affordances (e.g. /messages compose box, full-screen chat).
-    const pathname = usePathname();
     const hideBottomNav = pathname?.startsWith('/messages') ?? false;
 
     return (

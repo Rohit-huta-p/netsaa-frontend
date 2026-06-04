@@ -278,6 +278,46 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
         };
     }, [conversationId]); // Re-run if ID changes
 
+    // ── Presence: initial check + live updates, keyed to the resolved recipient ──
+    // The main socket effect binds online/offline with whatever `recipient` was at
+    // effect-run time (often undefined while the convo is still fetching). This
+    // dedicated effect re-runs once the recipient id is known and, critically,
+    // asks the server for the CURRENT presence (presence:check) — without it the
+    // dot stays grey when the other person was already online before you opened.
+    useEffect(() => {
+        const otherId = recipient?._id;
+        if (!otherId) return;
+        const socket = socketService.getSocket();
+        if (!socket) return;
+
+        const onOnline = (payload: { userId: string }) => {
+            if (payload.userId === otherId) setIsOnline(true);
+        };
+        const onOffline = (payload: { userId: string }) => {
+            if (payload.userId === otherId) setIsOnline(false);
+        };
+        const onList = (payload: { onlineUserIds: string[] }) => {
+            if (Array.isArray(payload?.onlineUserIds)) {
+                setIsOnline(payload.onlineUserIds.includes(otherId));
+            }
+        };
+
+        socket.on("user:online", onOnline);
+        socket.on("user:offline", onOffline);
+        socket.on("presence:online-list", onList);
+
+        const requestPresence = () => socket.emit("presence:check", { userIds: [otherId] });
+        requestPresence();                       // ask now
+        socket.on("connect", requestPresence);   // re-ask after any reconnect
+
+        return () => {
+            socket.off("user:online", onOnline);
+            socket.off("user:offline", onOffline);
+            socket.off("presence:online-list", onList);
+            socket.off("connect", requestPresence);
+        };
+    }, [recipient?._id]);
+
     // Helper to reconcile optimistic messages with server response
     const reconcileMessage = (clientMessageId: string, serverMessage: Message) => {
         setMessages(prev => prev.map(m => {
@@ -423,17 +463,25 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
             {/* Chat Header */}
             <View style={{ flexShrink: 0 }} className="px-4 py-3 border-b border-white/10 flex-row items-center justify-between bg-white/5">
                 <View className="flex-row items-center">
-                    <View>
+                    {/* Avatar wrapper is relative + carries the right margin so the
+                        online dot anchors to the avatar's corner (not the margin gap). */}
+                    <View className="relative w-10 h-10 mr-3">
                         <Image
                             source={avatarUri ? { uri: avatarUri } : noAvatar}
-                            className="w-10 h-10 rounded-full bg-gray-800 mr-3"
+                            className="w-10 h-10 rounded-full bg-gray-800"
                         />
                         {isOnline && (
-                            <View className="absolute bottom-0 right-3 w-3 h-3 bg-green-500 rounded-full border-2 border-[#18181b]" />
+                            <View
+                                className="absolute w-3 h-3 bg-green-500 rounded-full border-2 border-[#09090b]"
+                                style={{ bottom: 0, right: 0 }}
+                            />
                         )}
                     </View>
                     <View>
                         <Text className="text-white font-bold">{displayName}</Text>
+                        {isOnline ? (
+                            <Text className="text-green-400 text-[11px]">Active now</Text>
+                        ) : null}
                     </View>
                 </View>
                 {!hideClose ? (

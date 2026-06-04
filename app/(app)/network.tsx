@@ -19,6 +19,7 @@ import conversationService from '@/services/conversationService';
 import { Connection, ConnectionRequest } from '@/types/connection';
 import { NotificationsBell } from '@/components/notifications/NotificationsBell';
 import { usePYMK, type PYMKSuggestion } from '@/hooks/useConnectionMeta';
+import { usePresence } from '@/hooks/usePresence';
 import { useFollowCounts, useMyFollowing, useFollowMutations, type FollowListUser } from '@/hooks/useFollow';
 import { interpretConnectionError } from '@/utils/connectionErrors';
 import { PYMKCarousel } from '@/components/network/PYMKCarousel';
@@ -103,11 +104,11 @@ const PulseDot = () => {
     );
 };
 
-const Avatar = ({ uri, name, size = 44, gradient = [C.pink, C.orange] }: { uri?: string; name?: string; size?: number; gradient?: [string, string] }) => {
-    if (uri) {
-        return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2 }} />;
-    }
-    return (
+const Avatar = ({ uri, name, size = 44, gradient = [C.pink, C.orange], online = false }: { uri?: string; name?: string; size?: number; gradient?: [string, string]; online?: boolean }) => {
+    const dotSize = Math.max(9, Math.round(size * 0.26));
+    const inner = uri ? (
+        <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2 }} />
+    ) : (
         <LinearGradient
             colors={gradient}
             start={{ x: 0, y: 0 }}
@@ -118,6 +119,26 @@ const Avatar = ({ uri, name, size = 44, gradient = [C.pink, C.orange] }: { uri?:
                 {initials(name).toUpperCase()}
             </Text>
         </LinearGradient>
+    );
+    return (
+        <View style={{ width: size, height: size }}>
+            {inner}
+            {online && (
+                <View
+                    style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        right: 0,
+                        width: dotSize,
+                        height: dotSize,
+                        borderRadius: dotSize / 2,
+                        backgroundColor: C.green,
+                        borderWidth: 2,
+                        borderColor: C.bg,
+                    }}
+                />
+            )}
+        </View>
     );
 };
 
@@ -171,11 +192,12 @@ const InviteRow = ({ item, onAccept, onIgnore, onPressUser, busy }: {
     );
 };
 
-const ConnItem = ({ item, currentUserId, onMessage, onPressUser }: {
+const ConnItem = ({ item, currentUserId, onMessage, onPressUser, online = false }: {
     item: Connection;
     currentUserId?: string;
     onMessage: (c: Connection) => void;
     onPressUser: (id: string) => void;
+    online?: boolean;
 }) => {
     const other = item.requesterId._id === currentUserId ? item.recipientId : item.requesterId;
     return (
@@ -183,7 +205,7 @@ const ConnItem = ({ item, currentUserId, onMessage, onPressUser }: {
             onPress={() => onPressUser(other._id)}
             style={({ pressed }) => [s.connRow, pressed && { backgroundColor: 'rgba(255,255,255,0.02)' }]}
         >
-            <Avatar uri={other.profileImageUrl} name={other.displayName || other.firstName} size={44} />
+            <Avatar uri={other.profileImageUrl} name={other.displayName || other.firstName} size={44} online={online} />
             <View style={s.connInfo}>
                 <Text style={s.connName} numberOfLines={1}>{other.displayName || other.firstName}</Text>
                 <Text style={s.connMeta} numberOfLines={1}>
@@ -519,6 +541,13 @@ export default function NetworkPage() {
         return list;
     }, [connections, activeFilter, searchQuery, currentUserId]);
 
+    // Real-time online presence for all connection counterparts.
+    const connectionUserIds = useMemo(
+        () => connections.map(c => (c.requesterId._id === currentUserId ? c.recipientId._id : c.requesterId._id)),
+        [connections, currentUserId]
+    );
+    const onlineUsers = usePresence(connectionUserIds);
+
     const connCount = connections.length;
     const inviteCount = invitations.length;
     const sentCount = sentRequests.length;
@@ -753,15 +782,19 @@ export default function NetworkPage() {
                                         </Text>
                                     </View>
                                 ) : (
-                                    filteredConnections.map(c => (
-                                        <ConnItem
-                                            key={c._id}
-                                            item={c}
-                                            currentUserId={currentUserId}
-                                            onMessage={openMessage}
-                                            onPressUser={goProfile}
-                                        />
-                                    ))
+                                    filteredConnections.map(c => {
+                                        const otherId = c.requesterId._id === currentUserId ? c.recipientId._id : c.requesterId._id;
+                                        return (
+                                            <ConnItem
+                                                key={c._id}
+                                                item={c}
+                                                currentUserId={currentUserId}
+                                                onMessage={openMessage}
+                                                onPressUser={goProfile}
+                                                online={onlineUsers.has(otherId)}
+                                            />
+                                        );
+                                    })
                                 )}
                             </View>
                         )}

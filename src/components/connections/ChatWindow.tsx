@@ -419,9 +419,9 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
     const avatarUri = (displayUser as any).profilePicture || (displayUser as any).profileImageUrl;
 
     return (
-        <View className="flex-1 bg-[#09090b] border-l border-white/10">
+        <View style={{ flex: 1, minHeight: 0 }} className="bg-[#09090b] border-l border-white/10">
             {/* Chat Header */}
-            <View className="px-4 py-3 border-b border-white/10 flex-row items-center justify-between bg-white/5">
+            <View style={{ flexShrink: 0 }} className="px-4 py-3 border-b border-white/10 flex-row items-center justify-between bg-white/5">
                 <View className="flex-row items-center">
                     <View>
                         <Image
@@ -446,11 +446,14 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
             </View>
 
             {/* Messages Area - Always render list to show optimistic updates even if loading history */}
+            {/* minHeight:0 is REQUIRED on web so this flex child can shrink and leave
+                room for the input bar below — without it the list consumes the whole
+                column and the input gets pushed past the clipped (overflow:hidden) edge. */}
             <FlatList
                 data={messages}
                 keyExtractor={item => item._id || item.clientMessageId || Math.random().toString()}
                 contentContainerStyle={{ padding: 16, gap: 12, flexGrow: 1 }}
-                className="flex-1"
+                style={{ flex: 1, minHeight: 0 }}
                 refreshing={loading}
                 onRefresh={() => {
                     // Manual refresh mechanism
@@ -520,35 +523,59 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
 
             {/* Typing Indicator */}
             {remoteIsTyping && (
-                <View className="px-4 py-2 bg-[#09090b]">
+                <View style={{ flexShrink: 0 }} className="px-4 py-2 bg-[#09090b]">
                     <Text className="text-gray-400 text-xs italic">
                         {displayName} is typing...
                     </Text>
                 </View>
             )}
 
-            {/* Input Area */}
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                <View className="p-4 border-t border-white/10 bg-[#09090b] flex-row items-center gap-3">
+            {/* Input Area — pinned at the bottom (flexShrink:0 so it's never squeezed
+                out by the message list). KeyboardAvoidingView only matters on native;
+                on web it's a passthrough that previously contributed to the collapse. */}
+            {Platform.OS === 'web' ? (
+                <View style={{ flexShrink: 0 }} className="p-4 border-t border-white/10 bg-[#09090b] flex-row items-center gap-3">
                     <TextInput
                         value={msgText}
                         onChangeText={handleTextChange}
                         onBlur={handleBlur}
-                        placeholder="Type a message..."
+                        onSubmitEditing={handleSend}
+                        placeholder="Write a message..."
                         placeholderTextColor="#6b7280"
-                        className="flex-1 bg-white/10 text-white rounded-full px-4 py-3 max-h-24 outline-none"
+                        className="flex-1 bg-white/10 text-white rounded-full px-4 py-3 max-h-24"
                         multiline
                         style={{ outlineStyle: 'none' } as any}
                     />
                     <TouchableOpacity
                         onPress={handleSend}
-                        disabled={!msgText.trim()} // Only disable if empty
+                        disabled={!msgText.trim()}
                         className={`p-3 rounded-full ${!msgText.trim() ? 'bg-gray-700' : 'bg-purple-600'}`}
                     >
                         <Send size={20} color="white" />
                     </TouchableOpacity>
                 </View>
-            </KeyboardAvoidingView>
+            ) : (
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flexShrink: 0 }}>
+                    <View className="p-4 border-t border-white/10 bg-[#09090b] flex-row items-center gap-3">
+                        <TextInput
+                            value={msgText}
+                            onChangeText={handleTextChange}
+                            onBlur={handleBlur}
+                            placeholder="Write a message..."
+                            placeholderTextColor="#6b7280"
+                            className="flex-1 bg-white/10 text-white rounded-full px-4 py-3 max-h-24"
+                            multiline
+                        />
+                        <TouchableOpacity
+                            onPress={handleSend}
+                            disabled={!msgText.trim()}
+                            className={`p-3 rounded-full ${!msgText.trim() ? 'bg-gray-700' : 'bg-purple-600'}`}
+                        >
+                            <Send size={20} color="white" />
+                        </TouchableOpacity>
+                    </View>
+                </KeyboardAvoidingView>
+            )}
         </View>
     );
 };

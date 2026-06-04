@@ -411,7 +411,7 @@ export default function MessagesPage() {
     const params = useLocalSearchParams<{ c?: string }>();
     const { user } = useAuthStore();
     const selfId = user?._id;
-    const { width } = useWindowDimensions();
+    const { width, height } = useWindowDimensions();
     const isDesktop = width >= DESKTOP_BREAKPOINT;
 
     const [conversations, setConversations] = useState<PopulatedConversation[]>([]);
@@ -541,7 +541,9 @@ export default function MessagesPage() {
             <SafeAreaView edges={['top']} style={{ flex: 1 }}>
                 <View
                     style={{
-                        flex: 1,
+                        // Explicit pixel height removes the nested-flex height ambiguity
+                        // on web that was collapsing the chat pane to zero height.
+                        height: height - 28,
                         flexDirection: 'row',
                         maxWidth: 1400,
                         width: '100%',

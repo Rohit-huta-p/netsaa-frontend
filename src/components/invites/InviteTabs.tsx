@@ -20,7 +20,7 @@ export function InviteTabs({
                 const on = t.key === active;
                 const showCount = t.key !== 'archive' && t.count > 0;
                 return (
-                    <Pressable key={t.key} onPress={() => onChange(t.key)} style={{ paddingHorizontal: on ? 10 : 4, paddingVertical: 5, borderRadius: inviteRadii.pill, backgroundColor: on ? 'rgba(255,107,53,0.13)' : 'transparent' }}>
+                    <Pressable key={t.key} onPress={() => onChange(t.key)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={`${t.label}${showCount ? `, ${t.count}` : ''}`} style={{ paddingHorizontal: on ? 10 : 4, paddingVertical: 5, borderRadius: inviteRadii.pill, backgroundColor: on ? 'rgba(255,107,53,0.13)' : 'transparent' }}>
                         <Text style={{ fontFamily: on ? inviteFonts.semibold : inviteFonts.body, fontSize: 12, color: on ? inviteColors.orangeLight : inviteColors.dim }}>
                             {`${t.label}${showCount ? ` · ${t.count}` : ''}`}
                         </Text>

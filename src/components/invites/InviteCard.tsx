@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, Text, Pressable, Image, ActivityIndicator } from 'react-native';
 import { CheckCircle, XCircle, ArrowRight } from 'lucide-react-native';
 import { inviteColors, inviteFonts, inviteRadii } from './inviteTheme';
@@ -6,7 +7,17 @@ import { initials, avatarTint, roleLabel, statusBadge, relativeDate } from './in
 import type { Invite } from '@/services/inviteService';
 
 function Avatar({ name, url }: { name: string; url?: string | null }) {
-    if (url) return <Image source={{ uri: url }} style={{ width: 34, height: 34, borderRadius: 17 }} />;
+    const [failed, setFailed] = useState(false);
+    if (url && !failed) {
+        return (
+            <Image
+                source={{ uri: url }}
+                onError={() => setFailed(true)}
+                accessibilityLabel={`${name} profile photo`}
+                style={{ width: 34, height: 34, borderRadius: 17 }}
+            />
+        );
+    }
     const tint = avatarTint(name);
     return (
         <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: tint.bg, alignItems: 'center', justifyContent: 'center' }}>
@@ -65,11 +76,11 @@ export function InviteCard({
 
             {isActionable && (
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 11 }}>
-                    <Pressable onPress={onDecline} disabled={busy} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: inviteRadii.button, borderWidth: 1, borderColor: inviteColors.ghostBorder, opacity: busy ? 0.5 : 1 }}>
+                    <Pressable onPress={onDecline} disabled={busy} accessibilityRole="button" accessibilityLabel="Decline invite" style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: inviteRadii.button, borderWidth: 1, borderColor: inviteColors.ghostBorder, opacity: busy ? 0.5 : 1 }}>
                         <XCircle size={14} color={inviteColors.muted} />
                         <Text style={{ fontFamily: inviteFonts.semibold, fontSize: 13, color: inviteColors.muted }}>Decline</Text>
                     </Pressable>
-                    <Pressable onPress={onAccept} disabled={busy} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: inviteRadii.button, backgroundColor: inviteColors.orange, opacity: busy ? 0.6 : 1 }}>
+                    <Pressable onPress={onAccept} disabled={busy} accessibilityRole="button" accessibilityLabel="Accept invite" style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: inviteRadii.button, backgroundColor: inviteColors.orange, opacity: busy ? 0.6 : 1 }}>
                         {busy ? <ActivityIndicator size="small" color="#fff" /> : (
                             <>
                                 <CheckCircle size={14} color={inviteColors.onOrange} />

@@ -1,4 +1,4 @@
-import TestRenderer from 'react-test-renderer';
+const TestRenderer = require('react-test-renderer');
 import { InvitesHeader } from '../InvitesHeader';
 
 function allText(node: any): string {

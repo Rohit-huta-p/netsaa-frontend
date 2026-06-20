@@ -1,4 +1,4 @@
-import TestRenderer from 'react-test-renderer';
+const TestRenderer = require('react-test-renderer');
 import type { Invite } from '@/services/inviteService';
 
 const mockInvites: Invite[] = [

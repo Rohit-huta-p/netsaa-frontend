@@ -1,4 +1,4 @@
-import TestRenderer from 'react-test-renderer';
+const TestRenderer = require('react-test-renderer');
 import { RequirementPreview } from '../RequirementPreview';
 
 jest.mock('lucide-react-native', () =>

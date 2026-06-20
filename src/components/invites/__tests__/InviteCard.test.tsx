@@ -1,4 +1,4 @@
-import TestRenderer from 'react-test-renderer';
+const TestRenderer = require('react-test-renderer');
 import { InviteCard } from '../InviteCard';
 import type { Invite } from '@/services/inviteService';
 

@@ -1,4 +1,4 @@
-import TestRenderer from 'react-test-renderer';
+const TestRenderer = require('react-test-renderer');
 import { InviteEmptyState } from '../InviteEmptyState';
 
 jest.mock('lucide-react-native', () => new Proxy({}, { get: () => () => null }));

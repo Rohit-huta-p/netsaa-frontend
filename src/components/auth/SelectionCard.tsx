@@ -24,14 +24,14 @@ export const LargeRoleCard = ({ icon: Icon, title, subtitle, selected, onPress }
         backgroundColor: selected ? C.activeBg : C.w03,
     }}>
         <View style={{
-            width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+            width: 40, height: 40, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
             backgroundColor: selected ? C.primary : C.w06,
         }}>
             <Icon size={22} color={selected ? '#fff' : C.w30} />
         </View>
         <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: selected ? C.primary : C.w60 }}>{title}</Text>
-            <Text style={{ fontSize: 13, color: selected ? C.w50 : C.w30, marginTop: 2 }}>{subtitle}</Text>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: selected ? C.primary : C.w60 }}>{title}</Text>
+            <Text style={{ fontSize: 11, color: selected ? C.w50 : C.w30, marginTop: 2 }}>{subtitle}</Text>
         </View>
         {selected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: C.primary }} />}
     </TouchableOpacity>

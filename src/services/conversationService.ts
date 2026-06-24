@@ -11,6 +11,15 @@ export interface PopulatedConversation extends Omit<Conversation, 'participants'
         profilePicture?: string;
     }[];
     lastMessage?: string;
+    /**
+     * Unread message count for the current user on this thread.
+     *
+     * Lane B (Task 6) added this field server-side. Older deployments may
+     * omit it — in that case the client should fall back to 0 (see
+     * useUnreadCount for the fallback path). Optional to preserve backward
+     * compatibility with existing callers.
+     */
+    unreadCount?: number;
 }
 
 const getBaseUrl = () => {
@@ -46,9 +55,13 @@ const conversationService = {
         return data.data;
     },
 
-    createConversation: async (recipientId: string): Promise<PopulatedConversation> => {
-        const { data } = await API.post('/', { recipientId });
-        return data.data;
+    createConversation: async (
+        recipientId: string,
+        context?: { requirementId?: string; proposalId?: string; label?: string; inviteId?: string },
+        seedText?: string,
+    ): Promise<PopulatedConversation> => {
+        const { data } = await API.post('/', { recipientId, context, seedText });
+        return data?.data ?? data;
     }
 };
 

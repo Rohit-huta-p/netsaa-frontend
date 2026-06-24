@@ -53,12 +53,12 @@ import { z } from 'zod';
 import { useCreateGig, useUpdateGig, useGig } from '@/hooks/useGigs';
 import { Gig } from '@/types/gig';
 import { MapLinkCard } from '@/components/location/MapLinkCard';
+import StyledTextInput from '@/components/ui/StyledTextInput';
 
 // Zod Schema synced to backend
 const formSchema = z.object({
     title: z.string().min(3, "Title must be at least 3 characters"),
     gigType: z.enum(['one-time', 'recurring', 'contract']),
-    category: z.string().optional(),
     tags: z.string().optional(),
 
     artistType: z.string().min(1, "Artist type is required"),
@@ -112,37 +112,16 @@ const formSchema = z.object({
     termsAndConditions: z.string().optional()
 });
 
-// NETSA Organizer-themed TextInput
-const StyledTextInput = ({ value, onChangeText, placeholder, icon: Icon, error, type = 'text', ...props }: any) => (
-    <View className="relative">
-        {Icon && (
-            <View className="absolute left-3 top-[50%] -translate-y-1/2 z-10">
-                <Icon size={18} color="rgba(255, 255, 255, 0.4)" />
-            </View>
-        )}
-        <TextInput
-            type={type}
-            className={`w-full bg-zinc-900/50  border ${error ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500 outline-none`}
-            style={{ outlineStyle: 'none', fontSize: T.size.xs, lineHeight: getLineHeight('body') } as any}
-            placeholder={placeholder}
-            placeholderTextColor="rgba(255, 255, 255, 0.3)"
-            value={value}
-            onChangeText={onChangeText}
-            {...props}
-        />
-        {error && <Text style={{ color: '#ef4444', fontSize: T.size.xs, marginTop: 4, marginLeft: 4 }}>{error}</Text>}
-    </View>
-);
-
 interface GigFormProps {
     onPublish: (data: any) => void;
     onCancel: () => void;
     gigId?: string;
 }
 
-export interface GigFormHandle {
-    handleBack: () => boolean; // Return true if handled (step > 1), false if should exit (step 1)
-}
+// Re-export from shared types (Plan 5 — Task 2b) so callers can import
+// from either the legacy form or GigFormV2 without coupling.
+export type { GigFormHandle } from './GigFormTypes';
+import type { GigFormHandle } from './GigFormTypes';
 
 export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublish, onCancel, gigId }, ref) => {
     const { width: windowWidth } = useWindowDimensions();
@@ -192,7 +171,6 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
     const [formData, setFormData] = useState({
         title: '',
         gigType: 'one-time',
-        category: '',
         tags: '',
 
         artistType: '',
@@ -255,7 +233,6 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
             setFormData({
                 title: gig.title || '',
                 gigType: gig.type || 'one-time',
-                category: gig.category || '',
                 tags: gig.tags?.join(', ') || '',
 
                 artistType: gig.artistTypes?.[0] || '',
@@ -511,7 +488,6 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                 title: parsed.title,
                 description: parsed.description,
                 type: parsed.gigType,
-                category: parsed.category,
                 tags: parsed.tags?.split(',').map(t => t.trim()).filter(Boolean) || [],
 
                 artistTypes: [parsed.artistType],
@@ -634,16 +610,6 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                         </TouchableOpacity>
                     ))}
                 </View>
-            </InputGroup>
-
-            <InputGroup label="Category (Optional)">
-                <StyledTextInput
-                    icon={Layout}
-                    value={formData.category}
-                    onChangeText={(val: string) => updateField('category', val)}
-                    placeholder="e.g. Wedding, Corporate Event, Concert"
-                    error={errors.category}
-                />
             </InputGroup>
 
             <InputGroup label="Tags" subtitle="Type comma or enter to add tags">
@@ -1507,7 +1473,7 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                     ref={scrollViewRef}
                     showsVerticalScrollIndicator={false}
                     style={{ flex: 1 }}
-                    contentContainerStyle={{ paddingBottom: 120 }}
+                    contentContainerStyle={{ paddingBottom: 200 }}
                     onScroll={Animated.event(
                         [{ nativeEvent: { contentOffset: { y: headerScrollY } } }],
                         { useNativeDriver: false }
@@ -1529,8 +1495,9 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                 </ScrollView>
             </View>
 
-            {/* Footer Navigation (Pinned Bottom) */}
-            <View className="absolute bottom-0 left-0 right-0 p-2 bg-black/90 border-t border-white/10" style={{ paddingBottom: Platform.OS === 'ios' ? 40 : 24 }}>
+            {/* Footer Navigation — sits ABOVE the floating BottomNav (height
+                ~84/76px from screen bottom). +8px gap for breathing room. */}
+            <View className="absolute left-0 right-0 p-2 bg-black/95 border-t border-b border-white/10" style={{ bottom: Platform.OS === 'ios' ? 92 : 84 }}>
                 <View className="flex-row justify-between items-center gap-4">
                     {step > 0 && (
                         <TouchableOpacity

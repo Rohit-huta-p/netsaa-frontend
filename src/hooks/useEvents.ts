@@ -1,174 +1,63 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
-import eventService from '../services/eventService';
-import { searchService } from '../services/searchService';
-import { CreateEventDTO, IEvent } from '../types/event';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { eventService, EventDoc, EventListParams } from '@/services/eventService';
 
-// import { useRouter } from 'expo-router';
-import { countActiveEventFilters } from '@/lib/constants/eventFilters';
-
-// Keys
 export const eventKeys = {
-    all: ['events'] as const,
-    lists: () => [...eventKeys.all, 'list'] as const,
-    list: (filters: any) => [...eventKeys.lists(), { ...filters }] as const,
-    details: () => [...eventKeys.all, 'detail'] as const,
-    detail: (id: string) => [...eventKeys.details(), id] as const,
-    organizer: (organizerId: string) => [...eventKeys.all, 'organizer', organizerId] as const,
-    search: (params: any) => ['search:events', params.q, params.filters, params.page] as const,
+  all: ['events'] as const,
+  lists: () => [...eventKeys.all, 'list'] as const,
+  list: (params: EventListParams) => [...eventKeys.lists(), params] as const,
+  details: () => [...eventKeys.all, 'detail'] as const,
+  detail: (id: string) => [...eventKeys.details(), id] as const,
+  suggestions: ['eventSuggestionTags'] as const,
 };
 
-// Queries
-// Queries
-export const useEvents = ({
-    q = '',
-    filters = {},
-    page = 1,
-    pageSize = 10,
-}: {
-    q?: string;
-    filters?: any;
-    page?: number;
-    pageSize?: number;
-} = {}) => {
-    // REVISED STRATEGY: User explicitly requested to hit the Search API for filters.
-    // Even if it returns 404 currently, we implement the correct contract.
-    // Logic: If query 'q' exists OR filters are active -> Use Search Service.
-    // Otherwise -> Use Event Service (List).
+export function useEventsList(params: EventListParams = {}) {
+  return useQuery({
+    queryKey: eventKeys.list(params),
+    queryFn: () => eventService.list(params),
+    staleTime: 60_000,
+  });
+}
 
-    const activeFilterCount = filters ? countActiveEventFilters(filters) : 0;
-    const shouldUseSearch = !!q || activeFilterCount > 0;
+export function useEvent(id: string | undefined) {
+  return useQuery<EventDoc>({
+    queryKey: id ? eventKeys.detail(id) : ['events', 'detail', 'noop'],
+    queryFn: () => eventService.detail(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
 
-    return useQuery({
-        queryKey: shouldUseSearch
-            ? eventKeys.search({ q, filters, page })
-            : eventKeys.list({ page, limit: pageSize }), // Map pageSize to limit for list endpoint
-        queryFn: () => {
-            if (shouldUseSearch) {
-                return searchService.searchEvents({ q, filters, page, pageSize });
-            } else {
-                return eventService.getEvents({ page, limit: pageSize });
-            }
-        },
-        placeholderData: keepPreviousData,
-    });
-};
+export function useCreateEvent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: eventService.create,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: eventKeys.lists() });
+    },
+  });
+}
 
-export const useOrganizerEvents = (organizerId: string) => {
-    return useQuery({
-        queryKey: eventKeys.organizer(organizerId),
-        queryFn: () => eventService.getOrganizerEvents(organizerId).then(res => res.data),
-        enabled: !!organizerId,
-    });
-};
+export function useRegisterForEvent(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: import('@/services/eventService').RegisterPayload) =>
+      eventService.register(eventId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
+      // Invalidate registration probe so EventCtaBar flips to "Cancel registration"
+      qc.invalidateQueries({ queryKey: ['myRegistration', eventId] });
+    },
+  });
+}
 
-export const useEvent = (id: string) => {
-    return useQuery({
-        queryKey: eventKeys.detail(id),
-        queryFn: () => eventService.getEventById(id).then(res => res.data),
-        enabled: !!id,
-    });
-};
-
-// Mutations
-export const useCreateEvent = () => {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: (data: CreateEventDTO) => eventService.createEvent(data).then(res => res.data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
-        },
-    });
-};
-
-export const usePublishEvent = () => {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: (id: string) => eventService.publishEvent(id),
-        onSuccess: (data, id) => {
-            queryClient.invalidateQueries({ queryKey: eventKeys.detail(id) });
-            queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
-        },
-    });
-};
-
-export const useDeleteEvent = () => {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: (id: string) => eventService.deleteEvent(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
-            queryClient.invalidateQueries({ queryKey: eventKeys.all });
-        },
-    });
-};
-
-export const useUpdateEvent = () => {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: (variables: { id: string; payload: Partial<IEvent> }) =>
-            eventService.updateEvent(variables.id, variables.payload),
-        onSuccess: (data, variables) => {
-            queryClient.invalidateQueries({ queryKey: eventKeys.detail(variables.id) });
-            queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
-        },
-    });
-};
-
-export const useRegisterForEvent = () => {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: (variables: { id: string; payload: { userId: string; ticketTypeId?: string; quantity?: number } }) =>
-            eventService.registerForEvent(variables.id, variables.payload),
-        onSuccess: (data, variables) => {
-            queryClient.invalidateQueries({ queryKey: eventKeys.detail(variables.id) });
-            queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
-            queryClient.invalidateQueries({ queryKey: ['my-registrations'] });
-        },
-    });
-};
-
-export const useEventRegistrations = (id: string, limit: number = 20) => {
-    return useInfiniteQuery({
-        queryKey: [...eventKeys.detail(id), 'registrations'],
-        queryFn: ({ pageParam = 1 }) => eventService.getEventRegistrations(id, { page: pageParam, limit }),
-        getNextPageParam: (lastPage) => {
-            if (!lastPage.meta?.pagination) return undefined;
-            const { page, pages } = lastPage.meta.pagination;
-            return page < pages ? page + 1 : undefined;
-        },
-        initialPageParam: 1,
-        enabled: !!id,
-    });
-};
-
-
-export const useEventTicketTypes = (id: string) => {
-    return useQuery({
-        queryKey: [...eventKeys.detail(id), 'tickets'],
-        queryFn: () => eventService.getTicketTypes(id).then(res => res.data),
-        enabled: !!id,
-    });
-};
-
-export const useMyRegistrations = () => {
-    return useQuery({
-        queryKey: ['my-registrations'],
-        queryFn: () => eventService.getUserRegistrations().then(res => res.data),
-    });
-};
-
-export const useUpdateRegistrationStatus = () => {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: (variables: { registrationId: string; status: string; eventId: string }) =>
-            eventService.updateRegistrationStatus(variables.registrationId, variables.status),
-        onSuccess: (data, variables) => {
-            queryClient.invalidateQueries({ queryKey: [...eventKeys.detail(variables.eventId), 'registrations'] });
-            queryClient.invalidateQueries({ queryKey: eventKeys.detail(variables.eventId) });
-        },
-    });
-};
+export function useCancelMyRegistration(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => eventService.cancelMyRegistration(eventId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
+      // Also invalidate the per-user registration probe so EventCtaBar reverts to "Register"
+      qc.invalidateQueries({ queryKey: ['myRegistration', eventId] });
+    },
+  });
+}

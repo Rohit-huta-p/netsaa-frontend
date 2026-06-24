@@ -29,7 +29,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({ isEditable, initialB
     return (
         <View className="bg-zinc-900/60 rounded-2xl py-6 px-6 relative">
             <Text className="text-xs font-black text-zinc-500 uppercase tracking-[0.3em] mb-6">
-                {role == 'organizer' ? 'About' : 'Bio'}
+                {role === 'creative_lead' ? 'About' : 'Bio'}
             </Text>
             {isEditable && (
                 <TouchableOpacity

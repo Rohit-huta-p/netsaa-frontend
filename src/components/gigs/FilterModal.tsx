@@ -5,25 +5,10 @@ import {
     TouchableOpacity,
     ScrollView,
     Modal,
-    Platform,
     useWindowDimensions,
 } from 'react-native';
-import {
-    X,
-    ShieldCheck,
-    IndianRupee,
-    Users,
-    TrendingUp,
-    MapPin,
-    Clock,
-    Calendar,
-    CheckCircle2,
-    SlidersHorizontal,
-    Zap,
-} from 'lucide-react-native';
-import { FilterSection } from './FilterSection';
-import { FilterState, FilterPreset } from '@/types/filters';
-import { FILTER_PRESETS } from '@/lib/constants/filters';
+import { X } from 'lucide-react-native';
+import { FilterState } from '@/types/filters';
 
 interface FilterModalProps {
     visible: boolean;
@@ -33,6 +18,111 @@ interface FilterModalProps {
     activeFilterCount: number;
 }
 
+/* ----------------------------- option data ----------------------------- */
+
+const ARTIST_TYPES = [
+    { value: 'singer', label: 'Singer' },
+    { value: 'dancer', label: 'Dancer' },
+    { value: 'musician', label: 'Musician' },
+    { value: 'actor', label: 'Actor' },
+    { value: 'model', label: 'Model' },
+    { value: 'dj', label: 'DJ' },
+    { value: 'comedian', label: 'Comedian' },
+    { value: 'choreographer', label: 'Choreographer' },
+];
+
+const PAY_BANDS = [
+    { value: 0, label: 'Any' },
+    { value: 2000, label: '₹2k+' },
+    { value: 5000, label: '₹5k+' },
+    { value: 15000, label: '₹15k+' },
+    { value: 50000, label: '₹50k+' },
+];
+
+const CITIES = [
+    { value: 'any', label: 'Any' },
+    { value: 'pune', label: 'Pune' },
+    { value: 'mumbai', label: 'Mumbai' },
+    { value: 'delhi', label: 'Delhi' },
+    { value: 'bangalore', label: 'Bangalore' },
+    { value: 'remote', label: 'Remote' },
+];
+
+// Year bands are mapped onto the backend's existing experienceLevel enum so the
+// gig search query is unchanged — the UI reads as years, the data stays as
+// beginner / intermediate / professional.
+const EXPERIENCE_BANDS = [
+    { value: 'beginner', label: '0–2 yrs' },
+    { value: 'intermediate', label: '3–5 yrs' },
+    { value: 'professional', label: '5+ yrs' },
+];
+
+const SORT_OPTIONS = [
+    { value: 'relevance', label: 'Relevant' },
+    { value: 'newest', label: 'Newest' },
+    { value: 'compensation', label: 'Top pay' },
+];
+
+/* ----------------------------- primitives ----------------------------- */
+
+const Chip = ({
+    label,
+    active,
+    onPress,
+}: {
+    label: string;
+    active: boolean;
+    onPress: () => void;
+}) => (
+    <TouchableOpacity
+        onPress={onPress}
+        className={`rounded-full border px-4 py-2.5 ${active ? 'bg-white border-white' : 'bg-white/5 border-white/10'
+            }`}
+    >
+        <Text className={`text-[13px] ${active ? 'text-black font-semibold' : 'text-zinc-300 font-medium'}`}>
+            {label}
+        </Text>
+    </TouchableOpacity>
+);
+
+const Group = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <View className="mb-7">
+        <Text className="text-zinc-500 text-[11px] font-semibold uppercase tracking-widest mb-3">
+            {label}
+        </Text>
+        {children}
+    </View>
+);
+
+const Segmented = ({
+    options,
+    value,
+    onChange,
+}: {
+    options: { value: string; label: string }[];
+    value: string;
+    onChange: (v: string) => void;
+}) => (
+    <View className="flex-row bg-white/5 rounded-xl p-1 gap-1">
+        {options.map((opt) => {
+            const active = value === opt.value;
+            return (
+                <TouchableOpacity
+                    key={opt.value}
+                    onPress={() => onChange(opt.value)}
+                    className={`flex-1 items-center py-2.5 rounded-lg ${active ? 'bg-white' : ''}`}
+                >
+                    <Text className={`text-xs ${active ? 'text-black font-semibold' : 'text-zinc-400 font-medium'}`}>
+                        {opt.label}
+                    </Text>
+                </TouchableOpacity>
+            );
+        })}
+    </View>
+);
+
+/* ------------------------------- modal -------------------------------- */
+
 export const FilterModal: React.FC<FilterModalProps> = ({
     visible,
     onClose,
@@ -40,28 +130,31 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     onApplyFilters,
     activeFilterCount,
 }) => {
-    const { width, height } = useWindowDimensions();
+    const { width } = useWindowDimensions();
     const isDesktop = width >= 1024;
     const isTablet = width >= 768 && width < 1024;
 
     const [localFilters, setLocalFilters] = useState<FilterState>(filters);
-    const [expandedSections, setExpandedSections] = useState<Set<string>>(
-        new Set(['trust', 'compensation'])
-    );
 
-    const toggleSection = (sectionId: string) => {
-        const newExpanded = new Set(expandedSections);
-        if (newExpanded.has(sectionId)) {
-            newExpanded.delete(sectionId);
-        } else {
-            newExpanded.add(sectionId);
-        }
-        setExpandedSections(newExpanded);
-    };
+    // Resync local state with the applied filters each time the drawer opens.
+    React.useEffect(() => {
+        if (visible) setLocalFilters(filters);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visible]);
 
-    const handleApplyPreset = (preset: FilterPreset) => {
-        setLocalFilters({ ...localFilters, ...preset.filters });
-    };
+    const adv = localFilters.advanced;
+
+    const patch = (section: keyof FilterState['advanced'], updates: Record<string, any>) =>
+        setLocalFilters((prev) => ({
+            ...prev,
+            advanced: {
+                ...prev.advanced,
+                [section]: { ...prev.advanced[section], ...updates },
+            },
+        }));
+
+    const toggleInArray = (arr: string[] = [], v: string) =>
+        arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
 
     const handleClearAll = () => {
         setLocalFilters({
@@ -86,297 +179,134 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     };
 
     const modalWidth = isDesktop ? 480 : isTablet ? '60%' : '100%';
-    const modalHeight = '100%';
+
+    // Current selections
+    const selectedArtist = adv.artistType.artistTypes || [];
+    const selectedPay = adv.compensation.minCompensation || 0;
+    const selectedCity = adv.location.remoteOnly ? 'remote' : adv.location.city || 'any';
+    const selectedExp = adv.experience.experienceLevel || [];
+    const selectedSort = adv.sorting.sortBy || 'relevance';
 
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            transparent
-            onRequestClose={onClose}
-        >
+        <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
             <View className="flex-1 bg-black/60">
                 {/* Backdrop */}
-                <TouchableOpacity
-                    className="flex-1"
-                    activeOpacity={1}
-                    onPress={onClose}
-                />
+                <TouchableOpacity className="flex-1" activeOpacity={1} onPress={onClose} />
 
                 {/* Filter Panel */}
                 <View
-                    className="bg-zinc-950 border-t border-white/10"
-                    style={{
-                        width: modalWidth,
-                        height: modalHeight,
-                        position: 'absolute',
-                        right: 0,
-                        top: 0,
-                    }}
+                    className="bg-zinc-950 border-l border-white/10"
+                    style={{ width: modalWidth, height: '100%', position: 'absolute', right: 0, top: 0 }}
                 >
                     {/* Header */}
-                    <View className="border-b border-white/5 px-6 py-6">
-                        <View className="flex-row items-center justify-between mb-4">
-                            <View className="flex-row items-center gap-3">
-                                <View className="w-10 h-10 rounded-full bg-white/5 items-center justify-center">
-                                    <SlidersHorizontal size={20} color="#FFFFFF" />
-                                </View>
-                                <View>
-                                    <Text className="text-white text-xl font-black tracking-tight">
-                                        FILTERS
-                                    </Text>
-                                    {activeFilterCount > 0 && (
-                                        <Text className="text-zinc-500 text-xs font-medium mt-0.5">
-                                            {activeFilterCount} active
-                                        </Text>
-                                    )}
-                                </View>
-                            </View>
-                            <TouchableOpacity
-                                onPress={onClose}
-                                className="w-10 h-10 rounded-full bg-white/5 items-center justify-center"
-                            >
-                                <X size={20} color="#71717A" />
-                            </TouchableOpacity>
+                    <View className="border-b border-white/5 px-6 pt-14 pb-5 flex-row items-start justify-between">
+                        <View>
+                            <Text className="text-white text-2xl font-bold tracking-tight">Filters</Text>
+                            {activeFilterCount > 0 && (
+                                <Text className="text-zinc-500 text-xs mt-1">{activeFilterCount} active</Text>
+                            )}
                         </View>
-
-                        {/* Quick Presets */}
-                        <View className="mt-4">
-                            <Text className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-3">
-                                QUICK PRESETS
-                            </Text>
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                className="flex-row "
-                            >
-                                {Object.entries(FILTER_PRESETS).map(([key, preset]) => (
-                                    <TouchableOpacity
-                                        key={key}
-                                        onPress={() => handleApplyPreset(preset)}
-                                        className="bg-zinc-900/50 border border-white/5 rounded-xl px-4 py-3 flex-row items-center gap-2"
-                                    >
-                                        <View className="w-6 h-6 rounded-full bg-white/5 items-center justify-center">
-                                            {preset.icon === 'shield' && <ShieldCheck size={14} color="#10B981" />}
-                                            {preset.icon === 'currency-rupee' && <IndianRupee size={14} color="#F59E0B" />}
-                                            {preset.icon === 'heart' && <Zap size={14} color="#EC4899" />}
-                                            {preset.icon === 'map-pin' && <MapPin size={14} color="#3B82F6" />}
-                                            {preset.icon === 'wifi' && <MapPin size={14} color="#3B82F6" />}
-                                        </View>
-                                        <View>
-                                            <Text className="text-white text-xs font-bold">
-                                                {preset.name}
-                                            </Text>
-                                            <Text className="text-zinc-500 text-[10px] font-medium">
-                                                {preset.description.split(' ').slice(0, 3).join(' ')}
-                                            </Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
+                        <TouchableOpacity
+                            onPress={onClose}
+                            className="w-9 h-9 rounded-full bg-white/5 items-center justify-center"
+                        >
+                            <X size={18} color="#a1a1aa" />
+                        </TouchableOpacity>
                     </View>
 
-                    {/* Filter Sections */}
+                    {/* Body */}
                     <ScrollView
                         className="flex-1 px-6"
                         showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingTop: 24, paddingBottom: 40 }}
                     >
-                        <View className="py-6 gap-6">
-                            {/* Trust & Safety */}
-                            {/* <FilterSection
-                                id="trust"
-                                title="Trust & Safety"
-                                icon={<ShieldCheck size={18} color="#10B981" />}
-                                badge="Recommended"
-                                expanded={expandedSections.has('trust')}
-                                onToggle={() => toggleSection('trust')}
-                                filters={localFilters.advanced.trust}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            trust: { ...localFilters.advanced.trust, ...updates },
-                                        },
-                                    })
-                                }
-                            /> */}
+                        <Group label="Artist type">
+                            <View className="flex-row flex-wrap gap-2">
+                                {ARTIST_TYPES.map((o) => (
+                                    <Chip
+                                        key={o.value}
+                                        label={o.label}
+                                        active={selectedArtist.includes(o.value)}
+                                        onPress={() =>
+                                            patch('artistType', {
+                                                artistTypes: toggleInArray(selectedArtist, o.value),
+                                            })
+                                        }
+                                    />
+                                ))}
+                            </View>
+                        </Group>
 
-                            {/* Compensation */}
-                            <FilterSection
-                                id="compensation"
-                                title="Compensation"
-                                icon={<IndianRupee size={18} color="#F59E0B" />}
-                                expanded={expandedSections.has('compensation')}
-                                onToggle={() => toggleSection('compensation')}
-                                filters={localFilters.advanced.compensation}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            compensation: {
-                                                ...localFilters.advanced.compensation,
-                                                ...updates,
-                                            },
-                                        },
-                                    })
-                                }
+                        <Group label="Minimum pay">
+                            <View className="flex-row flex-wrap gap-2">
+                                {PAY_BANDS.map((o) => (
+                                    <Chip
+                                        key={o.value}
+                                        label={o.label}
+                                        active={selectedPay === o.value}
+                                        onPress={() => patch('compensation', { minCompensation: o.value })}
+                                    />
+                                ))}
+                            </View>
+                        </Group>
+
+                        <Group label="City">
+                            <View className="flex-row flex-wrap gap-2">
+                                {CITIES.map((o) => (
+                                    <Chip
+                                        key={o.value}
+                                        label={o.label}
+                                        active={selectedCity === o.value}
+                                        onPress={() =>
+                                            o.value === 'remote'
+                                                ? patch('location', { city: 'any', remoteOnly: true })
+                                                : patch('location', { city: o.value, remoteOnly: false })
+                                        }
+                                    />
+                                ))}
+                            </View>
+                        </Group>
+
+                        <Group label="Experience">
+                            <View className="flex-row flex-wrap gap-2">
+                                {EXPERIENCE_BANDS.map((o) => (
+                                    <Chip
+                                        key={o.value}
+                                        label={o.label}
+                                        active={selectedExp.includes(o.value)}
+                                        onPress={() =>
+                                            patch('experience', {
+                                                experienceLevel: toggleInArray(selectedExp, o.value),
+                                            })
+                                        }
+                                    />
+                                ))}
+                            </View>
+                        </Group>
+
+                        <Group label="Sort by">
+                            <Segmented
+                                options={SORT_OPTIONS}
+                                value={selectedSort}
+                                onChange={(v) => patch('sorting', { sortBy: v })}
                             />
-
-                            {/* Artist Type */}
-                            <FilterSection
-                                id="artistType"
-                                title="Artist Type & Skills"
-                                icon={<Users size={18} color="#8B5CF6" />}
-                                expanded={expandedSections.has('artistType')}
-                                onToggle={() => toggleSection('artistType')}
-                                filters={localFilters.advanced.artistType}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            artistType: {
-                                                ...localFilters.advanced.artistType,
-                                                ...updates,
-                                            },
-                                        },
-                                    })
-                                }
-                            />
-
-                            {/* Experience */}
-                            <FilterSection
-                                id="experience"
-                                title="Experience Level"
-                                icon={<TrendingUp size={18} color="#06B6D4" />}
-                                expanded={expandedSections.has('experience')}
-                                onToggle={() => toggleSection('experience')}
-                                filters={localFilters.advanced.experience}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            experience: {
-                                                ...localFilters.advanced.experience,
-                                                ...updates,
-                                            },
-                                        },
-                                    })
-                                }
-                            />
-
-                            {/* Location */}
-                            <FilterSection
-                                id="location"
-                                title="Location & Travel"
-                                icon={<MapPin size={18} color="#3B82F6" />}
-                                expanded={expandedSections.has('location')}
-                                onToggle={() => toggleSection('location')}
-                                filters={localFilters.advanced.location}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            location: {
-                                                ...localFilters.advanced.location,
-                                                ...updates,
-                                            },
-                                        },
-                                    })
-                                }
-                            />
-
-                            {/* Timing */}
-                            <FilterSection
-                                id="timing"
-                                title="Timing & Duration"
-                                icon={<Clock size={18} color="#F97316" />}
-                                expanded={expandedSections.has('timing')}
-                                onToggle={() => toggleSection('timing')}
-                                filters={localFilters.advanced.timing}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            timing: { ...localFilters.advanced.timing, ...updates },
-                                        },
-                                    })
-                                }
-                            />
-
-                            {/* Event Type */}
-                            <FilterSection
-                                id="eventType"
-                                title="Event Type"
-                                icon={<Calendar size={18} color="#EC4899" />}
-                                expanded={expandedSections.has('eventType')}
-                                onToggle={() => toggleSection('eventType')}
-                                filters={localFilters.advanced.eventType}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            eventType: {
-                                                ...localFilters.advanced.eventType,
-                                                ...updates,
-                                            },
-                                        },
-                                    })
-                                }
-                            />
-
-                            {/* Requirements */}
-                            <FilterSection
-                                id="requirements"
-                                title="Additional Requirements"
-                                icon={<CheckCircle2 size={18} color="#14B8A6" />}
-                                expanded={expandedSections.has('requirements')}
-                                onToggle={() => toggleSection('requirements')}
-                                filters={localFilters.advanced.requirements}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            requirements: {
-                                                ...localFilters.advanced.requirements,
-                                                ...updates,
-                                            },
-                                        },
-                                    })
-                                }
-                            />
-                        </View>
-
-                        {/* Bottom padding for mobile */}
-                        <View className="h-32" />
+                        </Group>
                     </ScrollView>
 
-                    {/* Footer Actions */}
+                    {/* Footer */}
                     <View className="border-t border-white/5 px-6 py-4 bg-zinc-950">
                         <View className="flex-row gap-3">
                             <TouchableOpacity
                                 onPress={handleClearAll}
                                 className="flex-1 h-14 rounded-2xl border border-white/10 items-center justify-center"
                             >
-                                <Text className="text-zinc-400 font-bold text-sm uppercase tracking-wider">
-                                    Clear All
-                                </Text>
+                                <Text className="text-zinc-400 font-semibold text-sm">Clear all</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={handleApply}
                                 className="flex-[2] h-14 rounded-2xl bg-white items-center justify-center"
                             >
-                                <Text className="text-black font-black text-sm uppercase tracking-wider">
-                                    Apply Filters
-                                </Text>
+                                <Text className="text-black font-bold text-sm">Apply filters</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

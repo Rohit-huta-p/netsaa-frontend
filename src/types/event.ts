@@ -1,4 +1,4 @@
-export type EventType = 'workshop' | 'competition' | 'meetup' | 'showcase';
+export type EventType = 'workshop' | 'competition' | 'meetup' | 'showcase' | 'battle';
 export type EventSkillLevel = 'all' | 'beginner' | 'intermediate' | 'advanced';
 export type EventStatus = 'draft' | 'published' | 'cancelled' | 'completed';
 export type LocationType = 'physical' | 'online' | 'hybrid';
@@ -49,7 +49,7 @@ export interface IEvent {
 
     organizerId: string;
     organizerName?: string;
-    organizerSnapshot: {
+    organizer: {
         name: string;
         organizationName: string;
         profileImageUrl?: string;
@@ -66,6 +66,7 @@ export interface IEvent {
 
     skillLevel: EventSkillLevel;
     eligibleArtistTypes: string[];
+    pricingMode: 'fixed' | 'ticketed';
     ticketPrice: number;
 
     schedule: EventSchedule;
@@ -86,10 +87,10 @@ export interface IEvent {
     updatedAt: string;
 }
 
-export interface CreateEventDTO extends Omit<IEvent, '_id' | 'organizerId' | 'organizerSnapshot' | 'hostId' | 'hostSnapshot' | 'status' | 'createdAt' | 'updatedAt' | 'publishedAt'> {
+export interface CreateEventDTO extends Omit<IEvent, '_id' | 'organizerId' | 'organizer' | 'hostId' | 'hostSnapshot' | 'status' | 'createdAt' | 'updatedAt' | 'publishedAt'> {
     // These might be handled by backend or optional during creation
     organizerId?: string;
-    organizerSnapshot?: {
+    organizer?: {
         name: string;
         organizationName: string;
         profileImageUrl?: string;
@@ -123,11 +124,37 @@ export interface IEventTicketType {
     _id?: string; // Optional for new ones
     eventId?: string;
     name: string;
-    price: number;
+    basePrice: number;              // Final/base price
+    currentPrice?: number;          // Computed active price
     currency: 'INR';
-    capacity: number;
     salesStartAt: string;
     salesEndAt: string;
     isRefundable: boolean;
     refundPolicyNotes?: string;
+
+    // Tiered pricing configuration
+    pricingTiers?: PricingTier[];
+
+    // Computed at runtime
+    activeTier?: ActiveTier;
+    nextTier?: ActiveTier;
+    tierEvaluation?: ActiveTier[];
+}
+
+export interface PricingTier {
+    name: string;
+    price: number;
+    conditionType: 'capacity' | 'date';
+    maxRegistrations?: number;
+    salesStartAt?: string;
+    validUntil?: string;
+    priority: number;
+}
+
+export interface ActiveTier {
+    name: string;
+    price: number;
+    expiresAt?: string;
+    remainingSlots?: number;
+    isBasePrice?: boolean;
 }

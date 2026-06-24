@@ -40,7 +40,8 @@ export function useParallax(
     // Animation starts when section is triggerOffset away from entering viewport
     const animStart = Math.max(0, sectionStart - triggerOffset);
     // Animation completes when section is fully in view
-    const animEnd = sectionStart;
+    // Ensure animEnd > animStart to keep inputRange monotonically increasing
+    const animEnd = Math.max(animStart + 1, sectionStart);
 
     // Content reveal: opacity 0→1
     const contentOpacity = scrollY.interpolate({
@@ -85,9 +86,11 @@ export function useParallax(
 
     // Staggered reveals: returns interpolations with increasing delays
     const staggered = (index: number, total: number = 3) => {
-        const staggerRange = triggerOffset * 0.4; // portion used for stagger
-        const itemStart = animStart + (staggerRange * index) / total;
-        const itemEnd = Math.min(itemStart + triggerOffset * 0.6, animEnd);
+        const range = animEnd - animStart;
+        const staggerRange = range * 0.4; // portion used for stagger
+        const itemStart = animStart + (staggerRange * index) / Math.max(total, 1);
+        // Ensure itemEnd > itemStart (at least 1px range)
+        const itemEnd = Math.max(itemStart + 1, Math.min(itemStart + range * 0.6, animEnd));
 
         return {
             opacity: scrollY.interpolate({

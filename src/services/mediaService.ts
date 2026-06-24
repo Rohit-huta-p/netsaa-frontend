@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/authStore';
 // TYPES
 // ─────────────────────────────────────────────────────────────
 
-export type EntityType = 'user' | 'artist' | 'gig' | 'event' | 'contract';
+export type EntityType = 'user' | 'artist' | 'gig' | 'event' | 'contract' | 'organizer';
 
 export type MediaPurpose =
     | 'avatar'
@@ -13,6 +13,7 @@ export type MediaPurpose =
     | 'audition'
     | 'banner'
     | 'gallery'
+    | 'logo'
     | 'thumbnail'
     | 'promo'
     | 'documents';

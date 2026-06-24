@@ -30,13 +30,13 @@ export const EventMetaInfo: React.FC<EventMetaInfoProps> = ({ event }) => {
             <View className="flex-row items-center mb-4">
                 <View className="w-12 h-12 rounded-full bg-gradient-to-tr from-pink-400 to-yellow-400 items-center justify-center">
                     <Text className="text-white font-bold">
-                        {event.organizerSnapshot?.name?.charAt(0) || "M"}
+                        {event.organizer?.name?.charAt(0) || "M"}
                     </Text>
                 </View>
 
                 <View className="ml-3">
                     <Text className="font-semibold text-white">
-                        {event.organizerSnapshot?.name || "Maria Santos"}
+                        {event.organizer?.name || "Maria Santos"}
                     </Text>
                     <View className="flex-row items-center mt-1">
                         <Star size={14} color="#F59E0B" />

@@ -4,14 +4,22 @@ import { User as UserIcon, ArrowUpDown } from 'lucide-react-native';
 import { useGigApplications, useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 import { ApplicantCard } from './ApplicantCard';
 import { ApplicationFilterChips, ApplicationStatus } from './ApplicationFilterChips';
+import { HireConfirmModal } from './HireConfirmModal';
 
 interface ApplicationsTabProps {
     gigId: string;
+    /**
+     * Full gig object — required to surface the hire confirmation modal
+     * (PRD §8.3.2 Stage 2). Optional for backward compatibility; when
+     * absent, the Hire button still works but the contract terms fall
+     * back to the minimal {_id, ...} shape.
+     */
+    gig?: any;
 }
 
 type SortOption = 'date' | 'rating' | 'name';
 
-export const ApplicationsTab: React.FC<ApplicationsTabProps> = ({ gigId }) => {
+export const ApplicationsTab: React.FC<ApplicationsTabProps> = ({ gigId, gig }) => {
     const { data: applications, isLoading, error } = useGigApplications(gigId);
 
     const updateMutation = useUpdateApplicationStatus();
@@ -21,6 +29,7 @@ export const ApplicationsTab: React.FC<ApplicationsTabProps> = ({ gigId }) => {
     const [sortBy, setSortBy] = useState<SortOption>('date');
     const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
     const [showSortDropdown, setShowSortDropdown] = useState(false);
+    const [hireTarget, setHireTarget] = useState<any | null>(null);
 
     // Calculate counts for filters
     const counts = useMemo(() => {
@@ -182,10 +191,19 @@ export const ApplicationsTab: React.FC<ApplicationsTabProps> = ({ gigId }) => {
                         isExpanded={expandedAppId === app._id}
                         onToggleExpand={() => toggleExpand(app._id)}
                         onUpdateStatus={handleUpdateStatus}
+                        onRequestHire={(a) => setHireTarget(a)}
                         isUpdating={updateMutation.isPending}
                     />
                 ))
             )}
+
+            {/* Hire confirmation modal (PRD §8.3.2 Stage 2) */}
+            <HireConfirmModal
+                visible={!!hireTarget}
+                gig={gig || { _id: gigId }}
+                application={hireTarget}
+                onClose={() => setHireTarget(null)}
+            />
         </View>
     );
 };

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, TextInput, ScrollView } from "react-nativ
 import { Edit2, Plus, X, Search } from "lucide-react-native";
 import { useProfileUiStore } from "@/stores/profileUiStore";
 import { EditableInput, SectionActions, Pill, SKILL_OPTIONS } from "./SharedSidebarComponents";
+import { AITextInput } from "@/components/ui/AITextInput";
 import useAuthStore from "@/stores/authStore";
 
 interface BioAndSkillsSectionProps {
@@ -92,13 +93,14 @@ export const BioAndSkillsSection: React.FC<BioAndSkillsSectionProps> = ({
                 <View>
                     <View className="mb-6">
                         <Text className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">
-                            {role === 'organizer' ? 'About' : 'Bio'}
+                            {role === 'creative_lead' ? 'About' : 'Bio'}
                         </Text>
-                        <EditableInput
+                        <AITextInput
                             value={bio}
                             onChangeText={setBio}
                             placeholder="Tell your story..."
                             multiline
+                            style={{ minHeight: 120 }}
                         />
                     </View>
 

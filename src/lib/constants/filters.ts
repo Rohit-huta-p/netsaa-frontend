@@ -128,7 +128,6 @@ export const FILTER_API_MAPPING = {
     artistTypes: 'artistTypes',
     experienceLevel: 'experienceLevel',
     gigType: 'gigType',
-    category: 'category',
     city: 'city',
     remoteOnly: 'remoteOnly',
     minCompensation: 'minCompensation',
@@ -177,11 +176,6 @@ export const buildQueryParamsFromFilters = (filters: any): Record<string, any> =
     // Gig Type (from timing section)
     if (advanced.timing?.gigType?.length > 0) {
         params.gigType = advanced.timing.gigType;
-    }
-
-    // Category (from eventType section)
-    if (advanced.eventType?.category?.length > 0) {
-        params.category = advanced.eventType.category;
     }
 
     // City
@@ -256,7 +250,9 @@ export const countActiveFilters = (filters: any): number => {
                 if (typeof value === 'boolean' && value) count++;
                 else if (Array.isArray(value) && value.length > 0) count++;
                 else if (typeof value === 'number' && value > 0) count++;
-                else if (typeof value === 'string' && value !== 'any') count++;
+                // 'relevance' is the default sort (no-op in buildQueryParamsFromFilters),
+                // so it shouldn't register as an active filter.
+                else if (typeof value === 'string' && value !== 'any' && value !== 'relevance') count++;
             }
         });
     });

@@ -21,6 +21,18 @@ SEARCH_API.interceptors.request.use((config) => {
 
 export const searchService = {
     /**
+     * Typeahead results for the new search-v2 surface.
+     * Returns intent-classified, vertically-ordered preview results.
+     * Endpoint: GET /search/preview?q=...&mode=typeahead
+     */
+    typeahead: async (query: string) => {
+        const { data } = await SEARCH_API.get('/search/preview', {
+            params: { q: query, mode: 'typeahead' },
+        });
+        return data;
+    },
+
+    /**
      * Get preview results for the global search bar
      */
     preview: async (query: string) => {

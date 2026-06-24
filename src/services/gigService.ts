@@ -38,7 +38,7 @@ const gigService = {
         return res.data;
     },
 
-    applyToGig: async (id: string, payload: { coverNote: string, portfolioLinks?: string[] }): Promise<GigResponse> => {
+    applyToGig: async (id: string, payload: { coverNote: string, portfolioLinks?: string[], proposedRate?: number, termsAcknowledged?: boolean, contractTier?: string, source?: string }): Promise<GigResponse> => {
         const res = await API.post(`/gigs/${id}/apply`, payload);
         return res.data;
     },
@@ -48,8 +48,29 @@ const gigService = {
         return res.data;
     },
 
-    getOrganizerGigs: async (organizerId: string): Promise<GigsListResponse> => {
-        const res = await API.get('/organizers/me/gigs', { params: { organizerId } });
+    getOrganizerGigs: async (params?: {
+        status?: 'draft' | 'published' | 'closed';
+        limit?: number;
+        /**
+         * Defensive query param to satisfy stale gigs-service `dist/` binaries
+         * (controller still expects `req.query.organizerId`). Fresh source
+         * controller reads `req.user.id` and ignores this. Filed for cleanup
+         * once the aggregator endpoint lands (TODOS.md P3.1). Passing both
+         * sides of the migration keeps the call working against any backend
+         * version.
+         */
+        organizerId?: string;
+    }): Promise<GigsListResponse> => {
+        const res = await API.get('/organizers/me/gigs', { params });
+        return res.data;
+    },
+
+    getOrganizerApplicants: async (params?: {
+        status?: 'applied' | 'shortlisted' | 'hired' | 'rejected' | 'withdrawn';
+        gigId?: string;
+        limit?: number;
+    }): Promise<any> => {
+        const res = await API.get('/organizers/me/applicants', { params });
         return res.data;
     },
 
@@ -69,8 +90,14 @@ const gigService = {
         return res.data.data;
     },
 
-    updateApplicationStatus: async (applicationId: string, status: string): Promise<any> => {
-        const res = await API.patch(`/applications/${applicationId}/status`, { status });
+    updateApplicationStatus: async (
+        applicationId: string,
+        status: string,
+        paymentMethod?: 'on_platform' | 'off_platform'
+    ): Promise<any> => {
+        const body: Record<string, unknown> = { status };
+        if (paymentMethod) body.paymentMethod = paymentMethod;
+        const res = await API.patch(`/applications/${applicationId}/status`, body);
         return res.data.data;
     },
 
@@ -84,13 +111,44 @@ const gigService = {
         return res.data;
     },
 
-    getSavedGigs: async (): Promise<any> => {
-        const res = await API.get('/users/me/saved-gigs');
+    /**
+     * Toggle pin on a gig discussion comment. Organizer-only — backend
+     * returns 403 for non-owners. Pin cap of 3 per gig is enforced server
+     * side; the oldest pinned comment auto-unpins when a 4th is pinned.
+     */
+    togglePinGigComment: async (gigId: string, commentId: string): Promise<any> => {
+        const res = await API.put(`/gigs/${gigId}/discussion/${commentId}/pin`);
         return res.data;
     },
 
-    getUserApplications: async (): Promise<any> => {
-        const res = await API.get('/users/me/gig-applications');
+    /**
+     * Soft-delete a gig discussion comment. Authority enforced server side:
+     * author OR gig organizer OR platform admin. Returns the masked comment
+     * (text replaced with "[deleted]") plus deletedReason for UI labeling.
+     */
+    deleteGigComment: async (gigId: string, commentId: string): Promise<any> => {
+        const res = await API.delete(`/gigs/${gigId}/discussion/${commentId}`);
+        return res.data;
+    },
+
+    getSavedGigs: async (params?: { limit?: number }): Promise<any> => {
+        const res = await API.get('/users/me/saved-gigs', { params });
+        return res.data;
+    },
+
+    getUserApplications: async (params?: { status?: string; limit?: number }): Promise<any> => {
+        const res = await API.get('/users/me/gig-applications', { params });
+        return res.data;
+    },
+
+    /**
+     * Withdraw the current user's gig application.
+     * Backend: PATCH /v1/applications/:id/withdraw (gigs-service routes.ts:34)
+     * Atomic on the backend — only succeeds if the application belongs to
+     * the caller and is in a withdrawable status (applied or shortlisted).
+     */
+    withdrawApplication: async (id: string): Promise<any> => {
+        const res = await API.patch(`/applications/${id}/withdraw`);
         return res.data;
     },
 

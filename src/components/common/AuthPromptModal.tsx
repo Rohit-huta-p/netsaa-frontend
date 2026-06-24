@@ -20,7 +20,7 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({ visible, onClo
 
     const handleSignup = () => {
         onClose();
-        router.push('/(auth)/register');
+        router.push('/(auth)/welcome');
     };
 
     if (!visible) return null;

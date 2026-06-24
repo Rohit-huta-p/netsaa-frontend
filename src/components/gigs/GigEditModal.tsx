@@ -126,7 +126,6 @@ export const GigEditModal: React.FC<GigEditModalProps> = ({ visible, onClose, gi
                 title: gig.title || '',
                 description: gig.description || '',
                 type: gig.type || 'one-time',
-                category: gig.category || '',
                 tags: gig.tags?.join(', ') || '',
                 
                 // Talent
@@ -185,7 +184,6 @@ export const GigEditModal: React.FC<GigEditModalProps> = ({ visible, onClose, gi
                 title: formData.title,
                 description: formData.description,
                 type: formData.type,
-                category: formData.category,
                 tags: formData.tags?.split(',').map((t: string) => t.trim()).filter(Boolean) || [],
                 
                 artistTypes: formData.artistType ? [formData.artistType] : [],
@@ -313,15 +311,6 @@ export const GigEditModal: React.FC<GigEditModalProps> = ({ visible, onClose, gi
                                     />
                                 </InputGroup>
                                 
-                                <InputGroup label="Category">
-                                    <StyledTextInput
-                                        icon={Layout}
-                                        value={formData.category}
-                                        onChangeText={(val: string) => updateField('category', val)}
-                                        placeholder="e.g. Corporate Event, Wedding"
-                                    />
-                                </InputGroup>
-
                                 <InputGroup label="Tags" subtitle="Type comma or enter to add tags">
                                     <TagInput
                                         value={formData.tags}

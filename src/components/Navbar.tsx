@@ -1,5 +1,6 @@
 import * as React from 'react';
 import logo from '@/assets/logo-black.jpeg';
+import noAvatar from '@/assets/no-avatar.jpg';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
     View, Text, TouchableOpacity, Dimensions, Platform,
@@ -12,10 +13,14 @@ import useAuthStore from '../stores/authStore';
 import {
     Bell, User as UserIcon, ChevronDown, Settings, LogOut, HelpCircle,
     Briefcase, Calendar, Users, LayoutDashboard, Search, X, Music,
-    Mail, ChevronRight
+    Mail, ChevronRight, Repeat, MessageCircle
 } from 'lucide-react-native';
+import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useSearchPreview } from '@/hooks/useSearchQueries';
+import conversationService from '@/services/conversationService';
+import { inviteService } from '@/services/inviteService';
+import authService from '@/services/authService';
 import type { User } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -62,52 +67,101 @@ function SearchResultRow({
     onPress: () => void;
     isLast: boolean;
 }) {
-    console.log("search result in drop down: ", item)
-    const getIcon = () => {
-        switch (item.type) {
-            case 'gig': return <Briefcase size={15} color="#ff006e" />;
-            case 'event': return <Calendar size={15} color="#8338ec" />;
-            case 'artist': return <Music size={15} color="#3b82f6" />;
-            case 'organizer': return <Users size={15} color="#10b981" />;
-            default: return <Search size={15} color="#888" />;
+    const [hover, setHover] = React.useState(false);
+    const isPerson = item.type === 'artist' || item.type === 'organizer';
+
+    const Thumb = () => {
+        if (isPerson) {
+            const src = item.image ? { uri: item.image } : noAvatar;
+            return (
+                <Image
+                    source={src as any}
+                    style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)' }}
+                />
+            );
         }
+        if (item.image) {
+            return (
+                <Image
+                    source={{ uri: item.image }}
+                    style={{ width: 32, height: 32, borderRadius: 6 }}
+                />
+            );
+        }
+        const tileBg = item.type === 'gig' ? 'rgba(255, 107, 53, 0.08)' : 'rgba(212, 161, 85, 0.10)';
+        const tileBorder = item.type === 'gig' ? 'rgba(255, 107, 53, 0.20)' : 'rgba(212, 161, 85, 0.25)';
+        const Icon = item.type === 'gig' ? Briefcase : Calendar;
+        const iconColor = item.type === 'gig' ? '#FF6B35' : '#D4A155';
+        return (
+            <View style={{
+                width: 32, height: 32, borderRadius: 6,
+                backgroundColor: tileBg,
+                borderWidth: 1, borderColor: tileBorder,
+                alignItems: 'center', justifyContent: 'center',
+            }}>
+                <Icon size={14} color={iconColor} strokeWidth={1.5} />
+            </View>
+        );
     };
+
+    const webHover = Platform.OS === 'web'
+        ? { onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false) }
+        : {};
 
     return (
         <TouchableOpacity
             onPress={onPress}
+            {...(webHover as any)}
             style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                padding: 12,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
                 borderBottomWidth: isLast ? 0 : 1,
-                borderBottomColor: 'rgba(255,255,255,0.05)',
+                borderBottomColor: 'rgba(212, 161, 85, 0.10)',
+                backgroundColor: hover ? 'rgba(255, 200, 140, 0.03)' : 'transparent',
             }}
         >
-            <View style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(168,85,247,0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                {item.image ? (
-                    <Image
-                        source={{ uri: item.image }}
-                        style={{ width: 28, height: 28, borderRadius: 6 }}
-                    />
-                ) : (
-                    getIcon()
-                )}
+            <View style={{ marginRight: 12 }}>
+                <Thumb />
             </View>
-            <View style={{ flex: 1 }}>
-                <Text style={{ color: '#fff', fontSize: 13, fontFamily: F.heading }} numberOfLines={1}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ color: '#F5F0EB', fontSize: 14, fontFamily: 'Outfit-SemiBold' }} numberOfLines={1}>
                     {item.title}
                 </Text>
                 {item.subtitle ? (
-                    <Text style={{ color: '#71717a', fontSize: 11, marginTop: 2 }} numberOfLines={1}>
+                    <Text style={{ color: '#A19BAA', fontSize: 11, marginTop: 1, letterSpacing: 0.2 }} numberOfLines={1}>
                         {item.subtitle}
                     </Text>
                 ) : null}
             </View>
-            <Text style={{ color: '#6b7280', fontSize: 10, textTransform: 'capitalize', backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                {item.type}
-            </Text>
         </TouchableOpacity>
+    );
+}
+
+// ----- Section label inside dropdown -----
+function DropdownSectionLabel({ label, count }: { label: string; count: number }) {
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
+            <Text style={{ color: '#D4A155', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2.5 }}>
+                {label.toUpperCase()}
+            </Text>
+            <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 1.5, marginLeft: 8 }}>
+                {String(count).padStart(2, '0')}
+            </Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(212, 161, 85, 0.15)', marginLeft: 10 }} />
+        </View>
+    );
+}
+
+// ----- Top-nav profile avatar (real user pic, with fallback) -----
+function NavAvatar({ user, size = 32 }: { user: User | null; size?: number }) {
+    const uri = user?.profileImageUrl;
+    return (
+        <Image
+            source={uri ? { uri } : noAvatar}
+            style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#1a1a24' }}
+        />
     );
 }
 
@@ -125,7 +179,38 @@ function ProfileMenu({
     router: any;
     isMobileView?: boolean;
 }) {
-    const role = user?.role || 'User';
+    // Reflect the real 3-role model (client / creative_lead / artist), not the
+    // legacy 2-mode (artist/hirer) toggle. Switching is done the canonical way
+    // via the role screen (authService.switchRole).
+    const currentRole = useAuthStore((s) => s.role);
+    const ROLE_META: Record<string, { label: string; color: string }> = {
+        client: { label: 'Client', color: '#FF6B35' },
+        creative_lead: { label: 'Creative', color: '#FBBF24' },
+        artist: { label: 'Artist', color: '#8B5CF6' },
+    };
+    const roleMeta = ROLE_META[currentRole] ?? ROLE_META.artist;
+    const modeColor = roleMeta.color;
+    const modeLabel = roleMeta.label;
+    const isClientRole = currentRole === 'client';
+
+    // For clients, surface the business type (organizerTypeCategory) beside the
+    // mode pill. Server-authoritative — lives on the Organizer doc, so we fetch
+    // it (cached) only when the viewer is actually a client.
+    const { data: organizer } = useQuery({
+        queryKey: ['organizer', 'me'],
+        queryFn: () => authService.getOrganizer(),
+        enabled: isClientRole,
+        staleTime: 60_000,
+        retry: false,
+    });
+    const BIZ_LABEL: Record<string, string> = {
+        individual: 'Personal',
+        corporate: 'Company',
+        agency: 'Agency',
+        institution: 'Venue',
+    };
+    const bizLabel = isClientRole ? BIZ_LABEL[organizer?.organizerTypeCategory ?? ''] : undefined;
+
     const displayName = user?.displayName || (user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'No Name');
     const email = user?.email || '';
 
@@ -196,7 +281,7 @@ function ProfileMenu({
         }}>
             {/* Header / Profile Card */}
             <TouchableOpacity
-                onPress={() => { onClose(); router.push('/(app)/profile'); }}
+                onPress={() => { onClose(); router.push(isClientRole ? '/(app)/client-profile' : '/(app)/profile'); }}
                 style={{
                     padding: 12,
                     backgroundColor: 'rgba(147, 51, 234, 0.05)',
@@ -208,13 +293,10 @@ function ProfileMenu({
                 }}
             >
                 <View style={{ position: 'relative' }}>
-                    {user?.profileImageUrl ? (
-                        <Image source={{ uri: user.profileImageUrl }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-                    ) : (
-                        <View style={{ width: 40, height: 40, backgroundColor: '#9333EA', borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
-                            <UserIcon size={20} color="white" />
-                        </View>
-                    )}
+                    <Image
+                        source={user?.profileImageUrl ? { uri: user.profileImageUrl } : noAvatar}
+                        style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#1a1a24' }}
+                    />
                     <View style={{
                         position: 'absolute',
                         bottom: 0,
@@ -230,20 +312,82 @@ function ProfileMenu({
                 <View style={{ flex: 1 }}>
                     <Text style={{ color: 'white', fontFamily: F.heading, fontSize: 13 }} numberOfLines={1}>{displayName}</Text>
                     <Text style={{ color: '#9CA3AF', fontFamily: F.bodyMedium, fontSize: 11 }} numberOfLines={1}>{email}</Text>
-                    <View style={{
-                        marginTop: 4,
-                        backgroundColor: 'rgba(147, 51, 234, 0.2)',
-                        paddingHorizontal: 6,
-                        paddingVertical: 1,
-                        borderRadius: 4,
-                        alignSelf: 'flex-start'
-                    }}>
-                        <Text style={{ color: '#C084FC', fontSize: 9, fontFamily: F.bodySemiBold, textTransform: 'capitalize' }}>{role}</Text>
+                    <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        {/* Mode pill */}
+                        <View style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            backgroundColor: `${modeColor}1F`,
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: 999,
+                            borderWidth: 1,
+                            borderColor: `${modeColor}55`,
+                        }}>
+                            <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: modeColor }} />
+                            <Text style={{ color: modeColor, fontSize: 9, fontFamily: F.bodySemiBold, letterSpacing: 0.5 }}>
+                                {modeLabel.toUpperCase()} MODE
+                            </Text>
+                        </View>
+
+                        {/* Business-type pill — clients only */}
+                        {bizLabel && (
+                            <View style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 4,
+                                backgroundColor: 'rgba(212,161,85,0.12)',
+                                paddingHorizontal: 8,
+                                paddingVertical: 2,
+                                borderRadius: 999,
+                                borderWidth: 1,
+                                borderColor: 'rgba(212,161,85,0.45)',
+                            }}>
+                                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#D4A155' }} />
+                                <Text style={{ color: '#D4A155', fontSize: 9, fontFamily: F.bodySemiBold, letterSpacing: 0.5 }}>
+                                    {bizLabel.toUpperCase()}
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 </View>
             </TouchableOpacity>
 
             <ScrollView bounces={false} style={{ maxHeight: isMobileView ? 350 : 450 }}>
+                <MenuSection title="Role">
+                    <MenuItem
+                        icon={Repeat}
+                        label="Switch role"
+                        color={modeColor}
+                        onPress={() => {
+                            onClose();
+                            router.push('/(app)/settings/role');
+                        }}
+                    />
+                </MenuSection>
+                <MenuSection title="Workspace">
+                    <MenuItem
+                        icon={LayoutDashboard}
+                        label="Dashboard"
+                        color="#F97316"
+                        onPress={() => { onClose(); router.push('/(app)/dashboard' as any); }}
+                    />
+                </MenuSection>
+                <MenuSection title="Network">
+                    <MenuItem
+                        icon={Users}
+                        label="Your Network"
+                        color="#EC4899"
+                        onPress={() => { onClose(); router.push('/(app)/network' as any); }}
+                    />
+                    <MenuItem
+                        icon={Bell}
+                        label="Notifications"
+                        color="#F97316"
+                        onPress={() => { onClose(); router.push('/(app)/notifications'); }}
+                    />
+                </MenuSection>
                 <MenuSection title="Account">
                     <MenuItem
                         icon={Settings}
@@ -263,13 +407,57 @@ function ProfileMenu({
     );
 }
 
+// ----- Messages / inbox button (badge = unread messages + pending sent invites) -----
+function InboxButton({ count, onPress }: { count: number; onPress: () => void }) {
+    return (
+        <TouchableOpacity style={{ position: 'relative' }} onPress={onPress} accessibilityRole="button" accessibilityLabel="Messages">
+            <MessageCircle size={22} color="white" />
+            {count > 0 && (
+                <View style={{
+                    position: 'absolute', top: -5, right: -5, minWidth: 15, height: 15, borderRadius: 7.5,
+                    backgroundColor: '#FF6B35', alignItems: 'center', justifyContent: 'center',
+                    paddingHorizontal: 3, borderWidth: 1.5, borderColor: '#09090b',
+                }}>
+                    <Text style={{ color: '#fff', fontSize: 8.5, fontFamily: 'Outfit-SemiBold' }}>
+                        {count > 9 ? '9+' : String(count)}
+                    </Text>
+                </View>
+            )}
+        </TouchableOpacity>
+    );
+}
+
 // ----- Main Navbar -----
 export default function Navbar() {
     const { isMobile } = useResponsive();
     const { width } = useWindowDimensions();
     const router = useRouter();
     const { accessToken, user } = useAuthStore();
+    const role = useAuthStore((s) => s.role);
     const isAuthenticated = !!accessToken;
+
+    // Inbox badge (unread messages + pending sent invites). Lives here so the
+    // affordance is consistent on every screen. Invites are client-only, so that
+    // query is gated by role; messages unread applies to everyone.
+    const { data: unreadCount = 0 } = useQuery({
+        queryKey: ['conversations', 'unread'],
+        queryFn: async () => {
+            const convos = await conversationService.getConversations();
+            return convos.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0);
+        },
+        enabled: isAuthenticated,
+        staleTime: 60_000,
+        retry: false,
+    });
+    const { data: sentInvites = [] } = useQuery({
+        queryKey: ['invites', 'sent'],
+        queryFn: () => inviteService.sent(),
+        enabled: isAuthenticated && role === 'client',
+        staleTime: 60_000,
+        retry: false,
+    });
+    const inboxCount =
+        unreadCount + (sentInvites as any[]).filter((i) => i.status === 'sent' || i.status === 'viewed').length;
 
     // Profile dropdown
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
@@ -372,32 +560,54 @@ export default function Navbar() {
 
     // --- Shared dropdown content ---
     const renderDropdown = () => {
-        if (isSearching) return (
-            <View style={{ padding: 16, alignItems: 'center' }}>
-                <ActivityIndicator size="small" color="#A855F7" />
-            </View>
-        );
+        // No loading state — keepPreviousData keeps prior results visible while refetching.
         if (results.length === 0) return (
-            <View style={{ padding: 16, alignItems: 'center' }}>
-                <Text style={{ color: '#71717a', fontSize: 13 }}>No results found</Text>
+            <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                <Text style={{ color: '#4A4656', fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, marginBottom: 6 }}>⋄</Text>
+                <Text style={{ color: '#A19BAA', fontSize: 12 }}>
+                    Nothing for{' '}
+                    <Text style={{ color: '#D4D0CB', fontFamily: 'DMSerifDisplay_400Regular', ...(isWeb ? { fontStyle: 'italic' as any } : {}) }}>
+                        "{debouncedQuery}"
+                    </Text>
+                </Text>
             </View>
         );
+
+        // Group results by type for sectioned rendering
+        const people = results.filter(r => r.type === 'artist' || r.type === 'organizer');
+        const gigs   = results.filter(r => r.type === 'gig');
+        const events = results.filter(r => r.type === 'event');
+
+        const renderGroup = (label: string, items: SearchResultItem[]) => (
+            items.length === 0 ? null : (
+                <View key={label}>
+                    <DropdownSectionLabel label={label} count={items.length} />
+                    {items.map((item, i) => (
+                        <SearchResultRow
+                            key={`${item.type}-${item.id}`}
+                            item={item}
+                            onPress={() => handleResultClick(item.type, item.id)}
+                            isLast={i === items.length - 1}
+                        />
+                    ))}
+                </View>
+            )
+        );
+
         return (
-            <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 320 }}>
-                {results.map((item, i) => (
-                    <SearchResultRow
-                        key={`${item.type}-${item.id}`}
-                        item={item}
-                        onPress={() => handleResultClick(item.type, item.id)}
-                        isLast={i === results.length - 1}
-                    />
-                ))}
-                <TouchableOpacity
-                    onPress={handleViewAll}
-                    style={{ padding: 12, alignItems: 'center', backgroundColor: 'rgba(168,85,247,0.1)' }}
-                >
-                    <Text style={{ color: '#a855f7', fontSize: 12, fontFamily: F.bodySemiBold }}>View all results →</Text>
-                </TouchableOpacity>
+            <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 380 }}>
+                {renderGroup('People', people)}
+                {renderGroup('Gigs', gigs)}
+                {renderGroup('Events', events)}
+                <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(212, 161, 85, 0.12)', marginTop: 4 }}>
+                    <TouchableOpacity
+                        onPress={handleViewAll}
+                        style={{ paddingVertical: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                    >
+                        <Text style={{ color: '#D4A155', fontSize: 12, fontFamily: 'Outfit-SemiBold' }}>View all results</Text>
+                        <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2 }}>{isWeb ? '↵ ENTER' : 'TAP'}</Text>
+                    </TouchableOpacity>
+                </View>
             </ScrollView>
         );
     };
@@ -431,6 +641,11 @@ export default function Navbar() {
                     <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 8 }} onPress={() => router.push('/(app)/events')}>
                         <Text style={{ color: C.textSecondary, fontFamily: F.bodyMedium, fontSize: 13 }}>Events</Text>
                     </TouchableOpacity>
+                    {isAuthenticated && (
+                        <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 8 }} onPress={() => router.push('/(app)/network' as any)}>
+                            <Text style={{ color: C.textSecondary, fontFamily: F.bodyMedium, fontSize: 13 }}>Network</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             )}
 
@@ -448,9 +663,7 @@ export default function Navbar() {
                                 borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
                                 width: 260,
                             }}>
-                                {isSearching
-                                    ? <ActivityIndicator size="small" color="#ff006e" />
-                                    : <Search size={16} color="#888" />}
+                                <Search size={16} color="#888" />
                                 <TextInput
                                     ref={searchInputRef}
                                     value={searchQuery}
@@ -474,10 +687,10 @@ export default function Navbar() {
                             {showDropdown && (
                                 <View style={{
                                     position: 'absolute', top: 56, left: 0, right: 10,
-                                    backgroundColor: '#1a1a24', borderRadius: 14,
-                                    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+                                    backgroundColor: '#13110f', borderRadius: 14,
+                                    borderWidth: 1, borderColor: 'rgba(212, 161, 85, 0.20)',
                                     overflow: 'hidden', zIndex: 999,
-                                    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16,
+                                    shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 24,
                                     elevation: 10,
                                 }}>
                                     {renderDropdown()}
@@ -489,6 +702,9 @@ export default function Navbar() {
                     {/* Auth actions */}
                     {isAuthenticated ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                            {/* Messages / inbox */}
+                            <InboxButton count={inboxCount} onPress={() => router.push('/(app)/inbox' as any)} />
+
                             {/* Notifications */}
                             <TouchableOpacity style={{ position: 'relative' }} onPress={() => router.push('/(app)/notifications')}>
                                 <Bell size={22} color="white" />
@@ -498,9 +714,7 @@ export default function Navbar() {
                             {/* Profile dropdown */}
                             <View style={{ position: 'relative', zIndex: 60 }}>
                                 <TouchableOpacity onPress={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <View style={{ width: 32, height: 32, backgroundColor: '#9333EA', borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
-                                        <UserIcon size={18} color="white" />
-                                    </View>
+                                    <NavAvatar user={user} size={32} />
                                     <ChevronDown size={16} color="white" style={{ transform: [{ rotate: isProfileDropdownOpen ? '180deg' : '0deg' }], marginLeft: 4 }} />
                                 </TouchableOpacity>
 
@@ -535,7 +749,7 @@ export default function Navbar() {
                             <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
                                 <Text style={{ color: C.textPrimary, fontFamily: F.bodyMedium, fontSize: 13 }}>Login</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={{ backgroundColor: C.coral, borderRadius: 6, paddingHorizontal: 16, paddingVertical: 8 }} onPress={() => router.push('/(auth)/register')}>
+                            <TouchableOpacity style={{ backgroundColor: C.coral, borderRadius: 6, paddingHorizontal: 16, paddingVertical: 8 }} onPress={() => router.push('/(auth)/welcome')}>
                                 <Text style={{ color: C.white, fontFamily: F.bodySemiBold, fontSize: 13 }}>Sign up</Text>
                             </TouchableOpacity>
                         </>
@@ -577,9 +791,7 @@ export default function Navbar() {
                                                     paddingHorizontal: 12, paddingVertical: 10,
                                                     borderWidth: 1, borderColor: 'rgba(168,85,247,0.4)',
                                                 }}>
-                                                    {isSearching
-                                                        ? <ActivityIndicator size="small" color="#A855F7" />
-                                                        : <Search size={16} color="#A855F7" />}
+                                                    <Search size={16} color="#A855F7" />
                                                     <TextInput
                                                         ref={fullSearchRef}
                                                         value={searchQuery}
@@ -605,33 +817,58 @@ export default function Navbar() {
                                             {/* Results */}
                                             <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
                                                 {debouncedQuery.length < 2 ? (
-                                                    <View style={{ padding: 32, alignItems: 'center' }}>
-                                                        <Search size={40} color="rgba(168,85,247,0.25)" />
-                                                        <Text style={{ color: '#555', fontSize: 14, marginTop: 12, fontFamily: F.bodyMedium }}>Start typing to search...</Text>
-                                                    </View>
-                                                ) : isSearching ? (
-                                                    <View style={{ padding: 32, alignItems: 'center' }}>
-                                                        <ActivityIndicator size="large" color="#A855F7" />
+                                                    <View style={{ paddingVertical: 64, alignItems: 'center' }}>
+                                                        <Text style={{ color: '#4A4656', fontFamily: 'DMSerifDisplay_400Regular', fontSize: 32, marginBottom: 8 }}>⋄</Text>
+                                                        <Text style={{ color: '#A19BAA', fontSize: 13 }}>Start typing to search</Text>
+                                                        <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2.5, marginTop: 6 }}>
+                                                            PEOPLE · GIGS · EVENTS
+                                                        </Text>
                                                     </View>
                                                 ) : results.length === 0 ? (
-                                                    <View style={{ padding: 32, alignItems: 'center' }}>
-                                                        <Text style={{ color: '#555', fontSize: 14, fontFamily: F.bodyMedium }}>No results found</Text>
+                                                    <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+                                                        <Text style={{ color: '#4A4656', fontFamily: 'DMSerifDisplay_400Regular', fontSize: 26, marginBottom: 6 }}>⋄</Text>
+                                                        <Text style={{ color: '#A19BAA', fontSize: 13 }}>
+                                                            Nothing for{' '}
+                                                            <Text style={{ color: '#D4D0CB', fontFamily: 'DMSerifDisplay_400Regular', ...(isWeb ? { fontStyle: 'italic' as any } : {}) }}>
+                                                                "{debouncedQuery}"
+                                                            </Text>
+                                                        </Text>
                                                     </View>
                                                 ) : (
                                                     <>
-                                                        {results.map((item, i) => (
-                                                            <SearchResultRow
-                                                                key={`${item.type}-${item.id}`}
-                                                                item={item}
-                                                                onPress={() => { closeFullSearch(); handleResultClick(item.type, item.id); }}
-                                                                isLast={i === results.length - 1}
-                                                            />
-                                                        ))}
+                                                        {(() => {
+                                                            const people = results.filter(r => r.type === 'artist' || r.type === 'organizer');
+                                                            const gigs   = results.filter(r => r.type === 'gig');
+                                                            const events = results.filter(r => r.type === 'event');
+                                                            const renderGroup = (label: string, items: SearchResultItem[]) => (
+                                                                items.length === 0 ? null : (
+                                                                    <View key={label}>
+                                                                        <DropdownSectionLabel label={label} count={items.length} />
+                                                                        {items.map((item, i) => (
+                                                                            <SearchResultRow
+                                                                                key={`${item.type}-${item.id}`}
+                                                                                item={item}
+                                                                                onPress={() => { closeFullSearch(); handleResultClick(item.type, item.id); }}
+                                                                                isLast={i === items.length - 1}
+                                                                            />
+                                                                        ))}
+                                                                    </View>
+                                                                )
+                                                            );
+                                                            return (
+                                                                <>
+                                                                    {renderGroup('People', people)}
+                                                                    {renderGroup('Gigs', gigs)}
+                                                                    {renderGroup('Events', events)}
+                                                                </>
+                                                            );
+                                                        })()}
                                                         <TouchableOpacity
                                                             onPress={() => { closeFullSearch(); handleViewAll(); }}
-                                                            style={{ margin: 16, padding: 14, alignItems: 'center', backgroundColor: 'rgba(168,85,247,0.12)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(168,85,247,0.25)' }}
+                                                            style={{ paddingVertical: 16, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(212, 161, 85, 0.12)', marginTop: 8 }}
                                                         >
-                                                            <Text style={{ color: '#a855f7', fontSize: 13, fontFamily: F.bodySemiBold }}>View all results →</Text>
+                                                            <Text style={{ color: '#D4A155', fontSize: 13, fontFamily: 'Outfit-SemiBold' }}>View all results</Text>
+                                                            <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2 }}>TAP</Text>
                                                         </TouchableOpacity>
                                                     </>
                                                 )}
@@ -689,19 +926,23 @@ export default function Navbar() {
                                             top: 44,
                                             right: ICONS_WIDTH,
                                             width: width - ICONS_WIDTH - 24,
-                                            backgroundColor: '#1a1a24',
+                                            backgroundColor: '#13110f',
                                             borderRadius: 14,
                                             borderWidth: 1,
-                                            borderColor: 'rgba(168,85,247,0.3)',
+                                            borderColor: 'rgba(212, 161, 85, 0.22)',
                                             overflow: 'hidden',
                                             zIndex: 9999,
                                             elevation: 30,
+                                            shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 24,
                                         }}>
                                             {renderDropdown()}
                                         </View>
                                     )}
                                 </>
                             )}
+
+                            {/* Messages / inbox */}
+                            <InboxButton count={inboxCount} onPress={() => router.push('/(app)/inbox' as any)} />
 
                             {/* Bell */}
                             <TouchableOpacity style={{ position: 'relative' }} onPress={() => router.push('/(app)/notifications')}>
@@ -712,9 +953,7 @@ export default function Navbar() {
                             {/* Profile avatar + dropdown */}
                             <View style={{ position: 'relative', zIndex: 60 }}>
                                 <TouchableOpacity onPress={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}>
-                                    <View style={{ width: 32, height: 32, backgroundColor: '#9333EA', borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
-                                        <UserIcon size={18} color="white" />
-                                    </View>
+                                    <NavAvatar user={user} size={32} />
                                 </TouchableOpacity>
 
                                 {isProfileDropdownOpen && (
@@ -750,7 +989,7 @@ export default function Navbar() {
                             <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
                                 <Text style={{ color: C.textPrimary, fontFamily: F.bodyMedium, fontSize: 13 }}>Login</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={{ backgroundColor: C.coral, borderRadius: 6, paddingHorizontal: 14, paddingVertical: 7 }} onPress={() => router.push('/(auth)/register')}>
+                            <TouchableOpacity style={{ backgroundColor: C.coral, borderRadius: 6, paddingHorizontal: 14, paddingVertical: 7 }} onPress={() => router.push('/(auth)/welcome')}>
                                 <Text style={{ color: C.white, fontFamily: F.bodySemiBold, fontSize: 12 }}>Sign up</Text>
                             </TouchableOpacity>
                         </>

@@ -20,6 +20,9 @@ import {
     Outfit_900Black,
 } from '@expo-google-fonts/outfit';
 import {
+    DMSerifDisplay_400Regular,
+} from '@expo-google-fonts/dm-serif-display';
+import {
     SourceSans3_200ExtraLight,
     SourceSans3_300Light,
     SourceSans3_400Regular,
@@ -29,6 +32,10 @@ import {
     SourceSans3_800ExtraBold,
     SourceSans3_900Black,
 } from '@expo-google-fonts/source-sans-3';
+import {
+    SpaceMono_400Regular,
+    SpaceMono_700Bold,
+} from '@expo-google-fonts/space-mono';
 
 import Navbar from "../src/components/Navbar";
 import Footer from "../src/components/Footer";
@@ -53,7 +60,7 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
     const { isHydrated, accessToken } = useAuthStore();
     const pathname = usePathname();
-    const isAuthRoute = pathname?.startsWith('/login') || pathname?.startsWith('/register');
+    const isAuthRoute = pathname?.startsWith('/login') || pathname?.startsWith('/register') || pathname?.includes('forgot-password') || pathname?.startsWith('/welcome') || pathname?.startsWith('/client-signup');
     const [fontsLoaded, fontError] = useFonts({
         // Outfit fonts (primary heading/display font)
         'Outfit-Thin': Outfit_100Thin,
@@ -66,6 +73,9 @@ export default function RootLayout() {
         'Outfit-ExtraBold': Outfit_800ExtraBold,
         'Outfit-Black': Outfit_900Black,
 
+        // DM Serif Display (landing page serif headlines)
+        'DMSerifDisplay_400Regular': DMSerifDisplay_400Regular,
+
         // Source Sans 3 (body/secondary font)
         'SourceSans3-ExtraLight': SourceSans3_200ExtraLight,
         'SourceSans3-Light': SourceSans3_300Light,
@@ -75,6 +85,10 @@ export default function RootLayout() {
         'SourceSans3-Bold': SourceSans3_700Bold,
         'SourceSans3-ExtraBold': SourceSans3_800ExtraBold,
         'SourceSans3-Black': SourceSans3_900Black,
+
+        // Space Mono (numeric stamps + micro labels on hirer home)
+        'SpaceMono-Regular': SpaceMono_400Regular,
+        'SpaceMono-Bold': SpaceMono_700Bold,
     });
 
     useEffect(() => {
@@ -118,14 +132,14 @@ export default function RootLayout() {
             <QueryClientProvider client={queryClient}>
                 <SafeAreaProvider style={{ flex: 1 }}>
                     <View style={{ flex: 1, backgroundColor: '#09090b' }}>
-                        {/* Navbar & TabBar hidden on auth screens */}
-                        {!isAuthRoute && <Navbar />}
+                        {/* Navbar hidden on auth screens + the public landing ('/' has its own nav) */}
+                        {!isAuthRoute && pathname !== '/' && <Navbar />}
 
                         {/* App content */}
                         <Slot />
 
                         {/* Mobile bottom tab bar */}
-                        {!isAuthRoute && <MobileTabBar />}
+                        {/* {!isAuthRoute && <MobileTabBar />} */}
                     </View>
                 </SafeAreaProvider>
             </QueryClientProvider>

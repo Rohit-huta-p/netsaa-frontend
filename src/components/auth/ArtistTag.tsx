@@ -9,7 +9,7 @@ export const ArtistTag = ({
     icon: Icon, label, delay = 0,
 }: { icon: any; label: string; delay?: number }) => {
     const anim = useRef(new Animated.Value(0)).current;
-    
+
     useEffect(() => {
         Animated.timing(anim, {
             toValue: 1, duration: 500, delay, useNativeDriver: true,
@@ -25,14 +25,13 @@ export const ArtistTag = ({
         >
             <View style={{
                 flexDirection: "row", alignItems: "center", gap: 5,
-                paddingVertical: 7, paddingHorizontal: 13,
+                paddingVertical: 8, paddingHorizontal: 16,
                 borderRadius: 20, borderWidth: 1,
-                borderColor: "rgba(139,92,246,0.35)",
-                backgroundColor: "rgba(139,92,246,0.10)",
+                borderColor: "rgba(255,255,255,0.18)",
+                backgroundColor: "rgba(59, 58, 58, 0.18)",
             }}>
-                <Icon size={11} color={C.accent} strokeWidth={2} />
                 <Text style={{
-                    fontSize: 11, color: C.accent,
+                    fontSize: 13, color: "rgba(173, 173, 173, 0.85)",
                     fontWeight: "600", letterSpacing: 0.2,
                 }}>{label}</Text>
             </View>

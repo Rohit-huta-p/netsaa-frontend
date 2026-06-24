@@ -11,8 +11,15 @@ import gigService from '@/services/gigService';
  */
 export function useGigActions(gig: any) {
     const user = useAuthStore((state) => state.user);
-    const isOrganizer = user?._id === gig.organizerId._id;
-    const hasApplied = gig.viewerContext?.hasApplied;
+    // Defensive lookups — gig may be a preview / partial shape (e.g.
+    // GigFormV2 Page5 renders a synthetic preview). Crash-free if either
+    // organizerId or its _id is missing.
+    const organizerId =
+        typeof gig?.organizerId === 'object'
+            ? gig?.organizerId?._id
+            : gig?.organizerId;
+    const isOrganizer = !!user?._id && !!organizerId && user._id === organizerId;
+    const hasApplied = gig?.viewerContext?.hasApplied;
 
     // Modal visibility states
     const [settingsModalVisible, setSettingsModalVisible] = useState(false);
@@ -25,9 +32,14 @@ export function useGigActions(gig: any) {
         missing: [],
     });
     const [isSaved, setIsSaved] = useState(false);
+    // Plan 5 v2 — gig-detail tab nav reduced to Discussion (+ Applications
+    // for organizers). Old tab keys ('about' | 'schedule' | 'apply' | 'terms')
+    // are kept in the union for backward-compat with deep-link query params
+    // and the GigEditModal `editTargetTab` state, but no longer addressable
+    // from the visible nav.
     const [activeTab, setActiveTab] = useState<
-        'about' | 'talent' | 'schedule' | 'apply' | 'applications' | 'terms'
-    >(isOrganizer ? 'applications' : 'about');
+        'about' | 'talent' | 'schedule' | 'apply' | 'applications' | 'terms' | 'discussion'
+    >(isOrganizer ? 'applications' : 'discussion');
     const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
 
     // Edit Modal State
@@ -48,8 +60,18 @@ export function useGigActions(gig: any) {
 
     const totalCount = applications?.length || 0;
 
+    // Deadline check
+    const isDeadlinePassed = gig.applicationDeadline
+        ? new Date(gig.applicationDeadline) < new Date()
+        : false;
+
     // Handlers
     const handleApply = () => {
+        if (isDeadlinePassed) {
+            Alert.alert('Deadline Passed', 'The application deadline for this gig has passed.');
+            return;
+        }
+
         if (!user) {
             setAuthPromptVisible(true);
             return;
@@ -136,6 +158,7 @@ export function useGigActions(gig: any) {
         handleViewTerms,
         handleSave,
         handleUpdateStatus,
+        isDeadlinePassed,
 
         // Edit Modal
         editModalVisible,

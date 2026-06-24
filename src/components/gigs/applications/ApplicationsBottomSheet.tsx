@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ApplicantCard } from './ApplicantCard';
 import { ApplicationFilterChips, ApplicationStatus } from './ApplicationFilterChips';
+import { HireConfirmModal } from './HireConfirmModal';
 
 interface Application {
     _id: string;
@@ -28,6 +29,11 @@ interface ApplicationsBottomSheetProps {
     onViewAll: () => void;
     onUpdateStatus: (applicationId: string, status: string) => void;
     gigId: string;
+    /**
+     * Full gig object — required to build the contract terms when the
+     * hirer confirms a hire. Threaded down through HireConfirmModal.
+     */
+    gig?: any;
     isLoading?: boolean;
 }
 
@@ -40,6 +46,7 @@ export const ApplicationsBottomSheet: React.FC<ApplicationsBottomSheetProps> = (
     onViewAll,
     onUpdateStatus,
     gigId,
+    gig,
     isLoading = false,
 }) => {
     const router = useRouter();
@@ -50,6 +57,10 @@ export const ApplicationsBottomSheet: React.FC<ApplicationsBottomSheetProps> = (
     const [sortBy, setSortBy] = useState<SortOption>('date');
     const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
     const [showSortDropdown, setShowSortDropdown] = useState(false);
+
+    // Hire confirmation modal target — null when nobody is being hired.
+    const [hireTarget, setHireTarget] = useState<Application | null>(null);
+    const handleRequestHire = (app: Application) => setHireTarget(app);
 
     // Calculate counts for filters
     const counts = useMemo(() => {
@@ -296,6 +307,7 @@ export const ApplicationsBottomSheet: React.FC<ApplicationsBottomSheetProps> = (
                                         isExpanded={expandedAppId === app._id}
                                         onToggleExpand={() => toggleExpand(app._id)}
                                         onUpdateStatus={onUpdateStatus}
+                                        onRequestHire={handleRequestHire}
                                         isUpdating={false}
                                     />
                                 ))}
@@ -304,6 +316,16 @@ export const ApplicationsBottomSheet: React.FC<ApplicationsBottomSheetProps> = (
                     </ScrollView>
                 </LinearGradient>
             </View>
+
+            {/* Hire confirmation modal — sits on top of the bottom sheet so the
+                organizer can review booking summary + pick payment method
+                before the contract is created. PRD §8.3.2 Stage 2. */}
+            <HireConfirmModal
+                visible={!!hireTarget}
+                gig={gig || { _id: gigId }}
+                application={hireTarget}
+                onClose={() => setHireTarget(null)}
+            />
         </Modal>
     );
 };

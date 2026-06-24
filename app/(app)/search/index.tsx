@@ -1,395 +1,298 @@
 // app/(app)/search/index.tsx
 import React, { useState, useEffect } from "react";
-import noAvatar from "@/assets/no-avatar.jpg";
 import {
     View,
     Text,
     TouchableOpacity,
-    ScrollView,
-    Image,
-    FlatList,
-    useWindowDimensions,
-    ActivityIndicator
+    ActivityIndicator,
+    Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-    Search as SearchIcon,
-    Filter,
-    UserPlus,
-    Briefcase,
-    Calendar,
-    MapPin,
-    ArrowRight,
-    Users,
-    MoreHorizontal,
-    Check
-} from "lucide-react-native";
 import { useSearchPreview, useSearchPeople, useSearchGigs, useSearchEvents } from "@/hooks/useSearchQueries";
 import connectionService from "@/services/connectionService";
 import AppScrollView from "@/components/AppScrollView";
-
-
-
-// --- TYPES & MOCK DATA ---
+import { PersonItem } from "@/components/search/items/PersonItem";
+import { GigItem } from "@/components/search/items/GigItem";
+import { EventItem } from "@/components/search/items/EventItem";
 
 type Category = "All" | "People" | "Gigs" | "Events";
 
-// --- COMPONENTS ---
+const GOLD = "#D4A155";          // muted verified-gold for hairlines + counts
+const ORANGE = "#FF6B35";        // brand orange — active accent
+const PAPER_TINT = "rgba(255, 200, 140, 0.04)";
 
-const FilterPill = ({ label, isActive, onPress }: { label: string, isActive: boolean, onPress: () => void }) => (
-    <TouchableOpacity
-        onPress={onPress}
-        className={`px-5 py-2 rounded-full border mr-2 ${isActive
-            ? "bg-green-500/20 border-green-500" // LinkedIn Green-ish vibe but Neon
-            : "bg-white/5 border-white/10"
+// ── Tab: editorial underline (active = orange rule, no fill) ──
+const Tab = ({ label, isActive, onPress }: { label: string; isActive: boolean; onPress: () => void }) => (
+    <TouchableOpacity onPress={onPress} className="mr-6 pb-2">
+        <Text
+            className={`font-outfit-semibold text-[13px] tracking-wide ${
+                isActive ? "text-white" : "text-zinc-500"
             }`}
-    >
-        <Text className={`font-bold text-sm ${isActive ? "text-green-400" : "text-gray-400"}`}>
+        >
             {label}
         </Text>
+        {isActive ? (
+            <View style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: 1.5, backgroundColor: ORANGE }} />
+        ) : null}
     </TouchableOpacity>
 );
 
-// 1. People List Item (LinkedIn Style)
-const PersonItem = ({ item, status: initialStatus, onPress }: { item: any, status: 'none' | 'pending' | 'connected', onPress?: () => void }) => {
-    const [status, setStatus] = useState<'none' | 'pending' | 'connected'>(initialStatus);
-    const [isLoading, setIsLoading] = useState(false);
-
-    // Sync if initial status changes (e.g. after fetch)
-    useEffect(() => {
-        setStatus(initialStatus);
-    }, [initialStatus]);
-
-    const handleConnect = async () => {
-        if (status !== 'none' || isLoading) return;
-
-        try {
-            setIsLoading(true);
-            await connectionService.sendConnectionRequest(item.id);
-            setStatus('pending');
-        } catch (error) {
-            console.error("Failed to send request", error);
-            // Optionally show toast/alert
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center py-4 border-b border-white/5">
-            {/* Avatar */}
-            <View className="w-14 h-14 rounded-full overflow-hidden border border-white/10 relative">
-                <Image
-                    source={item?.profileImageUrl ? { uri: item.profileImageUrl } : noAvatar}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' } as any}
-                    className="rounded-full mr-4 bg-gray-800"
-                    resizeMode="cover"
-                />
-            </View>
-
-            {/* Info */}
-            <View className="flex-1">
-                <Text className="text-white font-bold text-base">{item.firstName} {item.lastName} {item.title}</Text>
-                <Text className="text-gray-400 text-sm mb-0.5" numberOfLines={1}>
-                    {item.artistType || "Member"}
-                </Text>
-                <Text className="text-gray-500 text-xs">
-                    {item.city || "Unknown Location"} • {status === 'connected' ? 'Connected' : (status === 'pending' ? 'Pending' : 'Connect')}
-                </Text>
-            </View>
-
-            {/* Action Button */}
-            <TouchableOpacity
-                onPress={(e) => {
-                    e.stopPropagation();
-                    handleConnect();
-                }}
-                disabled={status !== 'none' || isLoading}
-                className={`px-4 py-2 rounded-full border ${status === 'connected' || status === 'pending'
-                    ? "bg-white/5 border-white/20"
-                    : "bg-transparent border-white/40"
-                    }`}
+// ── Section header: hairline + serif title + mono count ──
+const SectionHeader = ({ title, count, onSeeAll }: { title: string; count?: number; onSeeAll?: () => void }) => (
+    <View className="mt-10 mb-3">
+        <View className="flex-row items-center">
+            <View style={{ flex: 1, height: 1, backgroundColor: GOLD, opacity: 0.25 }} />
+            <Text
+                className="font-serif text-white text-2xl px-4"
+                style={Platform.OS === "web" ? ({ fontStyle: "italic" as any } as any) : undefined}
             >
-                {isLoading ? (
-                    <ActivityIndicator size="small" color="white" />
-                ) : status === 'connected' ? (
-                    <Text className="text-gray-400 font-bold text-sm">Following</Text>
-                ) : status === 'pending' ? (
-                    <View className="flex-row items-center">
-                        <Check size={16} color="#9ca3af" className="mr-1" />
-                        <Text className="text-gray-400 font-bold text-sm">Pending</Text>
-                    </View>
-                ) : (
-                    <View className="flex-row items-center">
-                        <UserPlus size={16} color="white" className="mr-1" />
-                        <Text className="text-white font-bold text-sm">Connect</Text>
-                    </View>
-                )}
-            </TouchableOpacity>
-        </TouchableOpacity>
-    );
-};
-
-
-// 2. Gig List Item
-const GigItem = ({ item, onPress }: { item: any, onPress?: () => void }) => (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-start py-4 border-b border-white/5">
-        <View className="w-12 h-12 bg-white/10 rounded-lg items-center justify-center mr-4 border border-white/5">
-            {/* Use Logo image if available, else Icon */}
-            <Briefcase size={20} color="#a1a1aa" />
+                {title}
+            </Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: GOLD, opacity: 0.25 }} />
         </View>
-
-        <View className="flex-1">
-            <Text className="text-white font-bold text-base mb-0.5">{item.title}</Text>
-            <Text className="text-gray-300 text-sm mb-1">{item.organizerName || "Organizer"}</Text>
-            <View className="flex-row items-center gap-3">
-                <Text className="text-gray-500 text-xs">{item.city || "Remote"}</Text>
-                <Text className="text-green-400 text-xs font-bold">{new Date(item.createdAt).toLocaleDateString()}</Text>
-            </View>
+        <View className="flex-row items-center justify-between mt-2">
+            <Text className="font-mono text-[10px] tracking-widest" style={{ color: GOLD }}>
+                {typeof count === "number" ? String(count).padStart(2, "0") : ""}
+                {typeof count === "number" ? "  ENTRIES" : ""}
+            </Text>
+            {onSeeAll ? (
+                <TouchableOpacity onPress={onSeeAll}>
+                    <Text className="font-outfit-medium text-[11px] uppercase tracking-widest" style={{ color: GOLD }}>
+                        See all →
+                    </Text>
+                </TouchableOpacity>
+            ) : null}
         </View>
-
-        <View className="mt-1">
-            <View className="bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
-                <Text className="text-white text-xs font-bold">View</Text>
-            </View>
-        </View>
-    </TouchableOpacity>
+    </View>
 );
 
-// 3. Event List Item
-const EventItem = ({ item, onPress }: { item: any, onPress?: () => void }) => (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center py-4 border-b border-white/5">
-        {/* Calendar Box */}
-        <View className="w-14 h-14 bg-white/5 rounded-xl border border-white/10 items-center justify-center mr-4">
-            <Text className="text-red-400 text-xs font-bold uppercase mb-0.5">
-                {new Date(item.date).toLocaleString('default', { month: 'short' })}
+const EmptyState = ({ query }: { query: string }) => (
+    <View className="mt-24 items-center">
+        <Text className="font-serif text-zinc-500 text-2xl mb-3" style={{ fontStyle: "italic" as any }}>
+            ⋄
+        </Text>
+        <Text className="font-outfit text-zinc-500 text-sm">
+            Nothing found for{" "}
+            <Text className="font-serif text-zinc-300" style={{ fontStyle: "italic" as any }}>
+                "{query}"
             </Text>
-            <Text className="text-white text-xl font-bold">
-                {new Date(item.date).getDate()}
-            </Text>
-        </View>
-
-        <View className="flex-1">
-            <Text className="text-white font-bold text-base mb-0.5">{item.title}</Text>
-            <Text className="text-gray-400 text-sm mb-1">{item.eventType}</Text>
-            <View className="flex-row items-center">
-                <Text className="text-gray-500 text-xs">{item.attendeeCount || 0} attendees</Text>
-            </View>
-        </View>
-
-        <View className="bg-white/10 p-2 rounded-full">
-            <MoreHorizontal size={20} color="gray" />
-        </View>
-    </TouchableOpacity>
+        </Text>
+        <Text className="font-mono text-[10px] text-zinc-700 mt-3 tracking-widest">TRY ANOTHER NAME</Text>
+    </View>
 );
 
-
-// --- MAIN SCREEN ---
+const QueryHeader = ({ query }: { query: string }) => (
+    <View className="px-5 pt-4 pb-3">
+        <Text className="font-mono text-[10px] text-zinc-500 tracking-[0.3em] mb-1">DIRECTORY</Text>
+        <View className="flex-row items-baseline">
+            <Text className="font-outfit text-zinc-500 text-sm mr-2">searching</Text>
+            <Text
+                className="font-serif text-white text-2xl"
+                style={{ fontStyle: "italic" as any }}
+                numberOfLines={1}
+            >
+                "{query}"
+            </Text>
+        </View>
+    </View>
+);
 
 export default function SearchScreen() {
     const params = useLocalSearchParams();
     const router = useRouter();
 
-    const [searchQuery, setSearchQuery] = useState((params.q as string) || "");
+    const [searchQuery] = useState((params.q as string) || "");
     const [activeTab, setActiveTab] = useState<Category>("All");
 
     const [sentRequests, setSentRequests] = useState<string[]>([]);
     const [connectedUsers, setConnectedUsers] = useState<string[]>([]);
-    const [isStatusLoading, setIsStatusLoading] = useState(false);
 
-    // Sync local state if params change
-    useEffect(() => {
-        if (params.q) setSearchQuery(params.q as string);
-    }, [params.q]);
-
-    // Fetch user's connections and requests on mount to map status
-    // Note: In a real app with Redux/Zustand, we'd select these from store.
     useEffect(() => {
         const fetchStatusData = async () => {
             try {
-                // setIsStatusLoading(true); // Don't block UI, just background fetch
                 const [sent, connected] = await Promise.all([
                     connectionService.getSentConnectionRequests(),
-                    connectionService.getConnections()
+                    connectionService.getConnections(),
                 ]);
-
-                // Map to IDs
                 const sentIds = sent.map((r: any) => r.recipientId?._id || r.recipientId);
-                // Connected list items have requesterId and recipientId. 
-                // We need to extract the "other" ID.
-                // Assuming we don't have current User ID easily, we just grab both to be safe (over-matching but safe enough for "is connected")
                 const connectedIds = connected.flatMap((c: any) => [c.requesterId?._id, c.recipientId?._id].filter(Boolean));
-
                 setSentRequests(sentIds);
                 setConnectedUsers(connectedIds);
             } catch (error) {
                 console.error("Failed to fetch connection status", error);
             }
         };
-
         fetchStatusData();
     }, []);
 
-    const getPersonStatus = (userId: string) => {
-        if (connectedUsers.includes(userId)) return 'connected';
-        if (sentRequests.includes(userId)) return 'pending';
-        return 'none';
+    const getPersonStatus = (userId: string): "none" | "pending" | "connected" => {
+        if (connectedUsers.includes(userId)) return "connected";
+        if (sentRequests.includes(userId)) return "pending";
+        return "none";
     };
 
-    // --- QUERIES ---
-    // We conditionally fetch based on active tab
-    // For "All", we use preview endpoint (or individual if preview invalid) -> using preview hook
     const { data: previewData, isLoading: isLoadingPreview } = useSearchPreview(searchQuery);
-    console.log("previewData: ", previewData);
-
     const { data: peopleData, isLoading: isLoadingPeople } = useSearchPeople(searchQuery);
-    const { data: gigsData, isLoading: isLoadingGigs } = useSearchGigs(searchQuery);
+    const { data: gigsData,   isLoading: isLoadingGigs }   = useSearchGigs(searchQuery);
     const { data: eventsData, isLoading: isLoadingEvents } = useSearchEvents(searchQuery);
 
-    const handleSearch = () => {
-        router.setParams({ q: searchQuery });
-    };
+    const loading =
+        (isLoadingPreview && activeTab === "All") ||
+        (isLoadingPeople && activeTab === "People") ||
+        (isLoadingGigs && activeTab === "Gigs") ||
+        (isLoadingEvents && activeTab === "Events");
 
-    // Helper to render sections on "All" tab
-    const SectionHeader = ({ title, onPress }: { title: string, onPress: () => void }) => (
-        <TouchableOpacity
-            onPress={onPress}
-            className="flex-row items-center justify-between mt-6 mb-2"
-        >
-            <Text className="text-xl font-black text-white">{title}</Text>
-            <View className="flex-row items-center">
-                <Text className="text-gray-400 font-bold text-sm mr-1">See all</Text>
-                <ArrowRight size={16} color="#9ca3af" />
-            </View>
-        </TouchableOpacity>
-    );
+    const hasAny =
+        previewData &&
+        (previewData.people?.length || previewData.gigs?.length || previewData.events?.length);
 
     return (
-        <View className="flex-1 bg-[#09090b]">
-            {/* Background Glow */}
+        <View className="flex-1 bg-[#0a0807]">
+            {/* Warm-tinted radial glow on top — adds atmosphere vs flat black */}
             <LinearGradient
-                colors={['#1e1b4b', '#09090b']}
+                colors={[PAPER_TINT, "rgba(255, 107, 53, 0.025)", "transparent"]}
                 start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 0.3 }}
-                className="absolute top-0 left-0 right-0 h-[400px]"
+                end={{ x: 0.5, y: 0.5 }}
+                style={{ position: "absolute", top: 0, left: 0, right: 0, height: 320 }}
             />
 
-            <SafeAreaView edges={['top']} className="flex-1">
+            <SafeAreaView edges={["top"]} className="flex-1">
+                {/* Query header — editorial */}
+                <QueryHeader query={searchQuery} />
 
-                {/* 1. HEADER (Filters only now, search moved to Navbar) */}
-
-                {/* 2. FILTER TABS */}
-                <View className="pb-2 pt-2 border-b border-white/5">
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={{ paddingHorizontal: 16 }}
-                    >
-                        {(["All", "People", "Gigs", "Events"] as Category[]).map((tab) => (
-                            <FilterPill
-                                key={tab}
-                                label={tab}
-                                isActive={activeTab === tab}
-                                onPress={() => setActiveTab(tab)}
-                            />
-                        ))}
-                    </ScrollView>
+                {/* Tab strip — minimal underlined */}
+                <View className="px-5 flex-row border-b border-white/[0.06]">
+                    {(["All", "People", "Gigs", "Events"] as Category[]).map((t) => (
+                        <Tab key={t} label={t} isActive={activeTab === t} onPress={() => setActiveTab(t)} />
+                    ))}
                 </View>
 
-                {/* 3. CONTENT AREA - Uses AppScrollView for automatic tab bar padding */}
-                <AppScrollView
-                    className="flex-1 px-4 w-[90%] mx-auto"
-                    showsVerticalScrollIndicator={false}
-                >
-                    {(isLoadingPreview && activeTab === 'All') ||
-                        (isLoadingPeople && activeTab === 'People') ||
-                        (isLoadingGigs && activeTab === 'Gigs') ||
-                        (isLoadingEvents && activeTab === 'Events') ? (
-                        <View className="mt-20 items-center justify-center">
-                            <ActivityIndicator size="large" color="#ffffff" />
+                {/* Content */}
+                <AppScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
+                    {loading ? (
+                        <View className="mt-24 items-center justify-center">
+                            <ActivityIndicator size="small" color={GOLD} />
+                            <Text className="font-mono text-[10px] tracking-widest mt-3" style={{ color: GOLD, opacity: 0.5 }}>
+                                FETCHING
+                            </Text>
                         </View>
                     ) : (
                         <>
-                            {/* === "ALL" TAB View (Mixed Content) === */}
+                            {/* All */}
                             {activeTab === "All" && previewData && (
                                 <>
-                                    {previewData.people?.length > 0 && <SectionHeader title="People" onPress={() => setActiveTab("People")} />}
-                                    <View className="bg-white/5 border border-white/5 rounded-2xl px-4 mb-4">
-                                        {previewData.people?.slice(0, 3).map((person: any) => (
-                                            <PersonItem key={person._id || person.id} item={person} status={getPersonStatus(person._id || person.id)} onPress={() => router.push(`/profile/${person._id || person.id}`)} />
-                                        ))}
-                                        {previewData.people?.length > 3 &&
-                                            <TouchableOpacity
-                                                onPress={() => setActiveTab("People")}
-                                                className="py-3 items-center border-t border-white/5"
-                                            >
-                                                <Text className="text-gray-400 font-bold text-sm">See all people results</Text>
-                                            </TouchableOpacity>}
-                                    </View>
+                                    {previewData.people?.length > 0 && (
+                                        <>
+                                            <SectionHeader
+                                                title="People"
+                                                count={previewData.people.length}
+                                                onSeeAll={() => setActiveTab("People")}
+                                            />
+                                            {previewData.people.slice(0, 3).map((person: any) => (
+                                                <PersonItem
+                                                    key={person._id || person.id}
+                                                    item={person}
+                                                    status={getPersonStatus(person._id || person.id)}
+                                                    onPress={() => router.push(`/profile/${person._id || person.id}`)}
+                                                />
+                                            ))}
+                                        </>
+                                    )}
 
-                                    {previewData.gigs?.length > 0 && <SectionHeader title="Gigs" onPress={() => setActiveTab("Gigs")} />}
-                                    <View className="bg-white/5 border border-white/5 rounded-2xl px-4 mb-4">
-                                        {previewData.gigs?.slice(0, 3).map((gig: any) => (
-                                            <GigItem key={gig._id} item={gig} onPress={() => router.push(`/gigs/${gig._id}`)} />
-                                        ))}
-                                        {previewData.gigs?.length > 3 &&
-                                            <TouchableOpacity
-                                                onPress={() => setActiveTab("Gigs")}
-                                                className="py-3 items-center border-t border-white/5"
-                                            >
-                                                <Text className="text-gray-400 font-bold text-sm">See all gig results</Text>
-                                            </TouchableOpacity>}
-                                    </View>
+                                    {previewData.gigs?.length > 0 && (
+                                        <>
+                                            <SectionHeader
+                                                title="Gigs"
+                                                count={previewData.gigs.length}
+                                                onSeeAll={() => setActiveTab("Gigs")}
+                                            />
+                                            {previewData.gigs.slice(0, 3).map((gig: any) => (
+                                                <GigItem
+                                                    key={gig._id}
+                                                    item={gig}
+                                                    onPress={() => router.push(`/gigs/${gig._id}`)}
+                                                />
+                                            ))}
+                                        </>
+                                    )}
 
-                                    {previewData.events?.length > 0 && <SectionHeader title="Events" onPress={() => setActiveTab("Events")} />}
-                                    <View className="bg-white/5 border border-white/5 rounded-2xl px-4 mb-4">
-                                        {previewData.events?.slice(0, 3).map((event: any) => (
-                                            <EventItem key={event._id} item={event} onPress={() => router.push(`/events/${event._id}`)} />
-                                        ))}
-                                    </View>
+                                    {previewData.events?.length > 0 && (
+                                        <>
+                                            <SectionHeader
+                                                title="Events"
+                                                count={previewData.events.length}
+                                                onSeeAll={() => setActiveTab("Events")}
+                                            />
+                                            {previewData.events.slice(0, 3).map((event: any) => (
+                                                <EventItem
+                                                    key={event._id}
+                                                    item={event}
+                                                    onPress={() => router.push(`/events/${event._id}`)}
+                                                />
+                                            ))}
+                                        </>
+                                    )}
 
-                                    {(!previewData.people?.length && !previewData.gigs?.length && !previewData.events?.length) &&
-                                        <View className="mt-20 items-center">
-                                            <Text className="text-gray-500 font-satoshi-medium">No results found for "{searchQuery}"</Text>
-                                        </View>
-                                    }
+                                    {!hasAny && <EmptyState query={searchQuery} />}
                                 </>
                             )}
 
-                            {/* === "PEOPLE" TAB View === */}
+                            {/* People */}
                             {activeTab === "People" && peopleData && (
-                                <View className="mt-4">
-                                    <Text className="text-gray-400 text-sm mb-4">About {peopleData.total || 0} results</Text>
+                                <View>
+                                    <SectionHeader title="People" count={peopleData.total || 0} />
                                     {peopleData.results?.map((person: any) => (
-                                        <PersonItem key={person._id || person.id} item={person} status={getPersonStatus(person._id || person.id)} onPress={() => router.push(`/profile/${person._id || person.id}`)} />
+                                        <PersonItem
+                                            key={person._id || person.id}
+                                            item={person}
+                                            status={getPersonStatus(person._id || person.id)}
+                                            onPress={() => router.push(`/profile/${person._id || person.id}`)}
+                                        />
                                     ))}
+                                    {(peopleData.results?.length ?? 0) === 0 && <EmptyState query={searchQuery} />}
                                 </View>
                             )}
 
-                            {/* === "GIGS" TAB View === */}
+                            {/* Gigs */}
                             {activeTab === "Gigs" && gigsData && (
-                                <View className="mt-4">
-                                    <Text className="text-gray-400 text-sm mb-4">{gigsData.total || 0} results found</Text>
+                                <View>
+                                    <SectionHeader title="Gigs" count={gigsData.total || 0} />
                                     {gigsData.results?.map((gig: any) => (
-                                        <GigItem key={gig._id} item={gig} onPress={() => router.push(`/gigs/${gig._id}`)} />
+                                        <GigItem
+                                            key={gig._id}
+                                            item={gig}
+                                            onPress={() => router.push(`/gigs/${gig._id}`)}
+                                        />
                                     ))}
+                                    {(gigsData.results?.length ?? 0) === 0 && <EmptyState query={searchQuery} />}
                                 </View>
                             )}
 
-                            {/* === "EVENTS" TAB View === */}
+                            {/* Events */}
                             {activeTab === "Events" && eventsData && (
-                                <View className="mt-4">
-                                    <Text className="text-gray-400 text-sm mb-4">Events near you</Text>
+                                <View>
+                                    <SectionHeader title="Events" count={eventsData.total || 0} />
                                     {eventsData.results?.map((event: any) => (
-                                        <EventItem key={event._id} item={event} onPress={() => router.push(`/events/${event._id}`)} />
+                                        <EventItem
+                                            key={event._id}
+                                            item={event}
+                                            onPress={() => router.push(`/events/${event._id}`)}
+                                        />
                                     ))}
+                                    {(eventsData.results?.length ?? 0) === 0 && <EmptyState query={searchQuery} />}
                                 </View>
                             )}
+
+                            {/* Bottom flourish */}
+                            <View className="items-center py-12">
+                                <Text className="font-serif text-zinc-700 text-2xl" style={{ fontStyle: "italic" as any }}>
+                                    ✦
+                                </Text>
+                            </View>
                         </>
                     )}
-
                 </AppScrollView>
             </SafeAreaView>
         </View>

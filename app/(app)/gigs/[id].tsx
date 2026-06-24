@@ -8,13 +8,25 @@ import { useGig } from '@/hooks/useGigs';
 import { OrganizerGigControls } from '@/components/gigs/OrganizerGigControls';
 import useAuthStore from '@/stores/authStore';
 import { Sparkles } from 'lucide-react-native';
+import { HirerGigHub } from '@/features/hirer-hub/HirerGigHub';
 
-const { width, height } = Dimensions.get('window');
 
 export default function GigDetailsPage() {
     const { width, height } = useWindowDimensions();
-    const { id } = useLocalSearchParams();
+    const params = useLocalSearchParams<{ id?: string; resumeDraftId?: string; tab?: string }>();
+    const { id, resumeDraftId, tab } = params;
     const gigId = Array.isArray(id) ? id[0] : id;
+    // When navigating from DraftsSection (Plan 2, Task 17) we receive a
+    // ?resumeDraftId=<id> query param. The GigDetails child reads this and
+    // auto-opens GigApplyModal prefilled from draftService. Normalize array
+    // values (expo-router can return string | string[]) before passing down.
+    const resumeDraftIdNormalized = Array.isArray(resumeDraftId)
+        ? resumeDraftId[0]
+        : resumeDraftId;
+    // Plan 3, Task 14 — ApplicantsInbox row taps route here with
+    // ?tab=applicants to preselect the applications tab on the gig detail
+    // page for organizers. Same array→string normalization pattern.
+    const tabNormalized = Array.isArray(tab) ? tab[0] : tab;
     const { data: gig, isLoading, error } = useGig(gigId || '');
     const user = useAuthStore((state) => state.user);
     const isOrganizer = user?.role === 'organizer';
@@ -66,6 +78,15 @@ export default function GigDetailsPage() {
         );
     }
 
+    // Hub branch — owners get the project hub.
+    if (gig && user) {
+        const organizerId = typeof gig.organizerId === 'object' ? gig.organizerId?._id : gig.organizerId;
+        const isOwner = !!user._id && !!organizerId && String(user._id) === String(organizerId);
+        if (isOwner) {
+            return <HirerGigHub gigId={gigId!} />;
+        }
+    }
+
     // Determine if the current user is the organizer of this gig
     const isOwner = user?._id === gig.organizerId;
 
@@ -113,7 +134,7 @@ export default function GigDetailsPage() {
 
             {/* Main Content */}
             <View className="flex-1 relative z-10">
-                <GigDetails gig={gig} />
+                <GigDetails gig={gig} resumeDraftId={resumeDraftIdNormalized} tab={tabNormalized} />
             </View>
         </View>
     );

@@ -104,18 +104,22 @@ export const useRegister = () => {
                 if (pendingAction) {
                     console.log("useRegister: Executing pending action");
                     await usePendingAuthActionStore.getState().executePendingAction();
-                    // Don't navigate away - stay on current page after action
                     router.back();
+                    return;
+                }
+
+                // PRD v4 — route by intent signal, NOT by role (no role exists).
+                // Hire-primary users land on the dashboard (Post a Gig CTA prominent).
+                // Everyone else lands on the discovery feed (Artist context default).
+                const intent: string[] = (user as any)?.intent ?? [];
+                const hireOnly = intent.includes('hire_artists') && !intent.includes('find_gigs');
+
+                if (hireOnly) {
+                    router.replace('/(app)/dashboard');
                 } else {
-                    // No pending action, navigate normally
-                    if (user?.roles?.includes('organizer')) {
-                        router.replace('/(app)/dashboard');
-                    } else {
-                        router.replace('/(app)/gigs');
-                    }
+                    router.replace('/(app)/gigs');
                 }
             } else {
-                // Maybe email verification required?
                 Alert.alert('Success', 'Please check your email to verify your account.');
             }
         },

@@ -29,7 +29,7 @@ import {
 import { DatePickerInput } from '@/components/ui/DatePickerInput/DatePickerInput';
 import {
     STEPS, StepId, SOFT_STEPS, BLOCKING_STEPS,
-    INTENT_OPTIONS, ARTIST_TYPES, EXP_LEVELS, HIRER_CLIENT_TYPES,
+    INTENT_OPTIONS, INTENT_TO_ROLE, ARTIST_TYPES, EXP_LEVELS, HIRER_CLIENT_TYPES,
     MIN_REGISTRATION_AGE, MAJORITY_AGE,
 } from '@/constants/registration';
 import type {
@@ -72,7 +72,8 @@ const FONT = {
 // ════════════════════════════════════════════════════════════════════
 
 export default function RegisterScreen() {
-    const routeParams = useLocalSearchParams<{ phone?: string; email?: string }>();
+    const routeParams = useLocalSearchParams<{ phone?: string; email?: string; role?: string }>();
+    const presetRole = routeParams.role ?? null;
     const { width } = useWindowDimensions();
 
     const registerMutation = useRegister();
@@ -116,6 +117,12 @@ export default function RegisterScreen() {
     /* ─── Intent (Step 4) ─── */
     const [intentChoice, setIntentChoice] = useState<'find_gigs' | 'hire_artists' | 'both' | null>(null);
 
+    /* ─── Preset intent from welcome.tsx role param ─── */
+    useEffect(() => {
+        if (presetRole === 'artist') setIntentChoice('find_gigs');
+        if (presetRole === 'creative_lead') setIntentChoice('both');
+    }, [presetRole]);
+
     /* ─── Optional artist profile (Step 5) ─── */
     const [artistTypes, setArtistTypes] = useState<string[]>([]);
     const [expLevel, setExpLevel] = useState<ExperienceLevel | null>(null);
@@ -131,14 +138,16 @@ export default function RegisterScreen() {
     const [spotify, setSpotify] = useState('');
     const [soundcloud, setSoundcloud] = useState('');
 
-    /* ─── Derived step sequence (hirerProfile hidden if no hire intent) ─── */
+    /* ─── Derived step sequence (hirerProfile hidden if no hire intent; intent
+           step skipped when welcome.tsx already picked the role via presetRole) ─── */
     const activeSteps = useMemo<StepId[]>(() => {
         const wantsHire = intentChoice === 'hire_artists' || intentChoice === 'both';
         return STEPS.filter((s) => {
             if (s === 'hirerProfile') return wantsHire;
+            if (s === 'intent') return presetRole === null;
             return true;
         });
-    }, [intentChoice]);
+    }, [intentChoice, presetRole]);
 
     const currentStepId: StepId = completed ? 'completion' : (activeSteps[stepIdx] ?? 'completion');
     const isLastDataStep = stepIdx === activeSteps.length - 1;
@@ -287,6 +296,8 @@ export default function RegisterScreen() {
                 password,
                 phoneNumber: phone.trim() ? `${countryCode}${phone.replace(/[^0-9]/g, '')}` : undefined,
                 dateOfBirth: dob ? dob.toISOString() : undefined,
+                // Three-role model: the signup card decides the stored role
+                role: intentChoice ? INTENT_TO_ROLE[intentChoice] : 'artist',
                 intent: intents,
                 marketingConsent: false, // surface this on a later settings screen, not here
             },
@@ -770,10 +781,10 @@ const IntentStep = ({
     return (
         <View>
             <View style={{ marginBottom: 28 }}>
-                <Text style={s.intentEyebrow}>WHAT BRINGS YOU HERE</Text>
-                <Text style={s.intentHeadline}>What brings you{'\n'}to NETSA?</Text>
+                <Text style={s.intentEyebrow}>HOW WILL YOU USE NETSA</Text>
+                <Text style={s.intentHeadline}>Sign up{'\n'}as…</Text>
                 <Text style={s.intentSub}>
-                    Pick one — you can always do both later. This just helps us set up your first view.
+                    Your role decides which gigs you see and who sees yours. You can switch roles later in Settings.
                 </Text>
             </View>
 

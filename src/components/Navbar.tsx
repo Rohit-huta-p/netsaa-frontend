@@ -13,11 +13,14 @@ import useAuthStore from '../stores/authStore';
 import {
     Bell, User as UserIcon, ChevronDown, Settings, LogOut, HelpCircle,
     Briefcase, Calendar, Users, LayoutDashboard, Search, X, Music,
-    Mail, ChevronRight, Repeat
+    Mail, ChevronRight, Repeat, MessageCircle
 } from 'lucide-react-native';
+import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useSearchPreview } from '@/hooks/useSearchQueries';
-import { useMode } from '../hooks/useMode';
+import conversationService from '@/services/conversationService';
+import { inviteService } from '@/services/inviteService';
+import authService from '@/services/authService';
 import type { User } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -176,11 +179,37 @@ function ProfileMenu({
     router: any;
     isMobileView?: boolean;
 }) {
-    const { mode, switchMode } = useMode();
-    const otherMode = mode === 'artist' ? 'hirer' : 'artist';
-    const modeColor = mode === 'artist' ? '#8B5CF6' : '#FF6B35';
-    const modeLabel = mode === 'artist' ? 'Artist' : 'Hirer';
-    const otherModeLabel = otherMode === 'artist' ? 'Artist' : 'Hirer';
+    // Reflect the real 3-role model (client / creative_lead / artist), not the
+    // legacy 2-mode (artist/hirer) toggle. Switching is done the canonical way
+    // via the role screen (authService.switchRole).
+    const currentRole = useAuthStore((s) => s.role);
+    const ROLE_META: Record<string, { label: string; color: string }> = {
+        client: { label: 'Client', color: '#FF6B35' },
+        creative_lead: { label: 'Creative', color: '#FBBF24' },
+        artist: { label: 'Artist', color: '#8B5CF6' },
+    };
+    const roleMeta = ROLE_META[currentRole] ?? ROLE_META.artist;
+    const modeColor = roleMeta.color;
+    const modeLabel = roleMeta.label;
+    const isClientRole = currentRole === 'client';
+
+    // For clients, surface the business type (organizerTypeCategory) beside the
+    // mode pill. Server-authoritative — lives on the Organizer doc, so we fetch
+    // it (cached) only when the viewer is actually a client.
+    const { data: organizer } = useQuery({
+        queryKey: ['organizer', 'me'],
+        queryFn: () => authService.getOrganizer(),
+        enabled: isClientRole,
+        staleTime: 60_000,
+        retry: false,
+    });
+    const BIZ_LABEL: Record<string, string> = {
+        individual: 'Personal',
+        corporate: 'Company',
+        agency: 'Agency',
+        institution: 'Venue',
+    };
+    const bizLabel = isClientRole ? BIZ_LABEL[organizer?.organizerTypeCategory ?? ''] : undefined;
 
     const displayName = user?.displayName || (user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'No Name');
     const email = user?.email || '';
@@ -252,7 +281,7 @@ function ProfileMenu({
         }}>
             {/* Header / Profile Card */}
             <TouchableOpacity
-                onPress={() => { onClose(); router.push('/(app)/profile'); }}
+                onPress={() => { onClose(); router.push(isClientRole ? '/(app)/client-profile' : '/(app)/profile'); }}
                 style={{
                     padding: 12,
                     backgroundColor: 'rgba(147, 51, 234, 0.05)',
@@ -283,36 +312,57 @@ function ProfileMenu({
                 <View style={{ flex: 1 }}>
                     <Text style={{ color: 'white', fontFamily: F.heading, fontSize: 13 }} numberOfLines={1}>{displayName}</Text>
                     <Text style={{ color: '#9CA3AF', fontFamily: F.bodyMedium, fontSize: 11 }} numberOfLines={1}>{email}</Text>
-                    <View style={{
-                        marginTop: 4,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 4,
-                        backgroundColor: `${modeColor}1F`,
-                        paddingHorizontal: 8,
-                        paddingVertical: 2,
-                        borderRadius: 999,
-                        borderWidth: 1,
-                        borderColor: `${modeColor}55`,
-                        alignSelf: 'flex-start',
-                    }}>
-                        <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: modeColor }} />
-                        <Text style={{ color: modeColor, fontSize: 9, fontFamily: F.bodySemiBold, letterSpacing: 0.5 }}>
-                            {modeLabel.toUpperCase()} MODE
-                        </Text>
+                    <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        {/* Mode pill */}
+                        <View style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            backgroundColor: `${modeColor}1F`,
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: 999,
+                            borderWidth: 1,
+                            borderColor: `${modeColor}55`,
+                        }}>
+                            <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: modeColor }} />
+                            <Text style={{ color: modeColor, fontSize: 9, fontFamily: F.bodySemiBold, letterSpacing: 0.5 }}>
+                                {modeLabel.toUpperCase()} MODE
+                            </Text>
+                        </View>
+
+                        {/* Business-type pill — clients only */}
+                        {bizLabel && (
+                            <View style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 4,
+                                backgroundColor: 'rgba(212,161,85,0.12)',
+                                paddingHorizontal: 8,
+                                paddingVertical: 2,
+                                borderRadius: 999,
+                                borderWidth: 1,
+                                borderColor: 'rgba(212,161,85,0.45)',
+                            }}>
+                                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#D4A155' }} />
+                                <Text style={{ color: '#D4A155', fontSize: 9, fontFamily: F.bodySemiBold, letterSpacing: 0.5 }}>
+                                    {bizLabel.toUpperCase()}
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 </View>
             </TouchableOpacity>
 
             <ScrollView bounces={false} style={{ maxHeight: isMobileView ? 350 : 450 }}>
-                <MenuSection title="Mode">
+                <MenuSection title="Role">
                     <MenuItem
                         icon={Repeat}
-                        label={`Switch to ${otherModeLabel}`}
-                        color={otherMode === 'artist' ? '#8B5CF6' : '#FF6B35'}
+                        label="Switch role"
+                        color={modeColor}
                         onPress={() => {
-                            switchMode(otherMode);
                             onClose();
+                            router.push('/(app)/settings/role');
                         }}
                     />
                 </MenuSection>
@@ -357,13 +407,57 @@ function ProfileMenu({
     );
 }
 
+// ----- Messages / inbox button (badge = unread messages + pending sent invites) -----
+function InboxButton({ count, onPress }: { count: number; onPress: () => void }) {
+    return (
+        <TouchableOpacity style={{ position: 'relative' }} onPress={onPress} accessibilityRole="button" accessibilityLabel="Messages">
+            <MessageCircle size={22} color="white" />
+            {count > 0 && (
+                <View style={{
+                    position: 'absolute', top: -5, right: -5, minWidth: 15, height: 15, borderRadius: 7.5,
+                    backgroundColor: '#FF6B35', alignItems: 'center', justifyContent: 'center',
+                    paddingHorizontal: 3, borderWidth: 1.5, borderColor: '#09090b',
+                }}>
+                    <Text style={{ color: '#fff', fontSize: 8.5, fontFamily: 'Outfit-SemiBold' }}>
+                        {count > 9 ? '9+' : String(count)}
+                    </Text>
+                </View>
+            )}
+        </TouchableOpacity>
+    );
+}
+
 // ----- Main Navbar -----
 export default function Navbar() {
     const { isMobile } = useResponsive();
     const { width } = useWindowDimensions();
     const router = useRouter();
     const { accessToken, user } = useAuthStore();
+    const role = useAuthStore((s) => s.role);
     const isAuthenticated = !!accessToken;
+
+    // Inbox badge (unread messages + pending sent invites). Lives here so the
+    // affordance is consistent on every screen. Invites are client-only, so that
+    // query is gated by role; messages unread applies to everyone.
+    const { data: unreadCount = 0 } = useQuery({
+        queryKey: ['conversations', 'unread'],
+        queryFn: async () => {
+            const convos = await conversationService.getConversations();
+            return convos.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0);
+        },
+        enabled: isAuthenticated,
+        staleTime: 60_000,
+        retry: false,
+    });
+    const { data: sentInvites = [] } = useQuery({
+        queryKey: ['invites', 'sent'],
+        queryFn: () => inviteService.sent(),
+        enabled: isAuthenticated && role === 'client',
+        staleTime: 60_000,
+        retry: false,
+    });
+    const inboxCount =
+        unreadCount + (sentInvites as any[]).filter((i) => i.status === 'sent' || i.status === 'viewed').length;
 
     // Profile dropdown
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
@@ -608,6 +702,9 @@ export default function Navbar() {
                     {/* Auth actions */}
                     {isAuthenticated ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                            {/* Messages / inbox */}
+                            <InboxButton count={inboxCount} onPress={() => router.push('/(app)/inbox' as any)} />
+
                             {/* Notifications */}
                             <TouchableOpacity style={{ position: 'relative' }} onPress={() => router.push('/(app)/notifications')}>
                                 <Bell size={22} color="white" />
@@ -652,7 +749,7 @@ export default function Navbar() {
                             <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
                                 <Text style={{ color: C.textPrimary, fontFamily: F.bodyMedium, fontSize: 13 }}>Login</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={{ backgroundColor: C.coral, borderRadius: 6, paddingHorizontal: 16, paddingVertical: 8 }} onPress={() => router.push('/(auth)/register')}>
+                            <TouchableOpacity style={{ backgroundColor: C.coral, borderRadius: 6, paddingHorizontal: 16, paddingVertical: 8 }} onPress={() => router.push('/(auth)/welcome')}>
                                 <Text style={{ color: C.white, fontFamily: F.bodySemiBold, fontSize: 13 }}>Sign up</Text>
                             </TouchableOpacity>
                         </>
@@ -844,6 +941,9 @@ export default function Navbar() {
                                 </>
                             )}
 
+                            {/* Messages / inbox */}
+                            <InboxButton count={inboxCount} onPress={() => router.push('/(app)/inbox' as any)} />
+
                             {/* Bell */}
                             <TouchableOpacity style={{ position: 'relative' }} onPress={() => router.push('/(app)/notifications')}>
                                 <Bell size={22} color="white" />
@@ -889,7 +989,7 @@ export default function Navbar() {
                             <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
                                 <Text style={{ color: C.textPrimary, fontFamily: F.bodyMedium, fontSize: 13 }}>Login</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={{ backgroundColor: C.coral, borderRadius: 6, paddingHorizontal: 14, paddingVertical: 7 }} onPress={() => router.push('/(auth)/register')}>
+                            <TouchableOpacity style={{ backgroundColor: C.coral, borderRadius: 6, paddingHorizontal: 14, paddingVertical: 7 }} onPress={() => router.push('/(auth)/welcome')}>
                                 <Text style={{ color: C.white, fontFamily: F.bodySemiBold, fontSize: 12 }}>Sign up</Text>
                             </TouchableOpacity>
                         </>

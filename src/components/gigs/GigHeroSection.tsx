@@ -56,7 +56,7 @@ export const GigHeroSection: React.FC<GigHeroSectionProps> = ({
                         )}
                         <View className="bg-blue-600 rounded-full px-4 py-1">
                             <Text className="text-white font-black text-[8px] uppercase tracking-[0.2em]">
-                                {gig.artistTypes?.[0] || 'MUSIC'} • {gig.category?.replace('_', ' ').toUpperCase()}
+                                {gig.artistTypes?.[0] || 'MUSIC'}
                             </Text>
                         </View>
                     </View>

@@ -139,4 +139,13 @@ describe('buildBackendPayload', () => {
     expect((payload.modelDetails as any)?.nudityLevel).toBe('None');
     expect((payload.modelDetails as any)?.releaseRequired).toBe(true);
   });
+
+  it('includes responsibilities and minExperienceYears', () => {
+    const state = makeBaseState() as any;
+    state.p4.responsibilities = ['Lead a 3-song set', '2 rehearsals'];
+    state.p3.visual = { minExperienceYears: 5 };
+    const payload = buildBackendPayload(state);
+    expect(payload.responsibilities).toEqual(['Lead a 3-song set', '2 rehearsals']);
+    expect((payload as any).minExperienceYears).toBe(5);
+  });
 });

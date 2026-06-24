@@ -36,7 +36,10 @@ it('defaults to Pending, shows pending senders + count, hides accepted-only send
     let tree: any;
     TestRenderer.act(() => { tree = TestRenderer.create(<Invites />); });
     const text = allText(tree.toJSON());
-    expect(text).toContain('Invites');
+    // Combined Activity inbox — defaults to the Received face.
+    expect(text).toContain('Activity');
+    expect(text).toContain('Received');
+    expect(text).toContain('Sent');
     expect(text).toContain('2 clients want to work with you.');
     expect(text).toContain('Aarav Kothari');
     expect(text).toContain('Meera Nair');

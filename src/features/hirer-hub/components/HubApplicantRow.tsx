@@ -1,17 +1,32 @@
 // src/features/hirer-hub/components/HubApplicantRow.tsx
 //
-// Compact applicant row. Tap row body → onTap (opens action sheet in parent).
-// Two quick buttons on the right: Reject (X) + Hire (✓). Shortlist + View
-// profile live in the action sheet.
+// Gig-hub redesign v1 — applicant CARD. Bordered surface, serif-initial
+// avatar, name + ★rating, "type · yrs · time-ago" sub. New (status='applied')
+// applicants get a warm "fresh" treatment. Quick Reject (neutral X) + Hire
+// (orange ✓); Shortlist + View profile live in the action sheet (tap body).
+// See DOCS/designs/gig-hub-redesign-v1.html.
 
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Check, X } from 'lucide-react-native';
 
 const COLORS = {
-    text0: '#F3EFE8', text2: '#6B6878', bg: '#16161F',
-    green: '#22C55E', red: '#EF4444',
+    text0: '#F3EFE8', text2: '#6B6878', gold: '#F59E0B', orange: '#FF6B35',
+    surface: '#0D0B12', line: 'rgba(243,239,232,0.07)', freshBorder: 'rgba(255,107,53,0.28)',
+    avatarIdle: '#26222C',
 };
+
+function timeAgo(iso?: string): string {
+    if (!iso) return '';
+    const then = new Date(iso).getTime();
+    if (Number.isNaN(then)) return '';
+    const mins = Math.max(0, Math.round((Date.now() - then) / 60000));
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.round(hrs / 24)}d ago`;
+}
 
 type Props = {
     application: any;
@@ -22,13 +37,14 @@ type Props = {
 
 export function HubApplicantRow({ application, onTap, onQuickHire, onQuickReject }: Props) {
     const displayName = ((application.artistSnapshot?.displayName ?? '') as string).trim() || 'Anonymous';
-    const initials = displayName.split(/\s+/).map((s: string) => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'A';
-
-    const matchScore = application.matchScore;
-    const stats = [
+    const initial = (displayName[0] || 'A').toUpperCase();
+    const isFresh = application.status === 'applied';
+    const rating = application.artistSnapshot?.rating;
+    const exp = application.artistSnapshot?.experience;
+    const sub = [
         application.artistSnapshot?.artistType,
-        application.artistSnapshot?.rating ? `${application.artistSnapshot.rating}★` : null,
-        application.artistSnapshot?.experience ? `${application.artistSnapshot.experience}y` : null,
+        exp ? `${exp} yrs` : null,
+        timeAgo(application.appliedAt) || null,
     ].filter(Boolean).join(' · ');
 
     const stopAndCall = (handler?: (id: string) => void) => (e: any) => {
@@ -40,43 +56,70 @@ export function HubApplicantRow({ application, onTap, onQuickHire, onQuickReject
         <TouchableOpacity
             onPress={() => onTap?.(application._id)}
             accessibilityLabel={`Open applicant ${displayName}`}
-            style={{ paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{
-                width: 36, height: 36, borderRadius: 12,
-                backgroundColor: COLORS.bg, alignItems: 'center', justifyContent: 'center',
+            style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 13,
+                padding: 14,
+                marginBottom: 10,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: isFresh ? COLORS.freshBorder : COLORS.line,
+                backgroundColor: COLORS.surface,
             }}>
-                <Text style={{ color: COLORS.text0, fontWeight: '700', fontSize: 12 }}>{initials}</Text>
-            </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={{ color: COLORS.text0, fontWeight: '700', fontSize: 14 }}>{displayName}</Text>
-                <Text style={{ color: COLORS.text2, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
-                    {matchScore != null ? `${matchScore}% · ` : ''}{stats || '—'}
+            <View
+                style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
+                    backgroundColor: isFresh ? COLORS.orange : COLORS.avatarIdle,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}>
+                <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 18, color: isFresh ? '#160A04' : COLORS.text0 }}>
+                    {initial}
                 </Text>
             </View>
-            <View style={{ flexDirection: 'row', gap: 6 }}>
+
+            <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                    <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 14.5, color: COLORS.text0 }} numberOfLines={1}>
+                        {displayName}
+                    </Text>
+                    {rating ? (
+                        <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 11, color: COLORS.gold }}>★ {rating}</Text>
+                    ) : null}
+                </View>
+                <Text style={{ color: COLORS.text2, fontSize: 12, marginTop: 3 }} numberOfLines={1}>
+                    {sub || '—'}
+                </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 7 }}>
                 {onQuickReject && (
                     <TouchableOpacity
                         onPress={stopAndCall(onQuickReject)}
                         accessibilityLabel={`Reject ${displayName}`}
+                        hitSlop={6}
                         style={{
-                            width: 32, height: 32, borderRadius: 10,
-                            backgroundColor: 'rgba(239,68,68,0.10)',
-                            borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)',
+                            width: 38, height: 38, borderRadius: 12,
+                            borderWidth: 1, borderColor: 'rgba(243,239,232,0.12)',
                             alignItems: 'center', justifyContent: 'center',
                         }}>
-                        <X size={14} color={COLORS.red} strokeWidth={2.5} />
+                        <X size={16} color={COLORS.text2} strokeWidth={2.2} />
                     </TouchableOpacity>
                 )}
                 {onQuickHire && (
                     <TouchableOpacity
                         onPress={stopAndCall(onQuickHire)}
                         accessibilityLabel={`Hire ${displayName}`}
+                        hitSlop={6}
                         style={{
-                            width: 32, height: 32, borderRadius: 10,
-                            backgroundColor: COLORS.green,
+                            width: 38, height: 38, borderRadius: 12,
+                            backgroundColor: COLORS.orange,
                             alignItems: 'center', justifyContent: 'center',
                         }}>
-                        <Check size={14} color="#0A0A0F" strokeWidth={3} />
+                        <Check size={16} color="#160A04" strokeWidth={3} />
                     </TouchableOpacity>
                 )}
             </View>

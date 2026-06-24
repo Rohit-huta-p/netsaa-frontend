@@ -117,7 +117,7 @@ export default function SavedSection() {
                     g.organizerName ??
                     g.organizer?.name ??
                     g.hirer?.name ??
-                    'Hirer';
+                    'Creative Lead';
                   const date = formatDate(g.eventDate ?? g.startDate);
                   const pay = formatPay(g);
                   return (

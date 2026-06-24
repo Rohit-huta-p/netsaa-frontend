@@ -16,10 +16,17 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { useRegisterForEvent } from '@/hooks/useEvents';
 import { useEvent } from '@/hooks/useEvents';
+import { useMyRegistration } from '@/hooks/useMyRegistration';
 import { useAuthStore } from '@/stores/authStore';
 import { eventTokens, computeSlotsLeft } from '@/lib/eventTokens';
+import {
+  computeCustomerBreakdown,
+  formatRupees,
+  PROCESSING_FEE_PERCENT,
+} from '@/lib/eventPricing';
 import { openRazorpayCheckout } from '@/lib/razorpayCheckout';
 import { eventService } from '@/services/eventService';
+import RegistrationReceiptCard from './RegistrationReceiptCard';
 
 async function pollUntilConfirmed(eventId: string, qc: QueryClient): Promise<boolean> {
   for (let i = 0; i < 5; i++) {
@@ -47,6 +54,9 @@ const MAX_NOTES = 300;
 export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) {
   const user = useAuthStore((s) => s.user);
   const { data: event } = useEvent(eventId);
+  // After submit, the receipt card reads the fresh registration row from
+  // this hook (set by useRegisterForEvent's invalidation + Razorpay poll).
+  const { data: confirmedRegistration } = useMyRegistration(eventId);
 
   // Form state — pre-fill from profile, all editable
   const [name, setName] = useState('');
@@ -80,7 +90,14 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
   const maxCountForEvent = Math.min(MAX_ATTENDEES, slotsLeft);
   const isPaid = event?.registrationMode === 'paid_ticket';
   const pricePerTicket = event?.pricing?.amount ?? 0;
-  const totalPrice = isPaid ? pricePerTicket * count : 0;
+  // UI preview only — backend POST /register response is authoritative.
+  // Both reference src/lib/eventPricing.ts which mirrors events-service .env.
+  const breakdown = isPaid
+    ? computeCustomerBreakdown(pricePerTicket, count)
+    : { ticketSubtotal: 0, serviceFee: 0, total: 0 };
+  const ticketSubtotal = breakdown.ticketSubtotal;
+  const serviceFee = breakdown.serviceFee;
+  const totalPrice = breakdown.total;
 
   const decCount = () => setCount((c) => Math.max(1, c - 1));
   const incCount = () => setCount((c) => Math.min(maxCountForEvent, c + 1));
@@ -126,13 +143,9 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
         notes: notes.trim() || undefined,
       });
 
-      // FREE — done.
+      // FREE — done. Show receipt; user dismisses manually.
       if (!registerResp.paymentRequired) {
         setSubmitted(true);
-        setTimeout(() => {
-          setSubmitted(false);
-          onClose();
-        }, 1400);
         return;
       }
 
@@ -149,14 +162,11 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
         });
 
         // Razorpay returned success — webhook will eventually flip status to confirmed.
-        // Poll /registrations/me for up to 15s.
+        // Poll /registrations/me for up to 15s so the receipt has authoritative
+        // ticketAmount / serviceFeeAmount / paymentCapturedAt from the backend.
         await pollUntilConfirmed(eventId, queryClient);
 
         setSubmitted(true);
-        setTimeout(() => {
-          setSubmitted(false);
-          onClose();
-        }, 1400);
       } catch (rzpErr: any) {
         // User cancelled or payment failed. Clean up the pending_payment row
         // server-side so the seat is released immediately and the CTA flips
@@ -201,13 +211,37 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
             </View>
 
             {submitted ? (
-              <View className="py-16 items-center gap-3">
-                <Text className="text-event-brand text-5xl">✓</Text>
-                <Text className="font-serif text-event-textPrimary text-2xl">You're in.</Text>
-                <Text className="font-outfit text-event-textSecondary text-sm text-center px-8">
-                  We sent confirmation by push{email ? ' + email' : ''}. The organizer will reach you on your phone if needed.
-                </Text>
-              </View>
+              event && confirmedRegistration ? (
+                <RegistrationReceiptCard
+                  event={event}
+                  registration={confirmedRegistration}
+                  variant="success"
+                  onDismiss={() => {
+                    setSubmitted(false);
+                    onClose();
+                  }}
+                />
+              ) : (
+                // Brief fallback while the registration row hasn't propagated
+                // to React Query cache yet. Same look as the prior 1.4s flash;
+                // user can dismiss manually now.
+                <View className="py-16 px-6 items-center gap-3">
+                  <Text className="text-event-brand text-5xl">✓</Text>
+                  <Text className="font-serif text-event-textPrimary text-2xl">You're in.</Text>
+                  <Text className="font-outfit text-event-textSecondary text-sm text-center">
+                    We sent confirmation by push{email ? ' + email' : ''}. Your receipt will load in a moment.
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setSubmitted(false);
+                      onClose();
+                    }}
+                    className="mt-4 rounded-2xl bg-event-brand px-8 py-3"
+                  >
+                    <Text className="font-outfit font-bold text-white">Done</Text>
+                  </Pressable>
+                </View>
+              )
             ) : (
               <ScrollView
                 className="px-6"
@@ -369,17 +403,35 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                 {/* PRICE SUMMARY (paid only) */}
                 {isPaid ? (
                   <View className="rounded-2xl bg-event-surface border border-event-brand/30 px-4 py-4 mb-4">
-                    <View className="flex-row items-center justify-between mb-1">
-                      <Text className="font-outfit text-event-textSecondary text-xs">
-                        {count} ticket{count === 1 ? '' : 's'} × ₹{pricePerTicket}
+                    <View className="flex-row items-center justify-between mb-2">
+                      <Text className="font-outfit text-event-textSecondary text-sm">
+                        {count} {count === 1 ? 'ticket' : 'tickets'} × {formatRupees(pricePerTicket)}
                       </Text>
-                      <Text className="font-serif text-event-textPrimary text-2xl">
-                        ₹{totalPrice}
+                      <Text className="font-outfit text-event-textPrimary text-sm">
+                        {formatRupees(ticketSubtotal)}
                       </Text>
                     </View>
-                    <Text className="font-outfit text-event-textMuted text-[10px]">
-                      Razorpay secure checkout · UPI · cards · netbanking. We confirm via
-                      push + email after payment captures.
+                    <View className="flex-row items-center justify-between mb-2">
+                      <Text className="font-outfit text-event-textSecondary text-sm">
+                        Service fee · {PROCESSING_FEE_PERCENT}%
+                      </Text>
+                      <Text className="font-outfit text-event-textPrimary text-sm">
+                        {formatRupees(serviceFee)}
+                      </Text>
+                    </View>
+                    <View className="h-px bg-event-border my-2" />
+                    <View className="flex-row items-center justify-between mb-1">
+                      <Text className="font-outfit text-event-textPrimary text-sm font-semibold">
+                        Total
+                      </Text>
+                      <Text className="font-serif text-event-textPrimary text-2xl">
+                        {formatRupees(totalPrice)}
+                      </Text>
+                    </View>
+                    <Text className="font-outfit text-event-textMuted text-[10px] mt-2 leading-4">
+                      Service fee covers payment processing (Razorpay charges per
+                      method). UPI and cards pay the same flat fee for fairness.
+                      Organizer receives the ticket amount.
                     </Text>
                   </View>
                 ) : null}
@@ -410,7 +462,7 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                   ) : (
                     <Text className="font-outfit font-bold text-white text-base">
                       {isPaid
-                        ? `Confirm — pay ₹${totalPrice}`
+                        ? `Confirm — pay ${formatRupees(totalPrice)}`
                         : count === 1
                           ? 'Confirm registration'
                           : `Confirm ${count} registrations`}

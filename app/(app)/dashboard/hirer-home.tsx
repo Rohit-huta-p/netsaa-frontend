@@ -25,9 +25,9 @@ import TrustAnchorCard from '../../../src/components/dashboard/hirer/TrustAnchor
 import ActionQueueTile from '../../../src/components/dashboard/hirer/ActionQueueTile';
 import YourPostsSection from '../../../src/components/dashboard/hirer/YourPostsSection';
 import MatchForYourGigsStrip from '../../../src/components/dashboard/hirer/MatchForYourGigsStrip';
-import DispatchSection from '../../../src/components/dashboard/hirer/DispatchSection';
 
 // ─── Replaced / removed (kept commented for fast revert during rollout) ───
+// import DispatchSection from '../../../src/components/dashboard/hirer/DispatchSection';
 // import HeroGreetingHirer from '../../../src/components/dashboard/hirer/HeroGreetingHirer';
 // import PostedGigsSection from '../../../src/components/dashboard/hirer/PostedGigsSection';
 // import ApplicantsInbox from '../../../src/components/dashboard/hirer/ApplicantsInbox';
@@ -95,8 +95,6 @@ export default function HirerHome() {
         <View style={styles.matchWrap}>
           <MatchForYourGigsStrip />
         </View>
-
-        <DispatchSection />
 
         {/* Editorial footer */}
         <View style={styles.footer}>

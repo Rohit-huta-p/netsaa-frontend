@@ -60,7 +60,7 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
     const { isHydrated, accessToken } = useAuthStore();
     const pathname = usePathname();
-    const isAuthRoute = pathname?.startsWith('/login') || pathname?.startsWith('/register') || pathname?.includes('forgot-password');
+    const isAuthRoute = pathname?.startsWith('/login') || pathname?.startsWith('/register') || pathname?.includes('forgot-password') || pathname?.startsWith('/welcome') || pathname?.startsWith('/client-signup');
     const [fontsLoaded, fontError] = useFonts({
         // Outfit fonts (primary heading/display font)
         'Outfit-Thin': Outfit_100Thin,
@@ -132,8 +132,8 @@ export default function RootLayout() {
             <QueryClientProvider client={queryClient}>
                 <SafeAreaProvider style={{ flex: 1 }}>
                     <View style={{ flex: 1, backgroundColor: '#09090b' }}>
-                        {/* Navbar & TabBar hidden on auth screens */}
-                        {!isAuthRoute && <Navbar />}
+                        {/* Navbar hidden on auth screens + the public landing ('/' has its own nav) */}
+                        {!isAuthRoute && pathname !== '/' && <Navbar />}
 
                         {/* App content */}
                         <Slot />

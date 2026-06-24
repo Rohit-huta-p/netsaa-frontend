@@ -6,6 +6,7 @@ describe('modeStore', () => {
     // reset store between tests
     useModeStore.setState({
       mode: 'artist',
+      modeExplicitlyChosen: false,
       hasBootstrappedMode: false,
       seenScreensWithTooltip: [],
     });
@@ -23,6 +24,15 @@ describe('modeStore', () => {
       useModeStore.getState().setMode('hirer');
     });
     expect(useModeStore.getState().mode).toBe('hirer');
+  });
+
+  it('setMode pins modeExplicitlyChosen (explicit user choice)', () => {
+    expect(useModeStore.getState().modeExplicitlyChosen).toBe(false);
+    act(() => {
+      useModeStore.getState().setMode('hirer');
+    });
+    expect(useModeStore.getState().mode).toBe('hirer');
+    expect(useModeStore.getState().modeExplicitlyChosen).toBe(true);
   });
 
   it('setBootstrapped(true) flips the flag', () => {

@@ -85,6 +85,8 @@ export interface RegisterPayload {
         phoneNumber?: string;
         /** ISO 8601 date string. Drives age-gate; optional at signup. */
         dateOfBirth?: string;
+        /** Three-role marketplace model — chosen via the signup cards. */
+        role?: 'client' | 'creative_lead' | 'artist';
         intent?: Intent[];
         marketingConsent?: boolean;
     };

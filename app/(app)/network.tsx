@@ -69,7 +69,9 @@ const roleLabel = (u: any) => {
     const at = u?.artistType;
     if (Array.isArray(at) && at.length) return at[0];
     if (typeof at === 'string' && at) return at;
-    return u?.role === 'hirer' ? 'Hirer' : 'Artist';
+    if (u?.role === 'client') return 'Client';
+    if (u?.role === 'creative_lead' || u?.role === 'hirer' || u?.role === 'organizer') return 'Creative Lead';
+    return 'Artist';
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -712,7 +714,7 @@ export default function NetworkPage() {
                                             style={[s.filterChip, active && s.filterChipActive]}
                                         >
                                             <Text style={[s.filterChipText, active && s.filterChipTextActive]}>
-                                                {key === 'all' ? 'All' : key === 'artists' ? 'Artists' : key === 'hirers' ? 'Hirers' : 'Recent'}
+                                                {key === 'all' ? 'All' : key === 'artists' ? 'Artists' : key === 'hirers' ? 'Leads' : 'Recent'}
                                             </Text>
                                         </Pressable>
                                     );

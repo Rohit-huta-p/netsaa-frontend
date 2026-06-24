@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, ScrollView, Platform, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Search, Filter, TrendingUp, Sparkles } from 'lucide-react-native';
+import { Search, Filter, TrendingUp, Sparkles, ArrowUpDown } from 'lucide-react-native';
 import { SequentialLoadingAnimation } from '@/components/ui/SequentialLoadingAnimation';
 import { useGigs, useGig } from '@/hooks/useGigs';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -11,11 +11,27 @@ import { BackgroundElements } from '@/components/ui/BackgroundElements';
 import AppScrollView from '@/components/AppScrollView';
 import AppLoadingScreen from '@/components/ui/AppLoadingScreen';
 import { FilterModal } from '@/components/gigs/FilterModal';
+import { SortDropdown } from '@/components/ui/SortDropdown';
 import { FilterState } from '@/types/filters';
 import { countActiveFilters } from '@/lib/constants/filters';
-import { TopRightIcons } from '@/components/common/TopRightIcons';
 
 const isWeb = Platform.OS === 'web';
+
+// Sort options mirror the values the search service understands (mapped to
+// `sortMode`; 'relevance' is the no-op default).
+const GIG_SORT_OPTIONS = [
+    { value: 'relevance', label: 'Relevant' },
+    { value: 'newest', label: 'Newest' },
+    { value: 'compensation', label: 'Top pay' },
+];
+
+const emptyFilters = (): FilterState => ({
+    quick: null,
+    advanced: {
+        trust: {}, compensation: {}, artistType: {}, experience: {},
+        location: {}, timing: {}, eventType: {}, requirements: {}, sorting: {},
+    },
+});
 
 // Wrapper component to fetch full gig details (including viewerContext) on desktop
 const DesktopGigPreview = ({ gigId, placeholderData }: { gigId: string, placeholderData: any }) => {
@@ -53,6 +69,7 @@ export default function GigsListPage() {
     // UI states
     const [selectedGig, setSelectedGig] = useState<any>(null);
     const [showFilterModal, setShowFilterModal] = useState(false);
+    const [showSortSheet, setShowSortSheet] = useState(false);
     const [isPageReady, setIsPageReady] = useState(false);
 
     // Local input state for controlled TextInput (before debounce)
@@ -92,7 +109,12 @@ export default function GigsListPage() {
         }
     }, [isLoading, gigsData, error]);
 
-    const activeFilterCount = searchState.filters ? countActiveFilters(searchState.filters) : 0;
+    // Sort lives inside filters.advanced.sorting, but it's surfaced as its own
+    // button — so exclude it from the Filters badge. (The search hook still counts
+    // it independently for routing, so the sort is applied server-side.)
+    const sortBy = searchState.filters?.advanced?.sorting?.sortBy || 'relevance';
+    const rawFilterCount = searchState.filters ? countActiveFilters(searchState.filters) : 0;
+    const activeFilterCount = Math.max(0, rawFilterCount - (sortBy !== 'relevance' ? 1 : 0));
 
     React.useEffect(() => {
         // Only auto-select on desktop layout
@@ -119,17 +141,33 @@ export default function GigsListPage() {
         }));
     }, []);
 
+    const handleSelectSort = useCallback((value: string) => {
+        setSearchState((prev) => {
+            const base = prev.filters || emptyFilters();
+            return {
+                ...prev,
+                filters: {
+                    ...base,
+                    advanced: {
+                        ...base.advanced,
+                        sorting: { ...base.advanced.sorting, sortBy: value },
+                    },
+                },
+                page: 1,
+            };
+        });
+    }, []);
+
     if (!isPageReady) {
         return <AppLoadingScreen />;
     }
 
     return (
         <View style={{ flex: 1, backgroundColor: '#000000' }}>
-            <TopRightIcons />
             {/* <BackgroundElements /> */}
             <AppScrollView className="flex-1">
                 {/* HERO SECTION - COMPACT */}
-                <View className="pt-32 pb-12 px-6 border-b border-white/5">
+                <View className="pt-32 pb-12 px-6 border-b border-white/5" style={{ position: 'relative', zIndex: 30 }}>
                     <View className="container mx-auto max-w-7xl">
                         <View className="flex-row items-end justify-between mb-10">
                             <View className="flex-1 max-w-2xl">
@@ -177,7 +215,7 @@ export default function GigsListPage() {
                                 )}
                             </View>
 
-                            {/* Filter Button */}
+                            {/* Filter Button — icon only */}
                             <TouchableOpacity
                                 onPress={() => setShowFilterModal(true)}
                                 style={{
@@ -185,17 +223,15 @@ export default function GigsListPage() {
                                     borderWidth: 1,
                                     borderColor: 'rgba(255, 255, 255, 0.08)',
                                     height: 56,
-                                    paddingHorizontal: 24,
+                                    paddingHorizontal: 18,
                                     borderRadius: 12,
                                     flexDirection: 'row',
                                     alignItems: 'center',
-                                    gap: 12,
+                                    justifyContent: 'center',
+                                    gap: 8,
                                 }}
                             >
                                 <Filter size={20} color="#FFFFFF" />
-                                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '500' }}>
-                                    Filters
-                                </Text>
                                 {activeFilterCount > 0 && (
                                     <View style={{
                                         backgroundColor: '#8B5CF6',
@@ -211,6 +247,35 @@ export default function GigsListPage() {
                                     </View>
                                 )}
                             </TouchableOpacity>
+
+                            {/* Sort Button — icon only, anchors a dropdown below it */}
+                            <View style={{ position: 'relative', zIndex: 50 }}>
+                                <TouchableOpacity
+                                    onPress={() => setShowSortSheet((v) => !v)}
+                                    style={{
+                                        backgroundColor: sortBy !== 'relevance' ? 'rgba(139,92,246,0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                        borderWidth: 1,
+                                        borderColor: sortBy !== 'relevance' ? 'rgba(139,92,246,0.5)' : 'rgba(255, 255, 255, 0.08)',
+                                        height: 56,
+                                        paddingHorizontal: 18,
+                                        borderRadius: 12,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <ArrowUpDown size={20} color="#FFFFFF" />
+                                </TouchableOpacity>
+                                <SortDropdown
+                                    visible={showSortSheet}
+                                    options={GIG_SORT_OPTIONS}
+                                    value={sortBy}
+                                    onSelect={handleSelectSort}
+                                    onClose={() => setShowSortSheet(false)}
+                                    accent="#8B5CF6"
+                                    align="right"
+                                    title="Sort gigs"
+                                />
+                            </View>
                         </View>
                     </View>
                 </View>

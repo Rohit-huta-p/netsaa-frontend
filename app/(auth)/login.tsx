@@ -47,7 +47,7 @@ export default function LoginScreen() {
     const [verifiedPhone, setVerifiedPhone] = useState("");
 
     /* ── Field state ── */
-    const [loginMode, setLoginMode] = useState<"phone" | "otp" | "email">("email");
+    const [loginMode, setLoginMode] = useState<"phone" | "otp" | "email">("phone");
     const [countryCode, setCountryCode] = useState("+91");
     const [phone, setPhone] = useState("");
     const [otp, setOtp] = useState("");
@@ -358,7 +358,8 @@ export default function LoginScreen() {
                                                     Animated.timing(passwordAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
                                                     setPassword("");
                                                 } else {
-                                                    setLoginMode("email");
+                                                    // OTP is only reachable from phone mode → back returns to phone.
+                                                    setLoginMode("phone");
                                                 }
                                             }}
                                             accessibilityRole="button"
@@ -437,7 +438,53 @@ export default function LoginScreen() {
                                 </View>
                             </View>
 
-                            {/* ── Mode toggle temporarily removed ── */}
+                            {/* ── Phone / Email mode toggle (entry step only) ── */}
+                            {((loginMode === "phone") || (loginMode === "email" && !showPassword)) && (
+                                <View style={{
+                                    flexDirection: "row", alignSelf: "center",
+                                    backgroundColor: C.w05, borderWidth: 1, borderColor: C.w08,
+                                    borderRadius: 14, padding: 4, marginBottom: 18,
+                                }}>
+                                    {(["phone", "email"] as const).map((m) => {
+                                        const active = loginMode === m;
+                                        return (
+                                            <TouchableOpacity
+                                                key={m}
+                                                onPress={() => {
+                                                    if (loginMode === m) return;
+                                                    setLoginError(null);
+                                                    if (m === "phone") {
+                                                        setLoginMode("phone");
+                                                        setOtp("");
+                                                    } else {
+                                                        setLoginMode("email");
+                                                        setShowPassword(false);
+                                                        setPassword("");
+                                                        passwordAnim.setValue(0);
+                                                    }
+                                                }}
+                                                activeOpacity={0.85}
+                                                accessibilityRole="button"
+                                                accessibilityState={{ selected: active }}
+                                                style={{
+                                                    flexDirection: "row", alignItems: "center", gap: 6,
+                                                    paddingVertical: 8, paddingHorizontal: 22,
+                                                    borderRadius: 10,
+                                                    backgroundColor: active ? C.primary : "transparent",
+                                                }}
+                                            >
+                                                {m === "phone"
+                                                    ? <Smartphone size={14} color={active ? "#fff" : C.w40} />
+                                                    : <Mail size={14} color={active ? "#fff" : C.w40} />}
+                                                <Text style={{ fontSize: 13, fontWeight: "600", color: active ? "#fff" : C.w40 }}>
+                                                    {m === "phone" ? "Phone" : "Email"}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            )}
+
                             <View style={{ flex: 1, marginTop: 10, paddingHorizontal: 14 }}>
                                 {/* ── Phone Input ── */}
                                 {loginMode === "phone" && (
@@ -624,7 +671,7 @@ export default function LoginScreen() {
 
                                 {/* ── Register link ── */}
                                 <TouchableOpacity
-                                    onPress={() => router.push("/(auth)/register")}
+                                    onPress={() => router.push("/(auth)/welcome")}
                                     style={{ marginTop: 28, alignItems: "center" }}
                                     activeOpacity={0.7}
                                     accessibilityRole="button"

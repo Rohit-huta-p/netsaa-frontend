@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, Modal, ScrollView,
     Animated, Dimensions, KeyboardAvoidingView, Platform,
-    ActivityIndicator, Image, Alert, Pressable, Easing,
+    ActivityIndicator, Image, Alert, Pressable,
 } from 'react-native';
 import {
     X, Check, Plus, Search, ChevronDown, ChevronUp, Trash2, Camera,
@@ -195,17 +195,69 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const { activeSheet, closeSheet, highlightMissing } = useProfileUiStore();
     const { user, setAuth, accessToken } = useAuthStore();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-    const fadeAnim = useRef(new Animated.Value(1)).current;
     const section = activeSheet;
     const isVisible = !!section;
     const initialTab = section ? (SECTION_TO_TAB[section] || 'header') : 'header';
     const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
-    const handleTabChange = (k: TabKey) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-        setActiveTab(k);
+
+    // ── Scrollspy: one long form, the active tab follows the section in view ──
+    const SCROLL_ANCHOR = 90; // px line below the tab bar that marks the "active" section
+    const scrollRef = useRef<ScrollView>(null);
+    const sectionOffsets = useRef<Partial<Record<TabKey, number>>>({});
+    const pendingScrollTab = useRef<TabKey | null>(null);
+    const programmaticScroll = useRef(false);
+    const programmaticTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Capture each section's y-offset within the scroll content as it lays out.
+    // If the modal was opened targeting this section, jump to it once measured.
+    const onSectionLayout = (k: TabKey) => (e: any) => {
+        const y = e.nativeEvent.layout.y;
+        sectionOffsets.current[k] = y;
+        if (pendingScrollTab.current === k) {
+            pendingScrollTab.current = null;
+            programmaticScroll.current = true;
+            requestAnimationFrame(() => {
+                scrollRef.current?.scrollTo({ y: Math.max(0, y - SCROLL_ANCHOR + 1), animated: false });
+            });
+            setTimeout(() => { programmaticScroll.current = false; }, 300);
+        }
     };
+
+    // Tab tap → smooth-scroll to that section (inverse of the scrollspy).
+    const scrollToSection = (k: TabKey) => {
+        const off = sectionOffsets.current[k];
+        if (off == null) return;
+        programmaticScroll.current = true;
+        setActiveTab(k); // optimistic; scrollspy is suppressed mid-animation
+        scrollRef.current?.scrollTo({ y: Math.max(0, off - SCROLL_ANCHOR + 1), animated: true });
+        if (programmaticTimer.current) clearTimeout(programmaticTimer.current);
+        programmaticTimer.current = setTimeout(() => { programmaticScroll.current = false; }, 500);
+    };
+
+    const handleTabPress = (k: TabKey) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        scrollToSection(k);
+    };
+
+    // Scrollspy: active tab = last section whose top has crossed the anchor line.
+    const handleScroll = (e: any) => {
+        if (programmaticScroll.current) return;
+        const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+        const y = contentOffset.y;
+        let current: TabKey = TABS[0].key;
+        for (const t of TABS) {
+            const off = sectionOffsets.current[t.key];
+            if (off != null && off - SCROLL_ANCHOR <= y) current = t.key;
+        }
+        // Bottom guard: short trailing sections can't push their top to the anchor line.
+        if (contentSize.height - y - layoutMeasurement.height < 4) {
+            current = TABS[TABS.length - 1].key;
+        }
+        if (current !== activeTab) setActiveTab(current);
+    };
+
     const [isSaving, setIsSaving] = useState(false);
-    const [savedSection, setSavedSection] = useState<TabKey | null>(null);
+    const [justSaved, setJustSaved] = useState(false);
     const [expandedEntries, setExpandedEntries] = useState<Set<number>>(new Set());
 
     // ── Form State (all 49 hooks — unchanged) ──
@@ -254,8 +306,23 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     useEffect(() => {
         if (!isVisible) return;
         const tab = section ? (SECTION_TO_TAB[section] || 'header') : 'header';
-        setActiveTab(tab); setSavedSection(null); setExpandedEntries(new Set()); setDirtyTabs(new Set());
+        setActiveTab(tab); setJustSaved(false); setExpandedEntries(new Set()); setDirtyTabs(new Set());
         setDiscardPromptVisible(false);
+        // Long-scroll: forget old offsets and queue a jump to the requested section.
+        sectionOffsets.current = {};
+        pendingScrollTab.current = tab !== 'header' ? tab : null;
+        programmaticScroll.current = tab !== 'header';
+        // Fallback in case the target's onLayout fired before this effect ran.
+        if (tab !== 'header') {
+            setTimeout(() => {
+                const off = sectionOffsets.current[tab];
+                if (pendingScrollTab.current === tab && off != null) {
+                    pendingScrollTab.current = null;
+                    scrollRef.current?.scrollTo({ y: Math.max(0, off - SCROLL_ANCHOR + 1), animated: false });
+                    setTimeout(() => { programmaticScroll.current = false; }, 200);
+                }
+            }, 160);
+        }
         setDisplayName(profileData.fullName || ''); setHeadline(profileData.headline || '');
         setArtistType(profileData.artistType || ''); setLocation(profileData.location || '');
         setAvailability((profileData.availability as any) || '');
@@ -291,28 +358,6 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         else { slideAnim.setValue(SCREEN_HEIGHT); }
     }, [isVisible]);
 
-    // ── Tab cross-fade ──
-    const isFirstFadeRender = useRef(true);
-    useEffect(() => {
-        if (isFirstFadeRender.current) {
-            isFirstFadeRender.current = false;
-            return;
-        }
-        Animated.sequence([
-            Animated.timing(fadeAnim, {
-                toValue: 0,
-                duration: 80,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-            }),
-            Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 160,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-            }),
-        ]).start();
-    }, [activeTab]);
     const handleClose = () => {
         if (discardPromptVisible) {
             setDiscardPromptVisible(false);
@@ -443,9 +488,9 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             setToast({ visible: true, variant: 'success', message: 'Profile updated' });
-            setSavedSection(activeTab); // green button flash on whichever tab the user is on
+            setJustSaved(true);
             setDirtyTabs(new Set());
-            setTimeout(() => setSavedSection(null), 2000);
+            setTimeout(() => setJustSaved(false), 2000);
         } catch (err) {
             console.error('[ProfileEditModal] Save failed:', err);
             setToast({ visible: true, variant: 'error', message: 'Could not save changes' });
@@ -805,22 +850,21 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         );
     };
 
-    const renderActiveTab = () => {
-        switch (activeTab) {
-            case 'header': return renderHeader(); case 'about': return renderAbout();
-            case 'identity': return renderIdentity(); case 'experience': return renderExperience();
-            case 'media': return renderMedia(); case 'socials': return renderSocials();
-            case 'organization': return renderOrganization(); case 'billing': return renderBilling();
-            default: return null;
-        }
-    };
+    // Ordered list of every section — all rendered, stacked, in one scroll.
+    const SECTION_RENDERERS: { key: TabKey; render: () => React.ReactNode }[] = [
+        { key: 'header', render: renderHeader },
+        { key: 'about', render: renderAbout },
+        { key: 'identity', render: renderIdentity },
+        { key: 'experience', render: renderExperience },
+        { key: 'media', render: renderMedia },
+        { key: 'socials', render: renderSocials },
+        { key: 'organization', render: renderOrganization },
+        { key: 'billing', render: renderBilling },
+    ];
 
     if (!isVisible) return null;
 
-    const currentTabDef = visibleTabs.find(t => t.key === activeTab);
-    const isSaved = savedSection === activeTab;
-    const tabAccent = currentTabDef?.color || P.orange;
-    const tabGradient = currentTabDef?.gradient || [P.pink, P.orange];
+    const isSaved = justSaved;
 
     return (
         <Modal visible transparent animationType="none" onRequestClose={handleClose}>
@@ -854,25 +898,46 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                     isDirty: dirtyTabs.has(t.key),
                                 }))}
                                 active={activeTab}
-                                onChange={handleTabChange}
+                                onChange={handleTabPress}
                             />
 
-                            {/* Content */}
-                            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 120 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                                <Animated.View style={{ opacity: fadeAnim }}>
-                                    {renderActiveTab()}
-                                </Animated.View>
+                            {/* Content — one long scroll; the tab bar above tracks position */}
+                            <ScrollView
+                                ref={scrollRef}
+                                onScroll={handleScroll}
+                                scrollEventThrottle={16}
+                                contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 120 }}
+                                keyboardShouldPersistTaps="handled"
+                                showsVerticalScrollIndicator={false}>
+                                {SECTION_RENDERERS.map(({ key, render }, i) => {
+                                    const def = visibleTabs.find(t => t.key === key)!;
+                                    return (
+                                        <View key={key} onLayout={onSectionLayout(key)} style={{ marginTop: i === 0 ? 0 : 28 }}>
+                                            {i > 0 && <View style={{ height: 1, backgroundColor: P.border, marginBottom: 24 }} />}
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                                                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: def.color }} />
+                                                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: def.color, textTransform: 'uppercase', letterSpacing: 2 }}>{def.label}</Text>
+                                                {def.optional && (
+                                                    <View style={{ borderWidth: 1, borderColor: `${P.gold}30`, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1 }}>
+                                                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 8, color: P.gold, letterSpacing: 1, textTransform: 'uppercase' }}>Optional</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                            {render()}
+                                        </View>
+                                    );
+                                })}
                             </ScrollView>
 
-                            {/* Footer — per-tab gradient */}
+                            {/* Footer — neutral Save (no longer tied to the active section) */}
                             <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingVertical: 14, paddingBottom: Platform.OS === 'ios' ? 34 : 14, backgroundColor: P.bg, borderTopWidth: 1, borderTopColor: P.border, flexDirection: 'row', gap: 12 }}>
                                 <TouchableOpacity onPress={handleClose} style={{ flex: 1, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: P.border, alignItems: 'center' }}>
                                     <Text style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>Cancel</Text>
                                 </TouchableOpacity>
                                 <Pressable onPress={handleSaveAll} disabled={isSaving} style={({ pressed }) => ({ flex: 1, opacity: isSaving ? 0.6 : pressed ? 0.9 : 1 })}>
-                                    <LinearGradient colors={isSaved ? [P.green, '#059669'] : tabGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 14, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                                        {isSaving ? <ActivityIndicator size="small" color="#fff" /> : isSaved ? <Check size={16} color="#fff" /> : null}
-                                        <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                    <LinearGradient colors={isSaved ? [P.green, '#059669'] : ['#F0ECE6', '#E4DED4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 14, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                        {isSaving ? <ActivityIndicator size="small" color={isSaved ? '#fff' : '#15131A'} /> : isSaved ? <Check size={16} color="#fff" /> : null}
+                                        <Text style={{ color: isSaved ? '#fff' : '#15131A', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>
                                             {isSaving ? 'Saving…' : isSaved ? 'Saved!' : 'Save changes'}
                                         </Text>
                                     </LinearGradient>

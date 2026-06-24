@@ -17,6 +17,13 @@ export interface OrganizerProfile {
   organizationName?: string;
   organizerTypeCategory: string;
   logoUrl?: string;
+  organizationWebsite?: string;
+  // Agency supplier showcase (Part D) — optional, server-default [] for arrays.
+  bio?: string;
+  services?: string[];
+  photos?: string[];
+  yearsInBusiness?: number;
+  teamSize?: number;
   organizerStats?: {
     gigsPosted?: number;
     eventsCreated?: number;
@@ -94,7 +101,11 @@ const authService = {
     return res.data;
   },
 
-  verifyOtp: async (payload: { phone: string; otp: string }): Promise<VerifyOtpResponse> => {
+  verifyOtp: async (payload: {
+    phone: string;
+    otp: string;
+    registration?: { displayName: string; role: 'client'; ageConfirmed: boolean };
+  }): Promise<VerifyOtpResponse> => {
     console.log("AUTH SERVICE: Verifying OTP...");
     try {
       const res = await API.post('/auth/verify-otp', payload);
@@ -135,6 +146,14 @@ const authService = {
     return res.data;
   },
 
+  switchRole: async (role: 'client' | 'creative_lead' | 'artist'): Promise<{ success: boolean; data: { token: string; user: User } }> => {
+    // POST /users/me/role — reversible three-role switch; returns a fresh JWT
+    // because gigs/search enforce the visibility wall from the token's role.
+    console.log('AUTH SERVICE: Switching role to', role);
+    const res = await API.post('/users/me/role', { role });
+    return res.data;
+  },
+
   getOrganizer: async (): Promise<OrganizerProfile> => {
     const res = await API.get('/organizers/me');
     return res.data;
@@ -144,6 +163,24 @@ const authService = {
     console.log("AUTH SERVICE: Updating organizer...", data);
     const res = await API.patch('/organizers/me', data);
     console.log("AUTH SERVICE: Organizer updated successfully");
+    return res.data;
+  },
+
+  // 2026-06 client onboarding: business fork on the posted success screen.
+  // Part D agency edit reuses the same endpoint to set the supplier showcase.
+  // Accepted fields mirror users-service/src/validators/organizer.dto.ts.
+  updateOrganizerProfile: async (patch: {
+    organizerTypeCategory?: string;
+    organizationName?: string;
+    organizationWebsite?: string;
+    logoUrl?: string;
+    bio?: string;
+    services?: string[];
+    photos?: string[];
+    yearsInBusiness?: number;
+    teamSize?: number;
+  }): Promise<any> => {
+    const res = await API.patch('/organizers/me', patch);
     return res.data;
   },
 

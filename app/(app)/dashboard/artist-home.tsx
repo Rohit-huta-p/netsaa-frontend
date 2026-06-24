@@ -1,57 +1,84 @@
 // netsa-mobile/app/(app)/dashboard/artist-home.tsx
 //
-// Plan 2 assembly point. Renders 9 real sections + 3 placeholder cards in
-// spec §4.1 order. Pull-to-refresh invalidates every queryKeys.artist.* key.
+// Final assembly for the redesigned artist home (DOCS/designs/artist-home-v1.html,
+// locked 2026-05-18). Mirrors the hirer-home editorial pattern with artist-side
+// lenses + a floating inbox FAB.
 //
-// Sections are self-sufficient (each owns its data hook) except HeroGreeting
-// which takes `user` + `isLoading` as props so the header and trust-tier card
-// can both consume the same cached query without re-rendering gymnastics.
+// Section order:
+//   1. HeroGreetingArtistV2  — slim hero (avatar + greeting + name + trust pill)
+//   2. ByTheNumbersArtist    — KPI grid (earnings / views / applications / delivered / endorsements)
+//   3. TodayQueueArtist      — action queue (hidden when empty)
+//   4. YourStageArtist       — GIGS / EVENTS toggle with sub-tabs
+//   5. ForYouMatchStrip      — horizontal carousel, mixed gigs+events
+//   6. DiscoverHirersStrip   — curated hirers near you
+//   7. Editorial footer
+//   FAB. FloatingInboxFab    — rendered outside ScrollView so it floats
+//
+// Pull-to-refresh invalidates every queryKeys.artist.* key plus the shared
+// hero / conversations / contracts keys also touched by the hirer dashboard,
+// so a mode switch shows fresh data on either side.
+//
+// Replaces the Plan-2 era assembly (HeroGreeting + UpcomingSection +
+// AppliedSection + SavedSection + DraftsSection + TrustTierProgress +
+// MessagesPreview + PlaceholderCards). The old components remain in
+// src/components/dashboard/artist/ for fast revert during rollout.
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  SafeAreaView,
+  RefreshControl,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { Briefcase, Mail } from 'lucide-react-native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '../../../src/stores/authStore';
+import { inviteService } from '../../../src/services/inviteService';
 
-// ModeToggle moved into Navbar profile dropdown — no longer rendered on dashboard.
 import ScreenTooltip from '../../../src/components/mode/ScreenTooltip';
-
-import useHeroData from '../../../src/hooks/useHeroData';
 import { queryKeys } from '../../../src/constants/queryKeys';
 
-import HeroGreeting from '../../../src/components/dashboard/artist/HeroGreeting';
-// CONTRACTS-DISABLED: NextUpCard's primary "open contract" CTA is moot
-// without contract artifacts. ContractsStrip shows nothing when total=0
-// (which it always will be while contract creation is rolled back).
-// Imports retained for fast revert.
-// import NextUpCard from '../../../src/components/dashboard/artist/NextUpCard';
-import UpcomingSection from '../../../src/components/dashboard/artist/UpcomingSection';
-import AppliedSection from '../../../src/components/dashboard/artist/AppliedSection';
-import SavedSection from '../../../src/components/dashboard/artist/SavedSection';
-import DraftsSection from '../../../src/components/dashboard/artist/DraftsSection';
-// import ContractsStrip from '../../../src/components/dashboard/artist/ContractsStrip';
-// PAYMENTS-DISABLED: PaymentsToConfirmStrip hidden until on-platform Razorpay ships.
-// Restore by uncommenting this import + the mount below.
-// import PaymentsToConfirmStrip from '../../../src/components/dashboard/artist/PaymentsToConfirmStrip';
-import TrustTierProgress from '../../../src/components/dashboard/artist/TrustTierProgress';
-import MessagesPreview from '../../../src/components/dashboard/artist/MessagesPreview';
-import PlaceholderCard from '../../../src/components/dashboard/PlaceholderCard';
+import HeroGreetingArtistV2 from '../../../src/components/dashboard/artist/HeroGreetingArtistV2';
+import ByTheNumbersArtist from '../../../src/components/dashboard/artist/ByTheNumbersArtist';
+import TodayQueueArtist from '../../../src/components/dashboard/artist/TodayQueueArtist';
+import YourStageArtist from '../../../src/components/dashboard/artist/YourStageArtist';
+import ForYouMatchStrip from '../../../src/components/dashboard/artist/ForYouMatchStrip';
+import DiscoverMatchesStrip from '../../../src/components/dashboard/artist/DiscoverMatchesStrip';
+import FloatingInboxFab from '../../../src/components/dashboard/artist/FloatingInboxFab';
 
 export default function ArtistHome() {
   const queryClient = useQueryClient();
-  const { data: user, isLoading: isUserLoading } = useHeroData();
+  const router = useRouter();
+  const role = useAuthStore((s) => s.role);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Invites badge — count pending (sent|viewed) invites
+  const { data: receivedInvites = [] } = useQuery({
+    queryKey: ['invites', 'received'],
+    queryFn: inviteService.received,
+  });
+  const pendingInviteCount = (receivedInvites as any[]).filter(
+    (inv) => inv.status === 'sent' || inv.status === 'viewed',
+  ).length;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      // Invalidate every artist-home query key. Individual hooks refetch in parallel.
       await Promise.all([
+        // Artist namespace
         queryClient.invalidateQueries({ queryKey: queryKeys.artist.hero() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.artist.applications() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.artist.upcoming() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.artist.savedGigs() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.artist.savedEvents() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.artist.contracts() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.artist.conversations() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.contracts() }),
+        // Shared reads — hirer home consumes the same hero / contracts cache.
+        queryClient.invalidateQueries({ queryKey: queryKeys.hirer.hero() }),
       ]);
     } finally {
       setRefreshing(false);
@@ -72,47 +99,63 @@ export default function ArtistHome() {
           />
         }
       >
+        <HeroGreetingArtistV2 />
 
-        {/* Spec §4.1 order. NextUpCard returns null when neither a pending
-            contract nor a hired gig exists. ContractsStrip returns null when
-            total=0. Both suppress their own placeholder so layout stays tight. */}
+        <ByTheNumbersArtist />
 
-        <HeroGreeting user={user} isLoading={isUserLoading} />
+        <TodayQueueArtist />
 
-        {/* CONTRACTS-DISABLED: NextUpCard + ContractsStrip hidden until contract artifact restored. */}
-        {/* <NextUpCard /> */}
+        {/* Invites entry card — visible for artists and CLs who can receive client invites */}
+        <Pressable
+          onPress={() => router.push('/(app)/invites' as any)}
+          style={styles.invitesCard}
+        >
+          <View style={styles.invitesIconWrap}>
+            <Mail size={18} color="#A78BFA" />
+          </View>
+          <View style={styles.clCardText}>
+            <Text style={styles.invitesCardTitle}>Invites</Text>
+            <Text style={styles.clCardSub}>See clients who want to work with you</Text>
+          </View>
+          {pendingInviteCount > 0 && (
+            <View style={styles.invitesBadge}>
+              <Text style={styles.invitesBadgeText}>{pendingInviteCount}</Text>
+            </View>
+          )}
+        </Pressable>
 
-        <UpcomingSection />
+        <YourStageArtist />
 
-        {/* PAYMENTS-DISABLED: <PaymentsToConfirmStrip /> */}
+        {/* CL-only: entry card to the client requirements feed.
+            Artists must not see this — server 403s them anyway, but we
+            hide the door so the home stays clean for pure Artists. */}
+        {role === 'creative_lead' && (
+          <Pressable
+            onPress={() => router.push('/(app)/requirements' as any)}
+            style={styles.clCard}
+          >
+            <View style={styles.clCardIconWrap}>
+              <Briefcase size={18} color="#FF6B35" />
+            </View>
+            <View style={styles.clCardText}>
+              <Text style={styles.clCardTitle}>Client requirements</Text>
+              <Text style={styles.clCardSub}>Win client work — see what clients are looking for</Text>
+            </View>
+          </Pressable>
+        )}
 
-        <AppliedSection />
+        <ForYouMatchStrip />
 
-        <SavedSection />
+        <DiscoverMatchesStrip />
 
-        <DraftsSection />
-
-        {/* <ContractsStrip /> */}
-
-        <TrustTierProgress />
-
-        <PlaceholderCard
-          title="Sub-artist offers"
-          subtitle="Lead-artist team features coming in Plan 4"
-        />
-
-        <PlaceholderCard
-          title="Reviews received"
-          subtitle="Reviews from hirers will appear here after your first completed gig"
-        />
-
-        <PlaceholderCard
-          title="Profile views"
-          subtitle="Analytics coming soon"
-        />
-
-        <MessagesPreview />
+        {/* Editorial footer */}
+        <View style={styles.footer}>
+          <View style={styles.footerRule} />
+          <Text style={styles.footerCaption}>THE STAGE IS YOURS</Text>
+        </View>
       </ScrollView>
+
+      <FloatingInboxFab />
 
       <ScreenTooltip
         screenId="home-toggle"
@@ -125,13 +168,102 @@ export default function ArtistHome() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#050505' },
-  scroll: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 140 },
-  header: { marginBottom: 16, paddingHorizontal: 4 },
-  wordmark: {
-    fontFamily: 'DMSerifDisplay_400Regular',
-    fontSize: 22,
-    color: '#F5F0EB',
+  root: { flex: 1, backgroundColor: '#060509' },
+  scroll: { paddingTop: 8, paddingBottom: 140 },
+  // Invites entry card — both artists and CLs
+  invitesCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.25)',
+    backgroundColor: 'rgba(167,139,250,0.06)',
+  },
+  invitesIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(167,139,250,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  invitesCardTitle: {
+    fontFamily: 'Outfit-SemiBold',
+    fontSize: 14,
+    color: '#F4F4F5',
+    marginBottom: 2,
+  },
+  invitesBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#A78BFA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    marginLeft: 8,
+  },
+  invitesBadgeText: {
+    fontFamily: 'Outfit-SemiBold',
+    fontSize: 11,
+    color: '#1A0D06',
+  },
+  // CL requirements entry card — only rendered when role === 'creative_lead'
+  clCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.25)',
+    backgroundColor: 'rgba(255,107,53,0.06)',
+  },
+  clCardIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,107,53,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  clCardText: { flex: 1 },
+  clCardTitle: {
+    fontFamily: 'Outfit-SemiBold',
+    fontSize: 14,
+    color: '#F4F4F5',
+    marginBottom: 2,
+  },
+  clCardSub: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 12,
+    color: '#71717a',
+    lineHeight: 16,
+  },
+  footer: {
+    alignItems: 'center',
+    paddingTop: 24,
+    paddingBottom: 40,
+    paddingHorizontal: 24,
+  },
+  footerRule: {
+    height: 1,
+    width: '40%',
+    backgroundColor: 'rgba(243,239,232,0.14)',
+    marginBottom: 16,
+  },
+  footerCaption: {
+    fontSize: 9,
     letterSpacing: 2,
+    color: '#3F3D4A',
+    fontFamily: 'Outfit-Bold',
   },
 });

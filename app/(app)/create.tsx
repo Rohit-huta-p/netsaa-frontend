@@ -10,8 +10,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, Briefcase, Calendar, Pencil } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { GigForm, GigFormHandle } from "@/components/create/GigForm";
+import { useAuthStore } from "@/stores/authStore";
 import GigFormV2 from "@/components/create/GigFormV2";
-// EventForm is replaced by the 7-step composer at /events/compose (Task 9)
+// Event tab now renders the 7-step composer inline (also routable standalone at /events/compose)
+import ComposerShell from "@/components/events/composer/ComposerShell";
 import { useStepBackGuard } from "@/hooks/useStepBackGuard";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
@@ -20,11 +22,13 @@ export default function CreateListing() {
     const { gigId, initialTab } = useLocalSearchParams();
     const gigIdValue = Array.isArray(gigId) ? gigId[0] : gigId;
     const isEditing = !!gigIdValue;
-    const initialTabValue = (Array.isArray(initialTab) ? initialTab[0] : initialTab) === 'event' ? 'event' : 'gig';
+    // Three-role wall: artists apply to gigs, they don't post them. Events stay open to all roles.
+    const role = useAuthStore((s) => s.role);
+    const canPostGigs = role !== 'artist';
+    const initialTabValue = !canPostGigs ? 'event' : (Array.isArray(initialTab) ? initialTab[0] : initialTab) === 'event' ? 'event' : 'gig';
     const [activeTab, setActiveTab] = useState<"gig" | "event">(initialTabValue);
 
     const gigFormRef = useRef<GigFormHandle>(null);
-    // eventFormRef removed — Event tab now routes to /events/compose
     const { newGigForm } = useFeatureFlags();
 
     // Keep activeTab in a ref so handleBack (read via onBackRef inside the hook)
@@ -100,7 +104,7 @@ export default function CreateListing() {
                     </>
                 ) : (
                     <View style={styles.tabContainer}>
-                        <TouchableOpacity
+                        {canPostGigs && <TouchableOpacity
                             style={styles.tab}
                             onPress={() => setActiveTab("gig")}
                             activeOpacity={0.9}
@@ -127,11 +131,11 @@ export default function CreateListing() {
                                     Gig
                                 </Text>
                             </View>
-                        </TouchableOpacity>
+                        </TouchableOpacity>}
 
                         <TouchableOpacity
                             style={styles.tab}
-                            onPress={() => router.push('/events/compose')}
+                            onPress={() => setActiveTab("event")}
                             activeOpacity={0.9}
                         >
                             {activeTab === "event" && (
@@ -179,7 +183,10 @@ export default function CreateListing() {
                             gigId={gigIdValue}
                         />
                     )
-                ) : null /* Event tab navigates to /events/compose — should not reach here */}
+                ) : (
+                    /* Event tab — inline 7-step composer (same component as /events/compose route) */
+                    <ComposerShell />
+                )}
             </View>
         </SafeAreaView>
     );

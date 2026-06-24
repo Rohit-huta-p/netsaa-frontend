@@ -200,7 +200,7 @@ export default function AppliedSection() {
                 app.hirer?.name ??
                 app.hirerName ??
                 app.organizer?.name ??
-                'Hirer';
+                'Creative Lead';
               const date = formatAppliedDate(app.createdAt ?? app.appliedAt);
               const label = getApplicationStatusLabel(app.status ?? '');
               const canWithdraw = WITHDRAWABLE_STATUSES.has(app.status ?? '');

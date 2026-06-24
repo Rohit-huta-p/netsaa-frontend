@@ -93,7 +93,7 @@ export const BioAndSkillsSection: React.FC<BioAndSkillsSectionProps> = ({
                 <View>
                     <View className="mb-6">
                         <Text className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">
-                            {role === 'organizer' ? 'About' : 'Bio'}
+                            {role === 'creative_lead' ? 'About' : 'Bio'}
                         </Text>
                         <AITextInput
                             value={bio}

@@ -59,6 +59,13 @@ export type UpcomingItem = {
   date: string | null;
   location?: string;
   counterparty?: string;
+  /**
+   * Pay in rupees for the home dashboard hero/next-up card.
+   * - gig:   amount the artist is hired for (defensive read across legacy
+   *          field names: payRupees / payAmount / amount / compensation.amount)
+   * - event: ticket price (paid events). Null/0 means free RSVP.
+   */
+  payRupees?: number | null;
 };
 
 /** Defensive unwrap: some services return `[...]`, others `{ data: [...] }`. */
@@ -76,6 +83,29 @@ function normalizeLocation(loc: any): string | undefined {
   if (loc.city) return loc.city;
   if (loc.venueName) return loc.venueName;
   return undefined;
+}
+
+/**
+ * Defensive pay extractor — accepts the four field names the codebase
+ * currently uses across services + saved-items transforms:
+ *   payRupees / payAmount / amount / compensation.amount
+ * Returns null when no readable number is present (UI shows the
+ * appropriate fallback — "Free" for events, "—" for gigs).
+ */
+function extractPay(src: any): number | null {
+  if (!src || typeof src !== 'object') return null;
+  const candidates = [
+    src.payRupees,
+    src.payAmount,
+    src.amount,
+    src.compensation?.amount,
+    src.budget?.amount,
+    src.pay?.amount,
+  ];
+  for (const c of candidates) {
+    if (typeof c === 'number' && Number.isFinite(c)) return c;
+  }
+  return null;
 }
 
 function toGigItem(app: any): UpcomingItem | null {
@@ -96,6 +126,9 @@ function toGigItem(app: any): UpcomingItem | null {
     location: normalizeLocation(gig.location),
     counterparty:
       typeof hirer === 'object' ? hirer?.displayName || hirer?.name : undefined,
+    // Pay sometimes lives on the application row (post-hire negotiated rate),
+    // otherwise falls back to the gig's posted compensation.
+    payRupees: extractPay(app) ?? extractPay(gig),
   };
 }
 
@@ -108,16 +141,21 @@ function toEventItem(reg: any): UpcomingItem | null {
   const id = event._id || event.id || reg?.eventId;
   if (!id) return null;
   const organizer = event.organizer || event.organizerId;
+  // Events store the ticket price under pricing.amount (paid events) or
+  // nothing (free RSVPs). Reuse extractPay for symmetry, then fall back to
+  // pricing.amount which is the canonical field on the Event schema.
+  const eventPay = extractPay(event) ?? (typeof event?.pricing?.amount === 'number' ? event.pricing.amount : null);
   return {
     type: 'event',
     id: String(id),
     title: event.title || 'Untitled Event',
-    date: event?.schedule?.startDate || event.startDate || null,
+    date: event?.schedule?.startDate || event.startDate || event?.startsAt || null,
     location: normalizeLocation(event.location),
     counterparty:
       typeof organizer === 'object'
         ? organizer?.displayName || organizer?.name || organizer?.organizationName
         : undefined,
+    payRupees: eventPay,
   };
 }
 

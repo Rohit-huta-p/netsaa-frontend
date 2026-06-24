@@ -199,8 +199,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                             <StatusPillRow
                                 typeLabel={
                                     gig.eventFunction ||
-                                    gig.artistTypes?.[0] ||
-                                    (typeof gig.category === 'string' ? gig.category : undefined)
+                                    gig.artistTypes?.[0]
                                 }
                                 applicationDeadline={gig.applicationDeadline}
                                 appliedCount={gig.stats?.applications ?? totalCount}
@@ -285,6 +284,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                                     <LookingForSection
                                         artistTypes={gig.artistTypes}
                                         experienceLevel={gig.experienceLevel}
+                                        minExperienceYears={gig.minExperienceYears}
                                         genderPreference={gig.genderPreference}
                                         ageRange={gig.ageRange}
                                         heightRequirements={gig.heightRequirements}

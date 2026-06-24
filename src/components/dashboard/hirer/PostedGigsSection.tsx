@@ -38,7 +38,7 @@ export default function PostedGigsSection() {
   return (
     <SectionCard
       title="Your posts"
-      seeAllHref="/gigs?mine=1"
+      seeAllHref="/posts"
       isLoading={isLoading}
       error={error as Error | null}
       onRetry={() => refetch()}

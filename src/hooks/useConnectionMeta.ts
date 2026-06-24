@@ -35,6 +35,28 @@ export function useMutualConnections(userId: string | undefined, limit = 10) {
     });
 }
 
+/**
+ * Current user's accepted-connections list. Mirrors how /network computes
+ * the count (connectionService.getConnections() then .length) so the
+ * profile and network screens stay in agreement without a separate
+ * server-side counter.
+ */
+export function useMyConnectionsCount(enabled: boolean = true) {
+    const { user } = useAuthStore();
+    const meId = (user as any)?._id;
+
+    return useQuery<number, Error>({
+        queryKey: ['my-connections-count', meId],
+        queryFn: async () => {
+            const list = await connectionService.getConnections();
+            return Array.isArray(list) ? list.length : 0;
+        },
+        enabled: !!meId && enabled,
+        staleTime: 30 * 1000,
+        gcTime: 5 * 60 * 1000,
+    });
+}
+
 type DegreePayload = { degree: 1 | 2 | 3 | null };
 
 export function useConnectionDegree(userId: string | undefined) {

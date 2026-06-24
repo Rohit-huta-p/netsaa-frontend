@@ -29,6 +29,14 @@ export interface EventCapacity {
   slotsLeft?: number; // computed by backend on detail
 }
 
+export interface AgendaItem {
+  date: string;          // ISO date (the day this item belongs to)
+  title: string;         // short topic name, e.g. "Aarambh · The beginning"
+  subtitle?: string;     // optional one-line description
+  startsAt?: string;     // ISO datetime (full start time, overrides date)
+  durationMinutes?: number;
+}
+
 export interface EventDoc {
   _id: string;
   organizerId: string | { _id: string; name: string; verified: boolean; avatar?: string; role?: string };
@@ -45,6 +53,8 @@ export interface EventDoc {
   location: EventLocation;
   capacity: EventCapacity;
   media: EventMedia[];
+  registrationDeadline?: string; // ISO datetime · cutoff for new registrations
+  agenda?: AgendaItem[];         // optional per-day breakdown, populated for multi-day events
   status: 'draft' | 'pending_review' | 'live' | 'cancelled' | 'completed';
   moderationFlagReason?: string;
   stats?: { views: number; saves: number; sharesCount: number };
@@ -103,25 +113,34 @@ client.interceptors.request.use((config) => {
 
 export const eventService = {
   list: async (params: EventListParams = {}): Promise<{ events: EventDoc[]; total: number; page: number; limit: number }> => {
-    const r = await client.get('/api/events', { params });
-    return r.data.data;
+    const r = await client.get('/v1/events', { params });
+    // Backend envelope is { meta: { total, page, pages }, data: EventDoc[] }.
+    // Unwrap into the declared shape the UI consumes (data.events / data.total),
+    // NOT the raw array — returning r.data.data made data.events undefined → "no events".
+    const meta = r.data?.meta ?? {};
+    return {
+      events: Array.isArray(r.data?.data) ? r.data.data : [],
+      total: meta.total ?? 0,
+      page: meta.page ?? Number(params.page ?? 1),
+      limit: Number(params.limit ?? 20),
+    };
   },
 
   detail: async (id: string): Promise<EventDoc> => {
-    const r = await client.get(`/api/events/${id}`);
-    return r.data.data.event;
+    const r = await client.get(`/v1/events/${id}`);
+    return r.data.data;
   },
 
   create: async (payload: Partial<EventDoc>): Promise<{ _id: string; status: EventDoc['status']; moderationFlagReason?: string }> => {
-    const r = await client.post('/api/events', payload);
-    return r.data.data.event;
+    const r = await client.post('/v1/events', payload);
+    return r.data.data;
   },
 
   register: async (
     eventId: string,
     payload: RegisterPayload,
   ): Promise<RegisterResponse> => {
-    const r = await client.post(`/api/events/${eventId}/register`, payload);
+    const r = await client.post(`/v1/events/${eventId}/register`, payload);
     return r.data.data;
   },
 

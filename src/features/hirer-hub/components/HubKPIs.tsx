@@ -2,28 +2,24 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import type { HubKPIs as HubKPIData } from '../hooks/useGigHubData';
 
-// `kpis.slotsTotal` is guaranteed >= 1 by the upstream selector hook
-// (useGigHubData applies `|| 1` fallback). If a future caller hands in 0,
-// the rendered "/0" reads as "all slots filled" but is meaningless — keep
-// the upstream guard.
+// Gig-hub redesign v1 — single hairline KPI band, Space Mono tabular numerals.
+// Cells: Applicants (+new) · Slots filled · Budget · Days left.
+// See DOCS/designs/gig-hub-redesign-v1.html.
 
 const COLORS = {
     text0: '#F3EFE8',
     text2: '#6B6878',
     text3: '#3F3D4A',
     orange: '#FF6B35',
-    green: '#22C55E',
     gold: '#F59E0B',
+    line: 'rgba(243,239,232,0.07)',
 };
 
 function inrShort(amount: number): string {
-    if (!Number.isFinite(amount)) return '₹0';
+    if (!Number.isFinite(amount) || amount <= 0) return '—';
     // Bump to lakh slightly early so the boundary doesn't read as ₹100.0K
     // (a tick from ₹1L). Floor instead of round so we never overstate.
     if (amount >= 99_950) {
-        // For values in the early-bump zone [99_950, 100_000), snap to ₹1L
-        // so the boundary doesn't read as ₹100K. For values >= 100_000,
-        // floor so we never overstate.
         const lakh = amount < 100_000 ? 1 : Math.floor((amount / 100_000) * 10) / 10;
         return `₹${lakh % 1 === 0 ? lakh.toFixed(0) : lakh.toFixed(1)}L`;
     }
@@ -36,32 +32,58 @@ function inrShort(amount: number): string {
 
 type Props = { kpis: HubKPIData };
 
+function Cell({
+    children,
+    label,
+    first,
+}: {
+    children: React.ReactNode;
+    label: string;
+    first?: boolean;
+}) {
+    return (
+        <View
+            style={{
+                flex: 1,
+                paddingVertical: 16,
+                alignItems: 'center',
+                borderLeftWidth: first ? 0 : 1,
+                borderLeftColor: COLORS.line,
+            }}>
+            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 20, color: COLORS.text0, letterSpacing: -0.5 }}>
+                {children}
+            </Text>
+            <Text style={{ fontSize: 9, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.3, textTransform: 'uppercase', marginTop: 6 }}>
+                {label}
+            </Text>
+        </View>
+    );
+}
+
 export function HubKPIs({ kpis }: Props) {
     return (
-        <View style={{ paddingHorizontal: 24, paddingBottom: 40 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around' }}>
-                <View>
-                    <Text style={{ fontSize: 10, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                        Applied
-                    </Text>
-                    <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 32, color: COLORS.orange, marginTop: 4 }}>
-                        {kpis.appliedCount}
-                    </Text>
-                </View>
-                <View style={{ alignItems: 'center' }}>
-                    <Text style={{ fontSize: 10, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                        Hired
-                    </Text>
-                    <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 32, color: COLORS.text0, marginTop: 4 }}>
-                        <Text>{kpis.hiredCount}</Text>
-                        <Text style={{ fontSize: 18, color: COLORS.text3 }}>/{kpis.slotsTotal}</Text>
-                    </Text>
-                </View>
-                {/* PAYMENTS-DISABLED (Apr 30): Paid · Due cell removed.
-                    Was reading contract.paidAmount which is always 0 since
-                    contract rollback. Restore when on-platform Razorpay
-                    ships and aggregation reads from confirmed Transactions. */}
-            </View>
+        <View
+            style={{
+                marginHorizontal: 24,
+                marginBottom: 8,
+                flexDirection: 'row',
+                borderTopWidth: 1,
+                borderBottomWidth: 1,
+                borderColor: COLORS.line,
+            }}>
+            <Cell first label="Applied">
+                <Text>{kpis.appliedCount}</Text>
+            </Cell>
+            <Cell label="Slots">
+                <Text>{kpis.hiredCount}</Text>
+                <Text style={{ color: COLORS.text3 }}>/{kpis.slotsTotal}</Text>
+            </Cell>
+            <Cell label="Budget">
+                <Text style={{ color: COLORS.gold }}>{inrShort(kpis.budgetAmount)}</Text>
+            </Cell>
+            <Cell label="Days left">
+                <Text>{kpis.daysLeft ?? '—'}</Text>
+            </Cell>
         </View>
     );
 }

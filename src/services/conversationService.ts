@@ -55,9 +55,13 @@ const conversationService = {
         return data.data;
     },
 
-    createConversation: async (recipientId: string): Promise<PopulatedConversation> => {
-        const { data } = await API.post('/', { recipientId });
-        return data.data;
+    createConversation: async (
+        recipientId: string,
+        context?: { requirementId?: string; proposalId?: string; label?: string; inviteId?: string },
+        seedText?: string,
+    ): Promise<PopulatedConversation> => {
+        const { data } = await API.post('/', { recipientId, context, seedText });
+        return data?.data ?? data;
     }
 };
 

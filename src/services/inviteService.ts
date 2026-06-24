@@ -58,8 +58,15 @@ export const inviteService = {
 export type SentInvite = {
     _id: string;
     toUserId: string;
+    toRole?: 'artist' | 'creative_lead' | 'agency';
+    // Denormalized recipient captured server-side at invite time (mirrors fromSnapshot)
+    // so the sent list can show the performer, not just requirement context.
+    toSnapshot?: { displayName?: string; avatarUrl?: string | null; city?: string };
     requirementId: string | null;
+    requirementTitle?: string;
+    requirementSnapshot?: RequirementSnapshot | null;
     status: 'sent' | 'viewed' | 'accepted' | 'declined' | 'withdrawn';
+    createdAt?: string;
 };
 
 /** Statuses the server's partial unique index treats as a live invite (these

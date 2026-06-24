@@ -22,11 +22,8 @@ import {
   AccessibilityInfo,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInUp } from 'react-native-reanimated';
-import {
-  useOrganizerPosts,
-  type PostRow,
-} from '@/hooks/useOrganizerPosts';
+import { useOrganizerPosts } from '@/hooks/useOrganizerPosts';
+import PostCard from '@/components/posts/PostCard';
 
 type TabKey = 'active' | 'draft' | 'past';
 
@@ -48,26 +45,6 @@ function eyebrowForCount(n: number): string {
     return `${words[n]} postings, alive in the world.`;
   }
   return `${n} postings, alive in the world.`;
-}
-
-function metaLineForRow(row: PostRow): React.ReactNode {
-  if (row.kind === 'event' && row.seats) {
-    const { taken, total } = row.seats;
-    return (
-      <Text style={styles.statText}>
-        <Text style={styles.statText}>{taken} / {total}</Text>
-        <Text style={styles.statTextMuted}> seats</Text>
-      </Text>
-    );
-  }
-  const applicants = row.applicants ?? 0;
-  const views = row.views ?? 0;
-  return (
-    <Text style={styles.statText}>
-      <Text style={styles.statText}>{applicants} {applicants === 1 ? 'applicant' : 'applicants'}</Text>
-      <Text style={styles.statTextMuted}> · {views} {views === 1 ? 'view' : 'views'}</Text>
-    </Text>
-  );
 }
 
 export default function YourPostsSection() {
@@ -92,7 +69,7 @@ export default function YourPostsSection() {
       <View style={styles.headRow}>
         <Text style={styles.h2}>Your posts</Text>
         <Pressable
-          onPress={() => router.push('/gigs?mine=1' as any)}
+          onPress={() => router.push('/posts' as any)}
           accessibilityRole="button"
           hitSlop={8}
         >
@@ -149,41 +126,15 @@ export default function YourPostsSection() {
           </Text>
         </View>
       ) : (
-        items.map((row, i) => {
-          const Card = reduceMotion ? View : Animated.View;
-          const entering = reduceMotion ? undefined : FadeInUp.delay(80 + i * 60).duration(600);
-          const isEvent = row.kind === 'event';
-          return (
-            <Pressable
-              key={row.id}
-              onPress={() => router.push(row.href as any)}
-              accessibilityRole="button"
-              accessibilityLabel={`Open ${row.kind} ${row.title}`}
-            >
-              <Card style={styles.card} entering={entering as any}>
-                <View style={styles.cardHead}>
-                  <View style={styles.pillRow}>
-                    <View style={[styles.pill, isEvent ? styles.pillEvent : styles.pillGig]}>
-                      <Text style={[styles.pillText, isEvent ? styles.pillTextEvent : styles.pillTextGig]}>
-                        {isEvent ? 'EVENT' : 'GIG'}
-                      </Text>
-                    </View>
-                    {row.category ? (
-                      <Text style={styles.micro}>{row.category.toUpperCase()}</Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.price}>{row.price}</Text>
-                </View>
-                <Text style={styles.cardTitle} numberOfLines={1}>{row.title}</Text>
-                <Text style={styles.cardDate}>{row.date === '—' ? '' : `Pune · ${row.date}`}</Text>
-                <View style={styles.cardFoot}>
-                  <View style={styles.cardFootLeft}>{metaLineForRow(row)}</View>
-                  <Text style={styles.openLink}>Open →</Text>
-                </View>
-              </Card>
-            </Pressable>
-          );
-        })
+        items.map((row, i) => (
+          <PostCard
+            key={row.id}
+            row={row}
+            index={i}
+            reduceMotion={reduceMotion}
+            onPress={() => router.push(row.href as any)}
+          />
+        ))
       )}
     </View>
   );
@@ -225,50 +176,6 @@ const styles = StyleSheet.create({
   },
   partialBannerText: { color: '#F59E0B', fontSize: 12 },
   partialBannerLink: { fontFamily: 'Outfit-Bold' },
-
-  card: {
-    backgroundColor: '#0D0B12',
-    borderColor: 'rgba(243,239,232,0.05)',
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-  },
-  cardHead: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  pillRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  pill: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
-  pillGig: { backgroundColor: 'rgba(255,107,53,0.12)' },
-  pillEvent: { backgroundColor: 'rgba(139,92,246,0.12)' },
-  pillText: { fontFamily: 'Outfit-Bold', fontSize: 9, letterSpacing: 1 },
-  pillTextGig: { color: '#FF6B35' },
-  pillTextEvent: { color: '#8B5CF6' },
-  micro: { fontSize: 9, letterSpacing: 1.6, fontFamily: 'Outfit-Bold', color: '#6B6878' },
-  price: { fontFamily: 'SpaceMono-Bold', fontSize: 11, color: '#F59E0B' },
-  cardTitle: {
-    fontFamily: 'Outfit-SemiBold',
-    fontSize: 15,
-    color: '#F3EFE8',
-    lineHeight: 20,
-  },
-  cardDate: { fontSize: 12, color: '#B8B1A6', marginTop: 4, minHeight: 14 },
-  cardFoot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(243,239,232,0.05)',
-  },
-  cardFootLeft: { flexDirection: 'row', alignItems: 'center' },
-  statText: { fontSize: 12, fontFamily: 'Outfit-SemiBold', color: '#F3EFE8' },
-  statTextMuted: { fontSize: 12, color: '#B8B1A6', fontFamily: 'Outfit-Regular' },
-  openLink: { color: '#FF6B35', fontFamily: 'Outfit-Bold', fontSize: 12 },
 
   cardSkeleton: { height: 120, borderRadius: 14, backgroundColor: '#0D0B12' },
   errorBox: { paddingVertical: 16, alignItems: 'center' },

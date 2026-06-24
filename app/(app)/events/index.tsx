@@ -10,7 +10,7 @@ import {
     ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, MapPin, Calendar, Users, Filter, Plus } from 'lucide-react-native';
+import { Search, MapPin, Calendar, Users, Filter, Plus, ArrowUpDown } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 import { useEventsList } from '@/hooks/useEvents';
@@ -21,6 +21,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import AppScrollView from '@/components/AppScrollView';
 import { EventFilterModal } from '@/components/events/EventFilterModal';
+import { SortDropdown } from '@/components/ui/SortDropdown';
 import {
     INITIAL_EVENT_FILTERS,
     countActiveEventFilters,
@@ -33,14 +34,23 @@ import type { EventDoc } from '@/services/eventService';
 /* VisualEventCard — adapted to the new EventDoc schema (Plan 7)       */
 /* ------------------------------------------------------------------ */
 
-const FALLBACK_IMAGE =
-    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1000';
+// Branded placeholder shown when an event has no image (no fake stock photos).
+const NETSA_FALLBACK = require('@/../assets/netsa-logo-fallback.png');
+
+// Sort is applied client-side over the current page — the events list backend
+// params don't carry a sort field yet.
+const EVENT_SORT_OPTIONS = [
+    { value: 'default', label: 'Suggested' },
+    { value: 'soonest', label: 'Date' },
+    { value: 'popular', label: 'Popular' },
+    { value: 'price_low', label: 'Price' },
+];
 
 const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => void }) => {
     const hero =
         (event.media && event.media.find((m) => m.isHero)) ||
         (event.media && event.media[0]);
-    const imageUri = hero?.thumbnailUrl || hero?.url || FALLBACK_IMAGE;
+    const imageUri = hero?.thumbnailUrl || hero?.url;
 
     const isPaid =
         event.registrationMode === 'paid_ticket' && (event.pricing?.amount ?? 0) > 0;
@@ -79,11 +89,23 @@ const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => v
         >
             {/* Image Section */}
             <View className="relative w-full aspect-[4/3] overflow-hidden">
-                <Image
-                    source={{ uri: imageUri }}
-                    className="w-full h-full opacity-90"
-                    resizeMode="cover"
-                />
+                {imageUri ? (
+                    <Image
+                        source={{ uri: imageUri }}
+                        className="w-full h-full opacity-90"
+                        resizeMode="cover"
+                    />
+                ) : (
+                    // No image → centered NETSA logo, a bit blurred, on a dark panel.
+                    <View className="w-full h-full items-center justify-center bg-black">
+                        <Image
+                            source={NETSA_FALLBACK}
+                            style={{ width: '52%', height: '52%', opacity: 0.4 }}
+                            resizeMode="contain"
+                            blurRadius={3}
+                        />
+                    </View>
+                )}
 
                 {/* Category Badge (Top Left) */}
                 <View className="absolute top-4 left-4">
@@ -156,6 +178,9 @@ export default function EventsPage() {
 
     const isDesktop = width >= 1024;
     const isTablet = width >= 768 && width < 1024;
+    // Card columns: 2 on mobile (web mobile + Android + iOS), 3 on wide desktop.
+    // Width-based (not NativeWind `grid`, which is web-only) so native gets 2 too.
+    const numColumns = isDesktop ? 3 : 2;
 
     const { setSelectedEventId } = useUiStore();
 
@@ -195,6 +220,30 @@ export default function EventsPage() {
     const eventsList: EventDoc[] = data?.events ?? [];
 
     const [showFilterModal, setShowFilterModal] = useState(false);
+    const [showSortSheet, setShowSortSheet] = useState(false);
+    const [eventSort, setEventSort] = useState('default');
+
+    // Client-side sort of the current page (backend list params carry no sort yet).
+    const sortedEvents = useMemo(() => {
+        const arr = [...eventsList];
+        const ts = (s?: string) => (s ? new Date(s).getTime() : 0);
+        switch (eventSort) {
+            case 'soonest':
+                return arr.sort((a, b) => ts(a.startsAt) - ts(b.startsAt));
+            case 'popular':
+                return arr.sort(
+                    (a, b) => (b.capacity?.registeredCount ?? 0) - (a.capacity?.registeredCount ?? 0)
+                );
+            case 'price_low':
+                // `pricing` is present at runtime but absent from the EventDoc type
+                // (same access the card already relies on) — cast to read it.
+                return arr.sort(
+                    (a, b) => ((a as any).pricing?.amount ?? 0) - ((b as any).pricing?.amount ?? 0)
+                );
+            default:
+                return arr;
+        }
+    }, [eventsList, eventSort]);
 
     const filters = ['All Events', ...EVENT_CATEGORIES];
     const activeCategoryPill =
@@ -287,8 +336,8 @@ export default function EventsPage() {
                         </View>
 
                         {/* Search & Filters Row */}
-                        <View className="flex-col md:flex-row gap-6 mb-12">
-                            <View className="flex-row gap-4 flex-1">
+                        <View className="flex-col md:flex-row gap-6 mb-12" style={{ position: 'relative', zIndex: 30 }}>
+                            <View className="flex-row gap-4 flex-1" style={{ position: 'relative', zIndex: 40 }}>
                                 {/* Search Input */}
                                 <View className="relative h-14 bg-zinc-900/50 border border-white/5 rounded-2xl flex-row items-center px-4 flex-1">
                                     <Search size={20} color="#71717a" />
@@ -328,6 +377,33 @@ export default function EventsPage() {
                                         </View>
                                     )}
                                 </TouchableOpacity>
+
+                                {/* Sort Button — icon only, anchors a dropdown below it */}
+                                <View style={{ position: 'relative', zIndex: 50 }}>
+                                    <TouchableOpacity
+                                        onPress={() => setShowSortSheet((v) => !v)}
+                                        className={`h-14 px-6 rounded-2xl flex-row items-center gap-2 border ${
+                                            eventSort !== 'default'
+                                                ? 'bg-white border-white'
+                                                : 'bg-zinc-900/50 border-white/10'
+                                        }`}
+                                    >
+                                        <ArrowUpDown
+                                            size={18}
+                                            color={eventSort !== 'default' ? '#000' : '#fff'}
+                                        />
+                                    </TouchableOpacity>
+                                    <SortDropdown
+                                        visible={showSortSheet}
+                                        options={EVENT_SORT_OPTIONS}
+                                        value={eventSort}
+                                        onSelect={setEventSort}
+                                        onClose={() => setShowSortSheet(false)}
+                                        accent="#f43f5e"
+                                        align="right"
+                                        title="Sort events"
+                                    />
+                                </View>
                             </View>
 
                             {/* Category Pills */}
@@ -388,16 +464,17 @@ export default function EventsPage() {
                                 </Text>
                             </View>
                         ) : (
-                            // Responsive Grid Wrapper. Tailwind grid classes hydrate on web via
-                            // NativeWind; native falls back to flex-column (1 col), which is the
-                            // desired MVP layout on mobile.
-                            <View className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
-                                {eventsList.map((event) => (
-                                    <VisualEventCard
-                                        key={event._id}
-                                        event={event}
-                                        onPress={() => handleEventPress(event._id)}
-                                    />
+                            // Flex grid that works on web AND native. Each card sits in a
+                            // width-% cell (50% → 2/row, 33.3% → 3/row); the -8 / +8 gutter
+                            // keeps even spacing and left-aligns an incomplete last row.
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8, marginBottom: 16 }}>
+                                {sortedEvents.map((event) => (
+                                    <View key={event._id} style={{ width: `${100 / numColumns}%`, paddingHorizontal: 8 }}>
+                                        <VisualEventCard
+                                            event={event}
+                                            onPress={() => handleEventPress(event._id)}
+                                        />
+                                    </View>
                                 ))}
                             </View>
                         )}

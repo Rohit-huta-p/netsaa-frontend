@@ -149,6 +149,9 @@ function normalizeEvent(e: EventDoc): PostRow {
 
 export interface UseOrganizerPostsResult {
   items: PostRow[];
+  /** Full merged + sorted list (before the slice to `limit`). Consumed by the
+   *  /posts "Manage all" screen, which needs every row to filter/sort locally. */
+  allItems: PostRow[];
   /** Total rows across both sources after merge (before slice). */
   totalCount: number;
   isLoading: boolean;
@@ -223,6 +226,7 @@ export function useOrganizerPosts(
 
   return {
     items: merged.slice(0, limit),
+    allItems: merged,
     totalCount: merged.length,
     // Loading is true only while ANY source is still resolving its first run.
     // Once one resolves, the merged list shows what we have (failure isolation).

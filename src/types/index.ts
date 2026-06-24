@@ -48,13 +48,18 @@ export type IUserSettings = {
   account: IAccountSettings;
 };
 
+/** Three-role marketplace model (2026-06):
+ * client posts gigs for creative_leads; creative_leads post gigs for artists. */
+export type MarketRole = 'client' | 'creative_lead' | 'artist';
+
 export type User = {
   _id: string;
   firstName?: string;
   lastName?: string;
   displayName?: string;
   email: string;
-  role?: string;
+  role?: 'client' | 'creative_lead' | 'artist' | 'organizer';
+  roleChangedAt?: string;
   roles?: string[];
   accountStatus?: 'active' | 'deactivated' | 'scheduled_for_deletion';
   phoneNumber?: string;
@@ -111,6 +116,7 @@ export type VerifyOtpResponse = {
     token?: string;
     user?: User;
     phoneNumber?: string;
+    created?: boolean; // true when a new client account was created via OTP signup (2026-06)
   };
   errors: any[];
 };

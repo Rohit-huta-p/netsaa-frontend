@@ -43,6 +43,8 @@ export default function Step7Review() {
             }
           : undefined,
         media: form.media,
+        registrationDeadline: form.registrationDeadline || undefined,
+        agenda: form.agenda.length ? form.agenda : undefined,
       };
       const result = await mutation.mutateAsync(payload as any);
       setOutcome(result.status as 'live' | 'pending_review');
@@ -118,6 +120,11 @@ export default function Step7Review() {
             {' · '}{form.durationKind ? durationKindLabel[form.durationKind] : ''}
           </Text>
         ) : null}
+        {form.registrationDeadline ? (
+          <Text className="font-outfit text-event-textMuted text-xs mt-1">
+            Closes {new Date(form.registrationDeadline).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+          </Text>
+        ) : null}
       </ReviewBlock>
 
       <ReviewBlock label="Location" onEdit={() => setStep(3)}>
@@ -157,6 +164,11 @@ export default function Step7Review() {
         <Text className="font-outfit text-event-textPrimary text-sm leading-5" numberOfLines={4}>
           {form.about}
         </Text>
+        {form.agenda.length ? (
+          <Text className="font-outfit text-event-textMuted text-xs mt-2">
+            {form.agenda.length} day{form.agenda.length === 1 ? '' : 's'} mapped
+          </Text>
+        ) : null}
       </ReviewBlock>
 
       <ReviewBlock label="Media" onEdit={() => setStep(6)}>

@@ -40,3 +40,24 @@ export function inferModeFromUser(user: InferenceInput | null | undefined): User
 
   return 'artist';
 }
+
+/**
+ * Boot-time mode resolution (spec §2.4 — Layer 1 local vs Layer 2 server).
+ *
+ * The locally-persisted mode reflects the user's most recent EXPLICIT choice on
+ * THIS device and is authoritative once made (`modeExplicitlyChosen`). The
+ * server `lastActiveMode` only SEEDS mode on a device that has no explicit local
+ * choice yet (fresh login / new device). This prevents a stale server value from
+ * silently overriding a deliberate on-device switch on every app boot — the bug
+ * where switching to Hirer reverted to Artist after a web refresh.
+ */
+export function resolveBootstrapMode(args: {
+  localMode: UserMode;
+  modeExplicitlyChosen: boolean;
+  serverMode: unknown;
+}): UserMode {
+  const { localMode, modeExplicitlyChosen, serverMode } = args;
+  if (modeExplicitlyChosen) return localMode;
+  if (isValidMode(serverMode)) return serverMode;
+  return localMode;
+}

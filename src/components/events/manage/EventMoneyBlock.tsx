@@ -4,30 +4,36 @@
  * Renders only when registrationMode === 'paid_ticket'. Free RSVPs
  * skip this entirely.
  *
- * Shows:
- *   - Revenue gross (registered count × ticket price)
- *   - Revenue net (gross × (1 - platform fee), default 12% per PRD §3)
- *   - Refunds outstanding (TODO: pulls from refund queue once endpoint ships)
- *   - Payout status pill
+ * Shows (per RAZORPAY_PRICING_UX.md Tier 2):
+ *   - GROSS         — registered count × ticket price (organizer-earned subtotal)
+ *   - NETSA FEE     — gross × 0.5% (platform cut, taken via Razorpay split)
+ *   - NET           — gross − NETSA fee (settles to organizer's bank)
+ *   - PAYOUT pill   — Razorpay Route settlement state (Pending / In progress / Paid)
  *
- * Currency math uses paise normalization heuristic (under 1000 = rupees,
- * over = paise). Refund-queue + payout-status data is stubbed at zero
- * until the corresponding endpoints land. The block stays useful even
- * with the stubs because gross + net populate from the event document
- * alone.
+ * Service fee (2.36% paid by customer on top, covers Razorpay MDR) is NOT
+ * shown here because the organizer never sees it — it flows from customer to
+ * gateway, never touching the organizer's settlement. Customer-facing
+ * itemization lives in RegistrationReceiptCard + EventRegisterSheetV2.
+ *
+ * Pricing constants imported from `src/lib/eventPricing.ts`, which mirrors
+ * `events-service/.env`. Update both if the platform fee changes.
+ *
+ * Refund-tile was removed pending the refunds endpoint (Plan 8 follow-up).
+ * Payout status is still stubbed; wires up when Razorpay Route settlement
+ * webhooks ship.
  */
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { EventDoc } from '@/services/eventService';
+import { NETSA_FEE_PERCENT } from '@/lib/eventPricing';
 
-const PLATFORM_FEE_PCT = 0.12; // PRD §3 — 12% platform cut on events (hirer-side).
+const NETSA_FEE_FRACTION = NETSA_FEE_PERCENT / 100; // 0.5% → 0.005
 
-function formatRupees(amount: number): string {
+/** Compact rupee formatter for narrow KPI tiles. ₹1.5L instead of ₹1,50,000. */
+function formatRupeesCompact(amount: number): string {
   if (!Number.isFinite(amount) || amount <= 0) return '₹0';
-  // Format with Indian numbering (lakh/crore separators).
-  if (amount >= 100000) {
-    return `₹${(amount / 100000).toFixed(amount % 100000 === 0 ? 0 : 1)}L`;
-  }
+  if (amount >= 10_000_000) return `₹${(amount / 10_000_000).toFixed(amount % 10_000_000 === 0 ? 0 : 1)}Cr`;
+  if (amount >= 100_000) return `₹${(amount / 100_000).toFixed(amount % 100_000 === 0 ? 0 : 1)}L`;
   return `₹${Math.round(amount).toLocaleString('en-IN')}`;
 }
 
@@ -42,9 +48,7 @@ function readTicketAmountRupees(event: EventDoc): number {
 
 interface Props {
   event: EventDoc;
-  /** Future: hook return for outstanding refund total (paise or rupees, normalize). */
-  refundsOutstandingRupees?: number;
-  /** Future: hook return for payout status. */
+  /** Future: hook return for payout status (settlement webhook not yet wired). */
   payoutStatus?: 'pending' | 'in_progress' | 'paid' | 'on_hold';
 }
 
@@ -62,21 +66,20 @@ const PAYOUT_COLOR: Record<NonNullable<Props['payoutStatus']>, string> = {
   on_hold: '#EF4444',
 };
 
-export default function EventMoneyBlock({
-  event,
-  refundsOutstandingRupees = 0,
-  payoutStatus = 'pending',
-}: Props) {
+export default function EventMoneyBlock({ event, payoutStatus = 'pending' }: Props) {
   if (event.registrationMode !== 'paid_ticket') return null;
 
-  const { gross, net, ticketRupees } = useMemo(() => {
+  const { gross, netsaFee, net, ticketRupees, registered } = useMemo(() => {
     const ticket = readTicketAmountRupees(event);
-    const registered = event.capacity?.registeredCount ?? 0;
-    const g = ticket * registered;
+    const reg = event.capacity?.registeredCount ?? 0;
+    const g = ticket * reg;
+    const fee = Math.round(g * NETSA_FEE_FRACTION * 100) / 100;
     return {
       gross: g,
-      net: Math.round(g * (1 - PLATFORM_FEE_PCT)),
+      netsaFee: fee,
+      net: Math.round((g - fee) * 100) / 100,
       ticketRupees: ticket,
+      registered: reg,
     };
   }, [event]);
 
@@ -93,22 +96,20 @@ export default function EventMoneyBlock({
       <View style={styles.grid}>
         <View style={styles.tile}>
           <Text style={styles.tileLabel}>GROSS</Text>
-          <Text style={styles.tileNum}>{formatRupees(gross)}</Text>
-          <Text style={styles.tileSub}>{event.capacity?.registeredCount ?? 0} paid</Text>
+          <Text style={styles.tileNum}>{formatRupeesCompact(gross)}</Text>
+          <Text style={styles.tileSub}>{registered} paid · revenue</Text>
         </View>
 
         <View style={styles.tile}>
-          <Text style={styles.tileLabel}>NET (after fee)</Text>
-          <Text style={styles.tileNum}>{formatRupees(net)}</Text>
-          <Text style={styles.tileSub}>12% platform</Text>
+          <Text style={styles.tileLabel}>NETSA FEE</Text>
+          <Text style={styles.tileNum}>{formatRupeesCompact(netsaFee)}</Text>
+          <Text style={styles.tileSub}>{NETSA_FEE_PERCENT}% platform</Text>
         </View>
 
         <View style={styles.tile}>
-          <Text style={styles.tileLabel}>REFUNDS</Text>
-          <Text style={[styles.tileNum, refundsOutstandingRupees > 0 && styles.tileNumUrgent]}>
-            {formatRupees(refundsOutstandingRupees)}
-          </Text>
-          <Text style={styles.tileSub}>{refundsOutstandingRupees > 0 ? 'outstanding' : 'none open'}</Text>
+          <Text style={styles.tileLabel}>NET TO YOU</Text>
+          <Text style={[styles.tileNum, styles.tileNumBrand]}>{formatRupeesCompact(net)}</Text>
+          <Text style={styles.tileSub}>after NETSA fee</Text>
         </View>
 
         <View style={styles.tile}>
@@ -178,6 +179,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   tileNumUrgent: { color: '#F59E0B' },
+  tileNumBrand: { color: '#FF6B35' },
   tileSub: {
     fontFamily: 'Outfit-Regular',
     fontSize: 10,

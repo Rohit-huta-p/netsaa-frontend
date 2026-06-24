@@ -8,6 +8,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { View, ScrollView, ActivityIndicator, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, MoreHorizontal } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { useGigHubData } from './hooks/useGigHubData';
 import { computeStickyCTA } from './utils/computeStickyCTA';
@@ -16,7 +17,7 @@ import { HireConfirmModal } from '@/components/gigs/applications/HireConfirmModa
 import { ContactActionSheet, type ContactTarget } from '@/features/team/ContactActionSheet';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 
-import { HubHero } from './components/HubHero';
+import { HubHero, STATUS_LABEL } from './components/HubHero';
 import { HubKPIs } from './components/HubKPIs';
 import { HubTeamSection } from './components/HubTeamSection';
 // CONTRACTS-DISABLED: HubBookingTermsCard hidden until contract artifact is restored.
@@ -146,6 +147,14 @@ export function HirerGigHub({ gigId }: Props) {
 
     return (
         <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+            {/* Warm spotlight wash behind the hero — matches gig-hub-redesign-v1.html. */}
+            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 360 }}>
+                <LinearGradient
+                    colors={['rgba(255,107,53,0.16)', 'rgba(255,107,53,0.04)', 'transparent']}
+                    locations={[0, 0.45, 1]}
+                    style={{ flex: 1 }}
+                />
+            </View>
             <ScrollView
                 ref={scrollRef}
                 showsVerticalScrollIndicator={false}
@@ -154,10 +163,19 @@ export function HirerGigHub({ gigId }: Props) {
                 {/* Mobile-only header. Desktop relies on the global Navbar
                     for navigation; rendering this would duplicate the chrome. */}
                 {showMobileHeader && (
-                    <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4, flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                         <TouchableOpacity onPress={handleBack} accessibilityLabel="Back" hitSlop={12}>
                             <ChevronLeft size={20} color="#B8B1A6" />
                         </TouchableOpacity>
+                        {(() => {
+                            const s = STATUS_LABEL[gig.status ?? ''] ?? STATUS_LABEL.published;
+                            return (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, backgroundColor: `${s.color}1A`, borderWidth: 1, borderColor: `${s.color}38` }}>
+                                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: s.color }} />
+                                    <Text style={{ color: s.color, fontSize: 10, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' }}>{s.label}</Text>
+                                </View>
+                            );
+                        })()}
                         <TouchableOpacity accessibilityLabel="More" hitSlop={12}>
                             <MoreHorizontal size={18} color="#B8B1A6" />
                         </TouchableOpacity>
@@ -170,11 +188,27 @@ export function HirerGigHub({ gigId }: Props) {
                     eventFunction={gig.eventFunction}
                     city={gig.location?.city}
                     startDate={gig.schedule?.startDate ?? gig.startDate}
+                    showStatus={!showMobileHeader}
                 />
 
                 <HubKPIs kpis={data.kpis} />
 
                 <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24 }} />
+
+                {/* Applicants FIRST — v1 "action-first": the owner's #1 job
+                    (review / hire) sits above the fold; the team roster follows. */}
+                <View
+                    onLayout={(e) => { applicantsYRef.current = e.nativeEvent.layout.y - 16; }}>
+                    <HubApplicantsSection
+                        applicants={data.pendingApplicants}
+                        onTapApplicant={handleRowTap}
+                        onQuickHire={handleQuickHire}
+                        onQuickReject={handleQuickReject}
+                        onSeeAll={() => router.push(`/(app)/gigs/${gigId}?tab=applicants` as any)}
+                    />
+                </View>
+
+                <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 32 }} />
 
                 <HubTeamSection
                     teamRows={data.teamRows}
@@ -215,19 +249,6 @@ export function HirerGigHub({ gigId }: Props) {
                 />
                 */}
 
-                <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 32 }} />
-
-                <View
-                    onLayout={(e) => { applicantsYRef.current = e.nativeEvent.layout.y - 16; }}>
-                    <HubApplicantsSection
-                        applicants={data.pendingApplicants}
-                        onTapApplicant={handleRowTap}
-                        onQuickHire={handleQuickHire}
-                        onQuickReject={handleQuickReject}
-                        onSeeAll={() => router.push(`/(app)/gigs/${gigId}?tab=applicants` as any)}
-                    />
-                </View>
-
                 <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 24 }} />
 
                 {/* Discussion — open Q&A thread on the gig. Authenticated users
@@ -248,12 +269,20 @@ export function HirerGigHub({ gigId }: Props) {
 
                 <HubEssentials
                     eventDate={gig.schedule?.startDate ?? gig.startDate}
-                    venue={gig.location?.venue}
+                    venue={gig.location?.venueName}
                     city={gig.location?.city}
                     scope={gig.description}
                     postedDate={gig.createdAt}
                     onEditGig={() => router.push(`/(app)/create?gigId=${gigId}` as any)}
                 />
+
+                {/* Editorial footer — matches gig-hub-redesign-v1.html. */}
+                <View style={{ alignItems: 'center', paddingTop: 32, paddingBottom: 8 }}>
+                    <View style={{ height: 1, width: '40%', backgroundColor: 'rgba(243,239,232,0.14)', marginBottom: 14 }} />
+                    <Text style={{ fontSize: 9, letterSpacing: 2, color: '#3F3D4A', fontFamily: 'Outfit-Bold' }}>
+                        THE STAGE IS YOURS
+                    </Text>
+                </View>
             </ScrollView>
 
             <View style={{ position: 'absolute', bottom: tabBarHeight + 16, left: 0, right: 0 }}>

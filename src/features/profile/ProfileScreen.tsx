@@ -354,7 +354,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                     </Pressable>
                     <Pressable onPress={() => setActiveContext('hirer')} style={[s.ctxTab, activeContext === 'hirer' && s.ctxActive]}>
                         <Briefcase size={12} color={activeContext === 'hirer' ? '#F0ECE6' : '#4A4656'} />
-                        <Text style={[s.ctxText, activeContext === 'hirer' && s.ctxTextActive]}>Hirer</Text>
+                        <Text style={[s.ctxText, activeContext === 'hirer' && s.ctxTextActive]}>Lead</Text>
                     </Pressable>
                 </View>
 

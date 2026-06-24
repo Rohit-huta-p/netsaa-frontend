@@ -92,21 +92,24 @@ describe('ProfileEditModal — Display Name is always editable', () => {
 
 describe('ProfileEditModal — 8 tabs always visible', () => {
     it('renders all 8 tab labels including Org and Billing', () => {
-        const { getByText } = render(<ProfileEditModal profileData={baseProfile} />);
+        const { getAllByText } = render(<ProfileEditModal profileData={baseProfile} />);
+        // In the long-scroll layout each label appears twice — once in the tab
+        // bar, once as the section header — so assert at least one match.
         ['Basic', 'Bio', 'Skills', 'Experience', 'Media', 'Social', 'Org', 'Billing'].forEach(
-            label => expect(getByText(label)).toBeTruthy()
+            label => expect(getAllByText(label).length).toBeGreaterThanOrEqual(1)
         );
     });
 
-    it('renders Org Name input under the Org tab (not Basic)', () => {
-        const { getByText, queryByPlaceholderText, getByPlaceholderText } = render(
+    it('renders the Org Name input as part of the single long-scroll form', () => {
+        const { getAllByText, getByPlaceholderText } = render(
             <ProfileEditModal profileData={baseProfile} />
         );
-        // Basic tab is active by default — Org Name should NOT be there.
-        expect(queryByPlaceholderText('Organization name')).toBeNull();
-        // Switch to Org tab.
-        fireEvent.press(getByText('Org'));
-        // Now Org Name should be present.
+        // The form is now one long scroll — every section renders at once, so the
+        // Org Name input is present immediately (it lives in the Org section).
+        expect(getByPlaceholderText('Organization name')).toBeTruthy();
+        // The Org tab still works as a scroll-to affordance and never unmounts it.
+        // ([0] = the tab-bar pill, which sits above the section headers.)
+        fireEvent.press(getAllByText('Org')[0]);
         expect(getByPlaceholderText('Organization name')).toBeTruthy();
     });
 
@@ -140,25 +143,24 @@ describe('ProfileEditModal — discard prompt', () => {
 
 describe('ProfileEditModal — dirty dot indicator', () => {
     it('marks the Basic tab dirty after editing Display Name', () => {
-        const { getByPlaceholderText, getByText } = render(
+        const { getByPlaceholderText, getAllByText } = render(
             <ProfileEditModal profileData={baseProfile} />
         );
         fireEvent.changeText(getByPlaceholderText('Your name'), 'X');
-        // Switching to another tab keeps the Basic tab visible in the bar.
-        fireEvent.press(getByText('Bio'));
-        // Dirty state should survive tab switching — re-pressing Basic shows
-        // the unsaved value.
-        fireEvent.press(getByText('Basic'));
+        // Tabs now scroll within one form; nothing unmounts, so the unsaved value
+        // must survive. ([0] = tab-bar pill, above the section headers.)
+        fireEvent.press(getAllByText('Bio')[0]);
+        fireEvent.press(getAllByText('Basic')[0]);
         expect(getByPlaceholderText('Your name').props.value).toBe('X');
     });
 });
 
 describe('ProfileEditModal — full skin tone palette', () => {
     it('renders all 7 skin tone swatches under the Bio tab', () => {
-        const { getByText, UNSAFE_root } = render(
+        const { getAllByText, UNSAFE_root } = render(
             <ProfileEditModal profileData={baseProfile} />
         );
-        fireEvent.press(getByText('Bio'));
+        fireEvent.press(getAllByText('Bio')[0]);
         // Each skin tone is a TouchableOpacity with a solid backgroundColor
         // matching one of the 7 hex codes. asymmetric matchers don't match
         // through inline style objects — walk the tree and check the style
@@ -170,7 +172,7 @@ describe('ProfileEditModal — full skin tone palette', () => {
             return style.backgroundColor === hex;
         };
         tones.forEach(hex => {
-            const matches = UNSAFE_root.findAll(node => styleHasBg(node.props?.style, hex));
+            const matches = UNSAFE_root.findAll((node: any) => styleHasBg(node.props?.style, hex));
             expect(matches.length).toBeGreaterThanOrEqual(1);
         });
     });
@@ -186,13 +188,13 @@ describe('ProfileEditModal — availability picker', () => {
     });
 
     it('tapping Available marks the Basic tab dirty', () => {
-        const { getByText, getByPlaceholderText } = render(
+        const { getByText, getAllByText, getByPlaceholderText } = render(
             <ProfileEditModal profileData={baseProfile} />
         );
         fireEvent.press(getByText('Available'));
-        // Dirty state survives tab switching — switch to Bio and back to Basic.
-        fireEvent.press(getByText('Bio'));
-        fireEvent.press(getByText('Basic'));
+        // Value survives scroll-to-section taps (nothing unmounts).
+        fireEvent.press(getAllByText('Bio')[0]);
+        fireEvent.press(getAllByText('Basic')[0]);
         // Display Name input still rendered — modal didn't unmount.
         expect(getByPlaceholderText('Your name')).toBeTruthy();
     });

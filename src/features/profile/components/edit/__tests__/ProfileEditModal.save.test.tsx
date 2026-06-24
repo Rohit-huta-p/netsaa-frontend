@@ -81,11 +81,11 @@ describe('ProfileEditModal — single Save fans out to two endpoints', () => {
     });
 
     it('edits across Basic + Org call both endpoints in parallel', async () => {
-        const { getByPlaceholderText, getByText } = render(
+        const { getByPlaceholderText, getByText, getAllByText } = render(
             <ProfileEditModal profileData={profile} />
         );
         fireEvent.changeText(getByPlaceholderText('Your name'), 'Aarav');
-        fireEvent.press(getByText('Org'));
+        fireEvent.press(getAllByText('Org')[0]);
         fireEvent.changeText(getByPlaceholderText('Organization name'), 'Studio X');
         fireEvent.press(getByText(/^Save changes$/));
 
@@ -130,13 +130,13 @@ describe('ProfileEditModal — toast feedback', () => {
         mockUpdateOrganizer.mockRejectedValueOnce(new Error('500'));
         // mockUpdateProfile defaults to resolved — both endpoints fire because
         // both tabs are dirty, only the organizer one rejects.
-        const { getByPlaceholderText, getByText, findByText, queryByText } = render(
+        const { getByPlaceholderText, getByText, getAllByText, findByText, queryByText } = render(
             <ProfileEditModal profileData={profile} />
         );
         // Edit Basic (artist-side)
         fireEvent.changeText(getByPlaceholderText('Your name'), 'Aarav');
         // Switch to Org tab and edit Org Name (organizer-side)
-        fireEvent.press(getByText('Org'));
+        fireEvent.press(getAllByText('Org')[0]);
         fireEvent.changeText(getByPlaceholderText('Organization name'), 'Studio X');
         fireEvent.press(getByText('Save changes'));
 

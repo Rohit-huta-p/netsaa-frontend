@@ -1,6 +1,12 @@
 import { View, Text, TextInput, Pressable } from 'react-native';
 import { useCreateEventStore, RefundPolicy } from '@/stores/createEventStore';
 import { eventTokens } from '@/lib/eventTokens';
+import {
+  computeOrganizerBreakdown,
+  formatRupees,
+  NETSA_FEE_PERCENT,
+  PROCESSING_FEE_PERCENT,
+} from '@/lib/eventPricing';
 
 const CAPACITY_PRESETS = [20, 50, 100, 200, 500];
 const PRICE_PRESETS = [99, 249, 499, 999, 1999];
@@ -131,9 +137,56 @@ export default function Step4Capacity({ onNext }: { onNext: () => void }) {
               className="font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border border-event-border px-4 py-3"
             />
             <Text className="font-outfit text-event-textMuted text-xs">
-              Min ₹1, max ₹100,000. NETSA takes 12% (10% for verified hirers). Razorpay split is instant — no escrow.
+              Min ₹1, max ₹100,000.
             </Text>
           </View>
+
+          {/* EARNINGS MINI-CALCULATOR */}
+          {form.pricing.amount > 0 ? (
+            <View className="rounded-2xl bg-event-surface border border-event-brand/30 px-4 py-4 gap-3">
+              <Text className="font-mono text-event-brand text-[10px] uppercase tracking-widest">
+                Your earnings per ticket
+              </Text>
+
+              {(() => {
+                const o = computeOrganizerBreakdown(form.pricing.amount, 1);
+                return (
+                  <>
+                    <View className="flex-row items-center justify-between">
+                      <Text className="font-outfit text-event-textSecondary text-sm">
+                        Ticket price
+                      </Text>
+                      <Text className="font-outfit text-event-textPrimary text-sm">
+                        {formatRupees(form.pricing.amount)}
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center justify-between">
+                      <Text className="font-outfit text-event-textSecondary text-sm">
+                        − NETSA platform fee ({NETSA_FEE_PERCENT}%)
+                      </Text>
+                      <Text className="font-outfit text-event-textPrimary text-sm">
+                        − {formatRupees(o.netsaFee)}
+                      </Text>
+                    </View>
+                    <View className="h-px bg-event-border" />
+                    <View className="flex-row items-center justify-between">
+                      <Text className="font-outfit text-event-textPrimary text-sm font-semibold">
+                        = You receive
+                      </Text>
+                      <Text className="font-serif text-event-brand text-2xl">
+                        {formatRupees(o.organizerNet)}
+                      </Text>
+                    </View>
+                    <Text className="font-outfit text-event-textMuted text-xs leading-5 mt-1">
+                      Customer pays {formatRupees(o.customerPays)} ({formatRupees(form.pricing.amount)} +{' '}
+                      {formatRupees(o.serviceFee)} service fee for payment processing).
+                      Settled instantly via Razorpay split — no escrow.
+                    </Text>
+                  </>
+                );
+              })()}
+            </View>
+          ) : null}
 
           {/* REFUND POLICY */}
           <View className="gap-3">
@@ -188,9 +241,9 @@ export default function Step4Capacity({ onNext }: { onNext: () => void }) {
               Heads up
             </Text>
             <Text className="font-outfit text-event-textSecondary text-xs leading-5">
-              Razorpay integration is rolling out. Until it lands, paid events are
-              accepted but charging is mocked — registrants will see the price but
-              won't be debited. We'll DM you when live charging activates.
+              Service fee ({PROCESSING_FEE_PERCENT}%) is added on top of your ticket
+              price and paid by the customer. It covers Razorpay gateway charges. You
+              receive the full ticket amount minus NETSA's {NETSA_FEE_PERCENT}% platform fee.
             </Text>
           </View>
         </>

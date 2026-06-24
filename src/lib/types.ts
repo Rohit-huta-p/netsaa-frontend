@@ -36,6 +36,5 @@ export interface Event {
 
 export interface GetGigsQuery {
     search?: string;
-    category?: string;
     location?: string;
 }

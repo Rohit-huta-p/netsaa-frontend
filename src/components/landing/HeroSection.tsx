@@ -130,10 +130,10 @@ export default function HeroSection() {
       </Animated.View>
 
       {/* Scroll indicator */}
-      <View style={styles.scrollHint}>
+      {/* <View style={styles.scrollHint}>
         <Animated.View style={[styles.scrollLine, { height: scrollHeight }]} />
         <Text style={styles.scrollText}>SCROLL</Text>
-      </View>
+      </View> */}
 
     </View>
   );

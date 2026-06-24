@@ -42,6 +42,7 @@ export interface Page4Value {
   applicationDeadline?: string;
   maxApplicants?: string;
   description: string;
+  responsibilities?: string[];
   perks?: string[];
   termsAndConditions: string;
   /** Phase 4A — custom contract clauses (1-5, ≤500 chars each). */
@@ -176,6 +177,21 @@ export default function Page4Logistics({ value, onChange }: Page4LogisticsProps)
           />
         </InputGroup>
       </View>
+
+      <InputGroup label="What you'll do (optional)" subtitle="Key responsibilities — comma or enter to add each">
+        <TagInput
+          value={(value.responsibilities ?? []).join(', ')}
+          onChangeTags={(v: string) =>
+            update({
+              responsibilities: v
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean),
+            })
+          }
+          placeholder="e.g. Lead a 3-song set, 2 rehearsals, coordinate sub-artists"
+        />
+      </InputGroup>
 
       <InputGroup label="Perks (optional)" subtitle="What else do performers get?">
         <TagInput

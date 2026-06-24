@@ -3,6 +3,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMode } from '../../hooks/useMode';
+import { useAuthStore } from '../../stores/authStore';
 import { UserMode } from '../../lib/modeInference';
 
 /**
@@ -10,23 +11,28 @@ import { UserMode } from '../../lib/modeInference';
  */
 export default function ModeToggle() {
   const { mode, switchMode } = useMode();
+  const role = useAuthStore((s) => s.role);
+
+  // Three-role model: only creative_leads have two faces (apply up / hire down).
+  // Clients and artists each have a single fixed surface — no toggle.
+  if (role !== 'creative_lead') return null;
 
   return (
     <View
       style={styles.container}
       accessibilityRole="switch"
-      accessibilityLabel={`Mode selector, currently ${mode === 'artist' ? 'Artist' : 'Hirer'} mode`}
-      accessibilityHint={`Double tap to switch to ${mode === 'artist' ? 'Hirer' : 'Artist'} mode`}
+      accessibilityLabel={`Mode selector, currently ${mode === 'artist' ? 'Apply' : 'Hire'} mode`}
+      accessibilityHint={`Double tap to switch to ${mode === 'artist' ? 'Hire' : 'Apply'} mode`}
       accessibilityState={{ checked: mode === 'hirer' }}
     >
       <ToggleHalf
-        label="Artist"
+        label="Apply"
         active={mode === 'artist'}
         gradient={['#8B5CF6', '#6D23B6']}
         onPress={() => switchMode('artist')}
       />
       <ToggleHalf
-        label="Hirer"
+        label="Hire"
         active={mode === 'hirer'}
         gradient={['#FF6B35', '#E8613A']}
         onPress={() => switchMode('hirer')}

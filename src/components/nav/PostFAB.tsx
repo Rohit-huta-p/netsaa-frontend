@@ -3,24 +3,36 @@ import React, { useState } from 'react';
 import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Plus } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { useMode } from '../../hooks/useMode';
+import { useAuthStore } from '../../stores/authStore';
 import PostComposerPlaceholder from './PostComposerPlaceholder';
 
 export default function PostFAB() {
   const { mode } = useMode();
+  const role = useAuthStore((s) => s.role);
+  const router = useRouter();
   const [composerOpen, setComposerOpen] = useState(false);
 
+  const isClient = role === 'client';
+  // Artist is single-face — its gradient must not flip just because a stale/
+  // inferred mode='hirer' lingers. Only creative_lead defers to mode.
+  const isArtistFace = role === 'artist' || mode === 'artist';
   const gradient: [string, string] =
-    mode === 'artist' ? ['#8B5CF6', '#FF6B35'] : ['#FF6B35', '#8B5CF6'];
+    isArtistFace ? ['#8B5CF6', '#FF6B35'] : ['#FF6B35', '#8B5CF6'];
+
+  // Clients post a requirement, not a gig/event.
+  const handlePress = () =>
+    isClient ? router.push('/(app)/client/new-requirement' as any) : setComposerOpen(true);
 
   return (
     <>
       <View style={styles.wrap} pointerEvents="box-none">
         <TouchableOpacity
           activeOpacity={0.88}
-          onPress={() => setComposerOpen(true)}
+          onPress={handlePress}
           accessibilityRole="button"
-          accessibilityLabel="Post a gig or event"
+          accessibilityLabel={isClient ? 'Post a requirement' : 'Post a gig or event'}
         >
           <LinearGradient colors={gradient} style={styles.fab}>
             <Plus size={26} color="#FFFFFF" strokeWidth={2.5} />

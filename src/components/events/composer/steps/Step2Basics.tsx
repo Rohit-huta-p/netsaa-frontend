@@ -8,12 +8,19 @@ import { CalendarModal } from '@/components/ui/CalendarModal';
 export default function Step2Basics({ onNext }: { onNext: () => void }) {
   const { form, update, markComplete } = useCreateEventStore();
   const [dateOpen, setDateOpen] = useState(false);
+  const [deadlineOpen, setDeadlineOpen] = useState(false);
+
+  const deadlineInvalid =
+    !!form.registrationDeadline &&
+    !!form.startsAt &&
+    new Date(form.registrationDeadline).getTime() > new Date(form.startsAt).getTime();
 
   const canContinue =
     form.title.length >= 6 &&
     form.title.length <= 80 &&
     !!form.startsAt &&
-    !!form.durationKind;
+    !!form.durationKind &&
+    !deadlineInvalid;
 
   return (
     <View className="gap-7 mt-2">
@@ -78,6 +85,39 @@ export default function Step2Basics({ onNext }: { onNext: () => void }) {
         </View>
       </View>
 
+      <View className="gap-2">
+        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">Registration closes · optional</Text>
+        <View className="flex-row gap-2">
+          <Pressable
+            onPress={() => setDeadlineOpen(true)}
+            className="flex-1 rounded-2xl bg-event-surface border border-event-border px-4 py-4"
+          >
+            <Text className={`font-outfit text-base ${form.registrationDeadline ? 'text-event-textPrimary' : 'text-event-textMuted'}`}>
+              {form.registrationDeadline
+                ? new Date(form.registrationDeadline).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+                : 'No cutoff — accept until event starts'}
+            </Text>
+          </Pressable>
+          {form.registrationDeadline ? (
+            <Pressable
+              onPress={() => update('registrationDeadline', null)}
+              className="rounded-2xl bg-event-surface border border-event-border px-4 py-4 justify-center"
+            >
+              <Text className="font-outfit text-event-textMuted text-xs">Clear</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        {deadlineInvalid ? (
+          <Text className="font-outfit text-event-capacityUrgent text-xs">
+            Deadline must be before the event starts.
+          </Text>
+        ) : (
+          <Text className="font-outfit text-event-textMuted text-xs">
+            We'll show this on the listing and block new registrations after.
+          </Text>
+        )}
+      </View>
+
       <Pressable
         onPress={() => { markComplete(2); onNext(); }}
         disabled={!canContinue}
@@ -96,6 +136,17 @@ export default function Step2Basics({ onNext }: { onNext: () => void }) {
         onSelect={(selectedDate: Date) => {
           update('startsAt', selectedDate.toISOString());
           setDateOpen(false);
+        }}
+        minDate={new Date()}
+      />
+
+      <CalendarModal
+        visible={deadlineOpen}
+        onClose={() => setDeadlineOpen(false)}
+        date={form.registrationDeadline ? new Date(form.registrationDeadline) : undefined}
+        onSelect={(selectedDate: Date) => {
+          update('registrationDeadline', selectedDate.toISOString());
+          setDeadlineOpen(false);
         }}
         minDate={new Date()}
       />

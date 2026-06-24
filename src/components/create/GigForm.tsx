@@ -59,7 +59,6 @@ import StyledTextInput from '@/components/ui/StyledTextInput';
 const formSchema = z.object({
     title: z.string().min(3, "Title must be at least 3 characters"),
     gigType: z.enum(['one-time', 'recurring', 'contract']),
-    category: z.string().optional(),
     tags: z.string().optional(),
 
     artistType: z.string().min(1, "Artist type is required"),
@@ -172,7 +171,6 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
     const [formData, setFormData] = useState({
         title: '',
         gigType: 'one-time',
-        category: '',
         tags: '',
 
         artistType: '',
@@ -235,7 +233,6 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
             setFormData({
                 title: gig.title || '',
                 gigType: gig.type || 'one-time',
-                category: gig.category || '',
                 tags: gig.tags?.join(', ') || '',
 
                 artistType: gig.artistTypes?.[0] || '',
@@ -491,7 +488,6 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                 title: parsed.title,
                 description: parsed.description,
                 type: parsed.gigType,
-                category: parsed.category,
                 tags: parsed.tags?.split(',').map(t => t.trim()).filter(Boolean) || [],
 
                 artistTypes: [parsed.artistType],
@@ -614,16 +610,6 @@ export const GigForm = React.forwardRef<GigFormHandle, GigFormProps>(({ onPublis
                         </TouchableOpacity>
                     ))}
                 </View>
-            </InputGroup>
-
-            <InputGroup label="Category (Optional)">
-                <StyledTextInput
-                    icon={Layout}
-                    value={formData.category}
-                    onChangeText={(val: string) => updateField('category', val)}
-                    placeholder="e.g. Wedding, Corporate Event, Concert"
-                    error={errors.category}
-                />
             </InputGroup>
 
             <InputGroup label="Tags" subtitle="Type comma or enter to add tags">

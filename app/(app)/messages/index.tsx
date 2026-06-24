@@ -156,6 +156,21 @@ const ConvoRow = ({
                         {timeAgo(convo.updatedAt as any)}
                     </Text>
                 </View>
+                {/* Context label for booking threads — "re: Sangeet" */}
+                {convo.context?.label ? (
+                    <Text
+                        style={{
+                            color: C.orange,
+                            fontSize: 10,
+                            fontFamily: 'Outfit-Regular',
+                            marginTop: 1,
+                            opacity: 0.75,
+                        }}
+                        numberOfLines={1}
+                    >
+                        re: {convo.context.label}
+                    </Text>
+                ) : null}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                     <Text
                         style={{

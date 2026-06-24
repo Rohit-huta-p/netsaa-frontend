@@ -5,6 +5,7 @@ import { SectionHeading } from './SectionHeading';
 interface LookingForSectionProps {
     artistTypes?: string[];
     experienceLevel?: string;
+    minExperienceYears?: number;
     genderPreference?: 'any' | 'male' | 'female' | 'other';
     ageRange?: { min?: number; max?: number };
     heightRequirements?: {
@@ -73,6 +74,7 @@ function heightLabel(
 export const LookingForSection: React.FC<LookingForSectionProps> = ({
     artistTypes,
     experienceLevel,
+    minExperienceYears,
     genderPreference,
     ageRange,
     heightRequirements,
@@ -121,11 +123,15 @@ export const LookingForSection: React.FC<LookingForSectionProps> = ({
                     <Row
                         label="Experience"
                         value={expLabel(experienceLevel)}
-                        secondary={
-                            expDetail(experienceLevel)
-                                ? `· ${expDetail(experienceLevel)}`
-                                : undefined
-                        }
+                        secondary={(() => {
+                            // Prefer a real, hirer-entered minimum (e.g. "5+ years")
+                            // over the enum-derived guess.
+                            const detail =
+                                typeof minExperienceYears === 'number' && minExperienceYears > 0
+                                    ? `${minExperienceYears}+ years`
+                                    : expDetail(experienceLevel);
+                            return detail ? `· ${detail}` : undefined;
+                        })()}
                     />
                 ) : null}
 

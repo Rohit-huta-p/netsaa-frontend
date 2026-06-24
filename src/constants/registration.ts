@@ -32,26 +32,34 @@ export const INTENT_OPTIONS: {
 }[] = [
     {
         id: 'find_gigs',
-        title: 'I want to find gigs and perform',
-        sub: 'Build a profile, get discovered, get booked.',
+        title: "I'm an Artist",
+        sub: 'Find gigs from Creative Leads — build a profile, get booked.',
         icon: Sparkles,
         toIntents: ['find_gigs'],
     },
     {
         id: 'hire_artists',
-        title: 'I want to hire artists for my events',
-        sub: 'Post a gig once or build a regular talent pool.',
+        title: "I'm a Client",
+        sub: 'Post work and get proposals from trusted Creative Leads.',
         icon: UserPlus,
         toIntents: ['hire_artists'],
     },
     {
         id: 'both',
-        title: 'I want to do both',
-        sub: 'Perform, and also hire artists for your own projects.',
+        title: "I'm a Creative Lead",
+        sub: 'Win client work, and hire artists to deliver it.',
         icon: Target,
         toIntents: ['find_gigs', 'hire_artists'],
     },
 ];
+
+/* Three-role marketplace model: each signup card maps to a stored role.
+ * Client posts -> Creative Leads apply; Creative Lead posts -> Artists apply. */
+export const INTENT_TO_ROLE = {
+    find_gigs: 'artist',
+    hire_artists: 'client',
+    both: 'creative_lead',
+} as const;
 
 /* ═════════════════════════════════════════════════════════════
  *  ARTIST TYPE OPTIONS — Step 6 (skippable)

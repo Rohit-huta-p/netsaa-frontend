@@ -10,9 +10,10 @@
 
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ChevronDown, ChevronRight, Users } from 'lucide-react-native';
+import { ChevronDown, ChevronRight, Users, Clock } from 'lucide-react-native';
 import { InputGroup } from '@/components/ui/InputGroup';
 import { TagInput } from '@/components/ui/TagInput';
+import StyledTextInput from '@/components/ui/StyledTextInput';
 import ChipPicker from '@/components/ui/ChipPicker';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 
@@ -46,6 +47,7 @@ export interface VisualBlockProps {
     bodyType?: BodyType[]; // multi-select per UX feedback (slim OR athletic OK)
     requiredSkills?: string[];
     experienceLevel?: ExperienceLevel;
+    minExperienceYears?: number;
     genderPreference?: GenderPreference;
     ageRange?: { min: number; max: number };
     heightRequirements?: {
@@ -106,6 +108,19 @@ export default function VisualBlock({ value, onChange, sliderWidth, eventFunctio
             const v = next as string;
             update({ experienceLevel: v ? (v as ExperienceLevel) : undefined });
           }}
+        />
+      </InputGroup>
+
+      <InputGroup label="Minimum years of experience (optional)" subtitle="Shows on the gig as e.g. “5+ years”">
+        <StyledTextInput
+          icon={Clock}
+          inputMode="numeric"
+          value={value.minExperienceYears != null ? String(value.minExperienceYears) : ''}
+          onChangeText={(v: string) => {
+            const n = parseInt(v, 10);
+            update({ minExperienceYears: Number.isFinite(n) ? n : undefined });
+          }}
+          placeholder="e.g. 5"
         />
       </InputGroup>
 

@@ -43,3 +43,6 @@ claude.md
 # generated native folders
 /ios
 /android
+.gstack/
+
+.env

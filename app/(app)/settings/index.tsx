@@ -12,6 +12,7 @@ import {
     MessageCircle,
     UserCog,
     Lock,
+    Repeat,
     AlertTriangle,
     Link2,
     BadgeCheck,
@@ -64,6 +65,12 @@ const SECTIONS: Section[] = [
     //         { key: 'autoclose', label: 'Auto-Close Gigs', description: 'Close gigs after deadline', icon: ToggleRight, route: '/(app)/settings/account', roles: ['organizer'] },
     //     ],
     // },
+    {
+        title: 'Account',
+        items: [
+            { key: 'role', label: 'Switch Role', description: 'Client, Creative Lead or Artist', icon: Repeat, route: '/(app)/settings/role' },
+        ],
+    },
     {
         title: 'Security',
         items: [

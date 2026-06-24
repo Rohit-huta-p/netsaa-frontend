@@ -47,8 +47,9 @@ export default function AppLayout() {
             // Check for deletion scheduling first
             if (user.accountStatus === 'scheduled_for_deletion') {
                 setShowDeletionModal(true);
-            } else if ((isArtist || isOrganizer) && missing.length > 0) {
-                // Otherwise check profile completion
+            } else if ((isArtist || isOrganizer) && missing.length > 0 && user.role !== 'client') {
+                // Otherwise check profile completion — clients don't have the
+                // artist/organizer profile this nudges, so never show it for them.
                 setShowProfileModal(true);
             }
         }

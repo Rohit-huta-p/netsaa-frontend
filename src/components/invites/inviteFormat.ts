@@ -16,6 +16,33 @@ export function groupInvitesByTab(invites: Invite[]) {
     return { pending, accepted, archive };
 }
 
+// Generic Pending/Accepted/Archive grouping — works for invites AND proposals,
+// since both share the same status vocabulary (sent/viewed/accepted/declined/withdrawn).
+export function groupByStatusTab<T extends { status: string }>(items: T[]) {
+    const pending: T[] = [];
+    const accepted: T[] = [];
+    const archive: T[] = [];
+    for (const it of items) {
+        if (it.status === 'sent' || it.status === 'viewed') pending.push(it);
+        else if (it.status === 'accepted') accepted.push(it);
+        else archive.push(it);
+    }
+    return { pending, accepted, archive };
+}
+
+// Proposal badge — unlike invites, it distinguishes Sent vs Viewed (the client has
+// seen it) and labels an accepted proposal "Booked" for the supplier.
+export function proposalStatusBadge(status: string): { label: string; fg: string; bg: string } {
+    switch (status) {
+        case 'sent':      return { label: 'Sent',      fg: '#60a5fa',                    bg: 'rgba(96,165,250,0.14)' };
+        case 'viewed':    return { label: 'Viewed',    fg: inviteColors.pendingPillText, bg: inviteColors.pendingPillBg };
+        case 'accepted':  return { label: 'Booked',    fg: inviteColors.acceptedText,    bg: inviteColors.acceptedBg };
+        case 'declined':  return { label: 'Declined',  fg: inviteColors.archiveText,     bg: inviteColors.archiveBg };
+        case 'withdrawn': return { label: 'Withdrawn', fg: inviteColors.archiveText,     bg: inviteColors.archiveBg };
+        default:          return { label: status,      fg: inviteColors.archiveText,     bg: inviteColors.archiveBg };
+    }
+}
+
 export function roleLabel(role: Role): string {
     if (role === 'creative_lead') return 'Creative Lead';
     if (role === 'agency') return 'Agency';

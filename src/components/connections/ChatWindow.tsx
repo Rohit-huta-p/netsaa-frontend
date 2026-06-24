@@ -10,21 +10,30 @@ import {
     Platform,
     FlatList,
     ActivityIndicator,
-    AppState // Import AppState
+    AppState,
 } from "react-native";
 import {
     X,
     Send,
-    AlertCircle
+    AlertCircle,
+    Paperclip,
+    FileText,
+    CheckCircle,
 } from "lucide-react-native";
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from "@/stores/authStore";
 import noAvatar from '@/assets/no-avatar.jpg';
 
 import messageService from "@/services/messageService";
 import { socketService } from "@/services/socketService";
+import { requirementService } from "@/services/requirementService";
+import { uploadMediaFlow } from "@/utils/upload";
 import { Message } from "@/types/chat";
 import { generateId } from "@/utils/idGenerator";
-import { Connection } from "@/types/connection";
+
+import conversationService, { PopulatedConversation } from "@/services/conversationService";
 
 
 export interface UserBasic {
@@ -50,11 +59,9 @@ const composeName = (u?: { displayName?: string; firstName?: string; lastName?: 
     return 'Loading...';
 };
 
-import conversationService from "@/services/conversationService";
-
 interface ChatWindowProps {
     conversationId: string;
-    recipient?: UserBasic; // Made optional
+    recipient?: UserBasic;
     onClose: () => void;
     /**
      * Hide the close (X) button in the chat header. Useful when the parent
@@ -70,53 +77,140 @@ interface SocketMessagePayload {
     text: string;
     createdAt: string;
     clientMessageId?: string;
+    attachments?: { type: string; url: string; size?: number }[];
+    system?: boolean;
 }
+
+// ── System pill — centered, muted, no sender bubble ──
+const SystemPill = ({ text }: { text: string }) => (
+    <View style={{ alignItems: 'center', marginVertical: 6 }}>
+        <View
+            style={{
+                backgroundColor: 'rgba(255,255,255,0.06)',
+                borderRadius: 20,
+                paddingHorizontal: 14,
+                paddingVertical: 5,
+                maxWidth: '80%',
+            }}
+        >
+            <Text
+                style={{
+                    color: 'rgba(255,255,255,0.45)',
+                    fontSize: 12,
+                    fontFamily: 'Outfit-Regular',
+                    textAlign: 'center',
+                }}
+            >
+                {text}
+            </Text>
+        </View>
+    </View>
+);
+
+// ── Context chip under the header (booking threads only) ──
+const ContextChip = ({
+    label,
+    requirementId,
+    proposalId,
+}: {
+    label: string;
+    requirementId: string;
+    proposalId: string;
+}) => {
+    const router = useRouter();
+    return (
+        <TouchableOpacity
+            onPress={() => router.push(`/(app)/client/${requirementId}?proposal=${proposalId}` as any)}
+            style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: 14,
+                paddingVertical: 6,
+                backgroundColor: 'rgba(255,107,53,0.08)',
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(255,107,53,0.15)',
+            }}
+        >
+            <FileText size={12} color="#FF6B35" />
+            <Text
+                style={{
+                    color: '#FF6B35',
+                    fontSize: 12,
+                    fontFamily: 'Outfit-Regular',
+                    flex: 1,
+                }}
+                numberOfLines={1}
+            >
+                {label}
+            </Text>
+        </TouchableOpacity>
+    );
+};
+
+// ── Mark-as-booked inline confirm state ──
+type BookState = 'idle' | 'confirming' | 'loading' | 'booked';
 
 export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClose, hideClose }: ChatWindowProps) => {
     const currentUserId = useAuthStore.getState().user?._id || "me";
+    const currentUserRole = useAuthStore.getState().user?.role;
+    const queryClient = useQueryClient();
+    const router = useRouter();
 
     // State
     const [recipient, setRecipient] = useState<UserBasic | undefined>(initialRecipient);
+    const [conversation, setConversation] = useState<PopulatedConversation | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [msgText, setMsgText] = useState("");
     const [loading, setLoading] = useState(true);
     const [remoteIsTyping, setRemoteIsTyping] = useState(false);
-    const [isOnline, setIsOnline] = useState(false); // Default to false
+    const [isOnline, setIsOnline] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Attachment state
+    const [attachmentUploading, setAttachmentUploading] = useState(false);
+    const [pendingAttachments, setPendingAttachments] = useState<{ type: string; url: string; size?: number }[]>([]);
+
+    // Mark-as-booked state
+    const [bookState, setBookState] = useState<BookState>('idle');
+    const [bookError, setBookError] = useState<string | null>(null);
 
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const remoteTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const isTypingRef = useRef(false);
 
+    // Derived: is this a booking thread (has context) + is viewer the client?
+    const ctx = conversation?.context;
+    const isBookingThread = !!ctx?.requirementId;
+    const isClient = currentUserRole === 'client';
+
     // Initial Fetch Effect
     useEffect(() => {
-        // If neither ID nor recipient is provided, we can't load anything
         if (!conversationId) {
             setError("Invalid Conversation ID");
             setLoading(false);
             return;
         }
 
-        // Clear messages from previous conversation immediately
         setMessages([]);
+        setConversation(null);
 
         const loadData = async () => {
             setLoading(true);
             try {
-                // 1. Fetch Recipient if missing
-                // (Only needed if we navigated here without passing recipient object)
-                if (!recipient) {
-                    const conv = await conversationService.getConversationById(conversationId);
-                    if (conv) {
-                        const otherPart = conv.participants.find((p: any) => p._id !== currentUserId) || conv.participants[0];
+                const conv = await conversationService.getConversationById(conversationId);
+                if (conv) {
+                    setConversation(conv);
+                    if (!recipient) {
+                        const otherPart = (conv.participants as any[]).find((p: any) =>
+                            (p._id ?? p) !== currentUserId
+                        ) || conv.participants[0];
                         setRecipient(otherPart);
-                    } else {
-                        throw new Error("Conversation not found");
                     }
+                } else {
+                    throw new Error("Conversation not found");
                 }
 
-                // 2. Fetch Messages
-                // ALWAYS fetch messages for the given ID on mount
                 const fetchedMessages = await messageService.getMessages(conversationId);
                 const sorted = fetchedMessages.sort((a, b) =>
                     new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -133,68 +227,44 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
 
         loadData();
 
-        // Real-time: Join Conversation Room
         const socket = socketService.getSocket();
 
         const handleNewMessage = (payload: SocketMessagePayload) => {
-            console.log("Socket: New message received", payload);
             if (payload.conversationId !== conversationId) return;
 
             setMessages(prev => {
-                // 1. Check for duplicates by _id
-                if (prev.some(m => m._id === payload._id)) {
-                    return prev;
-                }
+                if (prev.some(m => m._id === payload._id)) return prev;
 
                 const newMessage: Message = {
                     ...payload,
-                    seenBy: [], // Default for UI compatibility
+                    seenBy: [],
                     optimistic: false,
-                    failed: false
+                    failed: false,
                 };
 
-                // 2. Check for optimistic match
                 const optimisticIndex = prev.findIndex(m =>
                     payload.clientMessageId && m.clientMessageId === payload.clientMessageId
                 );
 
                 if (optimisticIndex !== -1) {
-                    // Replace optimistic message
                     const next = [...prev];
                     next[optimisticIndex] = newMessage;
                     return next;
                 }
 
-                // 3. Append new message
                 return [...prev, newMessage];
             });
         };
 
-        const handleTypingStart = (payload: { conversationId: string, senderId: string }) => {
-            console.log("Socket: typing:start received", payload); // DEBUG LOG
-
-            // Check conversation ID AND ensure it's not me (though backend should filter me, good to be safe)
+        const handleTypingStart = (payload: { conversationId: string; senderId: string }) => {
             if (payload.conversationId === conversationId && payload.senderId !== currentUserId) {
                 setRemoteIsTyping(true);
-
-                // Clear existing safety timeout
                 if (remoteTypingTimeoutRef.current) clearTimeout(remoteTypingTimeoutRef.current);
-
-                // Set new safety timeout (e.g. 5 seconds)
-                remoteTypingTimeoutRef.current = setTimeout(() => {
-                    setRemoteIsTyping(false);
-                }, 5000);
-            } else {
-                console.log("Socket: typing:start ignored - mismatch", {
-                    currentConvo: conversationId,
-                    myId: currentUserId,
-                    payload
-                });
+                remoteTypingTimeoutRef.current = setTimeout(() => setRemoteIsTyping(false), 5000);
             }
         };
 
-        const handleTypingStop = (payload: { conversationId: string, senderId: string }) => {
-            console.log("Socket: typing:stop received", payload); // DEBUG LOG
+        const handleTypingStop = (payload: { conversationId: string; senderId: string }) => {
             if (payload.conversationId === conversationId && payload.senderId !== currentUserId) {
                 setRemoteIsTyping(false);
                 if (remoteTypingTimeoutRef.current) clearTimeout(remoteTypingTimeoutRef.current);
@@ -202,18 +272,14 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
         };
 
         const handleUserOnline = (payload: { userId: string }) => {
-            if (recipient && payload.userId === recipient._id) {
-                setIsOnline(true);
-            }
+            if (recipient && payload.userId === recipient._id) setIsOnline(true);
         };
 
         const handleUserOffline = (payload: { userId: string }) => {
-            if (recipient && payload.userId === recipient._id) {
-                setIsOnline(false);
-            }
+            if (recipient && payload.userId === recipient._id) setIsOnline(false);
         };
 
-        const handleMessageSeen = (payload: { conversationId: string, userId: string, seenAt: string }) => {
+        const handleMessageSeen = (payload: { conversationId: string; userId: string; seenAt: string }) => {
             if (payload.conversationId === conversationId) {
                 setMessages(prev => prev.map(m => {
                     if (!m.seenBy.includes(payload.userId)) {
@@ -226,22 +292,14 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
 
         const handleReconnect = () => {
             if (conversationId && socket) {
-                console.log("Socket: Reconnected (or connected), re-joining and fetching");
-
-                // 1. Re-join room
                 socket.emit("conversation:join", { conversationId });
-
-                // 2. Refetch messages (REST source of truth)
                 loadData();
-
-                // 3. Reset typing state
                 setRemoteIsTyping(false);
                 if (remoteTypingTimeoutRef.current) clearTimeout(remoteTypingTimeoutRef.current);
             }
         };
 
         if (socket && conversationId) {
-            console.log("Socket: Joining conversation", conversationId);
             socket.emit("conversation:join", { conversationId });
             socket.on("message:new", handleNewMessage);
             socket.on("typing:start", handleTypingStart);
@@ -249,23 +307,18 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
             socket.on("message:seen", handleMessageSeen);
             socket.on("user:online", handleUserOnline);
             socket.on("user:offline", handleUserOffline);
-            socket.on("connect", handleReconnect); // Handle reconnects
+            socket.on("connect", handleReconnect);
 
-            // Mark as seen on join
             messageService.markAsSeen(conversationId).catch(err => console.error("Failed to mark as seen", err));
         }
 
-        // Handle AppState changes (Background -> Foreground)
         const subscription = AppState.addEventListener("change", nextAppState => {
-            if (nextAppState === "active") {
-                handleReconnect();
-            }
+            if (nextAppState === "active") handleReconnect();
         });
 
         return () => {
             subscription.remove();
             if (socket && conversationId) {
-                console.log("Socket: Leaving conversation", conversationId);
                 socket.emit("conversation:leave", { conversationId });
                 socket.off("message:new", handleNewMessage);
                 socket.off("typing:start", handleTypingStart);
@@ -276,14 +329,9 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                 socket.off("connect", handleReconnect);
             }
         };
-    }, [conversationId]); // Re-run if ID changes
+    }, [conversationId]);
 
     // ── Presence: initial check + live updates, keyed to the resolved recipient ──
-    // The main socket effect binds online/offline with whatever `recipient` was at
-    // effect-run time (often undefined while the convo is still fetching). This
-    // dedicated effect re-runs once the recipient id is known and, critically,
-    // asks the server for the CURRENT presence (presence:check) — without it the
-    // dot stays grey when the other person was already online before you opened.
     useEffect(() => {
         const otherId = recipient?._id;
         if (!otherId) return;
@@ -307,8 +355,8 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
         socket.on("presence:online-list", onList);
 
         const requestPresence = () => socket.emit("presence:check", { userIds: [otherId] });
-        requestPresence();                       // ask now
-        socket.on("connect", requestPresence);   // re-ask after any reconnect
+        requestPresence();
+        socket.on("connect", requestPresence);
 
         return () => {
             socket.off("user:online", onOnline);
@@ -318,15 +366,10 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
         };
     }, [recipient?._id]);
 
-    // Helper to reconcile optimistic messages with server response
     const reconcileMessage = (clientMessageId: string, serverMessage: Message) => {
         setMessages(prev => prev.map(m => {
             if (m.clientMessageId === clientMessageId) {
-                // RACE CONDITION FIX:
-                // If message is already NOT optimistic, it means Socket updated it first.
-                // Do not overwrite with REST response to preserve potential newer state (like seenBy) or avoid flicker.
                 if (!m.optimistic) return m;
-
                 return serverMessage;
             }
             return m;
@@ -351,7 +394,6 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
             isTypingRef.current = true;
         }
 
-        // Reset inactivity timer (2s)
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         typingTimeoutRef.current = setTimeout(() => {
             socket.emit("typing:stop", { conversationId });
@@ -367,10 +409,44 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
         }
     };
 
-    const handleSend = async () => {
-        if (!msgText.trim() || !conversationId) return;
+    // ── Photo attachment picker ──
+    const handlePickAttachment = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.85,
+        });
+        if (result.canceled) return;
+        const asset = result.assets[0];
 
-        // Stop typing immediately on send
+        setAttachmentUploading(true);
+        try {
+            const uploaded = await uploadMediaFlow({
+                asset,
+                entityType: 'user',
+                entityId: currentUserId,
+                purpose: 'gallery',
+            });
+            if (!uploaded.success || !uploaded.url) {
+                throw new Error(uploaded.error ?? 'Upload returned no URL');
+            }
+            setPendingAttachments(prev => [...prev, {
+                type: 'image',
+                url: uploaded.url!,
+                size: asset.fileSize,
+            }]);
+        } catch (e) {
+            console.error('[ChatWindow] attachment upload failed', e);
+        } finally {
+            setAttachmentUploading(false);
+        }
+    };
+
+    const handleSend = async () => {
+        const hasText = msgText.trim().length > 0;
+        const hasAttachments = pendingAttachments.length > 0;
+        if (!hasText && !hasAttachments) return;
+        if (!conversationId) return;
+
         const socket = socketService.getSocket();
         if (socket && isTypingRef.current) {
             socket.emit("typing:stop", { conversationId });
@@ -379,7 +455,8 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
         }
 
         const clientMessageId = generateId();
-        const tempId = generateId(); // Temporary local ID for key prop
+        const tempId = generateId();
+        const attachmentsToSend = [...pendingAttachments];
 
         const optimisticMessage: Message = {
             _id: tempId,
@@ -389,18 +466,24 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
             seenBy: [currentUserId],
             createdAt: new Date().toISOString(),
             clientMessageId,
-            optimistic: true
+            optimistic: true,
+            attachments: attachmentsToSend.length > 0 ? attachmentsToSend : undefined,
         };
 
         setMessages(prev => [...prev, optimisticMessage]);
         setMsgText("");
+        setPendingAttachments([]);
 
         try {
-            const serverMessage = await messageService.sendMessage(conversationId, optimisticMessage.text, clientMessageId);
+            const serverMessage = await messageService.sendMessage(
+                conversationId,
+                optimisticMessage.text,
+                clientMessageId,
+                attachmentsToSend.length > 0 ? attachmentsToSend : undefined,
+            );
             reconcileMessage(clientMessageId, serverMessage);
         } catch (err) {
             console.error("Send failed", err);
-            // Mark as failed but keep visible
             setMessages(prev => prev.map(m => {
                 if (m.clientMessageId === clientMessageId) {
                     return { ...m, failed: true, optimistic: false };
@@ -413,7 +496,6 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
     const handleRetry = async (message: Message) => {
         if (!conversationId || !message.clientMessageId) return;
 
-        // Reset state to optimistic
         setMessages(prev => prev.map(m => {
             if (m.clientMessageId === message.clientMessageId) {
                 return { ...m, failed: undefined, optimistic: true };
@@ -422,11 +504,15 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
         }));
 
         try {
-            const serverMessage = await messageService.sendMessage(conversationId, message.text, message.clientMessageId);
+            const serverMessage = await messageService.sendMessage(
+                conversationId,
+                message.text,
+                message.clientMessageId,
+                message.attachments,
+            );
             reconcileMessage(message.clientMessageId, serverMessage);
         } catch (err) {
             console.error("Retry failed", err);
-            // Mark as failed again
             setMessages(prev => prev.map(m => {
                 if (m.clientMessageId === message.clientMessageId) {
                     return { ...m, failed: true, optimistic: false };
@@ -434,6 +520,32 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                 return m;
             }));
         }
+    };
+
+    // ── Mark as booked ──
+    const handleMarkBooked = async () => {
+        if (!ctx?.requirementId) return;
+        if (bookState === 'confirming') {
+            // Confirmed — proceed
+            setBookState('loading');
+            setBookError(null);
+            try {
+                await requirementService.changeStatus(ctx.requirementId, 'book');
+                queryClient.invalidateQueries({ queryKey: ['client', 'requirements'] });
+                setBookState('booked');
+            } catch (e: any) {
+                const msg = e?.response?.data?.meta?.message || e?.message || 'Could not mark as booked';
+                setBookError(msg);
+                setBookState('idle');
+            }
+        } else if (bookState === 'idle') {
+            setBookState('confirming');
+        }
+    };
+
+    const handleCancelBook = () => {
+        setBookState('idle');
+        setBookError(null);
     };
 
     // If we have neither ID nor recipient, we can't do anything
@@ -458,45 +570,115 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
     const displayName = composeName(displayUser as any);
     const avatarUri = (displayUser as any).profilePicture || (displayUser as any).profileImageUrl;
 
+    // Context chip label
+    const chipLabel = ctx?.label || 'View requirement';
+
     return (
         <View style={{ flex: 1, minHeight: 0 }} className="bg-[#09090b] border-l border-white/10">
             {/* Chat Header */}
-            <View style={{ flexShrink: 0 }} className="px-4 py-3 border-b border-white/10 flex-row items-center justify-between bg-white/5">
-                <View className="flex-row items-center">
-                    {/* Avatar wrapper is relative + carries the right margin so the
-                        online dot anchors to the avatar's corner (not the margin gap). */}
-                    <View className="relative w-10 h-10 mr-3">
-                        <Image
-                            source={avatarUri ? { uri: avatarUri } : noAvatar}
-                            className="w-10 h-10 rounded-full bg-gray-800"
-                        />
-                        {isOnline && (
-                            <View
-                                className="absolute w-3 h-3 bg-green-500 rounded-full border-2 border-[#09090b]"
-                                style={{ bottom: 0, right: 0 }}
+            <View style={{ flexShrink: 0 }} className="border-b border-white/10 bg-white/5">
+                <View className="px-4 py-3 flex-row items-center justify-between">
+                    <View className="flex-row items-center">
+                        <View className="relative w-10 h-10 mr-3">
+                            <Image
+                                source={avatarUri ? { uri: avatarUri } : noAvatar}
+                                className="w-10 h-10 rounded-full bg-gray-800"
                             />
-                        )}
+                            {isOnline && (
+                                <View
+                                    className="absolute w-3 h-3 bg-green-500 rounded-full border-2 border-[#09090b]"
+                                    style={{ bottom: 0, right: 0 }}
+                                />
+                            )}
+                        </View>
+                        <View>
+                            <Text className="text-white font-bold">{displayName}</Text>
+                            {isOnline ? (
+                                <Text className="text-green-400 text-[11px]">Active now</Text>
+                            ) : null}
+                        </View>
                     </View>
-                    <View>
-                        <Text className="text-white font-bold">{displayName}</Text>
-                        {isOnline ? (
-                            <Text className="text-green-400 text-[11px]">Active now</Text>
+                    <View className="flex-row items-center gap-3">
+                        {/* Mark as booked — client only, booking thread only, not already booked */}
+                        {isBookingThread && isClient && bookState !== 'booked' ? (
+                            bookState === 'confirming' ? (
+                                <View style={{ flexDirection: 'row', gap: 6 }}>
+                                    <TouchableOpacity
+                                        onPress={handleMarkBooked}
+                                        style={{
+                                            backgroundColor: 'rgba(34,197,94,0.15)',
+                                            paddingHorizontal: 10,
+                                            paddingVertical: 5,
+                                            borderRadius: 8,
+                                            borderWidth: 1,
+                                            borderColor: 'rgba(34,197,94,0.4)',
+                                        }}
+                                    >
+                                        <Text style={{ color: '#22c55e', fontSize: 12, fontFamily: 'Outfit-SemiBold' }}>
+                                            Confirm
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={handleCancelBook}
+                                        style={{
+                                            backgroundColor: 'rgba(255,255,255,0.06)',
+                                            paddingHorizontal: 10,
+                                            paddingVertical: 5,
+                                            borderRadius: 8,
+                                        }}
+                                    >
+                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontFamily: 'Outfit-Regular' }}>
+                                            Cancel
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : bookState === 'loading' ? (
+                                <ActivityIndicator size="small" color="#22c55e" />
+                            ) : (
+                                <TouchableOpacity
+                                    onPress={handleMarkBooked}
+                                    style={{
+                                        backgroundColor: 'rgba(34,197,94,0.1)',
+                                        paddingHorizontal: 10,
+                                        paddingVertical: 5,
+                                        borderRadius: 8,
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(34,197,94,0.25)',
+                                    }}
+                                >
+                                    <Text style={{ color: '#22c55e', fontSize: 12, fontFamily: 'Outfit-SemiBold' }}>
+                                        Mark booked
+                                    </Text>
+                                </TouchableOpacity>
+                            )
+                        ) : null}
+
+                        {!hideClose ? (
+                            <TouchableOpacity onPress={onClose} className="bg-white/10 p-1.5 rounded-full">
+                                <X size={20} color="white" />
+                            </TouchableOpacity>
                         ) : null}
                     </View>
                 </View>
-                {!hideClose ? (
-                    <View className="flex-row items-center gap-4">
-                        <TouchableOpacity onPress={onClose} className="bg-white/10 p-1.5 rounded-full">
-                            <X size={20} color="white" />
-                        </TouchableOpacity>
-                    </View>
+
+                {/* Context chip — booking threads only (requirementId guaranteed by isBookingThread gate) */}
+                {isBookingThread && ctx ? (
+                    <ContextChip
+                        label={chipLabel}
+                        requirementId={ctx.requirementId!}
+                        proposalId={ctx.proposalId!}
+                    />
                 ) : null}
             </View>
 
-            {/* Messages Area - Always render list to show optimistic updates even if loading history */}
-            {/* minHeight:0 is REQUIRED on web so this flex child can shrink and leave
-                room for the input bar below — without it the list consumes the whole
-                column and the input gets pushed past the clipped (overflow:hidden) edge. */}
+            {/* Book error banner */}
+            {bookError ? (
+                <View style={{ backgroundColor: 'rgba(239,68,68,0.1)', paddingHorizontal: 14, paddingVertical: 6 }}>
+                    <Text style={{ color: '#f87171', fontSize: 12, fontFamily: 'Outfit-Regular' }}>{bookError}</Text>
+                </View>
+            ) : null}
+
+            {/* Messages Area */}
             <FlatList
                 data={messages}
                 keyExtractor={item => item._id || item.clientMessageId || Math.random().toString()}
@@ -504,7 +686,6 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                 style={{ flex: 1, minHeight: 0 }}
                 refreshing={loading}
                 onRefresh={() => {
-                    // Manual refresh mechanism
                     if (conversationId) {
                         setLoading(true);
                         messageService.getMessages(conversationId)
@@ -539,20 +720,53 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                     </View>
                 )}
                 renderItem={({ item }) => {
+                    // ── System message: centered pill ──
+                    if (item.system) {
+                        return <SystemPill text={item.text} />;
+                    }
+
                     const isMe = item.senderId === currentUserId;
                     const timeString = new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                     return (
-                        <View className={`max-w-[80%] p-3 rounded-2xl ${isMe
-                            ? 'bg-purple-600 self-end rounded-tr-none'
-                            : 'bg-white/10 self-start rounded-tl-none'
+                        <View className={`max-w-[80%] rounded-2xl ${isMe
+                            ? 'bg-[#FF6B35] self-end rounded-tr-none'
+                            : 'bg-[#17151d] border border-white/[0.06] self-start rounded-tl-none'
                             } ${item.optimistic ? 'opacity-70' : ''} ${item.failed ? 'border border-red-500' : ''}`}>
-                            <Text className="text-white text-base">{item.text}</Text>
-                            <View className="flex-row items-center justify-end mt-1 gap-1">
-                                <Text className="text-white/40 text-[10px]">
+
+                            {/* Image attachments */}
+                            {item.attachments && item.attachments.length > 0 ? (
+                                <View style={{ padding: 4, gap: 4 }}>
+                                    {item.attachments.map((att, idx) =>
+                                        att.type === 'image' ? (
+                                            <Image
+                                                key={idx}
+                                                source={{ uri: att.url }}
+                                                style={{
+                                                    width: 200,
+                                                    height: 150,
+                                                    borderRadius: 10,
+                                                    backgroundColor: 'rgba(255,255,255,0.05)',
+                                                }}
+                                                resizeMode="cover"
+                                            />
+                                        ) : null
+                                    )}
+                                </View>
+                            ) : null}
+
+                            {/* Message text (only if non-empty) */}
+                            {item.text ? (
+                                <View style={{ paddingHorizontal: 12, paddingTop: item.attachments?.length ? 2 : 12, paddingBottom: 8 }}>
+                                    <Text className={`text-base ${isMe ? 'text-[#1A0D06]' : 'text-[#e8e4ea]'}`}>{item.text}</Text>
+                                </View>
+                            ) : null}
+
+                            <View className="flex-row items-center justify-end px-3 pb-2 gap-1">
+                                <Text className={`text-[10px] ${isMe ? 'text-black/45' : 'text-white/40'}`}>
                                     {timeString}
                                     {isMe && item.seenBy.length > 1 && (
-                                        <Text className="text-blue-400 font-bold ml-1"> • Seen</Text>
+                                        <Text className="font-bold ml-1"> • Seen</Text>
                                     )}
                                 </Text>
                                 {item.failed && (
@@ -578,11 +792,107 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                 </View>
             )}
 
-            {/* Input Area — pinned at the bottom (flexShrink:0 so it's never squeezed
-                out by the message list). KeyboardAvoidingView only matters on native;
-                on web it's a passthrough that previously contributed to the collapse. */}
+            {/* Pending attachments preview */}
+            {pendingAttachments.length > 0 ? (
+                <View
+                    style={{
+                        flexShrink: 0,
+                        flexDirection: 'row',
+                        gap: 8,
+                        paddingHorizontal: 14,
+                        paddingTop: 8,
+                        backgroundColor: '#09090b',
+                    }}
+                >
+                    {pendingAttachments.map((att, idx) => (
+                        <View key={idx} style={{ position: 'relative' }}>
+                            {att.type === 'image' ? (
+                                <Image
+                                    source={{ uri: att.url }}
+                                    style={{ width: 56, height: 56, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.05)' }}
+                                    resizeMode="cover"
+                                />
+                            ) : null}
+                            <TouchableOpacity
+                                onPress={() => setPendingAttachments(prev => prev.filter((_, i) => i !== idx))}
+                                style={{
+                                    position: 'absolute',
+                                    top: -4,
+                                    right: -4,
+                                    backgroundColor: '#ef4444',
+                                    borderRadius: 8,
+                                    width: 16,
+                                    height: 16,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
+                            >
+                                <X size={10} color="white" />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+                </View>
+            ) : null}
+
+            {/* Booking footer */}
+            {isBookingThread ? (
+                bookState === 'booked' ? (
+                    <View
+                        style={{
+                            flexShrink: 0,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            paddingVertical: 8,
+                            paddingHorizontal: 14,
+                            backgroundColor: 'rgba(34,197,94,0.08)',
+                            borderTopWidth: 1,
+                            borderTopColor: 'rgba(34,197,94,0.2)',
+                        }}
+                    >
+                        <CheckCircle size={14} color="#22c55e" />
+                        <Text style={{ color: '#22c55e', fontSize: 12, fontFamily: 'Outfit-SemiBold' }}>
+                            Booked
+                        </Text>
+                    </View>
+                ) : (
+                    <View
+                        style={{
+                            flexShrink: 0,
+                            alignItems: 'center',
+                            paddingVertical: 6,
+                            backgroundColor: 'rgba(139,92,246,0.05)',
+                            borderTopWidth: 1,
+                            borderTopColor: 'rgba(139,92,246,0.12)',
+                        }}
+                    >
+                        <Text style={{ color: 'rgba(139,92,246,0.6)', fontSize: 11, fontFamily: 'Outfit-Regular' }}>
+                            Secure booking & payment — coming soon
+                        </Text>
+                    </View>
+                )
+            ) : null}
+
+            {/* Input Area */}
             {Platform.OS === 'web' ? (
                 <View style={{ flexShrink: 0 }} className="p-4 border-t border-white/10 bg-[#09090b] flex-row items-center gap-3">
+                    {/* Paperclip / image attach button */}
+                    <TouchableOpacity
+                        onPress={handlePickAttachment}
+                        disabled={attachmentUploading}
+                        style={{
+                            padding: 8,
+                            borderRadius: 20,
+                            backgroundColor: 'rgba(255,255,255,0.06)',
+                            opacity: attachmentUploading ? 0.5 : 1,
+                        }}
+                    >
+                        {attachmentUploading
+                            ? <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
+                            : <Paperclip size={18} color="rgba(255,255,255,0.5)" />
+                        }
+                    </TouchableOpacity>
                     <TextInput
                         value={msgText}
                         onChangeText={handleTextChange}
@@ -596,15 +906,30 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                     />
                     <TouchableOpacity
                         onPress={handleSend}
-                        disabled={!msgText.trim()}
-                        className={`p-3 rounded-full ${!msgText.trim() ? 'bg-gray-700' : 'bg-purple-600'}`}
+                        disabled={!msgText.trim() && pendingAttachments.length === 0}
+                        className={`p-3 rounded-full ${(!msgText.trim() && pendingAttachments.length === 0) ? 'bg-white/10' : 'bg-[#FF6B35]'}`}
                     >
-                        <Send size={20} color="white" />
+                        <Send size={20} color="#1A0D06" />
                     </TouchableOpacity>
                 </View>
             ) : (
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flexShrink: 0 }}>
                     <View className="p-4 border-t border-white/10 bg-[#09090b] flex-row items-center gap-3">
+                        <TouchableOpacity
+                            onPress={handlePickAttachment}
+                            disabled={attachmentUploading}
+                            style={{
+                                padding: 8,
+                                borderRadius: 20,
+                                backgroundColor: 'rgba(255,255,255,0.06)',
+                                opacity: attachmentUploading ? 0.5 : 1,
+                            }}
+                        >
+                            {attachmentUploading
+                                ? <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
+                                : <Paperclip size={18} color="rgba(255,255,255,0.5)" />
+                            }
+                        </TouchableOpacity>
                         <TextInput
                             value={msgText}
                             onChangeText={handleTextChange}
@@ -616,10 +941,10 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                         />
                         <TouchableOpacity
                             onPress={handleSend}
-                            disabled={!msgText.trim()}
-                            className={`p-3 rounded-full ${!msgText.trim() ? 'bg-gray-700' : 'bg-purple-600'}`}
+                            disabled={!msgText.trim() && pendingAttachments.length === 0}
+                            className={`p-3 rounded-full ${(!msgText.trim() && pendingAttachments.length === 0) ? 'bg-white/10' : 'bg-[#FF6B35]'}`}
                         >
-                            <Send size={20} color="white" />
+                            <Send size={20} color="#1A0D06" />
                         </TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>

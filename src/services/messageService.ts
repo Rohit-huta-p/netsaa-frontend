@@ -31,10 +31,18 @@ const messageService = {
     },
 
     /**
-     * Send a message
+     * Send a message, optionally with file attachments.
+     * attachments is an array of already-uploaded URLs (presign → S3 → pass URL here).
      */
-    sendMessage: async (conversationId: string, text: string, clientMessageId: string): Promise<Message> => {
-        const { data } = await API.post(`/${conversationId}`, { text, clientMessageId });
+    sendMessage: async (
+        conversationId: string,
+        text: string,
+        clientMessageId: string,
+        attachments?: { type: string; url: string; size?: number }[],
+    ): Promise<Message> => {
+        const body: Record<string, unknown> = { text, clientMessageId };
+        if (attachments && attachments.length > 0) body.attachments = attachments;
+        const { data } = await API.post(`/${conversationId}`, body);
         return data.data;
     },
 

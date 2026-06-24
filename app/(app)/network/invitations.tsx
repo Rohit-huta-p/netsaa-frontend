@@ -57,7 +57,9 @@ const roleLabel = (u: any) => {
     const at = u?.artistType;
     if (Array.isArray(at) && at.length) return at[0];
     if (typeof at === 'string' && at) return at;
-    return u?.role === 'hirer' ? 'Hirer' : 'Artist';
+    if (u?.role === 'client') return 'Client';
+    if (u?.role === 'creative_lead' || u?.role === 'hirer' || u?.role === 'organizer') return 'Creative Lead';
+    return 'Artist';
 };
 
 const fallbackName = (u: any) =>

@@ -3,7 +3,6 @@ export interface Gig {
     title: string;
     description: string;
     type: 'one-time' | 'recurring' | 'contract';
-    category: string;
     tags?: string[];
 
     organizerId: string;
@@ -29,6 +28,10 @@ export interface Gig {
     artistTypes: string[];
     requiredSkills?: string[];
     experienceLevel: 'beginner' | 'intermediate' | 'professional';
+    /** Plan 5 follow-up — minimum years of experience required (e.g. 5 → "5+ years").
+     *  Optional; when set the artist gig detail shows it instead of the
+     *  enum-derived guess. */
+    minExperienceYears?: number;
 
     ageRange?: {
         min?: number;

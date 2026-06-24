@@ -1,4 +1,4 @@
-import { inferModeFromUser, isValidMode, UserMode } from '../modeInference';
+import { inferModeFromUser, isValidMode, resolveBootstrapMode, UserMode } from '../modeInference';
 
 describe('isValidMode', () => {
   it('accepts "artist"', () => {
@@ -72,5 +72,24 @@ describe('inferModeFromUser', () => {
   it('falls back to "artist" when user is null / undefined', () => {
     expect(inferModeFromUser(null as any)).toBe<UserMode>('artist');
     expect(inferModeFromUser(undefined as any)).toBe<UserMode>('artist');
+  });
+});
+
+describe('resolveBootstrapMode', () => {
+  it('keeps the local explicit choice over a stale server value (regression: Hirer reverting to Artist on web refresh)', () => {
+    expect(resolveBootstrapMode({ localMode: 'hirer', modeExplicitlyChosen: true, serverMode: 'artist' })).toBe<UserMode>('hirer');
+  });
+
+  it('seeds from the server when the device has no explicit local choice', () => {
+    expect(resolveBootstrapMode({ localMode: 'artist', modeExplicitlyChosen: false, serverMode: 'hirer' })).toBe<UserMode>('hirer');
+  });
+
+  it('keeps local mode when the server value is absent or invalid', () => {
+    expect(resolveBootstrapMode({ localMode: 'hirer', modeExplicitlyChosen: false, serverMode: undefined })).toBe<UserMode>('hirer');
+    expect(resolveBootstrapMode({ localMode: 'artist', modeExplicitlyChosen: false, serverMode: 'bogus' })).toBe<UserMode>('artist');
+  });
+
+  it('never lets the server override an explicit local choice', () => {
+    expect(resolveBootstrapMode({ localMode: 'artist', modeExplicitlyChosen: true, serverMode: 'hirer' })).toBe<UserMode>('artist');
   });
 });

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EventLocation, EventMedia } from '@/services/eventService';
+import type { EventLocation, EventMedia, AgendaItem } from '@/services/eventService';
 
 export type ComposerStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -27,6 +27,8 @@ export interface ComposerForm {
   capacity: { total: number };
   pricing: ComposerPricing;
   media: EventMedia[];
+  registrationDeadline: string | null; // ISO datetime — cutoff for new registrations
+  agenda: AgendaItem[];                // optional per-day breakdown; surfaced when durationKind === 'multi'
 }
 
 const initialForm: ComposerForm = {
@@ -44,6 +46,8 @@ const initialForm: ComposerForm = {
   capacity: { total: 50 },
   pricing: { amount: 0, currency: 'INR', refundPolicy: 'flex_24h' },
   media: [],
+  registrationDeadline: null,
+  agenda: [],
 };
 
 interface State {

@@ -11,13 +11,11 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { Pencil, Sparkles } from 'lucide-react-native';
+import { Pencil, Sparkles, Calendar } from 'lucide-react-native';
 import { InputGroup } from '@/components/ui/InputGroup';
-import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import StyledTextInput from '@/components/ui/StyledTextInput';
 import ChipPicker from '@/components/ui/ChipPicker';
 import { PERFORMER_TYPES } from '@/constants/performerGroups';
-import { EVENT_FUNCTION_PRESETS } from '@/constants/eventFunctions';
 
 export interface Page1Value {
   title: string;
@@ -82,14 +80,12 @@ export default function Page1Identity({ value, onChange, onAiExtract }: Page1Ide
         />
       </InputGroup>
 
-      <InputGroup label="Event function" subtitle="Tap a suggestion or type custom">
-        <SearchableSelect
-          options={EVENT_FUNCTION_PRESETS.map((p) => ({ label: p, value: p }))}
+      <InputGroup label="Event" subtitle="What's the occasion?">
+        <StyledTextInput
+          icon={Calendar}
           value={value.eventFunction}
-          onChange={(v) => update({ eventFunction: v })}
-          placeholder="Search or type..."
-          allowCustom={true}
-          label="Select event function"
+          onChangeText={(v: string) => update({ eventFunction: v })}
+          placeholder="e.g. Sangeet, Corporate gala, Audition"
         />
       </InputGroup>
     </View>

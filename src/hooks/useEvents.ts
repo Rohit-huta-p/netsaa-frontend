@@ -72,3 +72,11 @@ export function useCancelRegistration() {
 export function useCancelEvent(eventId: string) {
   return useMutation({ mutationFn: (reason: string) => eventService.cancelEvent(eventId, reason) });
 }
+
+export function useJoinWaitlist(eventId: string) {
+  return useMutation({ mutationFn: (p: { quantity: number; attendeeSnapshot: { fullName: string; phone: string; email?: string } }) => eventService.joinWaitlist(eventId, p.quantity, p.attendeeSnapshot) });
+}
+
+export function useLeaveWaitlist(eventId: string) {
+  return useMutation({ mutationFn: () => eventService.leaveWaitlist(eventId) });
+}

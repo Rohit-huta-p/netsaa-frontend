@@ -67,6 +67,7 @@ export interface EventDoc {
 
   // Schema migration 2026-06-25 — see DOCS/MIGRATIONS/2026-06-25-event-flow-schema.md
   allowWaitlist?: boolean;
+  waitlistCount?: number;                   // number of active waitlist entries (backend-computed)
   waitlistAutoPromote?: boolean;            // Q1 · per-event flag
   cancellationPolicy?: EventCancellationPolicy;
   walkupsAllowed?: boolean;                 // Q11 · day-of walk-ups opt-in
@@ -269,4 +270,14 @@ export const eventService = {
 
   cancelEvent: async (eventId: string, reason: string): Promise<{ affectedRegistrations: number; totalRefundPaise: number; netsaAbsorbedTotalPaise: number }> =>
     (await client.post(`/v1/events/${eventId}/cancel`, { reason })).data.data,
+
+  joinWaitlist: async (eventId: string, quantity: number, attendeeSnapshot: { fullName: string; phone: string; email?: string }): Promise<{
+    entryId: string; position: number; status: string;
+  }> => (await client.post(`/v1/events/${eventId}/waitlist/join`, { quantity, attendeeSnapshot })).data.data,
+
+  leaveWaitlist: async (eventId: string): Promise<{ status: string }> =>
+    (await client.delete(`/v1/events/${eventId}/waitlist`)).data.data,
+
+  confirmPromotion: async (entryId: string, idempotencyKey: string): Promise<{ registrationId: string }> =>
+    (await client.post(`/v1/waitlist/${entryId}/confirm`, {}, { headers: { 'Idempotency-Key': idempotencyKey } })).data.data,
 };

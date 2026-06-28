@@ -57,6 +57,7 @@ interface Props {
     variant?: 'success' | 'view';
     onDismiss?: () => void;
     onViewEvent?: () => void;
+    onViewTicket?: () => void;
 }
 
 /** Split start date into a date line and a time line for the ticket. */
@@ -148,6 +149,7 @@ export default function RegistrationReceiptCard({
     variant = 'view',
     onDismiss,
     onViewEvent,
+    onViewTicket,
 }: Props) {
     const isPaid = event.registrationMode === 'paid_ticket';
     const count = registration.attendeeCount ?? 1;
@@ -348,6 +350,14 @@ export default function RegistrationReceiptCard({
             ) : null}
 
             {/* CTAs */}
+            {onViewTicket ? (
+                <Pressable
+                    onPress={onViewTicket}
+                    className="rounded-2xl py-4 items-center bg-event-brand mb-3 mt-2"
+                >
+                    <Text className="font-outfit font-bold text-white text-sm">View ticket → QR</Text>
+                </Pressable>
+            ) : null}
             <View className="flex-row gap-3 mt-2">
                 {onViewEvent ? (
                     <Pressable
@@ -360,9 +370,9 @@ export default function RegistrationReceiptCard({
                 {onDismiss ? (
                     <Pressable
                         onPress={onDismiss}
-                        className="flex-1 rounded-2xl py-4 items-center bg-event-brand"
+                        className="flex-1 rounded-2xl py-4 items-center bg-event-surface border border-event-border"
                     >
-                        <Text className="font-outfit font-bold text-white text-sm">Done</Text>
+                        <Text className="font-outfit font-bold text-event-textPrimary text-sm">Done</Text>
                     </Pressable>
                 ) : null}
             </View>

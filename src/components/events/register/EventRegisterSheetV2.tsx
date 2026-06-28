@@ -28,6 +28,7 @@ import { openRazorpayCheckout } from '@/lib/razorpayCheckout';
 import { eventService } from '@/services/eventService';
 import RegistrationReceiptCard from './RegistrationReceiptCard';
 import PaymentRetrySheet from './PaymentRetrySheet';
+import { useRouter } from 'expo-router';
 
 async function pollUntilConfirmed(eventId: string, qc: QueryClient): Promise<boolean> {
   for (let i = 0; i < 5; i++) {
@@ -58,6 +59,7 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
   // After submit, the receipt card reads the fresh registration row from
   // this hook (set by useRegisterForEvent's invalidation + Razorpay poll).
   const { data: confirmedRegistration } = useMyRegistration(eventId);
+  const router = useRouter();
 
   // Form state — pre-fill from profile, all editable
   const [name, setName] = useState('');
@@ -231,6 +233,10 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                   event={event}
                   registration={confirmedRegistration}
                   variant="success"
+                  onViewTicket={() => {
+                    onClose();
+                    router.push(`/events/${eventId}/ticket?registrationId=${(confirmedRegistration as any)?._id}`);
+                  }}
                   onDismiss={() => {
                     setSubmitted(false);
                     onClose();

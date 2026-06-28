@@ -24,7 +24,7 @@ export function useMyRegistration(eventId: string) {
       const token = useAuthStore.getState().accessToken;
       try {
         const r = await axios.get(
-          `${BASE}/api/events/${eventId}/registrations/me`,
+          `${BASE}/v1/events/${eventId}/registrations/me`,
           { headers: { Authorization: `Bearer ${token}` } },
         );
         return r.data.data ?? r.data;

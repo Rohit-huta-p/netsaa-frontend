@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Pressable, Text, Modal } from 'react-native';
+import { useRouter } from 'expo-router';
 import type { EventDoc } from '@/services/eventService';
 import { computeSlotsLeft, isCapacityUrgent } from '@/lib/eventTokens';
 import { formatRupees } from '@/lib/eventPricing';
@@ -27,6 +28,7 @@ const ORANGE_INK = '#1A0D06';
 const PAD = 20;
 
 export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed }: Props) {
+  const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [consentOpen, setConsentOpen] = useState(false);
@@ -65,20 +67,17 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
 
   const priceLabel = isFreeRsvp ? 'Free' : formatRupees(ticketPrice);
 
-  const buttonLabel = isRegistered
-    ? "You're going · Tap to cancel"
-    : deadlinePassed
-      ? 'Registration closed'
-      : isFull
-        ? 'Sold out'
-        : !isLive
-          ? 'Not accepting registrations'
+  const buttonLabel = deadlinePassed
+    ? 'Registration closed'
+    : isFull
+      ? 'Sold out'
+      : !isLive
+        ? 'Not accepting registrations'
+        : urgent
+          ? `Reserve · ${slotsLeft} left →`
           : 'Reserve →';
 
-  const ctaDisabled = !isRegistered && (deadlinePassed || isFull || !isLive || regLoading);
-  const ctaOnPress = isRegistered
-    ? () => setCancelOpen(true)
-    : () => !ctaDisabled && openRegister();
+  const ctaDisabled = deadlinePassed || isFull || !isLive || regLoading;
 
   return (
     <View style={{
@@ -96,59 +95,117 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
     }}>
       {/* Price + CTA row */}
       <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 10 }}>
-        {/* Price column */}
+        {/* Price / status column */}
         <View style={{ paddingHorizontal: 4, justifyContent: 'center' }}>
-          <Text className="font-mono" style={{
-            color: TEXT_3,
-            fontSize: 9.5,
-            textTransform: 'uppercase',
-            letterSpacing: 1.2,
-            fontWeight: '600',
-            marginBottom: 2,
-          }}>
-            {isFreeRsvp ? 'Cost' : 'Per seat'}
-          </Text>
-          <Text className="font-serif" style={{
-            color: TEXT_0,
-            fontSize: 22,
-            lineHeight: 24,
-          }}>
-            {priceLabel}
-          </Text>
+          {isRegistered ? (
+            <>
+              <Text className="font-mono" style={{
+                color: TEXT_3,
+                fontSize: 9.5,
+                textTransform: 'uppercase',
+                letterSpacing: 1.2,
+                fontWeight: '600',
+                marginBottom: 2,
+              }}>
+                Status
+              </Text>
+              <Text className="font-serif" style={{
+                color: '#22C55E',
+                fontSize: 18,
+                lineHeight: 22,
+              }}>
+                You're going ✓
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text className="font-mono" style={{
+                color: TEXT_3,
+                fontSize: 9.5,
+                textTransform: 'uppercase',
+                letterSpacing: 1.2,
+                fontWeight: '600',
+                marginBottom: 2,
+              }}>
+                {isFreeRsvp ? 'Cost' : 'Per seat'}
+              </Text>
+              <Text className="font-serif" style={{
+                color: TEXT_0,
+                fontSize: 22,
+                lineHeight: 24,
+              }}>
+                {priceLabel}
+              </Text>
+            </>
+          )}
         </View>
 
-        {/* CTA */}
-        <Pressable
-          onPress={ctaOnPress}
-          disabled={ctaDisabled && !isRegistered}
-          style={{
-            flex: 1,
-            borderRadius: 12,
-            height: 52,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: isRegistered
-              ? SURFACE
-              : ctaDisabled
-                ? SURFACE
-                : TEXT_0,
-            borderWidth: isRegistered || ctaDisabled ? 1 : 0,
-            borderColor: HAIRLINE_2,
-          }}>
-          <Text className="font-outfit" style={{
-            color: isRegistered
-              ? TEXT_2
-              : ctaDisabled
-                ? TEXT_3
-                : ORANGE_INK,
-            fontWeight: '700',
-            fontSize: 14,
-          }}>
-            {urgent && !isRegistered && !ctaDisabled
-              ? `Reserve · ${slotsLeft} left →`
-              : buttonLabel}
-          </Text>
-        </Pressable>
+        {isRegistered ? (
+          /* Registered state: View ticket (primary flex) + Cancel (secondary smaller) */
+          <>
+            <Pressable
+              onPress={() => router.push(`/events/${event._id}/ticket?registrationId=${myRegistration?._id}`)}
+              style={{
+                flex: 1,
+                borderRadius: 12,
+                height: 52,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: TEXT_0,
+              }}>
+              <Text className="font-outfit" style={{
+                color: ORANGE_INK,
+                fontWeight: '700',
+                fontSize: 14,
+              }}>
+                View ticket →
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setCancelOpen(true)}
+              style={{
+                borderRadius: 12,
+                height: 52,
+                paddingHorizontal: 14,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: SURFACE,
+                borderWidth: 1,
+                borderColor: HAIRLINE_2,
+              }}>
+              <Text className="font-outfit" style={{
+                color: TEXT_2,
+                fontWeight: '600',
+                fontSize: 13,
+              }}>
+                Cancel
+              </Text>
+            </Pressable>
+          </>
+        ) : (
+          /* Not registered state: single Reserve button */
+          <Pressable
+            onPress={() => !ctaDisabled && openRegister()}
+            disabled={ctaDisabled}
+            style={{
+              flex: 1,
+              borderRadius: 12,
+              height: 52,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: ctaDisabled ? SURFACE : TEXT_0,
+              borderWidth: ctaDisabled ? 1 : 0,
+              borderColor: HAIRLINE_2,
+            }}>
+            <Text className="font-outfit" style={{
+              color: ctaDisabled ? TEXT_3 : ORANGE_INK,
+              fontWeight: '700',
+              fontSize: 14,
+            }}>
+              {buttonLabel}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Refund status card — shown after successful cancellation */}

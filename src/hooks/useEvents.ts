@@ -61,3 +61,18 @@ export function useCancelMyRegistration(eventId: string) {
     },
   });
 }
+
+export function useTicket(registrationId: string | undefined) {
+  return useQuery({
+    queryKey: ['ticket', registrationId],
+    queryFn: () => eventService.getTicket(registrationId!),
+    enabled: !!registrationId,
+  });
+}
+
+export function useCheckIn(eventId: string) {
+  return useMutation({
+    mutationFn: ({ code, method }: { code: string; method?: 'qr' | 'manual' | 'backup' }) =>
+      eventService.checkIn(eventId, code, method),
+  });
+}

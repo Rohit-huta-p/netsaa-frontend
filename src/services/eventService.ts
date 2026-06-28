@@ -214,4 +214,19 @@ export const eventService = {
     if (Array.isArray(data?.events)) return data.events;
     return [];
   },
+
+  getTicket: async (registrationId: string): Promise<{
+    registrationId: string; ticketCode: string; backupCode: string;
+    qrPayload: string; attendeeCount: number; status: string;
+  }> => {
+    const r = await client.get(`/v1/registrations/${registrationId}/ticket`);
+    return r.data.data;
+  },
+
+  checkIn: async (eventId: string, code: string, method: 'qr' | 'manual' | 'backup' = 'qr'): Promise<{
+    ticketId: string; attendeeName: string; status: string; checkedInAt: string;
+  }> => {
+    const r = await client.post(`/v1/events/${eventId}/check-in`, { code, method });
+    return r.data.data;
+  },
 };

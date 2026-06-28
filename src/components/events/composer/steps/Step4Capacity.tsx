@@ -1,4 +1,5 @@
 import { View, Text, TextInput, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useCreateEventStore, RefundPolicy, RequiredAttendeeField } from '@/stores/createEventStore';
 import { eventTokens } from '@/lib/eventTokens';
 import {
@@ -7,6 +8,8 @@ import {
   NETSA_FEE_PERCENT,
   PROCESSING_FEE_PERCENT,
 } from '@/lib/eventPricing';
+import { usePayoutAccount } from '@/hooks/usePayoutAccount';
+import { AlertCircle } from 'lucide-react-native';
 
 const CAPACITY_PRESETS = [20, 50, 100, 200, 500];
 const PRICE_PRESETS = [99, 249, 499, 999, 1999];
@@ -27,8 +30,13 @@ const ATTENDEE_FIELD_TOGGLES: { value: RequiredAttendeeField; label: string; sub
 
 export default function Step4Capacity({ onNext }: { onNext: () => void }) {
   const { form, update, markComplete } = useCreateEventStore();
+  const router = useRouter();
   const total = form.capacity.total;
   const isPaid = form.registrationMode === 'paid_ticket';
+
+  // Payout JIT gate — only relevant for paid events
+  const { data: payoutAccount } = usePayoutAccount();
+  const payoutVerified = payoutAccount?.status === 'verified';
 
   const setCapacity = (n: number) =>
     update('capacity', { total: Math.max(1, Math.min(1000, n)) });
@@ -69,7 +77,7 @@ export default function Step4Capacity({ onNext }: { onNext: () => void }) {
   const guestsValid =
     form.maxGuestsPerRegistration >= 1 && form.maxGuestsPerRegistration <= 10;
 
-  const canContinue = capacityValid && pricingValid && refundNoteValid && guestsValid;
+  const canContinue = capacityValid && pricingValid && refundNoteValid && guestsValid && !(isPaid && !payoutVerified);
 
   return (
     <View className="gap-7 mt-2">
@@ -269,6 +277,29 @@ export default function Step4Capacity({ onNext }: { onNext: () => void }) {
       {isPaid ? (
         <>
           <View className="h-px bg-event-border my-2" />
+
+          {/* PAYOUT JIT GATE — shown when payout not yet verified */}
+          {!payoutVerified ? (
+            <View className="rounded-2xl bg-event-surface border border-event-brand/40 px-4 py-4 gap-3">
+              <View className="flex-row items-center gap-2">
+                <AlertCircle size={16} color="#FF6B35" />
+                <Text className="font-mono text-event-brand text-[10px] uppercase tracking-widest">
+                  Payout setup required
+                </Text>
+              </View>
+              <Text className="font-outfit text-event-textSecondary text-sm leading-5">
+                Set up a verified bank account to publish paid events. Your ticket earnings will be settled there instantly via Razorpay.
+              </Text>
+              <Pressable
+                onPress={() => router.push('/settings/payouts')}
+                className="rounded-2xl bg-event-brand px-4 py-3 items-center self-start"
+              >
+                <Text className="font-outfit font-semibold text-white text-sm">
+                  Set up payouts
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           <View className="gap-3">
             <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">

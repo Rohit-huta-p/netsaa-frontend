@@ -21,6 +21,8 @@ export interface EventLocation {
   landmark?: string;
   geo?: { type: 'Point'; coordinates: [number, number] };
   onlinePlatform?: string;
+  meetingLink?: string;                                   // online · join link · encrypted at rest (D7 reversed 2026-06-26)
+  meetingLinkRevealAt?: 'on_register' | 'T-24h' | 'T-1h'; // when attendees see the link
 }
 
 export interface EventCapacity {
@@ -35,6 +37,13 @@ export interface AgendaItem {
   subtitle?: string;     // optional one-line description
   startsAt?: string;     // ISO datetime (full start time, overrides date)
   durationMinutes?: number;
+}
+
+export interface EventCancellationPolicy {
+  fullRefundUntil?: string;          // ISO date — full refund before this
+  partialRefundUntil?: string;       // ISO date — partialRefundPercent between fullRefundUntil and this
+  partialRefundPercent?: number;     // 0-100
+  notes?: string;                    // free-text shown to attendees
 }
 
 export interface EventDoc {
@@ -55,6 +64,19 @@ export interface EventDoc {
   media: EventMedia[];
   registrationDeadline?: string; // ISO datetime · cutoff for new registrations
   agenda?: AgendaItem[];         // optional per-day breakdown, populated for multi-day events
+
+  // Schema migration 2026-06-25 — see DOCS/MIGRATIONS/2026-06-25-event-flow-schema.md
+  allowWaitlist?: boolean;
+  waitlistAutoPromote?: boolean;            // Q1 · per-event flag
+  cancellationPolicy?: EventCancellationPolicy;
+  walkupsAllowed?: boolean;                 // Q11 · day-of walk-ups opt-in
+  maxGuestsPerRegistration?: number;        // default 5
+  requiredAttendeeFields?: ('phone' | 'email' | 'guestNames')[];
+  visibility?: 'public' | 'unlisted' | 'private';
+  ageRestriction?: number;
+  language?: string;                        // ISO 639-1
+  discussionVisibility?: 'public' | 'attendees_only';  // Q8
+
   status: 'draft' | 'pending_review' | 'live' | 'cancelled' | 'completed';
   moderationFlagReason?: string;
   stats?: { views: number; saves: number; sharesCount: number };

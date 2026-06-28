@@ -1,5 +1,5 @@
 import { View, Text, TextInput, Pressable } from 'react-native';
-import { useCreateEventStore, RefundPolicy } from '@/stores/createEventStore';
+import { useCreateEventStore, RefundPolicy, RequiredAttendeeField } from '@/stores/createEventStore';
 import { eventTokens } from '@/lib/eventTokens';
 import {
   computeOrganizerBreakdown,
@@ -15,6 +15,14 @@ const REFUND_OPTIONS: { value: RefundPolicy; label: string; sub: string }[] = [
   { value: 'flex_24h', label: 'Flexible', sub: 'Full refund up to 24h before the event' },
   { value: 'firm', label: 'Firm', sub: 'No refunds once registered' },
   { value: 'custom', label: 'Custom', sub: 'Write your own policy below' },
+];
+
+const GUEST_OPTIONS = [1, 2, 3, 5, 10];
+
+const ATTENDEE_FIELD_TOGGLES: { value: RequiredAttendeeField; label: string; sub: string; locked?: boolean }[] = [
+  { value: 'phone', label: 'Phone', sub: 'Always required · for SMS reminders', locked: true },
+  { value: 'email', label: 'Email', sub: 'Optional · receipts + ICS calendar' },
+  { value: 'guestNames', label: 'Guest names', sub: 'When group size > 1' },
 ];
 
 export default function Step4Capacity({ onNext }: { onNext: () => void }) {
@@ -34,12 +42,34 @@ export default function Step4Capacity({ onNext }: { onNext: () => void }) {
   const setRefundNote = (note: string) =>
     update('pricing', { ...form.pricing, refundCustomNote: note });
 
+  const setMaxGuests = (n: number) =>
+    update('maxGuestsPerRegistration', Math.max(1, Math.min(10, n)));
+
+  const setAllowWaitlist = (v: boolean) => {
+    update('allowWaitlist', v);
+    // Reset auto-promote when waitlist disabled
+    if (!v) update('waitlistAutoPromote', false);
+  };
+
+  const toggleAttendeeField = (field: RequiredAttendeeField) => {
+    if (field === 'phone') return; // phone is locked-on
+    const has = form.requiredAttendeeFields.includes(field);
+    update(
+      'requiredAttendeeFields',
+      has
+        ? form.requiredAttendeeFields.filter((f) => f !== field)
+        : [...form.requiredAttendeeFields, field],
+    );
+  };
+
   const capacityValid = total >= 1 && total <= 1000;
   const pricingValid = !isPaid || (form.pricing.amount > 0 && form.pricing.amount <= 100000);
   const refundNoteValid =
     !isPaid || form.pricing.refundPolicy !== 'custom' || !!form.pricing.refundCustomNote?.trim();
+  const guestsValid =
+    form.maxGuestsPerRegistration >= 1 && form.maxGuestsPerRegistration <= 10;
 
-  const canContinue = capacityValid && pricingValid && refundNoteValid;
+  const canContinue = capacityValid && pricingValid && refundNoteValid && guestsValid;
 
   return (
     <View className="gap-7 mt-2">
@@ -85,6 +115,154 @@ export default function Step4Capacity({ onNext }: { onNext: () => void }) {
         <Text className="font-outfit text-event-textMuted text-xs">
           Hard cap is 1000. For larger events, request admin approval.
         </Text>
+      </View>
+
+      <View className="h-px bg-event-border my-2" />
+
+      {/* GROUP SIZE — max guests per registration */}
+      <View className="gap-3">
+        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
+          Group registration · max per booking
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          {GUEST_OPTIONS.map((n) => {
+            const active = form.maxGuestsPerRegistration === n;
+            return (
+              <Pressable
+                key={n}
+                onPress={() => setMaxGuests(n)}
+                className={`px-4 py-2.5 rounded-full ${active ? 'bg-event-brand' : 'bg-event-surface border border-event-border'}`}
+              >
+                <Text className={`font-outfit text-sm ${active ? 'text-white font-semibold' : 'text-event-textSecondary'}`}>
+                  {n}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text className="font-outfit text-event-textMuted text-xs">
+          One attendee can bring up to {form.maxGuestsPerRegistration - 1} guest{form.maxGuestsPerRegistration === 2 ? '' : 's'}. Each seat counts against capacity.
+        </Text>
+      </View>
+
+      <View className="h-px bg-event-border my-2" />
+
+      {/* REQUIRED ATTENDEE FIELDS */}
+      <View className="gap-3">
+        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
+          Required from attendees
+        </Text>
+        <View className="gap-2">
+          {ATTENDEE_FIELD_TOGGLES.map((opt) => {
+            const active = form.requiredAttendeeFields.includes(opt.value);
+            return (
+              <Pressable
+                key={opt.value}
+                onPress={() => toggleAttendeeField(opt.value)}
+                disabled={opt.locked}
+                className={`flex-row items-center justify-between p-4 rounded-2xl border ${active ? 'border-event-brand bg-event-surface' : 'border-event-border bg-event-surfaceAlt'}`}
+              >
+                <View className="flex-1 pr-3">
+                  <Text className="font-outfit text-event-textPrimary text-base font-semibold">
+                    {opt.label}
+                    {opt.locked ? <Text className="font-mono text-event-textMuted text-xs"> · locked</Text> : null}
+                  </Text>
+                  <Text className="font-outfit text-event-textSecondary text-xs mt-1">
+                    {opt.sub}
+                  </Text>
+                </View>
+                <SwitchPill on={active} disabled={opt.locked} />
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View className="h-px bg-event-border my-2" />
+
+      {/* WAITLIST */}
+      <View className="gap-3">
+        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
+          Waitlist
+        </Text>
+        <Pressable
+          onPress={() => setAllowWaitlist(!form.allowWaitlist)}
+          className={`flex-row items-center justify-between p-4 rounded-2xl border ${form.allowWaitlist ? 'border-event-brand bg-event-surface' : 'border-event-border bg-event-surfaceAlt'}`}
+        >
+          <View className="flex-1 pr-3">
+            <Text className="font-outfit text-event-textPrimary text-base font-semibold">
+              Allow waitlist when full
+            </Text>
+            <Text className="font-outfit text-event-textSecondary text-xs mt-1">
+              Artists can join a waitlist · they're notified if a seat opens
+            </Text>
+          </View>
+          <SwitchPill on={form.allowWaitlist} />
+        </Pressable>
+
+        {/* AUTO-PROMOTE — only when waitlist is on */}
+        {form.allowWaitlist ? (
+          <View className="gap-2 mt-1">
+            <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
+              When a seat opens
+            </Text>
+            <Pressable
+              onPress={() => update('waitlistAutoPromote', true)}
+              className={`p-4 rounded-2xl border ${form.waitlistAutoPromote ? 'border-event-brand bg-event-surface' : 'border-event-border bg-event-surfaceAlt'}`}
+            >
+              <View className="flex-row items-center gap-3">
+                <RadioDot on={form.waitlistAutoPromote} />
+                <View className="flex-1">
+                  <Text className="font-outfit text-event-textPrimary text-base font-semibold">
+                    Auto-promote
+                  </Text>
+                  <Text className="font-outfit text-event-textSecondary text-xs mt-1">
+                    Top of waitlist gets 30 min to confirm · no organizer action
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+            <Pressable
+              onPress={() => update('waitlistAutoPromote', false)}
+              className={`p-4 rounded-2xl border ${!form.waitlistAutoPromote ? 'border-event-brand bg-event-surface' : 'border-event-border bg-event-surfaceAlt'}`}
+            >
+              <View className="flex-row items-center gap-3">
+                <RadioDot on={!form.waitlistAutoPromote} />
+                <View className="flex-1">
+                  <Text className="font-outfit text-event-textPrimary text-base font-semibold">
+                    I'll approve each one
+                  </Text>
+                  <Text className="font-outfit text-event-textSecondary text-xs mt-1">
+                    You get a push · tap to promote
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+
+      <View className="h-px bg-event-border my-2" />
+
+      {/* WALK-UPS */}
+      <View className="gap-3">
+        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
+          Day-of
+        </Text>
+        <Pressable
+          onPress={() => update('walkupsAllowed', !form.walkupsAllowed)}
+          className={`flex-row items-center justify-between p-4 rounded-2xl border ${form.walkupsAllowed ? 'border-event-brand bg-event-surface' : 'border-event-border bg-event-surfaceAlt'}`}
+        >
+          <View className="flex-1 pr-3">
+            <Text className="font-outfit text-event-textPrimary text-base font-semibold">
+              Allow walk-ups
+            </Text>
+            <Text className="font-outfit text-event-textSecondary text-xs mt-1">
+              Add people at the door if seats are left · cash or Razorpay link
+            </Text>
+          </View>
+          <SwitchPill on={form.walkupsAllowed} />
+        </Pressable>
       </View>
 
       {/* PRICING — only when paid_ticket */}
@@ -261,6 +439,32 @@ export default function Step4Capacity({ onNext }: { onNext: () => void }) {
           Continue
         </Text>
       </Pressable>
+    </View>
+  );
+}
+
+/* — Small UI bits — */
+
+function SwitchPill({ on, disabled }: { on: boolean; disabled?: boolean }) {
+  return (
+    <View
+      className={`w-12 h-7 rounded-full ${on ? 'bg-event-brand' : 'bg-event-border'} ${disabled ? 'opacity-50' : ''} justify-center`}
+      style={{ paddingHorizontal: 2 }}
+    >
+      <View
+        className="w-6 h-6 rounded-full bg-white"
+        style={{ transform: [{ translateX: on ? 20 : 0 }] }}
+      />
+    </View>
+  );
+}
+
+function RadioDot({ on }: { on: boolean }) {
+  return (
+    <View
+      className={`w-5 h-5 rounded-full border-2 ${on ? 'border-event-brand' : 'border-event-border'} items-center justify-center`}
+    >
+      {on ? <View className="w-2.5 h-2.5 rounded-full bg-event-brand" /> : null}
     </View>
   );
 }

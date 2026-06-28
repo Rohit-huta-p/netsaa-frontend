@@ -13,8 +13,8 @@ import Step6Media from './steps/Step6Media';
 import Step7Review from './steps/Step7Review';
 
 const STEPS: Record<ComposerStep, { title: string; subtitle: string }> = {
-  1: { title: 'Topic + mode', subtitle: 'What kind of event?' },
-  2: { title: 'Basics', subtitle: 'Title, time, duration' },
+  1: { title: 'Basics', subtitle: 'Title, time, duration' },
+  2: { title: 'Topic + mode', subtitle: 'What kind of event?' },
   3: { title: 'Location', subtitle: 'In person or online' },
   4: { title: 'Capacity', subtitle: 'How many people' },
   5: { title: 'Description', subtitle: 'About, what to expect' },
@@ -68,8 +68,8 @@ export default function ComposerShell() {
         contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 120 }}
         keyboardShouldPersistTaps="handled"
       >
-        {step === 1 ? <Step1TopicMode onNext={goNext} /> : null}
-        {step === 2 ? <Step2Basics onNext={goNext} /> : null}
+        {step === 1 ? <Step2Basics onNext={goNext} /> : null}
+        {step === 2 ? <Step1TopicMode onNext={goNext} /> : null}
         {step === 3 ? <Step3Location onNext={goNext} /> : null}
         {step === 4 ? <Step4Capacity onNext={goNext} /> : null}
         {step === 5 ? <Step5Description onNext={goNext} /> : null}

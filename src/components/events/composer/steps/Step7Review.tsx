@@ -5,6 +5,29 @@ import { useCreateEventStore } from '@/stores/createEventStore';
 import { useCreateEvent } from '@/hooks/useEvents';
 import { eventTokens, durationKindLabel } from '@/lib/eventTokens';
 import { Check } from 'lucide-react-native';
+import type { EventCancellationPolicy } from '@/services/eventService';
+
+const ONE_DAY_MS = 86400000;
+
+/** Translate the high-level refundPolicy enum + startsAt into a structured EventCancellationPolicy. */
+function deriveCancellationPolicy(
+  refundPolicy: 'flex_24h' | 'firm' | 'custom',
+  customNote: string | undefined,
+  startsAtISO: string,
+): EventCancellationPolicy {
+  const startsAt = new Date(startsAtISO).getTime();
+  switch (refundPolicy) {
+    case 'flex_24h':
+      return {
+        fullRefundUntil: new Date(startsAt - ONE_DAY_MS).toISOString(),
+        notes: 'Full refund up to 24h before the event.',
+      };
+    case 'firm':
+      return { notes: 'No refunds once registered.' };
+    case 'custom':
+      return { notes: customNote || 'See organizer.' };
+  }
+}
 
 export default function Step7Review() {
   const router = useRouter();
@@ -45,6 +68,27 @@ export default function Step7Review() {
         media: form.media,
         registrationDeadline: form.registrationDeadline || undefined,
         agenda: form.agenda.length ? form.agenda : undefined,
+
+        // Schema migration 2026-06-25 — Step 4 fields
+        allowWaitlist: form.allowWaitlist,
+        waitlistAutoPromote: form.waitlistAutoPromote,
+        walkupsAllowed: form.walkupsAllowed,
+        maxGuestsPerRegistration: form.maxGuestsPerRegistration,
+        requiredAttendeeFields: form.requiredAttendeeFields,
+        cancellationPolicy:
+          isPaid && form.startsAt
+            ? deriveCancellationPolicy(
+                form.pricing.refundPolicy,
+                form.pricing.refundCustomNote,
+                form.startsAt,
+              )
+            : undefined,
+
+        // Defaults held in the store, not surfaced in Step 4 — sent so backend has them
+        visibility: form.visibility,
+        discussionVisibility: form.discussionVisibility,
+        language: form.language,
+        ageRestriction: form.ageRestriction ?? undefined,
       };
       const result = await mutation.mutateAsync(payload as any);
       setOutcome(result.status as 'live' | 'pending_review');
@@ -158,6 +202,23 @@ export default function Step7Review() {
         ) : (
           <Text className="font-outfit text-event-textMuted text-xs mt-1">Free RSVP</Text>
         )}
+
+        {/* Step 4 configuration summary */}
+        <View className="mt-3 pt-3 border-t border-event-border gap-1">
+          <Text className="font-outfit text-event-textMuted text-xs">
+            Groups up to {form.maxGuestsPerRegistration}
+            {' · '}
+            {form.allowWaitlist
+              ? form.waitlistAutoPromote
+                ? 'Waitlist · auto-promote'
+                : 'Waitlist · manual approval'
+              : 'No waitlist'}
+            {form.walkupsAllowed ? ' · Walk-ups on' : ''}
+          </Text>
+          <Text className="font-outfit text-event-textMuted text-xs">
+            Required: {form.requiredAttendeeFields.join(' · ')}
+          </Text>
+        </View>
       </ReviewBlock>
 
       <ReviewBlock label="About" onEdit={() => setStep(5)}>

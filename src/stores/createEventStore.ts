@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EventLocation, EventMedia, AgendaItem } from '@/services/eventService';
+import type { EventLocation, EventMedia, AgendaItem, EventCancellationPolicy } from '@/services/eventService';
 
 export type ComposerStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -11,6 +11,8 @@ export interface ComposerPricing {
   refundPolicy: RefundPolicy;
   refundCustomNote?: string;
 }
+
+export type RequiredAttendeeField = 'phone' | 'email' | 'guestNames';
 
 export interface ComposerForm {
   title: string;
@@ -27,8 +29,22 @@ export interface ComposerForm {
   capacity: { total: number };
   pricing: ComposerPricing;
   media: EventMedia[];
-  registrationDeadline: string | null; // ISO datetime — cutoff for new registrations
-  agenda: AgendaItem[];                // optional per-day breakdown; surfaced when durationKind === 'multi'
+  registrationDeadline: string | null;
+  agenda: AgendaItem[];
+
+  // Schema migration 2026-06-25 — Step 4 surfaces these
+  allowWaitlist: boolean;
+  waitlistAutoPromote: boolean;             // Q1 · per-event flag · only meaningful when allowWaitlist=true
+  walkupsAllowed: boolean;                  // Q11 · at-the-door registrations
+  maxGuestsPerRegistration: number;         // 1-10 · default 5
+  requiredAttendeeFields: RequiredAttendeeField[];  // phone always on; email & guestNames toggleable
+
+  // Schema migration — held as defaults, surfaced in later steps / settings
+  visibility: 'public' | 'unlisted' | 'private';
+  discussionVisibility: 'public' | 'attendees_only';   // Q8
+  ageRestriction: number | null;
+  language: string;                         // ISO 639-1 · default 'en'
+  cancellationPolicy: EventCancellationPolicy | null;  // computed at submit from refundPolicy enum
 }
 
 const initialForm: ComposerForm = {
@@ -48,6 +64,18 @@ const initialForm: ComposerForm = {
   media: [],
   registrationDeadline: null,
   agenda: [],
+
+  allowWaitlist: false,
+  waitlistAutoPromote: false,
+  walkupsAllowed: false,
+  maxGuestsPerRegistration: 5,
+  requiredAttendeeFields: ['phone'],
+
+  visibility: 'public',
+  discussionVisibility: 'public',
+  ageRestriction: null,
+  language: 'en',
+  cancellationPolicy: null,
 };
 
 interface State {

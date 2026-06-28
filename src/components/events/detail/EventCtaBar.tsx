@@ -13,6 +13,15 @@ interface Props {
   onInitialOpenConsumed?: () => void;
 }
 
+const BG = 'rgba(9,9,11,0.92)';
+const HAIRLINE_2 = 'rgba(255,255,255,0.10)';
+const SURFACE = 'rgba(255,255,255,0.04)';
+const TEXT_0 = '#f4f4f5';
+const TEXT_2 = '#71717a';
+const TEXT_3 = '#52525b';
+const ORANGE_INK = '#1A0D06';
+const PAD = 20;
+
 export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -34,58 +43,92 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
   const isFreeRsvp = event.registrationMode === 'free_rsvp';
   const deadlinePassed = !!event.registrationDeadline && Date.now() > new Date(event.registrationDeadline).getTime();
 
-  // CTA label / disabled state — compute up front, switch on registration.
-  const ticketPrice = event.pricing?.amount ?? 0;
-  const slotsCopy = urgent ? `only ${slotsLeft} left` : `${slotsLeft} left`;
+  const ticketPrice = (event as any).pricing?.amount ?? 0;
 
-  const ctaLabel = isRegistered
-    ? "You're going · Cancel registration"
+  const priceLabel = isFreeRsvp ? 'Free' : formatRupees(ticketPrice);
+
+  const buttonLabel = isRegistered
+    ? "You're going · Tap to cancel"
     : deadlinePassed
       ? 'Registration closed'
       : isFull
         ? 'Sold out'
         : !isLive
           ? 'Not accepting registrations'
-          : isFreeRsvp
-            ? `Register · ${slotsLeft} ${slotsLeft === 1 ? 'spot' : 'spots'} left`
-            : `Get ticket ${formatRupees(ticketPrice)} · ${slotsCopy}`;
+          : 'Reserve →';
 
   const ctaDisabled = !isRegistered && (deadlinePassed || isFull || !isLive || regLoading);
   const ctaOnPress = isRegistered
     ? () => setCancelOpen(true)
     : () => !ctaDisabled && setSheetOpen(true);
 
-  // Critical: render BOTH sheets unconditionally so they don't unmount when
-  // the registration state flips mid-flow. Otherwise the register sheet
-  // disappears the instant the mutation succeeds — useMyRegistration
-  // refetches, isRegistered flips true, the form-branch JSX unmounts
-  // (taking the modal with it), and the receipt card never gets to render.
-  // The sheets' own `open` prop controls visibility from now on.
   return (
-    <View className="absolute bottom-0 left-0 right-0 px-4 pt-3 pb-6 bg-event-bg/95 border-t border-event-border">
+    <View style={{
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingHorizontal: PAD,
+      paddingTop: 14,
+      paddingBottom: 24,
+      backgroundColor: BG,
+      borderTopWidth: 1,
+      borderColor: HAIRLINE_2,
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      gap: 10,
+    }}>
+      {/* Price column */}
+      <View style={{ paddingHorizontal: 4, justifyContent: 'center' }}>
+        <Text className="font-mono" style={{
+          color: TEXT_3,
+          fontSize: 9.5,
+          textTransform: 'uppercase',
+          letterSpacing: 1.2,
+          fontWeight: '600',
+          marginBottom: 2,
+        }}>
+          {isFreeRsvp ? 'Cost' : 'Per seat'}
+        </Text>
+        <Text className="font-serif" style={{
+          color: TEXT_0,
+          fontSize: 22,
+          lineHeight: 24,
+        }}>
+          {priceLabel}
+        </Text>
+      </View>
+
+      {/* CTA */}
       <Pressable
         onPress={ctaOnPress}
-        disabled={ctaDisabled}
-        className={`rounded-2xl py-4 items-center ${
-          isRegistered
-            ? 'bg-event-surface border border-event-border'
+        disabled={ctaDisabled && !isRegistered}
+        style={{
+          flex: 1,
+          borderRadius: 12,
+          height: 52,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: isRegistered
+            ? SURFACE
             : ctaDisabled
-              ? 'bg-event-surface'
-              : urgent
-                ? 'bg-event-capacityUrgent'
-                : 'bg-event-brand'
-        }`}
-      >
-        <Text
-          className={`font-outfit font-bold text-base ${
-            isRegistered
-              ? 'text-event-textSecondary font-semibold'
-              : ctaDisabled
-                ? 'text-event-textMuted'
-                : 'text-white'
-          }`}
-        >
-          {ctaLabel}
+              ? SURFACE
+              : TEXT_0,
+          borderWidth: isRegistered || ctaDisabled ? 1 : 0,
+          borderColor: HAIRLINE_2,
+        }}>
+        <Text className="font-outfit" style={{
+          color: isRegistered
+            ? TEXT_2
+            : ctaDisabled
+              ? TEXT_3
+              : ORANGE_INK,
+          fontWeight: '700',
+          fontSize: 14,
+        }}>
+          {urgent && !isRegistered && !ctaDisabled
+            ? `Reserve · ${slotsLeft} left →`
+            : buttonLabel}
         </Text>
       </Pressable>
 

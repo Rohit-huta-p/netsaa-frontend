@@ -43,7 +43,7 @@ export default function Step1TopicMode({ onNext }: { onNext: () => void }) {
       </View>
 
       <Pressable
-        onPress={() => { markComplete(1); onNext(); }}
+        onPress={() => { markComplete(2); onNext(); }}
         disabled={!canContinue}
         className={`rounded-2xl py-4 items-center ${canContinue ? 'bg-event-brand' : 'bg-event-surface'}`}
       >

@@ -119,7 +119,7 @@ export default function Step2Basics({ onNext }: { onNext: () => void }) {
       </View>
 
       <Pressable
-        onPress={() => { markComplete(2); onNext(); }}
+        onPress={() => { markComplete(1); onNext(); }}
         disabled={!canContinue}
         className={`rounded-2xl py-4 items-center ${canContinue ? 'bg-event-brand' : 'bg-event-surface'}`}
       >

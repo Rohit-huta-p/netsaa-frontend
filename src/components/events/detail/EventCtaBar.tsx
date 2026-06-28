@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react';
-import { View, Pressable, Text, Modal } from 'react-native';
+import { View, Pressable, Text, Modal, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { EventDoc } from '@/services/eventService';
+import { eventService } from '@/services/eventService';
 import { computeSlotsLeft, isCapacityUrgent } from '@/lib/eventTokens';
 import { formatRupees } from '@/lib/eventPricing';
 import { useMyRegistration } from '@/hooks/useMyRegistration';
+import { useMyWaitlistEntry } from '@/hooks/useMyWaitlistEntry';
 import { useQueryClient } from '@tanstack/react-query';
 import EventRegisterSheetV2 from '@/components/events/register/EventRegisterSheetV2';
 import CancellationReasonModal, { type CancelRegistrationResult } from '@/components/events/register/CancellationReasonModal';
 import RefundStatusCard from '@/components/events/register/RefundStatusCard';
 import { DPDPConsentScreen } from '@/components/events/register/DPDPConsentScreen';
 import { useRegisterFlowStore } from '@/stores/registerFlowStore';
+import WaitlistJoinSheet from '@/components/events/register/WaitlistJoinSheet';
+import LeaveWaitlistConfirm from '@/components/events/register/LeaveWaitlistConfirm';
 
 interface Props {
   event: EventDoc;
@@ -33,6 +37,9 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [consentOpen, setConsentOpen] = useState(false);
   const [cancelResult, setCancelResult] = useState<CancelRegistrationResult | null>(null);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [confirmingPromotion, setConfirmingPromotion] = useState(false);
   const recordConsent = useRegisterFlowStore((s) => s.recordConsent);
   const isConsentValid = useRegisterFlowStore((s) => s.isConsentValid);
   // subscribe to the timestamp so the bar re-evaluates after consent is recorded
@@ -47,6 +54,7 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
   };
 
   const { data: myRegistration, isLoading: regLoading } = useMyRegistration(event._id);
+  const { data: myWaitlist } = useMyWaitlistEntry(event._id);
   const isRegistered = !!myRegistration;
 
   useEffect(() => {
@@ -183,28 +191,109 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
             </Pressable>
           </>
         ) : (
-          /* Not registered state: single Reserve button */
-          <Pressable
-            onPress={() => !ctaDisabled && openRegister()}
-            disabled={ctaDisabled}
-            style={{
-              flex: 1,
-              borderRadius: 12,
-              height: 52,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: ctaDisabled ? SURFACE : TEXT_0,
-              borderWidth: ctaDisabled ? 1 : 0,
-              borderColor: HAIRLINE_2,
-            }}>
-            <Text className="font-outfit" style={{
-              color: ctaDisabled ? TEXT_3 : ORANGE_INK,
-              fontWeight: '700',
-              fontSize: 14,
-            }}>
-              {buttonLabel}
-            </Text>
-          </Pressable>
+          /* Not registered — waitlist-aware CTA precedence:
+           * 1. promoted  → "Seat open — confirm"  (green)
+           * 2. waiting   → "On waitlist · #N"      (secondary, tap to leave)
+           * 3. full + allowWaitlist → "Join waitlist"
+           * 4. full + !allowWaitlist → "Sold out"  (disabled)
+           * 5. else → existing Reserve path
+           */
+          myWaitlist?.status === 'promoted' ? (
+            <Pressable
+              onPress={async () => {
+                if (isFreeRsvp) {
+                  // Free event: confirm directly, then flip to "View ticket"
+                  setConfirmingPromotion(true);
+                  try {
+                    const key = `wl_${myWaitlist._id}_${Date.now()}`;
+                    await eventService.confirmPromotion(myWaitlist._id, key);
+                    queryClient.invalidateQueries({ queryKey: ['myRegistration', event._id] });
+                    queryClient.invalidateQueries({ queryKey: ['myWaitlist', event._id] });
+                  } finally {
+                    setConfirmingPromotion(false);
+                  }
+                } else {
+                  // Paid event: open the reserve/register sheet
+                  openRegister();
+                }
+              }}
+              disabled={confirmingPromotion}
+              style={{
+                flex: 1,
+                borderRadius: 12,
+                height: 52,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#22C55E',
+              }}
+            >
+              {confirmingPromotion ? (
+                <ActivityIndicator color={ORANGE_INK} />
+              ) : (
+                <Text className="font-outfit" style={{ color: ORANGE_INK, fontWeight: '700', fontSize: 14 }}>
+                  Seat open — confirm →
+                </Text>
+              )}
+            </Pressable>
+          ) : myWaitlist?.status === 'waiting' ? (
+            <Pressable
+              onPress={() => setLeaveOpen(true)}
+              style={{
+                flex: 1,
+                borderRadius: 12,
+                height: 52,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: SURFACE,
+                borderWidth: 1,
+                borderColor: HAIRLINE_2,
+              }}
+            >
+              <Text className="font-outfit" style={{ color: TEXT_2, fontWeight: '600', fontSize: 14 }}>
+                On waitlist · #{myWaitlist.position}
+              </Text>
+            </Pressable>
+          ) : isFull && event.allowWaitlist ? (
+            <Pressable
+              onPress={() => setWaitlistOpen(true)}
+              style={{
+                flex: 1,
+                borderRadius: 12,
+                height: 52,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: TEXT_0,
+              }}
+            >
+              <Text className="font-outfit" style={{ color: ORANGE_INK, fontWeight: '700', fontSize: 14 }}>
+                Join waitlist →
+              </Text>
+            </Pressable>
+          ) : (
+            /* Sold out (no waitlist) or normal Reserve path */
+            <Pressable
+              onPress={() => !ctaDisabled && openRegister()}
+              disabled={ctaDisabled}
+              style={{
+                flex: 1,
+                borderRadius: 12,
+                height: 52,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: ctaDisabled ? SURFACE : TEXT_0,
+                borderWidth: ctaDisabled ? 1 : 0,
+                borderColor: HAIRLINE_2,
+              }}
+            >
+              <Text className="font-outfit" style={{
+                color: ctaDisabled ? TEXT_3 : ORANGE_INK,
+                fontWeight: '700',
+                fontSize: 14,
+              }}>
+                {buttonLabel}
+              </Text>
+            </Pressable>
+          )
         )}
       </View>
 
@@ -244,6 +333,27 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
           queryClient.invalidateQueries({ queryKey: ['myRegistration', event._id] });
         }}
       />
+      <WaitlistJoinSheet
+        visible={waitlistOpen}
+        event={event}
+        onClose={() => setWaitlistOpen(false)}
+        onJoined={() => {
+          setWaitlistOpen(false);
+          queryClient.invalidateQueries({ queryKey: ['myWaitlist', event._id] });
+        }}
+      />
+      {myWaitlist && myWaitlist.status === 'waiting' && (
+        <LeaveWaitlistConfirm
+          visible={leaveOpen}
+          eventId={event._id}
+          position={myWaitlist.position}
+          onClose={() => setLeaveOpen(false)}
+          onLeft={() => {
+            setLeaveOpen(false);
+            queryClient.invalidateQueries({ queryKey: ['myWaitlist', event._id] });
+          }}
+        />
+      )}
     </View>
   );
 }

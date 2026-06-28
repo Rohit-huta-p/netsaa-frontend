@@ -29,7 +29,11 @@ export default function OverviewStatsGrid({ event }: { event: EventDoc }) {
         unit={total ? ` / ${total}` : ''}
         sub={`${slotsLeft} ${slotsLeft === 1 ? 'spot' : 'spots'} left`}
       />
-      <Stat label="WAITLIST" value="—" sub="Sprint 4" muted />
+      <Stat
+        label="WAITLIST"
+        value={String((event as any).waitlistCount ?? 0)}
+        sub={event.waitlistAutoPromote ? 'auto-promote on' : 'manual approve'}
+      />
       <Stat
         label="EARNINGS"
         value={isPaid ? formatRupees(organizerNet) : 'Free'}

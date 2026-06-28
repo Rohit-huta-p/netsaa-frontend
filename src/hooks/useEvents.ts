@@ -76,3 +76,11 @@ export function useCheckIn(eventId: string) {
       eventService.checkIn(eventId, code, method),
   });
 }
+
+export function useCancelRegistration() {
+  return useMutation({ mutationFn: ({ id, reason }: { id: string; reason: string }) => eventService.cancelRegistration(id, reason) });
+}
+
+export function useCancelEvent(eventId: string) {
+  return useMutation({ mutationFn: (reason: string) => eventService.cancelEvent(eventId, reason) });
+}

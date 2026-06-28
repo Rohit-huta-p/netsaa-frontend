@@ -258,4 +258,10 @@ export const eventService = {
     const r = await client.post(`/v1/events/${eventId}/check-in`, { code, method });
     return r.data.data;
   },
+
+  cancelRegistration: async (registrationId: string, reason: string): Promise<{ status: string; refundId: string | null; refundAmountPaise: number }> =>
+    (await client.post(`/v1/registrations/${registrationId}/cancel`, { reason })).data.data,
+
+  cancelEvent: async (eventId: string, reason: string): Promise<{ affectedRegistrations: number; totalRefundPaise: number; netsaAbsorbedTotalPaise: number }> =>
+    (await client.post(`/v1/events/${eventId}/cancel`, { reason })).data.data,
 };

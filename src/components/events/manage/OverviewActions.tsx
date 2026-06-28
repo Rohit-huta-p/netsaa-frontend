@@ -4,11 +4,10 @@
  * Editorial styling: dark tile with leading icon + label + chevron-style
  * affordance, matching the hirer home action queue rows.
  *
- * Reschedule + Cancel stay behind EXPO_PUBLIC_FEATURE_EVENTS_CANCEL_RESCHEDULE
- * until Plan 6 Tasks 13-14 land the backend wiring. The Share action is
- * always available — it just copies the public event URL.
+ * Reschedule stays behind EXPO_PUBLIC_FEATURE_EVENTS_CANCEL_RESCHEDULE.
+ * Cancel event is now wired to OrganizerCancellationModal (Sprint 3, Task 8).
  */
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Pressable,
@@ -20,6 +19,9 @@ import {
 } from 'react-native';
 import { Edit3, XCircle, Clock, Share2 } from 'lucide-react-native';
 import type { EventDoc } from '@/services/eventService';
+import OrganizerCancellationModal, { type OrganizerCancelResult } from '@/components/events/manage/OrganizerCancellationModal';
+import { useQueryClient } from '@tanstack/react-query';
+import { eventKeys } from '@/hooks/useEvents';
 
 const EVENTS_MANAGE_CANCEL_RESCHEDULE =
   process.env.EXPO_PUBLIC_FEATURE_EVENTS_CANCEL_RESCHEDULE === '1';
@@ -43,6 +45,22 @@ async function shareEvent(eventId: string, title: string) {
 }
 
 export default function OverviewActions({ event }: { event: EventDoc }) {
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const qc = useQueryClient();
+
+  const attendeeCount = event.capacity?.registeredCount ?? 0;
+  const ticketPriceRupees: number = (event as any).pricing?.amount ?? 0;
+
+  const handleCancelled = (_result: OrganizerCancelResult) => {
+    setCancelOpen(false);
+    // Invalidate event detail so status flips to 'cancelled' in the UI
+    qc.invalidateQueries({ queryKey: eventKeys.detail(event._id) });
+    Alert.alert(
+      'Event cancelled',
+      'All attendees have been notified and refunds are being processed.',
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.h3}>Actions</Text>
@@ -64,27 +82,36 @@ export default function OverviewActions({ event }: { event: EventDoc }) {
       />
 
       {EVENTS_MANAGE_CANCEL_RESCHEDULE ? (
-        <>
-          <ActionRow
-            Icon={Clock}
-            iconColor="#F59E0B"
-            label="Reschedule event"
-            sublabel="Pick a new date — refunds are honored automatically"
-            onPress={() =>
-              Alert.alert('Reschedule', 'Coming soon — backend wiring in progress.')
-            }
-          />
-          <ActionRow
-            Icon={XCircle}
-            iconColor="#EF4444"
-            label="Cancel event"
-            sublabel="Refunds processed per your refund policy"
-            onPress={() =>
-              Alert.alert('Cancel', 'Coming soon — backend wiring in progress.')
-            }
-          />
-        </>
+        <ActionRow
+          Icon={Clock}
+          iconColor="#F59E0B"
+          label="Reschedule event"
+          sublabel="Pick a new date — refunds are honored automatically"
+          onPress={() =>
+            Alert.alert('Reschedule', 'Coming soon — backend wiring in progress.')
+          }
+        />
       ) : null}
+
+      {/* Cancel event — always available; wired to OrganizerCancellationModal (Sprint 3) */}
+      {event.status === 'live' || event.status === 'pending_review' ? (
+        <ActionRow
+          Icon={XCircle}
+          iconColor="#EF4444"
+          label="Cancel event"
+          sublabel="Attendees refunded · NETSA absorbs service fee"
+          onPress={() => setCancelOpen(true)}
+        />
+      ) : null}
+
+      <OrganizerCancellationModal
+        visible={cancelOpen}
+        eventId={event._id}
+        attendeeCount={attendeeCount}
+        ticketPriceRupees={ticketPriceRupees}
+        onClose={() => setCancelOpen(false)}
+        onCancelled={handleCancelled}
+      />
     </View>
   );
 }

@@ -19,9 +19,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { View, ScrollView, ActivityIndicator } from 'react-native';
 import { useEvent } from '@/hooks/useEvents';
 import EventManageHero from '@/components/events/manage/EventManageHero';
-import EventCapacityBar from '@/components/events/manage/EventCapacityBar';
-import OverviewKpis from '@/components/events/manage/OverviewKpis';
-import EventMoneyBlock from '@/components/events/manage/EventMoneyBlock';
+import OverviewStatsGrid from '@/components/events/manage/OverviewStatsGrid';
 import EventRecentRegistrations from '@/components/events/manage/EventRecentRegistrations';
 import OverviewActions from '@/components/events/manage/OverviewActions';
 import EventStickyCTA from '@/components/events/manage/EventStickyCTA';
@@ -47,9 +45,7 @@ export default function OverviewScreen() {
     >
       <EventStickyCTA event={event} />
       <EventManageHero event={event} />
-      <EventCapacityBar event={event} />
-      <OverviewKpis event={event} />
-      <EventMoneyBlock event={event} />
+      <OverviewStatsGrid event={event} />
       <EventRecentRegistrations eventId={id!} />
       <OverviewActions event={event} />
     </ScrollView>

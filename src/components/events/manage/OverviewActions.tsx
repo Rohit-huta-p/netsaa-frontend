@@ -17,7 +17,8 @@ import {
   Share,
   Platform,
 } from 'react-native';
-import { Edit3, XCircle, Clock, Share2 } from 'lucide-react-native';
+import { Edit3, XCircle, Clock, Share2, Users, Megaphone, QrCode } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import type { EventDoc } from '@/services/eventService';
 import OrganizerCancellationModal, { type OrganizerCancelResult } from '@/components/events/manage/OrganizerCancellationModal';
 import { useQueryClient } from '@tanstack/react-query';
@@ -47,6 +48,7 @@ async function shareEvent(eventId: string, title: string) {
 export default function OverviewActions({ event }: { event: EventDoc }) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const qc = useQueryClient();
+  const router = useRouter();
 
   const attendeeCount = event.capacity?.registeredCount ?? 0;
   const ticketPriceRupees: number = (event as any).pricing?.amount ?? 0;
@@ -64,6 +66,30 @@ export default function OverviewActions({ event }: { event: EventDoc }) {
   return (
     <View style={styles.container}>
       <Text style={styles.h3}>Actions</Text>
+
+      <ActionRow
+        Icon={Users}
+        iconColor="#5B8DEF"
+        label="View roster"
+        sublabel="Attendees + check-in list"
+        onPress={() => router.push(`/events/${event._id}/manage/roster`)}
+      />
+
+      <ActionRow
+        Icon={Megaphone}
+        iconColor="#8B5CF6"
+        label="Send announcement"
+        sublabel="Push / email / SMS — ships in Sprint 5"
+        onPress={() => Alert.alert('Announcements', 'Announcements ship in Sprint 5.')}
+      />
+
+      <ActionRow
+        Icon={QrCode}
+        iconColor="#22C55E"
+        label="Open check-in scanner"
+        sublabel="Scan attendee QR or enter a backup code"
+        onPress={() => router.push(`/events/${event._id}/manage/check-in`)}
+      />
 
       <ActionRow
         Icon={Share2}

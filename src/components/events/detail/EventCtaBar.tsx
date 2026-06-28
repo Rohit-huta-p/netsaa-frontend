@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { View, Pressable, Text } from 'react-native';
+import { View, Pressable, Text, Modal } from 'react-native';
 import type { EventDoc } from '@/services/eventService';
 import { computeSlotsLeft, isCapacityUrgent } from '@/lib/eventTokens';
 import { formatRupees } from '@/lib/eventPricing';
 import { useMyRegistration } from '@/hooks/useMyRegistration';
 import EventRegisterSheetV2 from '@/components/events/register/EventRegisterSheetV2';
 import CancelRegistrationDialog from '@/components/events/register/CancelRegistrationDialog';
+import { DPDPConsentScreen } from '@/components/events/register/DPDPConsentScreen';
+import { useRegisterFlowStore } from '@/stores/registerFlowStore';
 
 interface Props {
   event: EventDoc;
@@ -25,13 +27,25 @@ const PAD = 20;
 export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const recordConsent = useRegisterFlowStore((s) => s.recordConsent);
+  const isConsentValid = useRegisterFlowStore((s) => s.isConsentValid);
+  // subscribe to the timestamp so the bar re-evaluates after consent is recorded
+  const dpdpConsentAt = useRegisterFlowStore((s) => s.dpdpConsentAt);
+
+  // Open the register sheet, gating first-timers through one-time DPDP consent.
+  const openRegister = () => {
+    const consented = !!dpdpConsentAt && isConsentValid();
+    if (consented) setSheetOpen(true);
+    else setConsentOpen(true);
+  };
 
   const { data: myRegistration, isLoading: regLoading } = useMyRegistration(event._id);
   const isRegistered = !!myRegistration;
 
   useEffect(() => {
     if (initialOpen) {
-      setSheetOpen(true);
+      openRegister();
       onInitialOpenConsumed?.();
     }
   }, [initialOpen]);
@@ -60,7 +74,7 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
   const ctaDisabled = !isRegistered && (deadlinePassed || isFull || !isLive || regLoading);
   const ctaOnPress = isRegistered
     ? () => setCancelOpen(true)
-    : () => !ctaDisabled && setSheetOpen(true);
+    : () => !ctaDisabled && openRegister();
 
   return (
     <View style={{
@@ -132,6 +146,17 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
         </Text>
       </Pressable>
 
+      <Modal
+        visible={consentOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setConsentOpen(false)}
+      >
+        <DPDPConsentScreen
+          onAgree={() => { recordConsent(); setConsentOpen(false); setSheetOpen(true); }}
+          onClose={() => setConsentOpen(false)}
+        />
+      </Modal>
       <EventRegisterSheetV2
         eventId={event._id}
         open={sheetOpen}

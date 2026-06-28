@@ -20,7 +20,7 @@ export function useEventRoster(eventId: string) {
     queryKey: ['eventRoster', eventId],
     queryFn: async (): Promise<{ rows: RosterRow[]; total: number }> => {
       try {
-        const r = await axios.get(`${BASE}/api/events/${eventId}/roster`, {
+        const r = await axios.get(`${BASE}/v1/events/${eventId}/roster`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         return r.data.data;

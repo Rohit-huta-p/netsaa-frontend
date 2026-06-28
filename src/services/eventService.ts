@@ -195,19 +195,24 @@ export const eventService = {
     return r.data.data;
   },
 
-  cancelMyRegistration: async (eventId: string): Promise<{ ok: true }> => {
-    const r = await client.delete(`/api/events/${eventId}/registrations/me`);
-    return r.data.data;
-  },
-
+  // Tag taxonomy endpoints are not implemented server-side yet — degrade gracefully
+  // (no autocomplete / silent submit) instead of throwing + retrying on 404.
   suggestionTags: async (limit = 20): Promise<{ tags: Array<{ _id: string; displayName: string; usageCount: number }>; count: number }> => {
-    const r = await client.get('/v1/admin/events/tags/suggestions', { params: { limit } });
-    return r.data.data;
+    try {
+      const r = await client.get('/v1/admin/events/tags/suggestions', { params: { limit } });
+      return r.data.data;
+    } catch {
+      return { tags: [], count: 0 };
+    }
   },
 
   submitTag: async (rawInput: string): Promise<{ created: boolean; normalizedId: string; displayName: string }> => {
-    const r = await client.post('/v1/admin/events/tags/submit', { rawInput });
-    return r.data.data;
+    try {
+      const r = await client.post('/v1/admin/events/tags/submit', { rawInput });
+      return r.data.data;
+    } catch {
+      return { created: false, normalizedId: '', displayName: rawInput };
+    }
   },
 
   /**

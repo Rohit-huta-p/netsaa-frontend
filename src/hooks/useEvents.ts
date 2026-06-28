@@ -50,18 +50,6 @@ export function useRegisterForEvent(eventId: string) {
   });
 }
 
-export function useCancelMyRegistration(eventId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => eventService.cancelMyRegistration(eventId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
-      // Also invalidate the per-user registration probe so EventCtaBar reverts to "Register"
-      qc.invalidateQueries({ queryKey: ['myRegistration', eventId] });
-    },
-  });
-}
-
 export function useTicket(registrationId: string | undefined) {
   return useQuery({
     queryKey: ['ticket', registrationId],

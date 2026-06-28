@@ -95,19 +95,20 @@ export interface RegisterPayload {
   attendeeCount: number;        // 1-5
   guestNames?: string[];
   notes?: string;
+  idempotencyKey: string;       // required; stable per attempt, reused on retry
 }
 
+/** Shape returned by POST /v1/events/:id/register (free events only; no paymentRequired field). */
 export interface RegisterResponse {
-  ok: true;
-  visibility: 'public' | 'private';
+  _id: string;
+  eventId: string;
+  userId: string;
+  status: string;
+  paymentStatus?: string;
   attendeeCount: number;
-  paymentRequired: boolean;
-  // Present when paymentRequired === true:
-  order_id?: string;
-  amount?: number;            // paise
-  currency?: string;
-  key_id?: string;
-  prefill?: { name?: string; email?: string; contact?: string };
+  visibility: 'public' | 'private';
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EventListParams {
@@ -162,7 +163,35 @@ export const eventService = {
     eventId: string,
     payload: RegisterPayload,
   ): Promise<RegisterResponse> => {
-    const r = await client.post(`/v1/events/${eventId}/register`, payload);
+    const attendees = [
+      {
+        fullName: payload.attendeeName,
+        phone: payload.attendeePhone,
+        email: payload.attendeeEmail || undefined,
+        notes: payload.notes || undefined,
+      },
+      ...(payload.guestNames ?? [])
+        .filter((g) => g.trim())
+        .map((g) => ({ fullName: g.trim(), phone: payload.attendeePhone })),
+    ];
+    const r = await client.post(
+      `/v1/events/${eventId}/register`,
+      { quantity: payload.attendeeCount, attendees, visibility: payload.visibility ?? 'public' },
+      { headers: { 'Idempotency-Key': payload.idempotencyKey } },
+    );
+    return r.data.data;
+  },
+
+  reserve: async (
+    eventId: string,
+    quantity: number,
+    idempotencyKey: string,
+  ): Promise<{ reservationId: string; razorpayOrderId: string; amountPaise: number }> => {
+    const r = await client.post(
+      `/v1/events/${eventId}/reserve`,
+      { quantity },
+      { headers: { 'Idempotency-Key': idempotencyKey } },
+    );
     return r.data.data;
   },
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Modal,
   View,
@@ -27,6 +27,7 @@ import {
 import { openRazorpayCheckout } from '@/lib/razorpayCheckout';
 import { eventService } from '@/services/eventService';
 import RegistrationReceiptCard from './RegistrationReceiptCard';
+import PaymentRetrySheet from './PaymentRetrySheet';
 
 async function pollUntilConfirmed(eventId: string, qc: QueryClient): Promise<boolean> {
   for (let i = 0; i < 5; i++) {
@@ -70,8 +71,15 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
   const [submitted, setSubmitted] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [paymentInFlight, setPaymentInFlight] = useState(false);
+  const [showRetry, setShowRetry] = useState(false);
+  const [retryOrderId, setRetryOrderId] = useState<string | null>(null);
+  const [retryAmountPaise, setRetryAmountPaise] = useState(0);
   const mutation = useRegisterForEvent(eventId);
   const queryClient = useQueryClient();
+
+  // Stable idempotency key per registration attempt (cleared on success or sheet close)
+  const idemKeyRef = useRef<string | null>(null);
+  const clearIdemKey = () => { idemKeyRef.current = null; };
 
   // Pre-fill from auth user on open
   useEffect(() => {
@@ -81,6 +89,13 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
     setEmail((user as any).email ?? '');
     setValidationError(null);
   }, [open, user]);
+
+  // Clear idempotency key when sheet closes so the next open starts fresh
+  useEffect(() => {
+    if (!open) {
+      clearIdemKey();
+    }
+  }, [open]);
 
   const slotsLeft = useMemo(() => {
     if (!event) return MAX_ATTENDEES;
@@ -132,61 +147,61 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
     }
     setValidationError(null);
 
+    // Mint a stable idempotency key for this attempt (reused on retry, cleared on success/close)
+    if (!idemKeyRef.current) {
+      idemKeyRef.current = `evt_${eventId}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    if (!isPaid) {
+      // FREE branch — POST /register directly with backend contract
+      try {
+        await mutation.mutateAsync({
+          visibility: showPublic ? 'public' : 'private',
+          attendeeName: name.trim(),
+          attendeePhone: phone.trim(),
+          attendeeEmail: email.trim() || undefined,
+          attendeeCount: count,
+          guestNames: guestNames.map((g) => g.trim()).filter(Boolean),
+          notes: notes.trim() || undefined,
+          idempotencyKey: idemKeyRef.current!,
+        });
+        clearIdemKey();
+        setSubmitted(true);
+      } catch {
+        // mutation.isError shows below
+      }
+      return;
+    }
+
+    // PAID branch — reserve seat hold, open Razorpay, poll for webhook confirmation
+    setPaymentInFlight(true);
+    let reservation: { reservationId: string; razorpayOrderId: string; amountPaise: number } | undefined;
     try {
-      const registerResp = await mutation.mutateAsync({
-        visibility: showPublic ? 'public' : 'private',
-        attendeeName: name.trim(),
-        attendeePhone: phone.trim(),
-        attendeeEmail: email.trim() || undefined,
-        attendeeCount: count,
-        guestNames: guestNames.map((g) => g.trim()).filter(Boolean),
-        notes: notes.trim() || undefined,
+      reservation = await eventService.reserve(eventId, count, idemKeyRef.current!);
+      setRetryOrderId(reservation.razorpayOrderId);
+      setRetryAmountPaise(reservation.amountPaise);
+
+      await openRazorpayCheckout({
+        key_id: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID!,
+        order_id: reservation.razorpayOrderId,
+        amount: reservation.amountPaise,
+        currency: 'INR',
+        eventTitle: event?.title ?? 'Event',
+        prefill: { name: name.trim(), email: email.trim(), contact: phone.trim() },
       });
 
-      // FREE — done. Show receipt; user dismisses manually.
-      if (!registerResp.paymentRequired) {
-        setSubmitted(true);
-        return;
-      }
-
-      // PAID — open Razorpay checkout
-      setPaymentInFlight(true);
-      try {
-        await openRazorpayCheckout({
-          key_id: registerResp.key_id!,
-          order_id: registerResp.order_id!,
-          amount: registerResp.amount!,
-          currency: registerResp.currency!,
-          eventTitle: event?.title ?? 'Event',
-          prefill: registerResp.prefill ?? { name: name, email, contact: phone },
-        });
-
-        // Razorpay returned success — webhook will eventually flip status to confirmed.
-        // Poll /registrations/me for up to 15s so the receipt has authoritative
-        // ticketAmount / serviceFeeAmount / paymentCapturedAt from the backend.
-        await pollUntilConfirmed(eventId, queryClient);
-
-        setSubmitted(true);
-      } catch (rzpErr: any) {
-        // User cancelled or payment failed. Clean up the pending_payment row
-        // server-side so the seat is released immediately and the CTA flips
-        // back to "Register" — otherwise the row sits in pending_payment until
-        // the stale-pending cron sweeps it 15min later.
-        try {
-          await eventService.cancelMyRegistration(eventId);
-        } catch {
-          // best-effort cleanup; stale-pending cron is the backstop
-        }
-        await queryClient.invalidateQueries({ queryKey: ['myRegistration', eventId] });
-        await queryClient.invalidateQueries({ queryKey: ['events', 'detail', eventId] });
-
-        const desc = rzpErr?.description ?? rzpErr?.message ?? 'Payment cancelled.';
-        setValidationError(`${desc} Your seat has been released.`);
-      } finally {
-        setPaymentInFlight(false);
-      }
-    } catch {
-      // mutation.isError shows below
+      // Razorpay success → webhook creates registration; poll until it appears
+      await pollUntilConfirmed(eventId, queryClient);
+      clearIdemKey();
+      setSubmitted(true);
+    } catch (rzpErr: any) {
+      // DECISION ①: do NOT cancel/release on failure — the reservation hold survives
+      // for retry (same Razorpay order, 10-min TTL). Show retry sheet instead of
+      // calling cancelMyRegistration.
+      setRetryOrderId(reservation?.razorpayOrderId ?? null);
+      setShowRetry(true);
+    } finally {
+      setPaymentInFlight(false);
     }
   };
 
@@ -474,6 +489,26 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Paid-event retry sheet — shown when Razorpay checkout fails/cancels */}
+      <PaymentRetrySheet
+        visible={showRetry}
+        orderId={retryOrderId}
+        eventId={eventId}
+        eventTitle={event?.title ?? 'Event'}
+        amountPaise={retryAmountPaise}
+        prefill={{ name: name.trim(), email: email.trim(), contact: phone.trim() }}
+        onClose={() => {
+          setShowRetry(false);
+          // Reservation hold expires via backend sweeper — no cancel call needed
+        }}
+        onRetrySuccess={async () => {
+          await pollUntilConfirmed(eventId, queryClient);
+          setShowRetry(false);
+          clearIdemKey();
+          setSubmitted(true);
+        }}
+      />
     </Modal>
   );
 }

@@ -4,8 +4,10 @@ import type { EventDoc } from '@/services/eventService';
 import { computeSlotsLeft, isCapacityUrgent } from '@/lib/eventTokens';
 import { formatRupees } from '@/lib/eventPricing';
 import { useMyRegistration } from '@/hooks/useMyRegistration';
+import { useQueryClient } from '@tanstack/react-query';
 import EventRegisterSheetV2 from '@/components/events/register/EventRegisterSheetV2';
-import CancelRegistrationDialog from '@/components/events/register/CancelRegistrationDialog';
+import CancellationReasonModal, { type CancelRegistrationResult } from '@/components/events/register/CancellationReasonModal';
+import RefundStatusCard from '@/components/events/register/RefundStatusCard';
 import { DPDPConsentScreen } from '@/components/events/register/DPDPConsentScreen';
 import { useRegisterFlowStore } from '@/stores/registerFlowStore';
 
@@ -28,10 +30,12 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [consentOpen, setConsentOpen] = useState(false);
+  const [cancelResult, setCancelResult] = useState<CancelRegistrationResult | null>(null);
   const recordConsent = useRegisterFlowStore((s) => s.recordConsent);
   const isConsentValid = useRegisterFlowStore((s) => s.isConsentValid);
   // subscribe to the timestamp so the bar re-evaluates after consent is recorded
   const dpdpConsentAt = useRegisterFlowStore((s) => s.dpdpConsentAt);
+  const queryClient = useQueryClient();
 
   // Open the register sheet, gating first-timers through one-time DPDP consent.
   const openRegister = () => {
@@ -88,63 +92,72 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
       backgroundColor: BG,
       borderTopWidth: 1,
       borderColor: HAIRLINE_2,
-      flexDirection: 'row',
-      alignItems: 'stretch',
-      gap: 10,
+      gap: 0,
     }}>
-      {/* Price column */}
-      <View style={{ paddingHorizontal: 4, justifyContent: 'center' }}>
-        <Text className="font-mono" style={{
-          color: TEXT_3,
-          fontSize: 9.5,
-          textTransform: 'uppercase',
-          letterSpacing: 1.2,
-          fontWeight: '600',
-          marginBottom: 2,
-        }}>
-          {isFreeRsvp ? 'Cost' : 'Per seat'}
-        </Text>
-        <Text className="font-serif" style={{
-          color: TEXT_0,
-          fontSize: 22,
-          lineHeight: 24,
-        }}>
-          {priceLabel}
-        </Text>
+      {/* Price + CTA row */}
+      <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 10 }}>
+        {/* Price column */}
+        <View style={{ paddingHorizontal: 4, justifyContent: 'center' }}>
+          <Text className="font-mono" style={{
+            color: TEXT_3,
+            fontSize: 9.5,
+            textTransform: 'uppercase',
+            letterSpacing: 1.2,
+            fontWeight: '600',
+            marginBottom: 2,
+          }}>
+            {isFreeRsvp ? 'Cost' : 'Per seat'}
+          </Text>
+          <Text className="font-serif" style={{
+            color: TEXT_0,
+            fontSize: 22,
+            lineHeight: 24,
+          }}>
+            {priceLabel}
+          </Text>
+        </View>
+
+        {/* CTA */}
+        <Pressable
+          onPress={ctaOnPress}
+          disabled={ctaDisabled && !isRegistered}
+          style={{
+            flex: 1,
+            borderRadius: 12,
+            height: 52,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: isRegistered
+              ? SURFACE
+              : ctaDisabled
+                ? SURFACE
+                : TEXT_0,
+            borderWidth: isRegistered || ctaDisabled ? 1 : 0,
+            borderColor: HAIRLINE_2,
+          }}>
+          <Text className="font-outfit" style={{
+            color: isRegistered
+              ? TEXT_2
+              : ctaDisabled
+                ? TEXT_3
+                : ORANGE_INK,
+            fontWeight: '700',
+            fontSize: 14,
+          }}>
+            {urgent && !isRegistered && !ctaDisabled
+              ? `Reserve · ${slotsLeft} left →`
+              : buttonLabel}
+          </Text>
+        </Pressable>
       </View>
 
-      {/* CTA */}
-      <Pressable
-        onPress={ctaOnPress}
-        disabled={ctaDisabled && !isRegistered}
-        style={{
-          flex: 1,
-          borderRadius: 12,
-          height: 52,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: isRegistered
-            ? SURFACE
-            : ctaDisabled
-              ? SURFACE
-              : TEXT_0,
-          borderWidth: isRegistered || ctaDisabled ? 1 : 0,
-          borderColor: HAIRLINE_2,
-        }}>
-        <Text className="font-outfit" style={{
-          color: isRegistered
-            ? TEXT_2
-            : ctaDisabled
-              ? TEXT_3
-              : ORANGE_INK,
-          fontWeight: '700',
-          fontSize: 14,
-        }}>
-          {urgent && !isRegistered && !ctaDisabled
-            ? `Reserve · ${slotsLeft} left →`
-            : buttonLabel}
-        </Text>
-      </Pressable>
+      {/* Refund status card — shown after successful cancellation */}
+      {cancelResult ? (
+        <RefundStatusCard
+          refundAmountPaise={cancelResult.refundAmountPaise}
+          refundId={cancelResult.refundId}
+        />
+      ) : null}
 
       <Modal
         visible={consentOpen}
@@ -162,10 +175,17 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
       />
-      <CancelRegistrationDialog
-        eventId={event._id}
-        open={cancelOpen}
+      <CancellationReasonModal
+        visible={cancelOpen}
+        registrationId={myRegistration?._id}
+        event={event}
         onClose={() => setCancelOpen(false)}
+        onCancelled={(result) => {
+          setCancelOpen(false);
+          setCancelResult(result);
+          // Flip CTA back to "Reserve" by clearing myRegistration
+          queryClient.invalidateQueries({ queryKey: ['myRegistration', event._id] });
+        }}
       />
     </View>
   );

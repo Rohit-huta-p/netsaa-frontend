@@ -15,6 +15,7 @@ export default function ManageLayout() {
     >
       <Tabs.Screen name="overview" options={{ title: 'Overview' }} />
       <Tabs.Screen name="roster" options={{ title: 'Roster' }} />
+      <Tabs.Screen name="check-in" options={{ href: null, headerShown: false }} />
     </Tabs>
   );
 }

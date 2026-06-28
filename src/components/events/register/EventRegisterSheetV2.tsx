@@ -459,8 +459,9 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                 ) : null}
                 {mutation.isError ? (
                   <Text className="font-outfit text-event-capacityUrgent text-sm mb-3">
-                    {(mutation.error as any)?.response?.data?.message ??
-                      "Couldn't register. Event may be full. Try again."}
+                    {(mutation.error as any)?.response?.data?.meta?.message ??
+                      (mutation.error as any)?.response?.data?.errors?.[0]?.message ??
+                      "Couldn't register. Please try again."}
                   </Text>
                 ) : null}
 

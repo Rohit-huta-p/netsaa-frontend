@@ -39,7 +39,11 @@ export default function OverviewStatsGrid({ event }: { event: EventDoc }) {
         value={isPaid ? formatRupees(organizerNet) : 'Free'}
         sub={isPaid ? 'after NETSA fee' : 'no ticket charge'}
       />
-      <Stat label="DISCUSSION" value="—" sub="Sprint 5" muted />
+      <Stat
+        label="DISCUSSION"
+        value={String(event.discussionCount ?? 0)}
+        sub={(event.discussionCount ?? 0) === 1 ? 'comment' : 'comments'}
+      />
     </View>
   );
 }

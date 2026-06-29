@@ -18,7 +18,7 @@ export function ManualCheckInList() {
   const [code, setCode] = useState('');
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const rows = data?.rows ?? [];
+  const rows = data?.confirmed ?? [];
   const filtered = useMemo(
     () => rows.filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase())),
     [rows, query],
@@ -99,7 +99,7 @@ export function ManualCheckInList() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text className="font-outfit" style={{ color: TEXT_0, fontSize: 13.5, fontWeight: '600' }}>{item.name}</Text>
-                {item.city ? <Text className="font-outfit" style={{ color: TEXT_2, fontSize: 11.5 }}>{item.city}</Text> : null}
+                {item.phone ? <Text className="font-outfit" style={{ color: TEXT_2, fontSize: 11.5 }}>{item.phone}</Text> : null}
               </View>
               <Text className="font-mono" style={{ color: item.status === 'attended' ? GREEN : TEXT_3, fontSize: 10, textTransform: 'uppercase' }}>{item.status === 'attended' ? 'checked in' : item.status}</Text>
             </View>

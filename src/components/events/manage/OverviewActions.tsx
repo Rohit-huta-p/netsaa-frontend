@@ -21,6 +21,7 @@ import { Edit3, XCircle, Clock, Share2, Users, Megaphone, QrCode } from 'lucide-
 import { useRouter } from 'expo-router';
 import type { EventDoc } from '@/services/eventService';
 import OrganizerCancellationModal, { type OrganizerCancelResult } from '@/components/events/manage/OrganizerCancellationModal';
+import AnnouncementComposer from '@/components/events/manage/AnnouncementComposer';
 import { useQueryClient } from '@tanstack/react-query';
 import { eventKeys } from '@/hooks/useEvents';
 
@@ -47,6 +48,7 @@ async function shareEvent(eventId: string, title: string) {
 
 export default function OverviewActions({ event }: { event: EventDoc }) {
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [announceOpen, setAnnounceOpen] = useState(false);
   const qc = useQueryClient();
   const router = useRouter();
 
@@ -79,8 +81,8 @@ export default function OverviewActions({ event }: { event: EventDoc }) {
         Icon={Megaphone}
         iconColor="#8B5CF6"
         label="Send announcement"
-        sublabel="Push / email / SMS — ships in Sprint 5"
-        onPress={() => Alert.alert('Announcements', 'Announcements ship in Sprint 5.')}
+        sublabel="Push / email / SMS · choose audience"
+        onPress={() => setAnnounceOpen(true)}
       />
 
       <ActionRow
@@ -137,6 +139,13 @@ export default function OverviewActions({ event }: { event: EventDoc }) {
         ticketPriceRupees={ticketPriceRupees}
         onClose={() => setCancelOpen(false)}
         onCancelled={handleCancelled}
+      />
+
+      <AnnouncementComposer
+        visible={announceOpen}
+        eventId={event._id}
+        onClose={() => setAnnounceOpen(false)}
+        onSent={() => setAnnounceOpen(false)}
       />
     </View>
   );

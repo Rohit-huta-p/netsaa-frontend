@@ -1,23 +1,19 @@
 /**
- * OverviewActions — quick actions on the event manage overview.
+ * OverviewActions — the O4 mockup's "Quick actions" list.
  *
- * Editorial styling: dark tile with leading icon + label + chevron-style
- * affordance, matching the hirer home action queue rows.
+ * Matches event-flow-mockups-organizer.html · O4: a mono section label over
+ * flush inbox rows (40px coloured avatar · title · sublabel · muted chevron),
+ * no surrounding card. Four rows, in mockup order:
+ *   View roster · Send announcement · Open check-in scanner · Cancel event
  *
- * Reschedule stays behind EXPO_PUBLIC_FEATURE_EVENTS_CANCEL_RESCHEDULE.
- * Cancel event is now wired to OrganizerCancellationModal (Sprint 3, Task 8).
+ * Share / Edit / Reschedule are intentionally not here — the mockup keeps O4
+ * to these four; share lives on the public detail screen, editing-live is V2.
+ * Cancel is wired to OrganizerCancellationModal (Sprint 3); announcement to
+ * AnnouncementComposer (Sprint 5). Cancel only shows while cancellable.
  */
 import React, { useState } from 'react';
-import {
-  View,
-  Pressable,
-  Text,
-  StyleSheet,
-  Alert,
-  Share,
-  Platform,
-} from 'react-native';
-import { Edit3, XCircle, Clock, Share2, Users, Megaphone, QrCode } from 'lucide-react-native';
+import { View, Pressable, Text, StyleSheet, Alert } from 'react-native';
+import { Users, MessageSquare, Lock, Ban, ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import type { EventDoc } from '@/services/eventService';
 import OrganizerCancellationModal, { type OrganizerCancelResult } from '@/components/events/manage/OrganizerCancellationModal';
@@ -25,39 +21,19 @@ import AnnouncementComposer from '@/components/events/manage/AnnouncementCompose
 import { useQueryClient } from '@tanstack/react-query';
 import { eventKeys } from '@/hooks/useEvents';
 
-const EVENTS_MANAGE_CANCEL_RESCHEDULE =
-  process.env.EXPO_PUBLIC_FEATURE_EVENTS_CANCEL_RESCHEDULE === '1';
-
-async function shareEvent(eventId: string, title: string) {
-  const url = `https://netsaa.com/events/${eventId}`;
-  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && (navigator as any).clipboard) {
-    try {
-      await (navigator as any).clipboard.writeText(url);
-      Alert.alert('Link copied', url);
-      return;
-    } catch {
-      // fall through
-    }
-  }
-  try {
-    await Share.share({ message: `${title} — ${url}`, url });
-  } catch {
-    Alert.alert('Share', url);
-  }
-}
-
 export default function OverviewActions({ event }: { event: EventDoc }) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [announceOpen, setAnnounceOpen] = useState(false);
   const qc = useQueryClient();
   const router = useRouter();
 
-  const attendeeCount = event.capacity?.registeredCount ?? 0;
+  const registered = event.capacity?.registeredCount ?? 0;
+  const waitlist = (event as any).waitlistCount ?? 0;
   const ticketPriceRupees: number = (event as any).pricing?.amount ?? 0;
+  const canCancel = event.status === 'live' || event.status === 'pending_review';
 
   const handleCancelled = (_result: OrganizerCancelResult) => {
     setCancelOpen(false);
-    // Invalidate event detail so status flips to 'cancelled' in the UI
     qc.invalidateQueries({ queryKey: eventKeys.detail(event._id) });
     Alert.alert(
       'Event cancelled',
@@ -67,67 +43,38 @@ export default function OverviewActions({ event }: { event: EventDoc }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.h3}>Actions</Text>
+      <Text style={styles.label}>QUICK ACTIONS</Text>
 
       <ActionRow
         Icon={Users}
-        iconColor="#5B8DEF"
+        color="#5B8DEF"
         label="View roster"
-        sublabel="Attendees + check-in list"
+        sublabel={`${registered} confirmed · ${waitlist} on waitlist · check-in roster`}
         onPress={() => router.push(`/events/${event._id}/manage/roster`)}
       />
 
       <ActionRow
-        Icon={Megaphone}
-        iconColor="#8B5CF6"
+        Icon={MessageSquare}
+        color="#8B5CF6"
         label="Send announcement"
-        sublabel="Push / email / SMS · choose audience"
+        sublabel="push / email / SMS · choose audience"
         onPress={() => setAnnounceOpen(true)}
       />
 
       <ActionRow
-        Icon={QrCode}
-        iconColor="#22C55E"
+        Icon={Lock}
+        color="#22C55E"
         label="Open check-in scanner"
-        sublabel="Scan attendee QR or enter a backup code"
+        sublabel="unlocks day-of · QR scan"
         onPress={() => router.push(`/events/${event._id}/manage/check-in`)}
       />
 
-      <ActionRow
-        Icon={Share2}
-        iconColor="#FF6B35"
-        label="Share event link"
-        sublabel="Copy or share the public URL"
-        onPress={() => shareEvent(event._id, event.title ?? 'Event')}
-      />
-
-      <ActionRow
-        Icon={Edit3}
-        iconColor="#B8B1A6"
-        label="Edit details"
-        sublabel="Editing live events ships in V2"
-        onPress={() => Alert.alert('Edit', 'Editing live events ships in V2.')}
-      />
-
-      {EVENTS_MANAGE_CANCEL_RESCHEDULE ? (
+      {canCancel ? (
         <ActionRow
-          Icon={Clock}
-          iconColor="#F59E0B"
-          label="Reschedule event"
-          sublabel="Pick a new date — refunds are honored automatically"
-          onPress={() =>
-            Alert.alert('Reschedule', 'Coming soon — backend wiring in progress.')
-          }
-        />
-      ) : null}
-
-      {/* Cancel event — always available; wired to OrganizerCancellationModal (Sprint 3) */}
-      {event.status === 'live' || event.status === 'pending_review' ? (
-        <ActionRow
-          Icon={XCircle}
-          iconColor="#EF4444"
+          Icon={Ban}
+          color="#EF4444"
           label="Cancel event"
-          sublabel="Attendees refunded · NETSA absorbs service fee"
+          sublabel="refund all attendees · destructive"
           onPress={() => setCancelOpen(true)}
         />
       ) : null}
@@ -135,7 +82,7 @@ export default function OverviewActions({ event }: { event: EventDoc }) {
       <OrganizerCancellationModal
         visible={cancelOpen}
         eventId={event._id}
-        attendeeCount={attendeeCount}
+        attendeeCount={registered}
         ticketPriceRupees={ticketPriceRupees}
         onClose={() => setCancelOpen(false)}
         onCancelled={handleCancelled}
@@ -153,13 +100,13 @@ export default function OverviewActions({ event }: { event: EventDoc }) {
 
 function ActionRow({
   Icon,
-  iconColor,
+  color,
   label,
   sublabel,
   onPress,
 }: {
   Icon: React.ComponentType<{ size?: number; color?: string }>;
-  iconColor: string;
+  color: string;
   label: string;
   sublabel: string;
   onPress: () => void;
@@ -171,14 +118,14 @@ function ActionRow({
       accessibilityRole="button"
       accessibilityLabel={`${label}. ${sublabel}`}
     >
-      <View style={[styles.iconWrap, { backgroundColor: hexAlpha(iconColor, 0.12) }]}>
-        <Icon size={16} color={iconColor} />
+      <View style={[styles.av, { backgroundColor: hexAlpha(color, 0.16) }]}>
+        <Icon size={18} color={color} />
       </View>
       <View style={styles.rowText}>
         <Text style={styles.rowLabel}>{label}</Text>
         <Text style={styles.rowSub}>{sublabel}</Text>
       </View>
-      <Text style={[styles.chevron, { color: iconColor }]}>›</Text>
+      <ChevronRight size={18} color="#4A4854" />
     </Pressable>
   );
 }
@@ -194,45 +141,41 @@ function hexAlpha(hex: string, alpha: number): string {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#11111A',
-    borderColor: 'rgba(243,239,232,0.09)',
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 16,
-    gap: 8,
-  },
-  h3: {
-    fontFamily: 'DMSerifDisplay_400Regular',
-    fontSize: 22,
-    letterSpacing: -0.5,
-    color: '#F3EFE8',
-    marginBottom: 4,
+  container: { gap: 0 },
+  label: {
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: 10,
+    letterSpacing: 1.8,
+    color: '#6B6878',
+    marginTop: 6,
+    marginBottom: 2,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(243,239,232,0.05)',
+    gap: 11,
+    paddingVertical: 13,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(243,239,232,0.07)',
   },
-  iconWrap: {
-    width: 32, height: 32, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
+  av: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rowText: { flex: 1, minWidth: 0 },
   rowLabel: {
     fontFamily: 'Outfit-SemiBold',
-    fontSize: 14,
+    fontSize: 13.5,
     color: '#F3EFE8',
     lineHeight: 18,
   },
   rowSub: {
     fontFamily: 'Outfit-Regular',
-    fontSize: 11,
-    color: '#6B6878',
+    fontSize: 11.5,
+    color: '#9C99A6',
     marginTop: 2,
   },
-  chevron: { fontSize: 18, fontFamily: 'Outfit-Bold' },
 });

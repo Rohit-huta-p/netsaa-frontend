@@ -69,7 +69,7 @@ export default function MeetingLinkRevealCard({ event }: Props) {
         <>
           <Text
             numberOfLines={1}
-            style={{ fontFamily: 'JetBrainsMono-Regular', fontSize: 12.5, color: TEXT_0 }}
+            style={{ fontFamily: 'SpaceMono-Regular', fontSize: 12.5, color: TEXT_0 }}
           >
             {link}
           </Text>

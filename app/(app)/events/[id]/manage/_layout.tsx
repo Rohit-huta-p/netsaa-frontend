@@ -8,9 +8,10 @@ export default function ManageLayout() {
         tabBarStyle: { backgroundColor: eventTokens.bg, borderTopColor: 'rgba(255,255,255,0.08)' },
         tabBarActiveTintColor: eventTokens.brand,
         tabBarInactiveTintColor: eventTokens.textSecondary,
-        tabBarLabelStyle: { fontFamily: 'Outfit', fontSize: 12, fontWeight: '600' },
+        tabBarLabelStyle: { fontFamily: 'Outfit-SemiBold', fontSize: 12 },
         headerStyle: { backgroundColor: eventTokens.bg },
-        headerTitleStyle: { color: eventTokens.textPrimary, fontFamily: 'DMSerifDisplay' },
+        headerShadowVisible: false,
+        headerTitleStyle: { color: eventTokens.textPrimary, fontFamily: 'DMSerifDisplay_400Regular' },
       }}
     >
       <Tabs.Screen name="overview" options={{ title: 'Overview' }} />

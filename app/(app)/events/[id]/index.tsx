@@ -8,6 +8,8 @@ import EventHeroGallery from '@/components/events/detail/EventHeroGallery';
 import EventDetailSections from '@/components/events/detail/EventDetailSections';
 import EventCapacityBar from '@/components/events/detail/EventCapacityBar';
 import EventCtaBar from '@/components/events/detail/EventCtaBar';
+import MeetingLinkRevealCard from '@/components/events/detail/MeetingLinkRevealCard';
+import DiscussionTabs from '@/components/events/detail/DiscussionTabs';
 
 const BG = '#09090b';
 const TEXT_0 = '#f4f4f5';
@@ -125,6 +127,10 @@ export default function EventDetailScreen() {
       <ScrollView contentInsetAdjustmentBehavior="never" showsVerticalScrollIndicator={false}>
         <EventHeroGallery event={event} />
         <EventDetailSections event={event} />
+        <View style={{ paddingHorizontal: 20 }}>
+          <MeetingLinkRevealCard event={event} />
+          <DiscussionTabs event={event} />
+        </View>
         <EventCapacityBar
           total={event.capacity.total}
           registeredCount={event.capacity.registeredCount}

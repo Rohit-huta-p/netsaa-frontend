@@ -2,17 +2,18 @@
  * Event manage / Overview tab — O4 "Manage overview" mockup, exact.
  * (event-flow-mockups-organizer.html · O4)
  *
- * Three sections, in order:
+ * Top to bottom:
+ *   0. Nav      — back · "Manage" · settings gear (O4 nav row)
  *   1. Header   — status badge ("LIVE · 21 days to go") + title + venue·date
  *   2. Stats    — 2×2 gridlined: Registered / Waitlist / Earnings / Discussion
  *   3. Actions  — "Quick actions" rows (roster / announce / scanner / cancel)
  *
- * The mockup's single "Manage" nav header is mockup chrome — our app uses the
- * manage bottom-tab layout, so the screen body starts at the header block.
+ * The manage flow is a headerless Stack, so this screen draws its own nav row.
  */
 import React from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { View, Text, ScrollView, ActivityIndicator, Pressable, Alert, StyleSheet } from 'react-native';
+import { ChevronLeft, Settings } from 'lucide-react-native';
 import { useEvent } from '@/hooks/useEvents';
 import { eventStatusLabel, eventStatusColor } from '@/lib/eventTokens';
 import OverviewStatsGrid from '@/components/events/manage/OverviewStatsGrid';
@@ -47,9 +48,7 @@ function dateRange(startsAt?: string, endsAt?: string): string {
   const e = new Date(endsAt);
   if (Number.isNaN(e.getTime()) || e.toDateString() === s.toDateString()) return startStr;
   const sameMonth = e.getMonth() === s.getMonth() && e.getFullYear() === s.getFullYear();
-  const endStr = sameMonth
-    ? String(e.getDate())
-    : e.toLocaleDateString('en-IN', mon);
+  const endStr = sameMonth ? String(e.getDate()) : e.toLocaleDateString('en-IN', mon);
   return `${startStr} — ${endStr}`;
 }
 
@@ -61,6 +60,7 @@ function venueLabel(loc?: EventDoc['location']): string {
 
 export default function OverviewScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const { data: event, isLoading } = useEvent(id);
 
   if (isLoading) {
@@ -80,29 +80,50 @@ export default function OverviewScreen() {
   const subtitle = [dateRange(event.startsAt, event.endsAt), venue].filter(Boolean).join(' · ');
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* 1 · Header */}
-      <View style={styles.header}>
-        <View style={[styles.badge, { backgroundColor: hexAlpha(statusColor, 0.14) }]}>
-          <View style={[styles.badgeDot, { backgroundColor: statusColor }]} />
-          <Text style={[styles.badgeText, { color: statusColor }]}>
-            {statusText}{timeLabel ? ` · ${timeLabel}` : ''}
-          </Text>
-        </View>
-        <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
-        {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
+    <View style={styles.screen}>
+      {/* 0 · Nav — back · Manage · settings */}
+      <View style={styles.nav}>
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+          hitSlop={8}
+          style={styles.navBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <ChevronLeft size={18} color="#F3EFE8" />
+        </Pressable>
+        <Text style={styles.navTitle}>Manage</Text>
+        <Pressable
+          onPress={() => Alert.alert('Event settings', 'Event settings are coming soon.')}
+          hitSlop={8}
+          style={styles.navBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Event settings"
+        >
+          <Settings size={17} color="#F3EFE8" />
+        </Pressable>
       </View>
 
-      {/* 2 · Stats */}
-      <OverviewStatsGrid event={event} />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* 1 · Header */}
+        <View style={styles.header}>
+          <View style={[styles.badge, { backgroundColor: hexAlpha(statusColor, 0.14) }]}>
+            <View style={[styles.badgeDot, { backgroundColor: statusColor }]} />
+            <Text style={[styles.badgeText, { color: statusColor }]}>
+              {statusText}{timeLabel ? ` · ${timeLabel}` : ''}
+            </Text>
+          </View>
+          <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
+          {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
+        </View>
 
-      {/* 3 · Quick actions */}
-      <OverviewActions event={event} />
-    </ScrollView>
+        {/* 2 · Stats */}
+        <OverviewStatsGrid event={event} />
+
+        {/* 3 · Quick actions */}
+        <OverviewActions event={event} />
+      </ScrollView>
+    </View>
   );
 }
 
@@ -116,7 +137,25 @@ function hexAlpha(hex: string, alpha: number): string {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#060509' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#060509' },
-  content: { padding: 20, paddingBottom: 64, gap: 16 },
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 10,
+  },
+  navBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navTitle: { flex: 1, fontFamily: 'DMSerifDisplay_400Regular', color: '#F3EFE8', fontSize: 20 },
+  content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 64, gap: 16 },
   header: { gap: 8 },
   badge: {
     flexDirection: 'row',

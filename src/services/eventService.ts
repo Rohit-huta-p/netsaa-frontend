@@ -68,6 +68,7 @@ export interface EventDoc {
   // Schema migration 2026-06-25 — see DOCS/MIGRATIONS/2026-06-25-event-flow-schema.md
   allowWaitlist?: boolean;
   waitlistCount?: number;                   // number of active waitlist entries (backend-computed)
+  discussionCount?: number;                 // event-comment count (backend-computed) — powers O4 Discussion tile
   waitlistAutoPromote?: boolean;            // Q1 · per-event flag
   cancellationPolicy?: EventCancellationPolicy;
   walkupsAllowed?: boolean;                 // Q11 · day-of walk-ups opt-in
@@ -77,6 +78,9 @@ export interface EventDoc {
   ageRestriction?: number;
   language?: string;                        // ISO 639-1
   discussionVisibility?: 'public' | 'attendees_only';  // Q8
+
+  /** Set by backend when the reveal window has opened for this viewer. */
+  meetingLinkRevealed?: boolean;
 
   status: 'draft' | 'pending_review' | 'live' | 'cancelled' | 'completed';
   moderationFlagReason?: string;

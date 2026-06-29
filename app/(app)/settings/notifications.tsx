@@ -1,6 +1,7 @@
 // app/(app)/settings/notifications.tsx
 import React from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
+import NotificationPreferences from '@/components/settings/NotificationPreferences';
 import { Stack } from 'expo-router';
 import AppScrollView from '@/components/AppScrollView';
 import SettingRow from '@/components/settings/SettingRow';
@@ -102,6 +103,14 @@ export default function NotificationSettings() {
                                 onToggle={(v) => updateSettings({ notifications: { marketing: v } })}
                             />
                         </View>
+                    </View>
+
+                    {/* Event notifications — 3×3 grid (Sprint 5, Task 8) */}
+                    <View className="mt-8 mb-8">
+                        <Text className="text-zinc-500 text-[12px] font-['Outfit-SemiBold'] uppercase tracking-wider px-5 mb-3">
+                            Event notifications
+                        </Text>
+                        <NotificationPreferences />
                     </View>
                 </AppScrollView>
             </View>

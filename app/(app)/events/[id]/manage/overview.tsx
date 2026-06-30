@@ -12,7 +12,7 @@
  */
 import React from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { View, Text, ScrollView, ActivityIndicator, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { ChevronLeft, Settings } from 'lucide-react-native';
 import { useEvent } from '@/hooks/useEvents';
 import { eventStatusLabel, eventStatusColor } from '@/lib/eventTokens';
@@ -94,7 +94,7 @@ export default function OverviewScreen() {
         </Pressable>
         <Text style={styles.navTitle}>Manage</Text>
         <Pressable
-          onPress={() => Alert.alert('Event settings', 'Event settings are coming soon.')}
+          onPress={() => router.push(`/events/${id}/manage/settings` as any)}
           hitSlop={8}
           style={styles.navBtn}
           accessibilityRole="button"

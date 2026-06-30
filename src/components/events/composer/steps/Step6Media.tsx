@@ -1,16 +1,24 @@
-import { View, Text, Pressable, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Pressable, Image, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { Plus, X } from 'lucide-react-native';
 import { useCreateEventStore } from '@/stores/createEventStore';
-import { eventTokens } from '@/lib/eventTokens';
 import { uploadMediaFlow } from '@/utils/upload';
 import type { EventMedia } from '@/services/eventService';
 
 const NETSA_FALLBACK_URL = 'netsa-fallback';
 const MAX_MEDIA = 6;
 
-export default function Step6Media({ onNext }: { onNext: () => void; onBack?: () => void }) {
+const SURFACE = 'rgba(255,255,255,0.04)';
+const BG_2 = '#0E0C12';
+const HAIRLINE = 'rgba(255,255,255,0.1)';
+const TEXT_0 = '#F3EFE8';
+const TEXT_2 = '#71717a';
+const TEXT_3 = '#52525b';
+const ORANGE = '#FF6B35';
+const ORANGE_INK = '#1A0D06';
+
+export default function Step6Media({ onNext, onBack }: { onNext: () => void; onBack?: () => void }) {
   const { form, update, markComplete } = useCreateEventStore();
   const [uploading, setUploading] = useState(false);
 
@@ -26,22 +34,11 @@ export default function Step6Media({ onNext }: { onNext: () => void; onBack?: ()
     setUploading(true);
     try {
       const isVideo = asset.type === 'video';
-      const uploaded = await uploadMediaFlow({
-        asset,
-        entityType: 'event',
-        // 'temp' is used during creation — no event ID exists yet.
-        // Backend accepts this and scopes the media key under a temp namespace.
-        entityId: 'temp',
-        purpose: isVideo ? 'gallery' : 'gallery',
-      });
-      if (!uploaded.success || !uploaded.url) {
-        throw new Error(uploaded.error ?? 'Upload returned no URL');
-      }
+      const uploaded = await uploadMediaFlow({ asset, entityType: 'event', entityId: 'temp', purpose: 'gallery' });
+      if (!uploaded.success || !uploaded.url) throw new Error(uploaded.error ?? 'Upload returned no URL');
       const newMedia: EventMedia = {
         kind: isVideo ? 'video' : 'photo',
         url: uploaded.url,
-        // thumbnailUrl is not generated server-side for event media at this time;
-        // falls back to the full URL. Video consumers should handle this gracefully.
         thumbnailUrl: uploaded.url,
         width: asset.width ?? 1080,
         height: asset.height ?? 1080,
@@ -50,7 +47,7 @@ export default function Step6Media({ onNext }: { onNext: () => void; onBack?: ()
         sortOrder: form.media.length,
       };
       update('media', [...form.media, newMedia]);
-    } catch (e) {
+    } catch {
       Alert.alert('Upload failed', 'Try again or pick a different file.');
     } finally {
       setUploading(false);
@@ -58,118 +55,101 @@ export default function Step6Media({ onNext }: { onNext: () => void; onBack?: ()
   };
 
   const remove = (idx: number) => {
-    const next = form.media
-      .filter((_, i) => i !== idx)
-      .map((m, i) => ({ ...m, isHero: i === 0, sortOrder: i }));
+    const next = form.media.filter((_, i) => i !== idx).map((m, i) => ({ ...m, isHero: i === 0, sortOrder: i }));
     update('media', next);
   };
-
   const setHero = (idx: number) => {
-    const next = form.media.map((m, i) => ({
-      ...m,
-      isHero: i === idx,
-      sortOrder: i === idx ? 0 : i + 1,
-    }));
-    update('media', next);
+    update('media', form.media.map((m, i) => ({ ...m, isHero: i === idx, sortOrder: i === idx ? 0 : i + 1 })));
   };
-
   const useFallback = () => {
-    update('media', [
-      {
-        kind: 'photo',
-        url: NETSA_FALLBACK_URL,
-        width: 1080,
-        height: 1080,
-        isHero: true,
-        sortOrder: 0,
-      },
-    ]);
+    update('media', [{ kind: 'photo', url: NETSA_FALLBACK_URL, width: 1080, height: 1080, isHero: true, sortOrder: 0 }]);
   };
 
   const canContinue = form.media.length >= 1;
 
   return (
-    <View className="gap-7 mt-2">
-      <View className="gap-3">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">Photos · video (up to 6)</Text>
-
-        <View className="flex-row flex-wrap gap-3">
+    <View style={{ gap: 18, marginTop: 2 }}>
+      <View>
+        <Text style={styles.label}>Photos · video · up to 6</Text>
+        <View style={styles.grid}>
           {form.media.map((m, idx) => (
-            <View
-              key={`${m.url}-${idx}`}
-              className="relative w-24 h-24 rounded-xl overflow-hidden bg-event-bgAlt"
-            >
+            <View key={`${m.url}-${idx}`} style={styles.cell}>
               {m.url === NETSA_FALLBACK_URL ? (
-                <View className="flex-1 items-center justify-center bg-black">
-                  <Text className="font-serif text-event-brand text-2xl">N</Text>
-                </View>
+                <View style={styles.fallbackCell}><Text style={styles.fallbackMonogram}>N</Text></View>
               ) : (
-                <Image
-                  source={{ uri: m.thumbnailUrl ?? m.url }}
-                  className="w-full h-full"
-                  resizeMode="cover"
-                />
+                <Image source={{ uri: m.thumbnailUrl ?? m.url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
               )}
-              <Pressable
-                onPress={() => remove(idx)}
-                className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 items-center justify-center"
-              >
-                <X size={14} color="#fff" />
+              <Pressable onPress={() => remove(idx)} style={styles.removeBtn}>
+                <X size={13} color="#fff" />
               </Pressable>
-              {!m.isHero ? (
-                <Pressable
-                  onPress={() => setHero(idx)}
-                  className="absolute bottom-1 left-1 right-1 py-1 rounded bg-black/70 items-center"
-                >
-                  <Text className="font-outfit text-white text-[10px]">Make hero</Text>
-                </Pressable>
+              {m.isHero ? (
+                <View style={styles.heroPill}><Text style={styles.heroPillText}>Hero</Text></View>
               ) : (
-                <View className="absolute bottom-1 left-1 right-1 py-1 rounded bg-event-brand items-center">
-                  <Text className="font-outfit text-white text-[10px] font-bold">Hero</Text>
-                </View>
+                <Pressable onPress={() => setHero(idx)} style={styles.makeHero}>
+                  <Text style={styles.makeHeroText}>Make hero</Text>
+                </Pressable>
               )}
             </View>
           ))}
-
           {form.media.length < MAX_MEDIA ? (
-            <Pressable
-              onPress={pick}
-              disabled={uploading}
-              className="w-24 h-24 rounded-xl border-2 border-dashed border-event-border items-center justify-center"
-            >
-              {uploading ? (
-                <ActivityIndicator color={eventTokens.brand} />
-              ) : (
-                <Plus size={28} color={eventTokens.textSecondary} />
-              )}
+            <Pressable onPress={pick} disabled={uploading} style={styles.uploadCell}>
+              {uploading ? <ActivityIndicator color={ORANGE} /> : <Plus size={26} color={TEXT_2} />}
             </Pressable>
           ) : null}
         </View>
+        <Text style={styles.helper}>First photo is your hero image. Tap a photo to make it the hero.</Text>
       </View>
 
       {form.media.length === 0 ? (
-        <Pressable
-          onPress={useFallback}
-          className="rounded-2xl bg-event-surface border border-event-border p-4"
-        >
-          <Text className="font-outfit text-event-textPrimary text-sm">
-            Use NETSA brand fallback instead
-          </Text>
-          <Text className="font-outfit text-event-textMuted text-xs mt-1">
-            Black background + NETSA monogram. Required at publish.
-          </Text>
+        <Pressable onPress={useFallback} style={styles.fallbackRow}>
+          <View style={styles.fallbackSwatch}><Text style={styles.fallbackSwatchText}>N</Text></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.fallbackTitle}>Use NETSA brand fallback instead</Text>
+            <Text style={styles.fallbackSub}>Black background + NETSA monogram. Required at publish.</Text>
+          </View>
         </Pressable>
       ) : null}
 
-      <Pressable
-        onPress={() => { markComplete(6); onNext(); }}
-        disabled={!canContinue}
-        className={`rounded-2xl py-4 items-center ${canContinue ? 'bg-event-brand' : 'bg-event-surface'}`}
-      >
-        <Text className={`font-outfit font-bold ${canContinue ? 'text-white' : 'text-event-textMuted'}`}>
-          Continue
-        </Text>
-      </Pressable>
+      <View style={styles.navRow}>
+        <Pressable onPress={onBack} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Back">
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => { markComplete(6); onNext(); }}
+          disabled={!canContinue}
+          style={[styles.continueBtn, !canContinue && styles.continueDisabled]}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canContinue }}
+        >
+          <Text style={[styles.continueText, !canContinue && { color: TEXT_3 }]}>Continue →</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  label: { fontFamily: 'SpaceMono-Bold', fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: TEXT_3, marginBottom: 10 },
+  helper: { fontFamily: 'Outfit-Regular', fontSize: 11, color: TEXT_3, marginTop: 10 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  cell: { width: '31%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: BG_2 },
+  fallbackCell: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
+  fallbackMonogram: { fontFamily: 'DMSerifDisplay_400Regular', color: ORANGE, fontSize: 28 },
+  removeBtn: { position: 'absolute', top: 5, right: 5, width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center' },
+  heroPill: { position: 'absolute', bottom: 5, left: 5, backgroundColor: ORANGE, borderRadius: 5, paddingHorizontal: 8, paddingVertical: 2 },
+  heroPillText: { fontFamily: 'Outfit-Bold', fontSize: 10, color: ORANGE_INK },
+  makeHero: { position: 'absolute', bottom: 5, left: 5, right: 5, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 5, paddingVertical: 3, alignItems: 'center' },
+  makeHeroText: { fontFamily: 'Outfit-Medium', fontSize: 10, color: '#fff' },
+  uploadCell: { width: '31%', aspectRatio: 1, borderRadius: 12, borderWidth: 1, borderColor: HAIRLINE, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+  fallbackRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE, borderRadius: 12, padding: 14 },
+  fallbackSwatch: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
+  fallbackSwatchText: { fontFamily: 'DMSerifDisplay_400Regular', color: ORANGE, fontSize: 20 },
+  fallbackTitle: { fontFamily: 'Outfit-SemiBold', fontSize: 13, color: TEXT_0 },
+  fallbackSub: { fontFamily: 'Outfit-Regular', fontSize: 11, color: TEXT_3, marginTop: 2 },
+  navRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  backBtn: { flex: 1, height: 48, borderRadius: 11, borderWidth: 1, borderColor: HAIRLINE, alignItems: 'center', justifyContent: 'center' },
+  backText: { fontFamily: 'Outfit-Medium', fontSize: 13, color: TEXT_2 },
+  continueBtn: { flex: 1, height: 48, borderRadius: 11, backgroundColor: TEXT_0, alignItems: 'center', justifyContent: 'center' },
+  continueDisabled: { backgroundColor: SURFACE },
+  continueText: { fontFamily: 'Outfit-Bold', fontSize: 14, color: ORANGE_INK },
+});

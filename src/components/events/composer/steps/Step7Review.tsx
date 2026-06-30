@@ -1,15 +1,27 @@
 import { useState } from 'react';
-import { View, Text, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCreateEventStore } from '@/stores/createEventStore';
 import { useCreateEvent } from '@/hooks/useEvents';
-import { eventTokens, durationKindLabel } from '@/lib/eventTokens';
-import { Check } from 'lucide-react-native';
+import { durationKindLabel } from '@/lib/eventTokens';
+import { Check, Clock } from 'lucide-react-native';
 import type { EventCancellationPolicy } from '@/services/eventService';
 
 const ONE_DAY_MS = 86400000;
 
-/** Translate the high-level refundPolicy enum + startsAt into a structured EventCancellationPolicy. */
+const SURFACE = 'rgba(255,255,255,0.04)';
+const HAIRLINE = 'rgba(255,255,255,0.1)';
+const TEXT_0 = '#F3EFE8';
+const TEXT_1 = '#A1A1AA';
+const TEXT_2 = '#71717a';
+const TEXT_3 = '#52525b';
+const ORANGE = '#FF6B35';
+const ORANGE_INK = '#1A0D06';
+const GREEN = '#22C55E';
+const GREEN_SOFT = 'rgba(34,197,94,0.14)';
+const GOLD = '#F59E0B';
+const GOLD_SOFT = 'rgba(245,158,11,0.14)';
+
 function deriveCancellationPolicy(
   refundPolicy: 'flex_24h' | 'firm' | 'custom',
   customNote: string | undefined,
@@ -18,10 +30,7 @@ function deriveCancellationPolicy(
   const startsAt = new Date(startsAtISO).getTime();
   switch (refundPolicy) {
     case 'flex_24h':
-      return {
-        fullRefundUntil: new Date(startsAt - ONE_DAY_MS).toISOString(),
-        notes: 'Full refund up to 24h before the event.',
-      };
+      return { fullRefundUntil: new Date(startsAt - ONE_DAY_MS).toISOString(), notes: 'Full refund up to 24h before the event.' };
     case 'firm':
       return { notes: 'No refunds once registered.' };
     case 'custom':
@@ -59,17 +68,12 @@ export default function Step7Review() {
               amount: form.pricing.amount,
               currency: form.pricing.currency,
               refundPolicy: form.pricing.refundPolicy,
-              refundCustomNote:
-                form.pricing.refundPolicy === 'custom'
-                  ? form.pricing.refundCustomNote
-                  : undefined,
+              refundCustomNote: form.pricing.refundPolicy === 'custom' ? form.pricing.refundCustomNote : undefined,
             }
           : undefined,
         media: form.media,
         registrationDeadline: form.registrationDeadline || undefined,
         agenda: form.agenda.length ? form.agenda : undefined,
-
-        // Schema migration 2026-06-25 — Step 4 fields
         allowWaitlist: form.allowWaitlist,
         waitlistAutoPromote: form.waitlistAutoPromote,
         walkupsAllowed: form.walkupsAllowed,
@@ -77,14 +81,8 @@ export default function Step7Review() {
         requiredAttendeeFields: form.requiredAttendeeFields,
         cancellationPolicy:
           isPaid && form.startsAt
-            ? deriveCancellationPolicy(
-                form.pricing.refundPolicy,
-                form.pricing.refundCustomNote,
-                form.startsAt,
-              )
+            ? deriveCancellationPolicy(form.pricing.refundPolicy, form.pricing.refundCustomNote, form.startsAt)
             : undefined,
-
-        // Defaults held in the store, not surfaced in Step 4 — sent so backend has them
         visibility: form.visibility,
         discussionVisibility: form.discussionVisibility,
         language: form.language,
@@ -93,8 +91,7 @@ export default function Step7Review() {
       const result = await mutation.mutateAsync(payload as any);
       setOutcome(result.status as 'live' | 'pending_review');
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Something went wrong. Try again.';
-      Alert.alert('Could not publish', msg);
+      Alert.alert('Could not publish', err?.response?.data?.message ?? 'Something went wrong. Try again.');
     } finally {
       setSubmitting(false);
     }
@@ -102,19 +99,13 @@ export default function Step7Review() {
 
   if (outcome === 'live') {
     return (
-      <View className="items-center justify-center gap-4 py-12">
-        <View className="w-16 h-16 rounded-full bg-event-brand items-center justify-center">
-          <Check size={32} color="#fff" />
-        </View>
-        <Text className="font-serif text-event-textPrimary text-3xl">You're live</Text>
-        <Text className="font-outfit text-event-textSecondary text-center px-6">
-          Artists can discover and RSVP now. We'll notify your followers.
-        </Text>
-        <Pressable
-          onPress={() => { reset(); router.replace('/events'); }}
-          className="rounded-2xl bg-event-brand py-3 px-8 mt-4"
-        >
-          <Text className="font-outfit font-bold text-white">View discovery feed</Text>
+      <View style={styles.result}>
+        <View style={[styles.resultIcon, { backgroundColor: GREEN_SOFT }]}><Check size={30} color={GREEN} /></View>
+        <Text style={styles.resultEyebrow}>You're live</Text>
+        <Text style={styles.resultTitle}>{form.title || 'Your event'} is live.</Text>
+        <Text style={styles.resultBody}>Artists can discover and RSVP now. We'll notify your followers.</Text>
+        <Pressable onPress={() => { reset(); router.replace('/events'); }} style={styles.resultBtn}>
+          <Text style={styles.resultBtnText}>View discovery feed →</Text>
         </Pressable>
       </View>
     );
@@ -122,51 +113,36 @@ export default function Step7Review() {
 
   if (outcome === 'pending_review') {
     return (
-      <View className="items-center justify-center gap-4 py-12">
-        <View className="w-16 h-16 rounded-full bg-event-gold items-center justify-center">
-          <Text className="text-white text-3xl">⌛</Text>
-        </View>
-        <Text className="font-serif text-event-textPrimary text-3xl">In review</Text>
-        <Text className="font-outfit text-event-textSecondary text-center px-6 leading-6">
-          We hold first-time organizers' events for a quick safety check. Usually under 24h. You'll get a push when it goes live.
-        </Text>
-        <Pressable
-          onPress={() => { reset(); router.replace('/events'); }}
-          className="rounded-2xl bg-event-surface border border-event-border py-3 px-8 mt-4"
-        >
-          <Text className="font-outfit text-event-textPrimary">Back to events</Text>
+      <View style={styles.result}>
+        <View style={[styles.resultIcon, { backgroundColor: GOLD_SOFT }]}><Clock size={28} color={GOLD} /></View>
+        <Text style={[styles.resultEyebrow, { color: GOLD }]}>In review</Text>
+        <Text style={styles.resultTitle}>Held for a quick check.</Text>
+        <Text style={styles.resultBody}>We hold first-time hosts' events for a safety check — usually under 24h. You'll get a push when it goes live.</Text>
+        <Pressable onPress={() => { reset(); router.replace('/events'); }} style={[styles.resultBtn, styles.resultBtnGhost]}>
+          <Text style={[styles.resultBtnText, { color: TEXT_0 }]}>Back to events</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View className="gap-5 mt-2">
-      <ReviewBlock label="Topics" onEdit={() => setStep(1)}>
-        <View className="flex-row flex-wrap gap-2">
+    <View style={{ gap: 8, marginTop: 2 }}>
+      <ReviewBlock label="Topics" onEdit={() => setStep(2)}>
+        <View style={styles.tagRow}>
           {form.topicTags.map((t) => (
-            <View key={t} className="px-3 py-1 rounded-full bg-event-surface border border-event-border">
-              <Text className="font-outfit text-event-textSecondary text-xs">{t}</Text>
-            </View>
+            <View key={t} style={styles.tag}><Text style={styles.tagText}>{t}</Text></View>
           ))}
         </View>
-        <Text className="font-outfit text-event-textMuted text-xs mt-2">
-          {form.registrationMode === 'free_rsvp' ? 'Free RSVP' : 'Paid ticket'}
-        </Text>
+        <Text style={styles.dim}>{form.registrationMode === 'free_rsvp' ? 'Free RSVP' : 'Paid ticket'}</Text>
       </ReviewBlock>
 
-      <ReviewBlock label="Basics" onEdit={() => setStep(2)}>
-        <Text className="font-serif text-event-textPrimary text-xl">{form.title}</Text>
-        {form.tagline ? <Text className="font-outfit text-event-textSecondary text-sm mt-1">{form.tagline}</Text> : null}
+      <ReviewBlock label="Basics" onEdit={() => setStep(1)}>
+        <Text style={styles.serif}>{form.title}</Text>
+        {form.tagline ? <Text style={styles.sub}>{form.tagline}</Text> : null}
         {startDate ? (
-          <Text className="font-outfit text-event-textMuted text-xs mt-2">
-            {startDate.toLocaleString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' })}
+          <Text style={styles.dim}>
+            {startDate.toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
             {' · '}{form.durationKind ? durationKindLabel[form.durationKind] : ''}
-          </Text>
-        ) : null}
-        {form.registrationDeadline ? (
-          <Text className="font-outfit text-event-textMuted text-xs mt-1">
-            Closes {new Date(form.registrationDeadline).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
           </Text>
         ) : null}
       </ReviewBlock>
@@ -174,78 +150,37 @@ export default function Step7Review() {
       <ReviewBlock label="Location" onEdit={() => setStep(3)}>
         {form.location.kind === 'in_person' ? (
           <>
-            <Text className="font-outfit text-event-textPrimary text-base">{form.location.venueName}</Text>
-            <Text className="font-outfit text-event-textSecondary text-sm mt-1">{form.location.address}</Text>
+            <Text style={styles.body}>{form.location.venueName}</Text>
+            <Text style={styles.sub}>{form.location.address}</Text>
           </>
         ) : (
-          <Text className="font-outfit text-event-textPrimary text-base">
-            Online · {form.location.onlinePlatform || 'platform TBA'}
-          </Text>
+          <Text style={styles.body}>Online · {form.location.onlinePlatform || 'platform TBA'}</Text>
         )}
       </ReviewBlock>
 
-      <ReviewBlock label="Capacity & Pricing" onEdit={() => setStep(4)}>
-        <Text className="font-outfit text-event-textPrimary text-base">{form.capacity.total} people</Text>
-        {form.registrationMode === 'paid_ticket' ? (
-          <View className="mt-2 gap-1">
-            <Text className="font-outfit text-event-textPrimary text-sm">
-              ₹{form.pricing.amount} per ticket · {form.pricing.currency}
-            </Text>
-            <Text className="font-outfit text-event-textMuted text-xs">
-              Refund: {form.pricing.refundPolicy === 'flex_24h'
-                ? 'Flexible (24h before)'
-                : form.pricing.refundPolicy === 'firm'
-                  ? 'Firm (no refunds)'
-                  : form.pricing.refundCustomNote || 'Custom'}
-            </Text>
-          </View>
-        ) : (
-          <Text className="font-outfit text-event-textMuted text-xs mt-1">Free RSVP</Text>
-        )}
-
-        {/* Step 4 configuration summary */}
-        <View className="mt-3 pt-3 border-t border-event-border gap-1">
-          <Text className="font-outfit text-event-textMuted text-xs">
-            Groups up to {form.maxGuestsPerRegistration}
-            {' · '}
-            {form.allowWaitlist
-              ? form.waitlistAutoPromote
-                ? 'Waitlist · auto-promote'
-                : 'Waitlist · manual approval'
-              : 'No waitlist'}
-            {form.walkupsAllowed ? ' · Walk-ups on' : ''}
-          </Text>
-          <Text className="font-outfit text-event-textMuted text-xs">
-            Required: {form.requiredAttendeeFields.join(' · ')}
-          </Text>
-        </View>
+      <ReviewBlock label="Capacity & pricing" onEdit={() => setStep(4)}>
+        <Text style={styles.body}>
+          {form.capacity.total} artists
+          {form.registrationMode === 'paid_ticket' ? ` · ₹${form.pricing.amount.toLocaleString('en-IN')}` : ' · Free RSVP'}
+        </Text>
+        <Text style={styles.dim}>
+          Groups up to {form.maxGuestsPerRegistration}
+          {' · '}{form.allowWaitlist ? (form.waitlistAutoPromote ? 'Waitlist · auto-promote' : 'Waitlist · manual') : 'No waitlist'}
+          {form.walkupsAllowed ? ' · Walk-ups' : ''}
+        </Text>
       </ReviewBlock>
 
       <ReviewBlock label="About" onEdit={() => setStep(5)}>
-        <Text className="font-outfit text-event-textPrimary text-sm leading-5" numberOfLines={4}>
-          {form.about}
-        </Text>
-        {form.agenda.length ? (
-          <Text className="font-outfit text-event-textMuted text-xs mt-2">
-            {form.agenda.length} day{form.agenda.length === 1 ? '' : 's'} mapped
-          </Text>
-        ) : null}
+        <Text style={styles.sub} numberOfLines={4}>{form.about}</Text>
+        {form.agenda.length ? <Text style={styles.dim}>{form.agenda.length} day{form.agenda.length === 1 ? '' : 's'} mapped</Text> : null}
       </ReviewBlock>
 
       <ReviewBlock label="Media" onEdit={() => setStep(6)}>
-        <Text className="font-outfit text-event-textPrimary text-sm">
-          {form.media.length} item{form.media.length === 1 ? '' : 's'}
-        </Text>
+        <Text style={styles.body}>{form.media.length} item{form.media.length === 1 ? '' : 's'}</Text>
       </ReviewBlock>
 
-      <Pressable
-        onPress={submit}
-        disabled={isSubmitting}
-        className={`rounded-2xl py-4 items-center mt-3 ${isSubmitting ? 'bg-event-surface' : 'bg-event-brand'}`}
-      >
-        {isSubmitting
-          ? <ActivityIndicator color={eventTokens.textPrimary} />
-          : <Text className="font-outfit font-bold text-white text-base">Publish event</Text>}
+      <Pressable onPress={submit} disabled={isSubmitting} style={[styles.publishBtn, isSubmitting && styles.publishDisabled]}>
+        {isSubmitting ? <ActivityIndicator color={ORANGE_INK} /> : <Text style={styles.publishText}>Publish event</Text>}
       </Pressable>
     </View>
   );
@@ -253,14 +188,37 @@ export default function Step7Review() {
 
 function ReviewBlock({ label, onEdit, children }: { label: string; onEdit: () => void; children: React.ReactNode }) {
   return (
-    <View className="rounded-2xl bg-event-surface border border-event-border p-4">
-      <View className="flex-row justify-between items-center mb-3">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">{label}</Text>
-        <Pressable onPress={onEdit} hitSlop={8}>
-          <Text className="font-outfit text-event-brand text-xs">Edit</Text>
-        </Pressable>
+    <View style={styles.block}>
+      <View style={styles.blockHead}>
+        <Text style={styles.blockLabel}>{label}</Text>
+        <Pressable onPress={onEdit} hitSlop={8}><Text style={styles.editLink}>Edit</Text></Pressable>
       </View>
       {children}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  block: { backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE, borderRadius: 12, padding: 14 },
+  blockHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  blockLabel: { fontFamily: 'SpaceMono-Bold', fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: TEXT_3 },
+  editLink: { fontFamily: 'Outfit-SemiBold', fontSize: 12, color: ORANGE },
+  serif: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 18, color: TEXT_0 },
+  body: { fontFamily: 'Outfit-Regular', fontSize: 13.5, color: TEXT_0 },
+  sub: { fontFamily: 'Outfit-Regular', fontSize: 12.5, color: TEXT_1, marginTop: 2, lineHeight: 18 },
+  dim: { fontFamily: 'Outfit-Regular', fontSize: 11.5, color: TEXT_3, marginTop: 6 },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  tag: { backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: HAIRLINE, borderRadius: 7, paddingHorizontal: 10, paddingVertical: 5 },
+  tagText: { fontFamily: 'Outfit-Medium', fontSize: 11.5, color: TEXT_1 },
+  publishBtn: { height: 50, borderRadius: 11, backgroundColor: TEXT_0, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  publishDisabled: { backgroundColor: SURFACE },
+  publishText: { fontFamily: 'Outfit-Bold', fontSize: 14.5, color: ORANGE_INK },
+  result: { alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 36, paddingHorizontal: 8 },
+  resultIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  resultEyebrow: { fontFamily: 'SpaceMono-Bold', fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: GREEN },
+  resultTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: TEXT_0, textAlign: 'center', marginTop: 2 },
+  resultBody: { fontFamily: 'Outfit-Regular', fontSize: 13, color: TEXT_2, textAlign: 'center', lineHeight: 19, maxWidth: 300, marginTop: 2 },
+  resultBtn: { backgroundColor: TEXT_0, borderRadius: 11, paddingVertical: 13, paddingHorizontal: 24, marginTop: 16 },
+  resultBtnGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: HAIRLINE },
+  resultBtnText: { fontFamily: 'Outfit-Bold', fontSize: 14, color: ORANGE_INK },
+});

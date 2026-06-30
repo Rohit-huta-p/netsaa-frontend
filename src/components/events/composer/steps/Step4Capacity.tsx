@@ -1,8 +1,10 @@
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { useCreateEventStore, RefundPolicy, RequiredAttendeeField } from '@/stores/createEventStore';
 import { computeOrganizerBreakdown, formatRupees, NETSA_FEE_PERCENT } from '@/lib/eventPricing';
 import { usePayoutAccount } from '@/hooks/usePayoutAccount';
+import { useQueryClient } from '@tanstack/react-query';
+import PayoutSetupWizard from '@/components/payouts/PayoutSetupWizard';
 
 const CAPACITY_PRESETS = [20, 50, 100, 200, 500];
 const PRICE_PRESETS = [99, 249, 499, 999, 1999];
@@ -39,7 +41,8 @@ const YELLOW_SOFT = 'rgba(234,179,8,0.14)';
 
 export default function Step4Capacity({ onNext, onBack }: { onNext: () => void; onBack?: () => void }) {
   const { form, update, markComplete } = useCreateEventStore();
-  const router = useRouter();
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const qc = useQueryClient();
   const total = form.capacity.total;
   const isPaid = form.registrationMode === 'paid_ticket';
 
@@ -162,10 +165,15 @@ export default function Step4Capacity({ onNext, onBack }: { onNext: () => void; 
         <>
           {pricingLocked ? (
             <View style={styles.gate}>
-              <Text style={styles.gateEyebrow}>Payout setup required</Text>
+              <Text style={styles.gateEyebrow}>One-time · ~3 minutes</Text>
               <Text style={styles.gateTitle}>Link a bank to collect payments</Text>
-              <Text style={styles.gateBody}>Set up a verified bank account to publish paid events. Earnings settle there instantly via Razorpay.</Text>
-              <Pressable onPress={() => router.push('/settings/payouts')} style={styles.gateBtn}>
+              <Text style={styles.gateBody}>Razorpay verifies live. After this, you'll never see this card again.</Text>
+              <View style={styles.gateChips}>
+                <Text style={styles.gateChip}>PAN</Text>
+                <Text style={styles.gateChip}>Bank + IFSC</Text>
+                <Text style={styles.gateChip}>GST · optional</Text>
+              </View>
+              <Pressable onPress={() => setWizardOpen(true)} style={styles.gateBtn}>
                 <Text style={styles.gateBtnText}>Set up payouts →</Text>
               </Pressable>
             </View>
@@ -260,6 +268,15 @@ export default function Step4Capacity({ onNext, onBack }: { onNext: () => void; 
           <Text style={[styles.continueText, !canContinue && { color: TEXT_3 }]}>Continue →</Text>
         </Pressable>
       </View>
+
+      <PayoutSetupWizard
+        visible={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onDone={() => {
+          setWizardOpen(false);
+          qc.invalidateQueries({ queryKey: ['payoutAccount', 'me'] });
+        }}
+      />
     </View>
   );
 }
@@ -333,12 +350,14 @@ const styles = StyleSheet.create({
   earnTotal: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: ORANGE },
   earnNote: { fontFamily: 'Outfit-Regular', fontSize: 10.5, color: TEXT_2, lineHeight: 16, marginTop: 8 },
 
-  gate: { backgroundColor: YELLOW_SOFT, borderWidth: 1, borderColor: 'rgba(234,179,8,0.32)', borderRadius: 12, padding: 16, marginTop: 18, gap: 6 },
-  gateEyebrow: { fontFamily: 'SpaceMono-Bold', fontSize: 9.5, letterSpacing: 1.3, textTransform: 'uppercase', color: YELLOW },
-  gateTitle: { fontFamily: 'Outfit-SemiBold', fontSize: 14, color: TEXT_0 },
+  gate: { backgroundColor: ORANGE_SOFT, borderWidth: 1, borderColor: ORANGE_LINE, borderRadius: 14, padding: 16, marginTop: 18, gap: 8 },
+  gateEyebrow: { fontFamily: 'SpaceMono-Bold', fontSize: 9.5, letterSpacing: 1.3, textTransform: 'uppercase', color: ORANGE },
+  gateTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 17, color: TEXT_0 },
   gateBody: { fontFamily: 'Outfit-Regular', fontSize: 12, color: TEXT_1, lineHeight: 17 },
-  gateBtn: { backgroundColor: YELLOW, borderRadius: 9, paddingVertical: 10, alignItems: 'center', marginTop: 6 },
-  gateBtnText: { fontFamily: 'Outfit-Bold', fontSize: 13, color: '#1a1106' },
+  gateChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  gateChip: { fontFamily: 'Outfit-Regular', fontSize: 10.5, color: TEXT_2, backgroundColor: '#0E0C12', borderWidth: 1, borderColor: HAIRLINE, borderRadius: 6, paddingHorizontal: 9, paddingVertical: 4, overflow: 'hidden' },
+  gateBtn: { backgroundColor: ORANGE, borderRadius: 10, paddingVertical: 11, alignItems: 'center', marginTop: 4 },
+  gateBtnText: { fontFamily: 'Outfit-Bold', fontSize: 13, color: ORANGE_INK },
   locked: { opacity: 0.4 },
 
   track: { width: 46, height: 26, borderRadius: 99, padding: 2, justifyContent: 'center' },

@@ -80,3 +80,15 @@ export function useJoinWaitlist(eventId: string) {
 export function useLeaveWaitlist(eventId: string) {
   return useMutation({ mutationFn: () => eventService.leaveWaitlist(eventId) });
 }
+
+export function useUpdateEvent(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: Partial<import('@/services/eventService').EventDoc>) =>
+      eventService.update(id, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: eventKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: ['eventRoster', id] });
+    },
+  });
+}

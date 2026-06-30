@@ -75,6 +75,7 @@ export interface EventDoc {
   maxGuestsPerRegistration?: number;        // default 5
   requiredAttendeeFields?: ('phone' | 'email' | 'guestNames')[];
   visibility?: 'public' | 'unlisted' | 'private';
+  registrationClosed?: boolean;            // organiser can close/reopen RSVPs without cancelling
   ageRestriction?: number;
   language?: string;                        // ISO 639-1
   discussionVisibility?: 'public' | 'attendees_only';  // Q8
@@ -274,6 +275,11 @@ export const eventService = {
 
   cancelEvent: async (eventId: string, reason: string): Promise<{ affectedRegistrations: number; totalRefundPaise: number; netsaAbsorbedTotalPaise: number }> =>
     (await client.post(`/v1/events/${eventId}/cancel`, { reason })).data.data,
+
+  update: async (id: string, patch: Partial<EventDoc>): Promise<EventDoc> => {
+    const r = await client.patch(`/v1/events/${id}`, patch);
+    return r.data.data;
+  },
 
   joinWaitlist: async (eventId: string, quantity: number, attendeeSnapshot: { fullName: string; phone: string; email?: string }): Promise<{
     entryId: string; position: number; status: string;

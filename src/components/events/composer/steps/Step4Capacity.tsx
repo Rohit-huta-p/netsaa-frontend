@@ -1,501 +1,357 @@
-import { View, Text, TextInput, Pressable } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCreateEventStore, RefundPolicy, RequiredAttendeeField } from '@/stores/createEventStore';
-import { eventTokens } from '@/lib/eventTokens';
-import {
-  computeOrganizerBreakdown,
-  formatRupees,
-  NETSA_FEE_PERCENT,
-  PROCESSING_FEE_PERCENT,
-} from '@/lib/eventPricing';
+import { computeOrganizerBreakdown, formatRupees, NETSA_FEE_PERCENT } from '@/lib/eventPricing';
 import { usePayoutAccount } from '@/hooks/usePayoutAccount';
-import { AlertCircle } from 'lucide-react-native';
 
 const CAPACITY_PRESETS = [20, 50, 100, 200, 500];
 const PRICE_PRESETS = [99, 249, 499, 999, 1999];
-
-const REFUND_OPTIONS: { value: RefundPolicy; label: string; sub: string }[] = [
-  { value: 'flex_24h', label: 'Flexible', sub: 'Full refund up to 24h before the event' },
-  { value: 'firm', label: 'Firm', sub: 'No refunds once registered' },
-  { value: 'custom', label: 'Custom', sub: 'Write your own policy below' },
-];
-
 const GUEST_OPTIONS = [1, 2, 3, 5, 10];
 
-const ATTENDEE_FIELD_TOGGLES: { value: RequiredAttendeeField; label: string; sub: string; locked?: boolean }[] = [
-  { value: 'phone', label: 'Phone', sub: 'Always required · for SMS reminders', locked: true },
-  { value: 'email', label: 'Email', sub: 'Optional · receipts + ICS calendar' },
-  { value: 'guestNames', label: 'Guest names', sub: 'When group size > 1' },
+const REFUND_OPTIONS: { value: RefundPolicy; label: string; sub: string }[] = [
+  { value: 'flex_24h', label: 'Flexible', sub: 'Full refund up to 24h before' },
+  { value: 'firm', label: 'Firm', sub: 'No refunds once registered' },
+  { value: 'custom', label: 'Custom', sub: 'Write your own policy' },
 ];
 
-export default function Step4Capacity({ onNext }: { onNext: () => void; onBack?: () => void }) {
+const ATTENDEE_FIELDS: { value: RequiredAttendeeField; label: string; sub: string; locked?: boolean }[] = [
+  { value: 'phone', label: 'Phone', sub: 'Always required · SMS reminders', locked: true },
+  { value: 'email', label: 'Email', sub: 'Receipts + ICS' },
+  { value: 'guestNames', label: 'Guest names', sub: 'When group > 1' },
+];
+
+const SURFACE = 'rgba(255,255,255,0.04)';
+const SURFACE_HI = 'rgba(255,255,255,0.07)';
+const HAIRLINE = 'rgba(255,255,255,0.1)';
+const TEXT_0 = '#F3EFE8';
+const TEXT_1 = '#A1A1AA';
+const TEXT_2 = '#71717a';
+const TEXT_3 = '#52525b';
+const TEXT_4 = '#3f3f46';
+const ORANGE = '#FF6B35';
+const ORANGE_SOFT = 'rgba(255,107,53,0.16)';
+const ORANGE_LINE = 'rgba(255,107,53,0.32)';
+const ORANGE_INK = '#1A0D06';
+const GREEN = '#22C55E';
+const GREEN_SOFT = 'rgba(34,197,94,0.14)';
+const YELLOW = '#EAB308';
+const YELLOW_SOFT = 'rgba(234,179,8,0.14)';
+
+export default function Step4Capacity({ onNext, onBack }: { onNext: () => void; onBack?: () => void }) {
   const { form, update, markComplete } = useCreateEventStore();
   const router = useRouter();
   const total = form.capacity.total;
   const isPaid = form.registrationMode === 'paid_ticket';
 
-  // Payout JIT gate — only relevant for paid events
   const { data: payoutAccount } = usePayoutAccount();
   const payoutVerified = payoutAccount?.status === 'verified';
 
-  const setCapacity = (n: number) =>
-    update('capacity', { total: Math.max(1, Math.min(1000, n)) });
-
-  const setPrice = (n: number) =>
-    update('pricing', { ...form.pricing, amount: Math.max(0, Math.min(100000, n)) });
-
-  const setRefundPolicy = (policy: RefundPolicy) =>
-    update('pricing', { ...form.pricing, refundPolicy: policy });
-
-  const setRefundNote = (note: string) =>
-    update('pricing', { ...form.pricing, refundCustomNote: note });
-
-  const setMaxGuests = (n: number) =>
-    update('maxGuestsPerRegistration', Math.max(1, Math.min(10, n)));
-
-  const setAllowWaitlist = (v: boolean) => {
-    update('allowWaitlist', v);
-    // Reset auto-promote when waitlist disabled
-    if (!v) update('waitlistAutoPromote', false);
-  };
-
-  const toggleAttendeeField = (field: RequiredAttendeeField) => {
-    if (field === 'phone') return; // phone is locked-on
+  const setCapacity = (n: number) => update('capacity', { total: Math.max(1, Math.min(1000, n)) });
+  const setPrice = (n: number) => update('pricing', { ...form.pricing, amount: Math.max(0, Math.min(100000, n)) });
+  const setRefundPolicy = (p: RefundPolicy) => update('pricing', { ...form.pricing, refundPolicy: p });
+  const setRefundNote = (note: string) => update('pricing', { ...form.pricing, refundCustomNote: note });
+  const setMaxGuests = (n: number) => update('maxGuestsPerRegistration', Math.max(1, Math.min(10, n)));
+  const setAllowWaitlist = (v: boolean) => { update('allowWaitlist', v); if (!v) update('waitlistAutoPromote', false); };
+  const toggleField = (field: RequiredAttendeeField) => {
+    if (field === 'phone') return;
     const has = form.requiredAttendeeFields.includes(field);
-    update(
-      'requiredAttendeeFields',
-      has
-        ? form.requiredAttendeeFields.filter((f) => f !== field)
-        : [...form.requiredAttendeeFields, field],
-    );
+    update('requiredAttendeeFields', has ? form.requiredAttendeeFields.filter((f) => f !== field) : [...form.requiredAttendeeFields, field]);
   };
 
   const capacityValid = total >= 1 && total <= 1000;
   const pricingValid = !isPaid || (form.pricing.amount > 0 && form.pricing.amount <= 100000);
-  const refundNoteValid =
-    !isPaid || form.pricing.refundPolicy !== 'custom' || !!form.pricing.refundCustomNote?.trim();
-  const guestsValid =
-    form.maxGuestsPerRegistration >= 1 && form.maxGuestsPerRegistration <= 10;
-
+  const refundNoteValid = !isPaid || form.pricing.refundPolicy !== 'custom' || !!form.pricing.refundCustomNote?.trim();
+  const guestsValid = form.maxGuestsPerRegistration >= 1 && form.maxGuestsPerRegistration <= 10;
   const canContinue = capacityValid && pricingValid && refundNoteValid && guestsValid && !(isPaid && !payoutVerified);
 
+  const pricingLocked = isPaid && !payoutVerified;
+
   return (
-    <View className="gap-7 mt-2">
-      {/* CAPACITY */}
-      <View className="gap-3">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-          Total capacity
-        </Text>
-        <View className="rounded-2xl bg-event-surface border border-event-border px-4 py-5 items-center">
-          <Text className="font-serif text-event-textPrimary text-5xl">{total}</Text>
-          <Text className="font-outfit text-event-textSecondary text-xs mt-1">people</Text>
+    <View style={{ marginTop: 2 }}>
+      {isPaid && payoutVerified ? (
+        <View style={styles.verifiedPill}>
+          <View style={styles.verifiedDot} />
+          <Text style={styles.verifiedText}>Bank verified · HDFC **** 1234</Text>
         </View>
-      </View>
+      ) : null}
 
-      <View className="flex-row flex-wrap gap-2">
-        {CAPACITY_PRESETS.map((n) => {
-          const active = total === n;
-          return (
-            <Pressable
-              key={n}
-              onPress={() => setCapacity(n)}
-              className={`px-4 py-2.5 rounded-full ${active ? 'bg-event-brand' : 'bg-event-surface border border-event-border'}`}
-            >
-              <Text className={`font-outfit text-sm ${active ? 'text-white font-semibold' : 'text-event-textSecondary'}`}>
-                {n}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <View className="gap-2">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-          Or type a number
-        </Text>
+      {/* Capacity */}
+      <Text style={styles.section}>Capacity</Text>
+      <View style={styles.bigBox}>
         <TextInput
           value={String(total)}
           onChangeText={(s) => setCapacity(parseInt(s, 10) || 1)}
           keyboardType="number-pad"
-          placeholderTextColor={eventTokens.textMuted ?? '#6E6C76'}
-          className="font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border border-event-border px-4 py-3"
+          style={styles.bigNum}
         />
-        <Text className="font-outfit text-event-textMuted text-xs">
-          Hard cap is 1000. For larger events, request admin approval.
-        </Text>
+        <Text style={styles.bigUnit}>artists</Text>
+      </View>
+      <View style={styles.chipRow}>
+        {CAPACITY_PRESETS.map((n) => (
+          <Chip key={n} label={String(n)} active={total === n} onPress={() => setCapacity(n)} />
+        ))}
       </View>
 
-      <View className="h-px bg-event-border my-2" />
-
-      {/* GROUP SIZE — max guests per registration */}
-      <View className="gap-3">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-          Group registration · max per booking
-        </Text>
-        <View className="flex-row flex-wrap gap-2">
-          {GUEST_OPTIONS.map((n) => {
-            const active = form.maxGuestsPerRegistration === n;
-            return (
-              <Pressable
-                key={n}
-                onPress={() => setMaxGuests(n)}
-                className={`px-4 py-2.5 rounded-full ${active ? 'bg-event-brand' : 'bg-event-surface border border-event-border'}`}
-              >
-                <Text className={`font-outfit text-sm ${active ? 'text-white font-semibold' : 'text-event-textSecondary'}`}>
-                  {n}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Text className="font-outfit text-event-textMuted text-xs">
-          One attendee can bring up to {form.maxGuestsPerRegistration - 1} guest{form.maxGuestsPerRegistration === 2 ? '' : 's'}. Each seat counts against capacity.
-        </Text>
+      {/* Group */}
+      <Text style={styles.section}>Group registration</Text>
+      <View style={styles.chipRow}>
+        {GUEST_OPTIONS.map((n) => (
+          <Chip key={n} label={String(n)} active={form.maxGuestsPerRegistration === n} onPress={() => setMaxGuests(n)} />
+        ))}
       </View>
+      <Text style={styles.helper}>
+        One attendee can bring up to {form.maxGuestsPerRegistration - 1} guest{form.maxGuestsPerRegistration === 2 ? '' : 's'}.
+      </Text>
 
-      <View className="h-px bg-event-border my-2" />
+      {/* Required */}
+      <Text style={styles.section}>Required from attendees</Text>
+      {ATTENDEE_FIELDS.map((opt, i) => {
+        const active = form.requiredAttendeeFields.includes(opt.value);
+        return (
+          <Pressable
+            key={opt.value}
+            onPress={() => toggleField(opt.value)}
+            disabled={opt.locked}
+            style={[styles.fieldRow, i === 0 && { borderTopWidth: 0 }]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>{opt.label}</Text>
+              <Text style={styles.rowSub}>{opt.sub}</Text>
+            </View>
+            <SwitchPill on={active} />
+          </Pressable>
+        );
+      })}
 
-      {/* REQUIRED ATTENDEE FIELDS */}
-      <View className="gap-3">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-          Required from attendees
-        </Text>
-        <View className="gap-2">
-          {ATTENDEE_FIELD_TOGGLES.map((opt) => {
-            const active = form.requiredAttendeeFields.includes(opt.value);
-            return (
-              <Pressable
-                key={opt.value}
-                onPress={() => toggleAttendeeField(opt.value)}
-                disabled={opt.locked}
-                className={`flex-row items-center justify-between p-4 rounded-2xl border ${active ? 'border-event-brand bg-event-surface' : 'border-event-border bg-event-surfaceAlt'}`}
-              >
-                <View className="flex-1 pr-3">
-                  <Text className="font-outfit text-event-textPrimary text-base font-semibold">
-                    {opt.label}
-                    {opt.locked ? <Text className="font-mono text-event-textMuted text-xs"> · locked</Text> : null}
-                  </Text>
-                  <Text className="font-outfit text-event-textSecondary text-xs mt-1">
-                    {opt.sub}
-                  </Text>
-                </View>
-                <SwitchPill on={active} disabled={opt.locked} />
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      <View className="h-px bg-event-border my-2" />
-
-      {/* WAITLIST */}
-      <View className="gap-3">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-          Waitlist
-        </Text>
-        <Pressable
-          onPress={() => setAllowWaitlist(!form.allowWaitlist)}
-          className={`flex-row items-center justify-between p-4 rounded-2xl border ${form.allowWaitlist ? 'border-event-brand bg-event-surface' : 'border-event-border bg-event-surfaceAlt'}`}
-        >
-          <View className="flex-1 pr-3">
-            <Text className="font-outfit text-event-textPrimary text-base font-semibold">
-              Allow waitlist when full
-            </Text>
-            <Text className="font-outfit text-event-textSecondary text-xs mt-1">
-              Artists can join a waitlist · they're notified if a seat opens
-            </Text>
-          </View>
+      {/* Waitlist */}
+      <Text style={styles.section}>Waitlist</Text>
+      <View style={styles.card}>
+        <View style={styles.cardHeadRow}>
+          <Text style={styles.rowTitle}>Allow waitlist when full</Text>
           <SwitchPill on={form.allowWaitlist} />
-        </Pressable>
-
-        {/* AUTO-PROMOTE — only when waitlist is on */}
+        </View>
         {form.allowWaitlist ? (
-          <View className="gap-2 mt-1">
-            <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-              When a seat opens
-            </Text>
-            <Pressable
-              onPress={() => update('waitlistAutoPromote', true)}
-              className={`p-4 rounded-2xl border ${form.waitlistAutoPromote ? 'border-event-brand bg-event-surface' : 'border-event-border bg-event-surfaceAlt'}`}
-            >
-              <View className="flex-row items-center gap-3">
-                <RadioDot on={form.waitlistAutoPromote} />
-                <View className="flex-1">
-                  <Text className="font-outfit text-event-textPrimary text-base font-semibold">
-                    Auto-promote
-                  </Text>
-                  <Text className="font-outfit text-event-textSecondary text-xs mt-1">
-                    Top of waitlist gets 30 min to confirm · no organizer action
-                  </Text>
-                </View>
+          <View style={{ gap: 6, marginTop: 10 }}>
+            <Pressable onPress={() => update('waitlistAutoPromote', true)} style={[styles.radioRow, form.waitlistAutoPromote && styles.radioRowOn]}>
+              <RadioDot on={form.waitlistAutoPromote} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.radioTitle}>Auto-promote</Text>
+                <Text style={styles.radioSub}>Top of list gets 30 min to confirm</Text>
               </View>
             </Pressable>
-            <Pressable
-              onPress={() => update('waitlistAutoPromote', false)}
-              className={`p-4 rounded-2xl border ${!form.waitlistAutoPromote ? 'border-event-brand bg-event-surface' : 'border-event-border bg-event-surfaceAlt'}`}
-            >
-              <View className="flex-row items-center gap-3">
-                <RadioDot on={!form.waitlistAutoPromote} />
-                <View className="flex-1">
-                  <Text className="font-outfit text-event-textPrimary text-base font-semibold">
-                    I'll approve each one
-                  </Text>
-                  <Text className="font-outfit text-event-textSecondary text-xs mt-1">
-                    You get a push · tap to promote
-                  </Text>
-                </View>
-              </View>
+            <Pressable onPress={() => update('waitlistAutoPromote', false)} style={[styles.radioRow, !form.waitlistAutoPromote && styles.radioRowOn]}>
+              <RadioDot on={!form.waitlistAutoPromote} />
+              <Text style={[styles.radioTitle, { flex: 1 }]}>I'll approve each</Text>
             </Pressable>
           </View>
         ) : null}
       </View>
 
-      <View className="h-px bg-event-border my-2" />
+      {/* Day-of */}
+      <Text style={styles.section}>Day-of</Text>
+      <Pressable onPress={() => update('walkupsAllowed', !form.walkupsAllowed)} style={[styles.card, styles.cardHeadRow]}>
+        <View style={{ flex: 1, paddingRight: 12 }}>
+          <Text style={styles.rowTitle}>Allow walk-ups</Text>
+          <Text style={styles.rowSub}>Add people at the door if seats are left</Text>
+        </View>
+        <SwitchPill on={form.walkupsAllowed} />
+      </Pressable>
 
-      {/* WALK-UPS */}
-      <View className="gap-3">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-          Day-of
-        </Text>
-        <Pressable
-          onPress={() => update('walkupsAllowed', !form.walkupsAllowed)}
-          className={`flex-row items-center justify-between p-4 rounded-2xl border ${form.walkupsAllowed ? 'border-event-brand bg-event-surface' : 'border-event-border bg-event-surfaceAlt'}`}
-        >
-          <View className="flex-1 pr-3">
-            <Text className="font-outfit text-event-textPrimary text-base font-semibold">
-              Allow walk-ups
-            </Text>
-            <Text className="font-outfit text-event-textSecondary text-xs mt-1">
-              Add people at the door if seats are left · cash or Razorpay link
-            </Text>
-          </View>
-          <SwitchPill on={form.walkupsAllowed} />
-        </Pressable>
-      </View>
-
-      {/* PRICING — only when paid_ticket */}
+      {/* Pricing (paid) */}
       {isPaid ? (
         <>
-          <View className="h-px bg-event-border my-2" />
-
-          {/* PAYOUT JIT GATE — shown when payout not yet verified */}
-          {!payoutVerified ? (
-            <View className="rounded-2xl bg-event-surface border border-event-brand/40 px-4 py-4 gap-3">
-              <View className="flex-row items-center gap-2">
-                <AlertCircle size={16} color="#FF6B35" />
-                <Text className="font-mono text-event-brand text-[10px] uppercase tracking-widest">
-                  Payout setup required
-                </Text>
-              </View>
-              <Text className="font-outfit text-event-textSecondary text-sm leading-5">
-                Set up a verified bank account to publish paid events. Your ticket earnings will be settled there instantly via Razorpay.
-              </Text>
-              <Pressable
-                onPress={() => router.push('/settings/payouts')}
-                className="rounded-2xl bg-event-brand px-4 py-3 items-center self-start"
-              >
-                <Text className="font-outfit font-semibold text-white text-sm">
-                  Set up payouts
-                </Text>
+          {pricingLocked ? (
+            <View style={styles.gate}>
+              <Text style={styles.gateEyebrow}>Payout setup required</Text>
+              <Text style={styles.gateTitle}>Link a bank to collect payments</Text>
+              <Text style={styles.gateBody}>Set up a verified bank account to publish paid events. Earnings settle there instantly via Razorpay.</Text>
+              <Pressable onPress={() => router.push('/settings/payouts')} style={styles.gateBtn}>
+                <Text style={styles.gateBtnText}>Set up payouts →</Text>
               </Pressable>
             </View>
           ) : null}
 
-          <View className="gap-3">
-            <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-              Ticket price · INR
-            </Text>
-            <View className="rounded-2xl bg-event-surface border border-event-border px-4 py-5 items-center">
-              <View className="flex-row items-baseline gap-1">
-                <Text className="font-serif text-event-textSecondary text-2xl">₹</Text>
-                <Text className="font-serif text-event-textPrimary text-5xl">
-                  {form.pricing.amount}
-                </Text>
+          <View style={pricingLocked ? styles.locked : undefined} pointerEvents={pricingLocked ? 'none' : 'auto'}>
+            <Text style={styles.section}>Ticket price · INR</Text>
+            <View style={styles.bigBox}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 2 }}>
+                <Text style={styles.rupee}>₹</Text>
+                <TextInput
+                  value={String(form.pricing.amount)}
+                  onChangeText={(s) => setPrice(parseInt(s, 10) || 0)}
+                  keyboardType="number-pad"
+                  style={styles.bigNum}
+                />
               </View>
-              <Text className="font-outfit text-event-textSecondary text-xs mt-1">per ticket</Text>
+              <Text style={styles.bigUnit}>per ticket</Text>
             </View>
-          </View>
+            <View style={styles.chipRow}>
+              {PRICE_PRESETS.map((n) => (
+                <Chip key={n} label={`₹${n.toLocaleString('en-IN')}`} active={form.pricing.amount === n} onPress={() => setPrice(n)} />
+              ))}
+            </View>
 
-          <View className="flex-row flex-wrap gap-2">
-            {PRICE_PRESETS.map((n) => {
-              const active = form.pricing.amount === n;
+            {form.pricing.amount > 0 ? (() => {
+              const o = computeOrganizerBreakdown(form.pricing.amount, 1);
               return (
-                <Pressable
-                  key={n}
-                  onPress={() => setPrice(n)}
-                  className={`px-4 py-2.5 rounded-full ${active ? 'bg-event-brand' : 'bg-event-surface border border-event-border'}`}
-                >
-                  <Text className={`font-outfit text-sm ${active ? 'text-white font-semibold' : 'text-event-textSecondary'}`}>
-                    ₹{n}
+                <View style={styles.earnings}>
+                  <Text style={styles.earningsEyebrow}>Your earnings per ticket</Text>
+                  <View style={styles.earnRow}><Text style={styles.earnKey}>Ticket price</Text><Text style={styles.earnVal}>{formatRupees(form.pricing.amount)}</Text></View>
+                  <View style={styles.earnRow}><Text style={styles.earnKey}>− NETSA fee · {NETSA_FEE_PERCENT}%</Text><Text style={styles.earnVal}>− {formatRupees(o.netsaFee)}</Text></View>
+                  <View style={styles.earnDivider} />
+                  <View style={[styles.earnRow, { alignItems: 'baseline' }]}>
+                    <Text style={[styles.earnKey, { color: TEXT_0, fontFamily: 'Outfit-SemiBold' }]}>= You receive</Text>
+                    <Text style={styles.earnTotal}>{formatRupees(o.organizerNet)}</Text>
+                  </View>
+                  <Text style={styles.earnNote}>
+                    Customer pays {formatRupees(o.customerPays)} ({formatRupees(form.pricing.amount)} + {formatRupees(o.serviceFee)} service fee). Instant Razorpay split — no escrow.
                   </Text>
-                </Pressable>
+                </View>
               );
-            })}
-          </View>
+            })() : null}
 
-          <View className="gap-2">
-            <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-              Or type an amount
-            </Text>
-            <TextInput
-              value={String(form.pricing.amount)}
-              onChangeText={(s) => setPrice(parseInt(s, 10) || 0)}
-              keyboardType="number-pad"
-              placeholder="0"
-              placeholderTextColor={eventTokens.textMuted ?? '#6E6C76'}
-              className="font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border border-event-border px-4 py-3"
-            />
-            <Text className="font-outfit text-event-textMuted text-xs">
-              Min ₹1, max ₹100,000.
-            </Text>
-          </View>
-
-          {/* EARNINGS MINI-CALCULATOR */}
-          {form.pricing.amount > 0 ? (
-            <View className="rounded-2xl bg-event-surface border border-event-brand/30 px-4 py-4 gap-3">
-              <Text className="font-mono text-event-brand text-[10px] uppercase tracking-widest">
-                Your earnings per ticket
-              </Text>
-
-              {(() => {
-                const o = computeOrganizerBreakdown(form.pricing.amount, 1);
-                return (
-                  <>
-                    <View className="flex-row items-center justify-between">
-                      <Text className="font-outfit text-event-textSecondary text-sm">
-                        Ticket price
-                      </Text>
-                      <Text className="font-outfit text-event-textPrimary text-sm">
-                        {formatRupees(form.pricing.amount)}
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center justify-between">
-                      <Text className="font-outfit text-event-textSecondary text-sm">
-                        − NETSA platform fee ({NETSA_FEE_PERCENT}%)
-                      </Text>
-                      <Text className="font-outfit text-event-textPrimary text-sm">
-                        − {formatRupees(o.netsaFee)}
-                      </Text>
-                    </View>
-                    <View className="h-px bg-event-border" />
-                    <View className="flex-row items-center justify-between">
-                      <Text className="font-outfit text-event-textPrimary text-sm font-semibold">
-                        = You receive
-                      </Text>
-                      <Text className="font-serif text-event-brand text-2xl">
-                        {formatRupees(o.organizerNet)}
-                      </Text>
-                    </View>
-                    <Text className="font-outfit text-event-textMuted text-xs leading-5 mt-1">
-                      Customer pays {formatRupees(o.customerPays)} ({formatRupees(form.pricing.amount)} +{' '}
-                      {formatRupees(o.serviceFee)} service fee for payment processing).
-                      Settled instantly via Razorpay split — no escrow.
-                    </Text>
-                  </>
-                );
-              })()}
-            </View>
-          ) : null}
-
-          {/* REFUND POLICY */}
-          <View className="gap-3">
-            <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-              Refund policy
-            </Text>
-            <View className="gap-2">
+            <Text style={styles.section}>Refund policy</Text>
+            <View style={{ gap: 8 }}>
               {REFUND_OPTIONS.map((opt) => {
                 const active = form.pricing.refundPolicy === opt.value;
                 return (
-                  <Pressable
-                    key={opt.value}
-                    onPress={() => setRefundPolicy(opt.value)}
-                    className={`p-4 rounded-2xl border ${active ? 'border-event-brand bg-event-surface' : 'border-event-border bg-event-surfaceAlt'}`}
-                  >
-                    <Text className="font-outfit text-event-textPrimary text-base font-semibold">
-                      {opt.label}
-                    </Text>
-                    <Text className="font-outfit text-event-textSecondary text-xs mt-1">
-                      {opt.sub}
-                    </Text>
+                  <Pressable key={opt.value} onPress={() => setRefundPolicy(opt.value)} style={[styles.refundRow, active && styles.refundRowOn]}>
+                    <RadioDot on={active} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.rowTitle, { color: active ? TEXT_0 : TEXT_1 }]}>{opt.label}</Text>
+                      <Text style={[styles.rowSub, { color: active ? TEXT_2 : TEXT_3 }]}>{opt.sub}</Text>
+                    </View>
                   </Pressable>
                 );
               })}
             </View>
-          </View>
 
-          {form.pricing.refundPolicy === 'custom' ? (
-            <View className="gap-2">
-              <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-                Custom refund note · required
-              </Text>
-              <TextInput
-                value={form.pricing.refundCustomNote ?? ''}
-                onChangeText={setRefundNote}
-                placeholder="e.g. Full refund up to 7 days before, 50% within 7 days, none within 48h."
-                placeholderTextColor={eventTokens.textMuted ?? '#6E6C76'}
-                multiline
-                maxLength={200}
-                className="font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border border-event-border px-4 py-3 leading-6"
-                style={{ minHeight: 80 }}
-              />
-              <Text className="font-outfit text-event-textMuted text-xs text-right">
-                {(form.pricing.refundCustomNote ?? '').length} / 200
-              </Text>
-            </View>
-          ) : null}
-
-          {/* Payment processing notice */}
-          <View className="rounded-2xl bg-event-surface border border-event-gold/30 p-4">
-            <Text className="font-mono text-event-gold text-[10px] uppercase tracking-widest mb-1">
-              Heads up
-            </Text>
-            <Text className="font-outfit text-event-textSecondary text-xs leading-5">
-              Service fee ({PROCESSING_FEE_PERCENT}%) is added on top of your ticket
-              price and paid by the customer. It covers Razorpay gateway charges. You
-              receive the full ticket amount minus NETSA's {NETSA_FEE_PERCENT}% platform fee.
-            </Text>
+            {form.pricing.refundPolicy === 'custom' ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.section}>Custom refund note · required</Text>
+                <TextInput
+                  value={form.pricing.refundCustomNote ?? ''}
+                  onChangeText={setRefundNote}
+                  placeholder="e.g. Full refund up to 7 days before, 50% within 7 days, none within 48h."
+                  placeholderTextColor={TEXT_3}
+                  multiline
+                  maxLength={200}
+                  style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]}
+                />
+                <Text style={styles.counter}>{(form.pricing.refundCustomNote ?? '').length} / 200</Text>
+              </View>
+            ) : null}
           </View>
         </>
       ) : null}
 
-      <Pressable
-        onPress={() => {
-          markComplete(4);
-          onNext();
-        }}
-        disabled={!canContinue}
-        className={`rounded-2xl py-4 items-center ${canContinue ? 'bg-event-brand' : 'bg-event-surface'}`}
-      >
-        <Text className={`font-outfit font-bold ${canContinue ? 'text-white' : 'text-event-textMuted'}`}>
-          Continue
-        </Text>
-      </Pressable>
+      {/* Bottom nav */}
+      <View style={styles.navRow}>
+        <Pressable onPress={onBack} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Back">
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => { markComplete(4); onNext(); }}
+          disabled={!canContinue}
+          style={[styles.continueBtn, !canContinue && styles.continueDisabled]}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canContinue }}
+        >
+          <Text style={[styles.continueText, !canContinue && { color: TEXT_3 }]}>Continue →</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
-/* — Small UI bits — */
-
-function SwitchPill({ on, disabled }: { on: boolean; disabled?: boolean }) {
+function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
-    <View
-      className={`w-12 h-7 rounded-full ${on ? 'bg-event-brand' : 'bg-event-border'} ${disabled ? 'opacity-50' : ''} justify-center`}
-      style={{ paddingHorizontal: 2 }}
-    >
-      <View
-        className="w-6 h-6 rounded-full bg-white"
-        style={{ transform: [{ translateX: on ? 20 : 0 }] }}
-      />
+    <Pressable onPress={onPress} style={[styles.chip, active && styles.chipOn]}>
+      <Text style={[styles.chipText, active && styles.chipTextOn]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function SwitchPill({ on }: { on: boolean }) {
+  return (
+    <View style={[styles.track, on ? styles.trackOn : styles.trackOff]}>
+      <View style={[styles.knob, { backgroundColor: on ? '#fff' : TEXT_4, alignSelf: on ? 'flex-end' : 'flex-start' }]} />
     </View>
   );
 }
 
 function RadioDot({ on }: { on: boolean }) {
   return (
-    <View
-      className={`w-5 h-5 rounded-full border-2 ${on ? 'border-event-brand' : 'border-event-border'} items-center justify-center`}
-    >
-      {on ? <View className="w-2.5 h-2.5 rounded-full bg-event-brand" /> : null}
+    <View style={[styles.radio, { borderColor: on ? ORANGE : TEXT_4 }]}>
+      {on ? <View style={styles.radioInner} /> : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  section: { fontFamily: 'SpaceMono-Bold', fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: TEXT_3, marginTop: 18, marginBottom: 8 },
+  helper: { fontFamily: 'Outfit-Regular', fontSize: 11, color: TEXT_3, marginTop: 8 },
+  counter: { fontFamily: 'Outfit-Regular', fontSize: 10.5, color: TEXT_3, textAlign: 'right', marginTop: 6 },
+  input: { backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, color: TEXT_0, fontFamily: 'Outfit-Regular', fontSize: 14 },
+
+  verifiedPill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, backgroundColor: GREEN_SOFT, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 4 },
+  verifiedDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: GREEN },
+  verifiedText: { fontFamily: 'Outfit-SemiBold', fontSize: 10.5, color: GREEN },
+
+  bigBox: { backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, alignItems: 'center' },
+  bigNum: { fontFamily: 'DMSerifDisplay_400Regular', color: TEXT_0, fontSize: 44, lineHeight: 50, textAlign: 'center', padding: 0, minWidth: 80 },
+  rupee: { fontFamily: 'DMSerifDisplay_400Regular', color: TEXT_2, fontSize: 22 },
+  bigUnit: { fontFamily: 'Outfit-Regular', fontSize: 11, color: TEXT_2, marginTop: 4 },
+
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE },
+  chipOn: { backgroundColor: TEXT_0, borderColor: TEXT_0 },
+  chipText: { fontFamily: 'Outfit-Medium', fontSize: 13, color: TEXT_2 },
+  chipTextOn: { fontFamily: 'Outfit-SemiBold', color: ORANGE_INK },
+
+  fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, borderTopWidth: 1, borderTopColor: 'rgba(243,239,232,0.06)' },
+  rowTitle: { fontFamily: 'Outfit-SemiBold', fontSize: 13.5, color: TEXT_0 },
+  rowSub: { fontFamily: 'Outfit-Regular', fontSize: 11.5, color: TEXT_2, marginTop: 2 },
+
+  card: { backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE, borderRadius: 10, padding: 13, paddingHorizontal: 14 },
+  cardHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+
+  radioRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 8, backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE },
+  radioRowOn: { backgroundColor: ORANGE_SOFT, borderColor: ORANGE_LINE },
+  radioTitle: { fontFamily: 'Outfit-SemiBold', fontSize: 12.5, color: TEXT_0 },
+  radioSub: { fontFamily: 'Outfit-Regular', fontSize: 11, color: TEXT_2 },
+
+  refundRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 14, borderRadius: 10, backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE },
+  refundRowOn: { borderColor: ORANGE_LINE },
+
+  earnings: { backgroundColor: SURFACE, borderWidth: 1, borderColor: ORANGE_LINE, borderRadius: 12, padding: 14, marginTop: 14 },
+  earningsEyebrow: { fontFamily: 'SpaceMono-Bold', fontSize: 9.5, letterSpacing: 1.3, textTransform: 'uppercase', color: ORANGE, marginBottom: 10 },
+  earnRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
+  earnKey: { fontFamily: 'Outfit-Regular', fontSize: 12.5, color: TEXT_1 },
+  earnVal: { fontFamily: 'Outfit-Regular', fontSize: 12.5, color: TEXT_0 },
+  earnDivider: { height: 1, backgroundColor: HAIRLINE, marginVertical: 5 },
+  earnTotal: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: ORANGE },
+  earnNote: { fontFamily: 'Outfit-Regular', fontSize: 10.5, color: TEXT_2, lineHeight: 16, marginTop: 8 },
+
+  gate: { backgroundColor: YELLOW_SOFT, borderWidth: 1, borderColor: 'rgba(234,179,8,0.32)', borderRadius: 12, padding: 16, marginTop: 18, gap: 6 },
+  gateEyebrow: { fontFamily: 'SpaceMono-Bold', fontSize: 9.5, letterSpacing: 1.3, textTransform: 'uppercase', color: YELLOW },
+  gateTitle: { fontFamily: 'Outfit-SemiBold', fontSize: 14, color: TEXT_0 },
+  gateBody: { fontFamily: 'Outfit-Regular', fontSize: 12, color: TEXT_1, lineHeight: 17 },
+  gateBtn: { backgroundColor: YELLOW, borderRadius: 9, paddingVertical: 10, alignItems: 'center', marginTop: 6 },
+  gateBtnText: { fontFamily: 'Outfit-Bold', fontSize: 13, color: '#1a1106' },
+  locked: { opacity: 0.4 },
+
+  track: { width: 46, height: 26, borderRadius: 99, padding: 2, justifyContent: 'center' },
+  trackOn: { backgroundColor: ORANGE },
+  trackOff: { backgroundColor: SURFACE_HI, borderWidth: 1, borderColor: HAIRLINE },
+  knob: { width: 22, height: 22, borderRadius: 11 },
+  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  radioInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: ORANGE },
+
+  navRow: { flexDirection: 'row', gap: 10, marginTop: 22 },
+  backBtn: { flex: 1, height: 48, borderRadius: 11, borderWidth: 1, borderColor: HAIRLINE, alignItems: 'center', justifyContent: 'center' },
+  backText: { fontFamily: 'Outfit-Medium', fontSize: 13, color: TEXT_2 },
+  continueBtn: { flex: 1, height: 48, borderRadius: 11, backgroundColor: TEXT_0, alignItems: 'center', justifyContent: 'center' },
+  continueDisabled: { backgroundColor: SURFACE },
+  continueText: { fontFamily: 'Outfit-Bold', fontSize: 14, color: ORANGE_INK },
+});

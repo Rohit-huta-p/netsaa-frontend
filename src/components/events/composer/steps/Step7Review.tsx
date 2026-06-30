@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { View, Text, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCreateEventStore } from '@/stores/createEventStore';
-import { useCreateEvent } from '@/hooks/useEvents';
+import { useCreateEvent, useUpdateEvent, eventKeys } from '@/hooks/useEvents';
+import { useQueryClient } from '@tanstack/react-query';
 import { durationKindLabel } from '@/lib/eventTokens';
 import { Check, Clock } from 'lucide-react-native';
 import type { EventCancellationPolicy } from '@/services/eventService';
@@ -40,58 +41,81 @@ function deriveCancellationPolicy(
 
 export default function Step7Review() {
   const router = useRouter();
-  const { form, reset, setStep, setSubmitting, isSubmitting } = useCreateEventStore();
-  const mutation = useCreateEvent();
+  const qc = useQueryClient();
+  const { form, reset, setStep, setSubmitting, isSubmitting, editMode, editEventId } = useCreateEventStore();
+  const createMutation = useCreateEvent();
+  const updateMutation = useUpdateEvent(editEventId ?? '');
+  // Keep legacy alias so the submit handler below reads cleanly for the create path.
+  const mutation = createMutation;
   const [outcome, setOutcome] = useState<'live' | 'pending_review' | null>(null);
 
   const startDate = form.startsAt ? new Date(form.startsAt) : null;
 
+  const buildPayload = () => {
+    const isPaid = form.registrationMode === 'paid_ticket';
+    return {
+      title: form.title,
+      tagline: form.tagline || undefined,
+      topicTags: form.topicTags,
+      registrationMode: form.registrationMode,
+      about: form.about,
+      whatToExpect: form.whatToExpect || undefined,
+      skills: form.skills,
+      startsAt: form.startsAt!,
+      endsAt: form.endsAt || undefined,
+      durationKind: form.durationKind!,
+      location: form.location,
+      capacity: { total: form.capacity.total },
+      pricing: isPaid
+        ? {
+            amount: form.pricing.amount,
+            currency: form.pricing.currency,
+            refundPolicy: form.pricing.refundPolicy,
+            refundCustomNote: form.pricing.refundPolicy === 'custom' ? form.pricing.refundCustomNote : undefined,
+          }
+        : undefined,
+      media: form.media,
+      registrationDeadline: form.registrationDeadline || undefined,
+      agenda: form.agenda.length ? form.agenda : undefined,
+      allowWaitlist: form.allowWaitlist,
+      waitlistAutoPromote: form.waitlistAutoPromote,
+      walkupsAllowed: form.walkupsAllowed,
+      maxGuestsPerRegistration: form.maxGuestsPerRegistration,
+      requiredAttendeeFields: form.requiredAttendeeFields,
+      cancellationPolicy:
+        isPaid && form.startsAt
+          ? deriveCancellationPolicy(form.pricing.refundPolicy, form.pricing.refundCustomNote, form.startsAt)
+          : undefined,
+      visibility: form.visibility,
+      discussionVisibility: form.discussionVisibility,
+      language: form.language,
+      ageRestriction: form.ageRestriction ?? undefined,
+    };
+  };
+
   const submit = async () => {
     setSubmitting(true);
     try {
-      const isPaid = form.registrationMode === 'paid_ticket';
-      const payload = {
-        title: form.title,
-        tagline: form.tagline || undefined,
-        topicTags: form.topicTags,
-        registrationMode: form.registrationMode,
-        about: form.about,
-        whatToExpect: form.whatToExpect || undefined,
-        skills: form.skills,
-        startsAt: form.startsAt!,
-        endsAt: form.endsAt || undefined,
-        durationKind: form.durationKind!,
-        location: form.location,
-        capacity: { total: form.capacity.total },
-        pricing: isPaid
-          ? {
-              amount: form.pricing.amount,
-              currency: form.pricing.currency,
-              refundPolicy: form.pricing.refundPolicy,
-              refundCustomNote: form.pricing.refundPolicy === 'custom' ? form.pricing.refundCustomNote : undefined,
-            }
-          : undefined,
-        media: form.media,
-        registrationDeadline: form.registrationDeadline || undefined,
-        agenda: form.agenda.length ? form.agenda : undefined,
-        allowWaitlist: form.allowWaitlist,
-        waitlistAutoPromote: form.waitlistAutoPromote,
-        walkupsAllowed: form.walkupsAllowed,
-        maxGuestsPerRegistration: form.maxGuestsPerRegistration,
-        requiredAttendeeFields: form.requiredAttendeeFields,
-        cancellationPolicy:
-          isPaid && form.startsAt
-            ? deriveCancellationPolicy(form.pricing.refundPolicy, form.pricing.refundCustomNote, form.startsAt)
-            : undefined,
-        visibility: form.visibility,
-        discussionVisibility: form.discussionVisibility,
-        language: form.language,
-        ageRestriction: form.ageRestriction ?? undefined,
-      };
-      const result = await mutation.mutateAsync(payload as any);
-      setOutcome(result.status as 'live' | 'pending_review');
+      if (editMode && editEventId) {
+        // PATCH path — update existing event, then go back (no result screen).
+        const patch = buildPayload();
+        await updateMutation.mutateAsync(patch as any);
+        // updateMutation's onSuccess already invalidates detail + roster,
+        // but also invalidate explicitly so any stale list cache is cleared.
+        qc.invalidateQueries({ queryKey: eventKeys.detail(editEventId) });
+        reset();
+        router.back();
+      } else {
+        // CREATE path — unchanged.
+        const payload = buildPayload();
+        const result = await mutation.mutateAsync(payload as any);
+        setOutcome(result.status as 'live' | 'pending_review');
+      }
     } catch (err: any) {
-      Alert.alert('Could not publish', err?.response?.data?.message ?? 'Something went wrong. Try again.');
+      Alert.alert(
+        editMode ? 'Could not save changes' : 'Could not publish',
+        err?.response?.data?.message ?? 'Something went wrong. Try again.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -180,7 +204,9 @@ export default function Step7Review() {
       </ReviewBlock>
 
       <Pressable onPress={submit} disabled={isSubmitting} style={[styles.publishBtn, isSubmitting && styles.publishDisabled]}>
-        {isSubmitting ? <ActivityIndicator color={ORANGE_INK} /> : <Text style={styles.publishText}>Publish event</Text>}
+        {isSubmitting
+          ? <ActivityIndicator color={ORANGE_INK} />
+          : <Text style={styles.publishText}>{editMode ? 'Save changes' : 'Publish event'}</Text>}
       </Pressable>
     </View>
   );

@@ -29,7 +29,7 @@ const STEPS: Record<ComposerStep, { eyebrow: string; title: string }> = {
 
 export default function ComposerShell() {
   const router = useRouter();
-  const { step, setStep, reset } = useCreateEventStore();
+  const { step, setStep, reset, editMode } = useCreateEventStore();
   const meta = STEPS[step];
 
   const goBack = () => {
@@ -54,7 +54,7 @@ export default function ComposerShell() {
         <Pressable onPress={goBack} hitSlop={10} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Back">
           <ChevronLeft size={18} color={TEXT_0} />
         </Pressable>
-        <Text style={styles.navTitle}>New event</Text>
+        <Text style={styles.navTitle}>{editMode ? 'Edit event' : 'New event'}</Text>
         <Pressable onPress={exit} hitSlop={10} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Close composer">
           <X size={18} color={TEXT_0} />
         </Pressable>

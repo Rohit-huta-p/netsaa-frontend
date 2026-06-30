@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EventLocation, EventMedia, AgendaItem, EventCancellationPolicy } from '@/services/eventService';
+import type { EventLocation, EventMedia, AgendaItem, EventCancellationPolicy, EventDoc } from '@/services/eventService';
 
 export type ComposerStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -78,16 +78,22 @@ const initialForm: ComposerForm = {
   cancellationPolicy: null,
 };
 
+const ALL_STEPS: ComposerStep[] = [1, 2, 3, 4, 5, 6, 7];
+
 interface State {
   step: ComposerStep;
   completedSteps: Set<ComposerStep>;
   form: ComposerForm;
   isSubmitting: boolean;
+  // Edit-mode fields
+  editMode: boolean;
+  editEventId: string | null;
   setStep: (s: ComposerStep) => void;
   markComplete: (s: ComposerStep) => void;
   update: <K extends keyof ComposerForm>(k: K, v: ComposerForm[K]) => void;
   reset: () => void;
   setSubmitting: (v: boolean) => void;
+  hydrateFromEvent: (event: EventDoc) => void;
 }
 
 export const useCreateEventStore = create<State>((set) => ({
@@ -95,9 +101,63 @@ export const useCreateEventStore = create<State>((set) => ({
   completedSteps: new Set(),
   form: initialForm,
   isSubmitting: false,
+  editMode: false,
+  editEventId: null,
   setStep: (step) => set({ step }),
   markComplete: (s) => set((state) => ({ completedSteps: new Set([...state.completedSteps, s]) })),
   update: (key, value) => set((state) => ({ form: { ...state.form, [key]: value } })),
-  reset: () => set({ step: 1, completedSteps: new Set(), form: initialForm, isSubmitting: false }),
+  reset: () => set({
+    step: 1,
+    completedSteps: new Set(),
+    form: initialForm,
+    isSubmitting: false,
+    editMode: false,
+    editEventId: null,
+  }),
   setSubmitting: (isSubmitting) => set({ isSubmitting }),
+  hydrateFromEvent: (event: EventDoc) => {
+    const form: ComposerForm = {
+      title: event.title ?? initialForm.title,
+      tagline: event.tagline ?? initialForm.tagline,
+      topicTags: event.topicTags ?? initialForm.topicTags,
+      registrationMode: event.registrationMode ?? initialForm.registrationMode,
+      about: event.about ?? initialForm.about,
+      whatToExpect: event.whatToExpect ?? initialForm.whatToExpect,
+      skills: event.skills ?? initialForm.skills,
+      startsAt: event.startsAt ?? initialForm.startsAt,
+      endsAt: event.endsAt ?? initialForm.endsAt,
+      durationKind: event.durationKind ?? initialForm.durationKind,
+      location: event.location ?? initialForm.location,
+      capacity: { total: event.capacity?.total ?? initialForm.capacity.total },
+      pricing: event.registrationMode === 'paid_ticket' && (event as any).pricing
+        ? {
+            amount: (event as any).pricing.amount ?? 0,
+            currency: 'INR' as const,
+            refundPolicy: (event as any).pricing.refundPolicy ?? 'flex_24h',
+            refundCustomNote: (event as any).pricing.refundCustomNote,
+          }
+        : initialForm.pricing,
+      media: event.media ?? initialForm.media,
+      registrationDeadline: event.registrationDeadline ?? initialForm.registrationDeadline,
+      agenda: event.agenda ?? initialForm.agenda,
+      allowWaitlist: event.allowWaitlist ?? initialForm.allowWaitlist,
+      waitlistAutoPromote: event.waitlistAutoPromote ?? initialForm.waitlistAutoPromote,
+      walkupsAllowed: event.walkupsAllowed ?? initialForm.walkupsAllowed,
+      maxGuestsPerRegistration: event.maxGuestsPerRegistration ?? initialForm.maxGuestsPerRegistration,
+      requiredAttendeeFields: event.requiredAttendeeFields ?? initialForm.requiredAttendeeFields,
+      visibility: event.visibility ?? initialForm.visibility,
+      discussionVisibility: event.discussionVisibility ?? initialForm.discussionVisibility,
+      ageRestriction: event.ageRestriction ?? initialForm.ageRestriction,
+      language: event.language ?? initialForm.language,
+      cancellationPolicy: event.cancellationPolicy ?? initialForm.cancellationPolicy,
+    };
+    set({
+      form,
+      editMode: true,
+      editEventId: event._id,
+      step: 1,
+      completedSteps: new Set(ALL_STEPS),
+      isSubmitting: false,
+    });
+  },
 }));

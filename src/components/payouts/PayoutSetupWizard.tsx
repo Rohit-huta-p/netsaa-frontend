@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,31 +9,65 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
 } from 'react-native';
-import { ChevronLeft, X, Shield, Zap, Wallet } from 'lucide-react-native';
+import { ChevronLeft, X, Shield, CreditCard, Landmark, Lock, Info } from 'lucide-react-native';
 import { usePayoutWizardStore, type PayoutDraft } from '@/stores/payoutWizardStore';
 import { payoutService } from '@/services/payoutService';
 import type { PayoutStatus, PayoutAccount } from '@/services/payoutService';
+import { useAuthStore } from '@/stores/authStore';
 import PayoutResultScreen from './PayoutResultScreen';
 
+/* ─── Palette ─────────────────────────────────────────────── */
+const BG = '#09090b';
+const SURFACE = 'rgba(255,255,255,0.04)';
+const SURFACE_HI = 'rgba(255,255,255,0.07)';
+const HAIRLINE = 'rgba(255,255,255,0.1)';
+const TEXT_0 = '#F3EFE8';
+const TEXT_1 = '#A1A1AA';
+const TEXT_2 = '#71717a';
+const TEXT_3 = '#52525b';
+const TEXT_4 = '#3f3f46';
+const ORANGE = '#FF6B35';
+const ORANGE_SOFT = 'rgba(255,107,53,0.16)';
+const ORANGE_LINE = 'rgba(255,107,53,0.32)';
+const ORANGE_INK = '#1A0D06';
+const GREEN = '#22C55E';
+const GREEN_SOFT = 'rgba(34,197,94,0.14)';
+const BLUE = '#5B8DEF';
+const BLUE_SOFT = 'rgba(91,141,239,0.14)';
+const RED = '#EF4444';
+
+/* ─── Regexes ────────────────────────────────────────────── */
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/* ─── Business types ─────────────────────────────────────── */
+const BUSINESS_TYPES: { value: 'individual' | 'sole_prop' | 'partnership' | 'llp' | 'pvt_ltd'; label: string; sub: string }[] = [
+  { value: 'individual', label: 'Just me', sub: 'individual' },
+  { value: 'sole_prop', label: 'Sole proprietor', sub: 'business under your own name' },
+  { value: 'partnership', label: 'Partnership', sub: 'two or more individuals' },
+  { value: 'llp', label: 'LLP', sub: 'limited liability partnership' },
+  { value: 'pvt_ltd', label: 'Pvt Ltd · company', sub: 'running under a business name' },
+];
+
+/* ─── Props ──────────────────────────────────────────────── */
 interface Props {
   visible: boolean;
   onClose: () => void;
   onDone?: (status: PayoutStatus) => void;
 }
 
-const BUSINESS_TYPES: { value: 'individual' | 'sole_prop' | 'partnership' | 'llp' | 'pvt_ltd'; label: string }[] = [
-  { value: 'individual', label: 'Individual' },
-  { value: 'sole_prop', label: 'Sole proprietor' },
-  { value: 'partnership', label: 'Partnership' },
-  { value: 'llp', label: 'LLP' },
-  { value: 'pvt_ltd', label: 'Private limited' },
-];
+/* ─── IFSC lookup result ─────────────────────────────────── */
+interface IfscInfo {
+  BANK: string;
+  BRANCH: string;
+  [key: string]: string;
+}
 
-const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
-
+/* ─── Main component ─────────────────────────────────────── */
 export default function PayoutSetupWizard({ visible, onClose, onDone }: Props) {
   const { step, draft, setStep, patch, reset } = usePayoutWizardStore();
   const [submitting, setSubmitting] = useState(false);
@@ -41,7 +75,6 @@ export default function PayoutSetupWizard({ visible, onClose, onDone }: Props) {
   const [result, setResult] = useState<PayoutAccount | null>(null);
 
   const handleClose = () => {
-    // Don't reset draft on close so user can resume
     setResult(null);
     setSubmitError(null);
     onClose();
@@ -62,7 +95,7 @@ export default function PayoutSetupWizard({ visible, onClose, onDone }: Props) {
   const handleRetry = () => {
     setResult(null);
     setSubmitError(null);
-    setStep(3); // back to PAN step
+    setStep(3);
   };
 
   const handleSubmit = async () => {
@@ -101,15 +134,15 @@ export default function PayoutSetupWizard({ visible, onClose, onDone }: Props) {
 
     switch (step) {
       case 1:
-        return <StepIntro onNext={() => setStep(2)} />;
+        return <StepIntro onNext={() => setStep(2)} onClose={handleClose} />;
       case 2:
-        return <StepBusinessType draft={draft} patch={patch} onNext={() => setStep(3)} />;
+        return <StepBusinessType draft={draft} patch={patch} onNext={() => setStep(3)} onBack={() => setStep(1)} />;
       case 3:
-        return <StepPAN draft={draft} patch={patch} onNext={() => setStep(4)} />;
+        return <StepPAN draft={draft} patch={patch} onNext={() => setStep(4)} onBack={() => setStep(2)} />;
       case 4:
-        return <StepBank draft={draft} patch={patch} onNext={() => setStep(5)} />;
+        return <StepBank draft={draft} patch={patch} onNext={() => setStep(5)} onBack={() => setStep(3)} />;
       case 5:
-        return <StepGST draft={draft} patch={patch} onNext={() => setStep(6)} />;
+        return <StepGST draft={draft} patch={patch} onNext={() => setStep(6)} onBack={() => setStep(4)} />;
       case 6:
         return (
           <StepReview
@@ -118,6 +151,8 @@ export default function PayoutSetupWizard({ visible, onClose, onDone }: Props) {
             submitting={submitting}
             submitError={submitError}
             onSubmit={handleSubmit}
+            onBack={() => setStep(5)}
+            onEditStep={setStep}
           />
         );
       default:
@@ -129,42 +164,47 @@ export default function PayoutSetupWizard({ visible, onClose, onDone }: Props) {
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1 bg-event-bg"
+        style={styles.shell}
       >
         {/* Header */}
-        <View className="flex-row items-center justify-between px-5 pt-5 pb-3 border-b border-event-border">
+        <View style={styles.header}>
           {step > 1 && !result ? (
-            <Pressable onPress={() => setStep(step - 1)} className="p-2 -ml-2">
-              <ChevronLeft size={22} color="#9693A0" />
+            <Pressable onPress={() => setStep(step - 1)} style={styles.headerBtn} hitSlop={8}>
+              <ChevronLeft size={22} color={TEXT_1} />
             </Pressable>
           ) : (
-            <View className="w-10" />
+            <Pressable onPress={handleClose} style={styles.headerBtn} hitSlop={8}>
+              <X size={20} color={TEXT_1} />
+            </Pressable>
           )}
-          <View className="items-center">
-            <Text className="font-outfit font-semibold text-event-textPrimary text-base">
-              Payout setup
-            </Text>
-            {!result && (
-              <Text className="font-mono text-event-textMuted text-[10px] tracking-widest mt-0.5">
-                STEP {step} OF 6
-              </Text>
-            )}
-          </View>
-          <Pressable onPress={handleClose} className="p-2 -mr-2">
-            <X size={20} color="#9693A0" />
-          </Pressable>
+          <Text style={styles.headerTitle}>Payouts</Text>
+          {step > 1 && !result ? (
+            <Pressable onPress={handleClose} style={styles.headerBtn} hitSlop={8}>
+              <X size={20} color={TEXT_1} />
+            </Pressable>
+          ) : (
+            <View style={styles.headerBtn} />
+          )}
         </View>
 
-        {/* Step progress bar */}
+        {/* Wizard dots */}
         {!result && (
-          <View className="h-0.5 bg-event-border mx-5 mt-1 rounded-full overflow-hidden">
-            <View className="h-full bg-event-brand rounded-full" style={{ width: `${(step / 6) * 100}%` }} />
+          <View style={styles.dotsRow}>
+            {[1, 2, 3, 4, 5, 6].map((s) => (
+              <View
+                key={s}
+                style={[
+                  styles.dot,
+                  s < step ? styles.dotDone : s === step ? styles.dotCurrent : styles.dotFuture,
+                ]}
+              />
+            ))}
           </View>
         )}
 
         <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
           {renderStep()}
@@ -175,48 +215,87 @@ export default function PayoutSetupWizard({ visible, onClose, onDone }: Props) {
 }
 
 /* ─── Step 1: Intro ─────────────────────────────────────── */
-function StepIntro({ onNext }: { onNext: () => void }) {
+function StepIntro({ onNext, onClose }: { onNext: () => void; onClose: () => void }) {
   return (
-    <View className="gap-8 mt-4">
-      <View className="gap-3">
-        <Text className="font-serif text-event-textPrimary text-4xl leading-tight">
-          Get paid for your events
-        </Text>
-        <Text className="font-outfit text-event-textSecondary text-base leading-7">
-          Link your bank account once and earn from every paid event you host.
+    <View style={{ gap: 28 }}>
+      {/* Eyebrow */}
+      <Text style={styles.eyebrow}>Step 1 of 6</Text>
+
+      {/* Title + sub */}
+      <View style={{ gap: 10 }}>
+        <Text style={styles.title}>Quick payout setup.</Text>
+        <Text style={styles.sub}>
+          Three minutes. Razorpay verifies live. After this, every paid event you host just works.
         </Text>
       </View>
 
-      <View className="gap-3">
-        <InfoRow
-          icon={<Zap size={18} color="#F59E0B" />}
-          text="Razorpay Route instant split — money lands in your bank right when someone registers."
+      {/* Have these ready */}
+      <View style={{ gap: 10 }}>
+        <Text style={styles.monoLabel}>Have these ready</Text>
+        <ReadyRow
+          iconBg={BLUE_SOFT}
+          iconColor={BLUE}
+          icon={<CreditCard size={16} color={BLUE} />}
+          title="PAN card"
+          sub="required by Razorpay"
         />
-        <InfoRow
-          icon={<Wallet size={18} color="#22C55E" />}
-          text="NETSA keeps just 0.5% platform fee. The rest is yours."
+        <ReadyRow
+          iconBg={GREEN_SOFT}
+          iconColor={GREEN}
+          icon={<Landmark size={16} color={GREEN} />}
+          title="Bank account + IFSC"
+          sub="we test it with a ₹1 penny drop"
         />
-        <InfoRow
-          icon={<Shield size={18} color="#8B5CF6" />}
-          text="Your details are secured by Razorpay's bank-grade encryption. We never store raw account numbers."
+        <ReadyRow
+          iconBg="rgba(139,92,246,0.14)"
+          iconColor="#8B5CF6"
+          icon={<Shield size={16} color="#8B5CF6" />}
+          title="GST number"
+          sub="optional · unlocks GST invoices"
         />
       </View>
 
-      <Pressable
-        onPress={onNext}
-        className="rounded-2xl py-4 items-center bg-event-brand mt-2"
-      >
-        <Text className="font-outfit font-bold text-white text-base">Get started</Text>
-      </Pressable>
+      {/* Security note */}
+      <View style={[styles.noteCard, { borderColor: `${BLUE}44`, backgroundColor: BLUE_SOFT }]}>
+        <Shield size={14} color={BLUE} style={{ marginTop: 1 }} />
+        <Text style={[styles.noteText, { color: TEXT_1 }]}>
+          PAN and bank account number are encrypted. We only show masked values after setup.
+        </Text>
+      </View>
+
+      {/* CTAs */}
+      <View style={styles.navRow}>
+        <Pressable onPress={onClose} style={styles.backBtn}>
+          <Text style={styles.backText}>Maybe later</Text>
+        </Pressable>
+        <Pressable onPress={onNext} style={styles.continueBtn}>
+          <Text style={styles.continueText}>Start →</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
-function InfoRow({ icon, text }: { icon: React.ReactNode; text: string }) {
+function ReadyRow({
+  iconBg,
+  iconColor,
+  icon,
+  title,
+  sub,
+}: {
+  iconBg: string;
+  iconColor: string;
+  icon: React.ReactNode;
+  title: string;
+  sub: string;
+}) {
   return (
-    <View className="flex-row gap-3 rounded-2xl bg-event-surface border border-event-border px-4 py-4 items-start">
-      <View className="mt-0.5">{icon}</View>
-      <Text className="font-outfit text-event-textSecondary text-sm leading-5 flex-1">{text}</Text>
+    <View style={[styles.readyRow, { borderColor: `${iconColor}26` }]}>
+      <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>{icon}</View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.readyTitle}>{title}</Text>
+        <Text style={styles.readySub}>{sub}</Text>
+      </View>
     </View>
   );
 }
@@ -226,50 +305,54 @@ function StepBusinessType({
   draft,
   patch,
   onNext,
+  onBack,
 }: {
   draft: PayoutDraft;
   patch: (p: Partial<PayoutDraft>) => void;
   onNext: () => void;
+  onBack: () => void;
 }) {
   const canContinue = !!draft.businessType;
+
   return (
-    <View className="gap-6 mt-2">
-      <View className="gap-1">
-        <Text className="font-serif text-event-textPrimary text-3xl">Business type</Text>
-        <Text className="font-outfit text-event-textSecondary text-sm">
-          This matches how Razorpay will register your linked account.
-        </Text>
+    <View style={{ gap: 24 }}>
+      <Text style={styles.eyebrow}>Step 2 of 6</Text>
+      <View style={{ gap: 8 }}>
+        <Text style={styles.title}>Who's running this?</Text>
+        <Text style={styles.sub}>Pick how Razorpay should treat your account.</Text>
       </View>
 
-      <View className="gap-2">
+      <View style={{ gap: 8 }}>
         {BUSINESS_TYPES.map((bt) => {
           const active = draft.businessType === bt.value;
           return (
             <Pressable
               key={bt.value}
               onPress={() => patch({ businessType: bt.value })}
-              className={`flex-row items-center gap-3 p-4 rounded-2xl border ${
-                active ? 'border-event-brand bg-event-surface' : 'border-event-border bg-event-surfaceAlt'
-              }`}
+              style={[styles.pickRow, active && styles.pickRowOn]}
             >
               <RadioDot on={active} />
-              <Text className={`font-outfit text-base ${active ? 'text-event-textPrimary font-semibold' : 'text-event-textSecondary'}`}>
-                {bt.label}
-              </Text>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[styles.pickTitle, { color: active ? TEXT_0 : TEXT_1 }]}>{bt.label}</Text>
+                <Text style={[styles.pickSub, { color: active ? TEXT_2 : TEXT_3 }]}>{bt.sub}</Text>
+              </View>
             </Pressable>
           );
         })}
       </View>
 
-      <Pressable
-        onPress={onNext}
-        disabled={!canContinue}
-        className={`rounded-2xl py-4 items-center ${canContinue ? 'bg-event-brand' : 'bg-event-surface border border-event-border'}`}
-      >
-        <Text className={`font-outfit font-bold text-base ${canContinue ? 'text-white' : 'text-event-textMuted'}`}>
-          Continue
-        </Text>
-      </Pressable>
+      <View style={styles.navRow}>
+        <Pressable onPress={onBack} style={styles.backBtn}>
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+        <Pressable
+          onPress={onNext}
+          disabled={!canContinue}
+          style={[styles.continueBtn, !canContinue && styles.continueBtnDisabled]}
+        >
+          <Text style={[styles.continueText, !canContinue && { color: TEXT_3 }]}>Continue →</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -279,69 +362,95 @@ function StepPAN({
   draft,
   patch,
   onNext,
+  onBack,
 }: {
   draft: PayoutDraft;
   patch: (p: Partial<PayoutDraft>) => void;
   onNext: () => void;
+  onBack: () => void;
 }) {
+  const user = useAuthStore((s) => s.user);
   const panValid = PAN_REGEX.test(draft.pan);
   const nameValid = draft.accountHolderName.trim().length >= 2;
   const canContinue = panValid && nameValid;
   const showPanHint = draft.pan.length > 0 && !panValid;
 
+  // GAP: name-match against profile
+  const profileName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim()
+    || user?.displayName?.trim()
+    || '';
+  const enteredName = draft.accountHolderName.trim();
+  const nameMatches =
+    profileName.length > 0 &&
+    enteredName.length >= 2 &&
+    enteredName.toLowerCase().includes(profileName.toLowerCase().split(' ')[0]);
+
   return (
-    <View className="gap-6 mt-2">
-      <View className="gap-1">
-        <Text className="font-serif text-event-textPrimary text-3xl">PAN & name</Text>
-        <Text className="font-outfit text-event-textSecondary text-sm">
-          Razorpay needs your PAN to complete KYC.
-        </Text>
+    <View style={{ gap: 24 }}>
+      <Text style={styles.eyebrow}>Step 3 of 6</Text>
+      <View style={{ gap: 8 }}>
+        <Text style={styles.title}>Your PAN.</Text>
+        <Text style={styles.sub}>10 characters — the name has to match exactly.</Text>
       </View>
 
-      <View className="gap-2">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">PAN number</Text>
+      {/* PAN input */}
+      <View style={{ gap: 6 }}>
+        <Text style={styles.fieldLabel}>PAN number</Text>
         <TextInput
           value={draft.pan}
           onChangeText={(t) => patch({ pan: t.toUpperCase() })}
           placeholder="ABCDE1234F"
-          placeholderTextColor="#6E6C76"
+          placeholderTextColor={TEXT_3}
           autoCapitalize="characters"
           autoCorrect={false}
           maxLength={10}
-          className={`font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border px-4 py-3 tracking-widest ${
-            showPanHint ? 'border-red-500/60' : 'border-event-border'
-          }`}
+          style={[styles.input, styles.monoInput, showPanHint && styles.inputError]}
         />
         {showPanHint && (
-          <Text className="font-outfit text-red-400 text-xs">
-            PAN must be 10 characters · e.g. ABCDE1234F
-          </Text>
+          <Text style={styles.hintRed}>PAN must be 10 characters · e.g. ABCDE1234F</Text>
         )}
       </View>
 
-      <View className="gap-2">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-          Name as on PAN card
-        </Text>
+      {/* Name input */}
+      <View style={{ gap: 6 }}>
+        <Text style={styles.fieldLabel}>Full name on PAN card</Text>
         <TextInput
           value={draft.accountHolderName}
           onChangeText={(t) => patch({ accountHolderName: t })}
           placeholder="Full legal name"
-          placeholderTextColor="#6E6C76"
+          placeholderTextColor={TEXT_3}
           autoCorrect={false}
-          className="font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border border-event-border px-4 py-3"
+          style={styles.input}
         />
+        {/* GAP: profile name match */}
+        {nameMatches && (
+          <View style={styles.matchPill}>
+            <View style={styles.matchDot} />
+            <Text style={styles.matchText}>Matches your profile name</Text>
+          </View>
+        )}
       </View>
 
-      <Pressable
-        onPress={onNext}
-        disabled={!canContinue}
-        className={`rounded-2xl py-4 items-center ${canContinue ? 'bg-event-brand' : 'bg-event-surface border border-event-border'}`}
-      >
-        <Text className={`font-outfit font-bold text-base ${canContinue ? 'text-white' : 'text-event-textMuted'}`}>
-          Continue
+      {/* Encryption note */}
+      <View style={[styles.noteCard, { borderColor: HAIRLINE, backgroundColor: SURFACE }]}>
+        <Lock size={13} color={TEXT_2} style={{ marginTop: 1 }} />
+        <Text style={[styles.noteText, { color: TEXT_2 }]}>
+          Encrypted at rest. We show only ABCDE★★★★F after setup.
         </Text>
-      </Pressable>
+      </View>
+
+      <View style={styles.navRow}>
+        <Pressable onPress={onBack} style={styles.backBtn}>
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+        <Pressable
+          onPress={onNext}
+          disabled={!canContinue}
+          style={[styles.continueBtn, !canContinue && styles.continueBtnDisabled]}
+        >
+          <Text style={[styles.continueText, !canContinue && { color: TEXT_3 }]}>Continue →</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -351,163 +460,250 @@ function StepBank({
   draft,
   patch,
   onNext,
+  onBack,
 }: {
   draft: PayoutDraft;
   patch: (p: Partial<PayoutDraft>) => void;
   onNext: () => void;
+  onBack: () => void;
 }) {
+  const [ifscInfo, setIfscInfo] = useState<IfscInfo | null>(null);
+  const fetchIdRef = useRef(0);
+
   const ifscValid = IFSC_REGEX.test(draft.ifsc);
   const accountFilled = draft.bankAccount.length > 0;
   const confirmFilled = draft.bankConfirm.length > 0;
   const accountMatch = accountFilled && confirmFilled && draft.bankAccount === draft.bankConfirm;
   const showMismatch = confirmFilled && draft.bankAccount !== draft.bankConfirm;
+  const showMatchOk = accountMatch;
   const showIfscHint = draft.ifsc.length > 0 && !ifscValid;
   const canContinue = accountMatch && ifscValid;
 
+  // GAP: IFSC live-lookup
+  useEffect(() => {
+    if (!ifscValid) {
+      setIfscInfo(null);
+      return;
+    }
+    const id = ++fetchIdRef.current;
+    fetch(`https://ifsc.razorpay.com/${draft.ifsc}`)
+      .then((r) => {
+        if (!r.ok) throw new Error('non-200');
+        return r.json();
+      })
+      .then((data: IfscInfo) => {
+        if (fetchIdRef.current === id) setIfscInfo(data);
+      })
+      .catch(() => {
+        if (fetchIdRef.current === id) setIfscInfo(null);
+      });
+  }, [draft.ifsc, ifscValid]);
+
   return (
-    <View className="gap-6 mt-2">
-      <View className="gap-1">
-        <Text className="font-serif text-event-textPrimary text-3xl">Bank account</Text>
-        <Text className="font-outfit text-event-textSecondary text-sm">
-          Payouts will be settled to this account.
-        </Text>
+    <View style={{ gap: 24 }}>
+      <Text style={styles.eyebrow}>Step 4 of 6</Text>
+      <View style={{ gap: 8 }}>
+        <Text style={styles.title}>Where the rupees land.</Text>
+        <Text style={styles.sub}>Verified live by Razorpay with a ₹1 penny drop.</Text>
       </View>
 
-      <View className="gap-2">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-          Account number
-        </Text>
+      {/* Account number */}
+      <View style={{ gap: 6 }}>
+        <Text style={styles.fieldLabel}>Account number</Text>
         <TextInput
           value={draft.bankAccount}
           onChangeText={(t) => patch({ bankAccount: t.replace(/\D/g, '') })}
           placeholder="Enter account number"
-          placeholderTextColor="#6E6C76"
+          placeholderTextColor={TEXT_3}
           keyboardType="number-pad"
           autoCorrect={false}
-          className="font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border border-event-border px-4 py-3 tracking-widest"
+          style={[styles.input, styles.monoInput]}
         />
       </View>
 
-      <View className="gap-2">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-          Confirm account number
-        </Text>
+      {/* Confirm account */}
+      <View style={{ gap: 6 }}>
+        <Text style={styles.fieldLabel}>Confirm account number</Text>
         <TextInput
           value={draft.bankConfirm}
           onChangeText={(t) => patch({ bankConfirm: t.replace(/\D/g, '') })}
           placeholder="Re-enter account number"
-          placeholderTextColor="#6E6C76"
+          placeholderTextColor={TEXT_3}
           keyboardType="number-pad"
           autoCorrect={false}
-          // Paste-block: contextMenuHidden hides long-press paste menu on iOS/Android
           contextMenuHidden={true}
-          className={`font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border px-4 py-3 tracking-widest ${
-            showMismatch ? 'border-red-500/60' : 'border-event-border'
-          }`}
+          style={[styles.input, styles.monoInput, showMismatch && styles.inputError]}
         />
         {showMismatch && (
-          <Text className="font-outfit text-red-400 text-xs">
-            Account numbers don't match
-          </Text>
+          <Text style={styles.hintRed}>Account numbers don't match</Text>
+        )}
+        {showMatchOk && (
+          <View style={styles.matchPill}>
+            <View style={styles.matchDot} />
+            <Text style={styles.matchText}>Numbers match · paste blocked</Text>
+          </View>
         )}
       </View>
 
-      <View className="gap-2">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">IFSC code</Text>
+      {/* IFSC */}
+      <View style={{ gap: 6 }}>
+        <Text style={styles.fieldLabel}>IFSC code</Text>
         <TextInput
           value={draft.ifsc}
           onChangeText={(t) => patch({ ifsc: t.toUpperCase() })}
           placeholder="HDFC0001234"
-          placeholderTextColor="#6E6C76"
+          placeholderTextColor={TEXT_3}
           autoCapitalize="characters"
           autoCorrect={false}
           maxLength={11}
-          className={`font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border px-4 py-3 tracking-widest ${
-            showIfscHint ? 'border-red-500/60' : 'border-event-border'
-          }`}
+          style={[styles.input, styles.monoInput, showIfscHint && styles.inputError]}
         />
         {showIfscHint && (
-          <Text className="font-outfit text-red-400 text-xs">
-            Invalid IFSC · format HDFC0001234 (4 letters, 0, 6 alphanumeric)
-          </Text>
+          <Text style={styles.hintRed}>Invalid IFSC · format HDFC0001234 (4 letters, 0, 6 alphanumeric)</Text>
+        )}
+
+        {/* GAP: IFSC live-lookup result card */}
+        {ifscInfo && (
+          <View style={styles.ifscCard}>
+            <View style={styles.ifscBadge}>
+              <Text style={styles.ifscBadgeText}>{ifscInfo.BANK?.charAt(0) ?? 'B'}</Text>
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.ifscBank}>{ifscInfo.BANK}</Text>
+              <Text style={styles.ifscBranch}>{ifscInfo.BRANCH}</Text>
+            </View>
+            <View style={styles.matchDot} />
+          </View>
         )}
       </View>
 
-      <Pressable
-        onPress={onNext}
-        disabled={!canContinue}
-        className={`rounded-2xl py-4 items-center ${canContinue ? 'bg-event-brand' : 'bg-event-surface border border-event-border'}`}
-      >
-        <Text className={`font-outfit font-bold text-base ${canContinue ? 'text-white' : 'text-event-textMuted'}`}>
-          Continue
-        </Text>
-      </Pressable>
+      <View style={styles.navRow}>
+        <Pressable onPress={onBack} style={styles.backBtn}>
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+        <Pressable
+          onPress={onNext}
+          disabled={!canContinue}
+          style={[styles.continueBtn, !canContinue && styles.continueBtnDisabled]}
+        >
+          <Text style={[styles.continueText, !canContinue && { color: TEXT_3 }]}>Continue →</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 /* ─── Step 5: GST ───────────────────────────────────────── */
+type GstChoice = 'registered' | 'skip';
+
 function StepGST({
   draft,
   patch,
   onNext,
+  onBack,
 }: {
   draft: PayoutDraft;
   patch: (p: Partial<PayoutDraft>) => void;
   onNext: () => void;
+  onBack: () => void;
 }) {
-  const hasGstin = draft.gstin.trim().length > 0;
-  const gstinValid = !hasGstin || GSTIN_REGEX.test(draft.gstin);
-  const showHint = hasGstin && !gstinValid;
-  const canContinue = gstinValid;
+  // GAP: checkbox picker — default skip
+  const [gstChoice, setGstChoice] = useState<GstChoice>(
+    draft.gstin.trim().length > 0 ? 'registered' : 'skip'
+  );
+
+  const gstinValid = GSTIN_REGEX.test(draft.gstin);
+  const showHint = gstChoice === 'registered' && draft.gstin.length > 0 && !gstinValid;
+  const canContinue = gstChoice === 'skip' || (gstChoice === 'registered' && gstinValid);
+
+  const handleChoiceChange = (choice: GstChoice) => {
+    setGstChoice(choice);
+    if (choice === 'skip') {
+      patch({ gstin: '' });
+    }
+  };
 
   return (
-    <View className="gap-6 mt-2">
-      <View className="gap-1">
-        <Text className="font-serif text-event-textPrimary text-3xl">GST number</Text>
-        <Text className="font-outfit text-event-textSecondary text-sm">
-          Optional. Add if your earnings exceed ₹20L/year or you're GST registered.
+    <View style={{ gap: 24 }}>
+      <Text style={styles.eyebrow}>Step 5 of 6</Text>
+      <View style={{ gap: 8 }}>
+        <Text style={styles.title}>GST? Optional.</Text>
+        <Text style={styles.sub}>
+          Add it now or later in Settings. Adds GST line items to attendee receipts.
         </Text>
       </View>
 
-      <View className="gap-2">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-          GSTIN · optional
-        </Text>
-        <TextInput
-          value={draft.gstin}
-          onChangeText={(t) => patch({ gstin: t.toUpperCase() })}
-          placeholder="22ABCDE1234F1Z5"
-          placeholderTextColor="#6E6C76"
-          autoCapitalize="characters"
-          autoCorrect={false}
-          maxLength={15}
-          className={`font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border px-4 py-3 tracking-widest ${
-            showHint ? 'border-red-500/60' : 'border-event-border'
-          }`}
-        />
-        {showHint && (
-          <Text className="font-outfit text-red-400 text-xs">
-            Invalid GSTIN format
-          </Text>
-        )}
-      </View>
-
-      <View className="flex-row gap-3">
+      {/* GAP: checkbox-style pick options */}
+      <View style={{ gap: 8 }}>
         <Pressable
-          onPress={onNext}
-          className="flex-1 rounded-2xl py-4 items-center bg-event-surface border border-event-border"
+          onPress={() => handleChoiceChange('registered')}
+          style={[styles.pickRow, gstChoice === 'registered' && styles.pickRowOn]}
         >
-          <Text className="font-outfit font-semibold text-base text-event-textSecondary">Skip</Text>
+          <CheckBox on={gstChoice === 'registered'} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={[styles.pickTitle, { color: gstChoice === 'registered' ? TEXT_0 : TEXT_1 }]}>
+              I'm registered for GST
+            </Text>
+            <Text style={[styles.pickSub, { color: gstChoice === 'registered' ? TEXT_2 : TEXT_3 }]}>
+              15-character GSTIN required
+            </Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          onPress={() => handleChoiceChange('skip')}
+          style={[styles.pickRow, gstChoice === 'skip' && styles.pickRowOn]}
+        >
+          <CheckBox on={gstChoice === 'skip'} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={[styles.pickTitle, { color: gstChoice === 'skip' ? TEXT_0 : TEXT_1 }]}>
+              Skip · I'll add later
+            </Text>
+            <Text style={[styles.pickSub, { color: gstChoice === 'skip' ? TEXT_2 : TEXT_3 }]}>
+              Most teachers & small organizers don't need this
+            </Text>
+          </View>
+        </Pressable>
+      </View>
+
+      {/* GSTIN input — revealed only when registered is chosen */}
+      {gstChoice === 'registered' && (
+        <View style={{ gap: 6 }}>
+          <Text style={styles.fieldLabel}>GSTIN · 15 characters</Text>
+          <TextInput
+            value={draft.gstin}
+            onChangeText={(t) => patch({ gstin: t.toUpperCase() })}
+            placeholder="22ABCDE1234F1Z5"
+            placeholderTextColor={TEXT_3}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={15}
+            style={[styles.input, styles.monoInput, showHint && styles.inputError]}
+          />
+          {showHint && (
+            <Text style={styles.hintRed}>Invalid GSTIN format</Text>
+          )}
+        </View>
+      )}
+
+      {/* Info note */}
+      <View style={[styles.noteCard, { borderColor: HAIRLINE, backgroundColor: SURFACE }]}>
+        <Info size={13} color={TEXT_2} style={{ marginTop: 1 }} />
+        <Text style={[styles.noteText, { color: TEXT_2 }]}>
+          If your yearly NETSA earnings cross ₹20 lakh, you'll need GST. We'll remind you.
+        </Text>
+      </View>
+
+      <View style={styles.navRow}>
+        <Pressable onPress={onBack} style={styles.backBtn}>
+          <Text style={styles.backText}>Back</Text>
         </Pressable>
         <Pressable
           onPress={onNext}
           disabled={!canContinue}
-          className={`flex-1 rounded-2xl py-4 items-center ${canContinue ? 'bg-event-brand' : 'bg-event-surface border border-event-border'}`}
+          style={[styles.continueBtn, !canContinue && styles.continueBtnDisabled]}
         >
-          <Text className={`font-outfit font-bold text-base ${canContinue ? 'text-white' : 'text-event-textMuted'}`}>
-            Continue
-          </Text>
+          <Text style={[styles.continueText, !canContinue && { color: TEXT_3 }]}>Continue →</Text>
         </Pressable>
       </View>
     </View>
@@ -521,115 +717,576 @@ function StepReview({
   submitting,
   submitError,
   onSubmit,
+  onBack,
+  onEditStep,
 }: {
   draft: PayoutDraft;
   patch: (p: Partial<PayoutDraft>) => void;
   submitting: boolean;
   submitError: string | null;
   onSubmit: () => void;
+  onBack: () => void;
+  onEditStep: (step: number) => void;
 }) {
-  const businessLabel = BUSINESS_TYPES.find((b) => b.value === draft.businessType)?.label ?? draft.businessType;
+  const businessLabel = BUSINESS_TYPES.find((b) => b.value === draft.businessType)?.label ?? draft.businessType ?? '—';
+  const maskedPan = draft.pan.length === 10
+    ? `${draft.pan.slice(0, 5)}★★★★${draft.pan.slice(9)}`
+    : draft.pan || '—';
   const maskedAccount =
     draft.bankAccount.length > 4
-      ? `****${draft.bankAccount.slice(-4)}`
+      ? `★★★★${draft.bankAccount.slice(-4)}`
       : draft.bankAccount || '—';
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email);
+  const emailValid = EMAIL_REGEX.test(draft.email);
   const canSubmit = !submitting && draft.email.length > 0 && emailValid;
 
   return (
-    <View className="gap-6 mt-2">
-      <View className="gap-1">
-        <Text className="font-serif text-event-textPrimary text-3xl">Review & submit</Text>
-        <Text className="font-outfit text-event-textSecondary text-sm">
-          Check everything before we send to Razorpay.
+    <View style={{ gap: 24 }}>
+      <Text style={styles.eyebrow}>Step 6 of 6</Text>
+      <View style={{ gap: 8 }}>
+        <Text style={styles.title}>Looks right?</Text>
+        <Text style={styles.sub}>
+          Submit sends it to Razorpay. Most accounts verify in seconds.
         </Text>
       </View>
 
-      <View className="rounded-2xl bg-event-surface border border-event-border overflow-hidden">
-        <ReviewRow label="Business type" value={businessLabel ?? '—'} />
-        <ReviewRow label="PAN" value={draft.pan} mono />
-        <ReviewRow label="Account holder" value={draft.accountHolderName} />
-        <ReviewRow label="Bank account" value={maskedAccount} mono />
-        <ReviewRow label="IFSC" value={draft.ifsc} mono />
-        {draft.gstin ? <ReviewRow label="GSTIN" value={draft.gstin} mono last /> : null}
+      {/* Summary card with GAP: edit links per row */}
+      <View style={styles.summaryCard}>
+        <ReviewRow
+          label="TYPE"
+          value={businessLabel}
+          onEdit={() => onEditStep(2)}
+        />
+        <View style={styles.summaryDivider} />
+        <ReviewRow
+          label="PAN"
+          value={maskedPan}
+          valueSub={draft.accountHolderName || undefined}
+          mono
+          onEdit={() => onEditStep(3)}
+        />
+        <View style={styles.summaryDivider} />
+        <ReviewRow
+          label="BANK"
+          value={maskedAccount}
+          valueSub={draft.ifsc ? `${draft.ifsc}` : undefined}
+          mono
+          onEdit={() => onEditStep(4)}
+        />
+        <View style={styles.summaryDivider} />
+        <ReviewRow
+          label="GST"
+          value={draft.gstin || 'Skipped · add later'}
+          mono={!!draft.gstin}
+          onEdit={() => onEditStep(5)}
+          last
+        />
       </View>
 
-      <View className="gap-2">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">
-          Email address · for Razorpay notifications
-        </Text>
+      {/* Email */}
+      <View style={{ gap: 6 }}>
+        <Text style={styles.fieldLabel}>Email address · for Razorpay notifications</Text>
         <TextInput
           value={draft.email}
           onChangeText={(t) => patch({ email: t.trim() })}
           placeholder="you@example.com"
-          placeholderTextColor="#6E6C76"
+          placeholderTextColor={TEXT_3}
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
-          className={`font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border px-4 py-3 ${
-            draft.email.length > 0 && !emailValid ? 'border-red-500/60' : 'border-event-border'
-          }`}
+          style={[
+            styles.input,
+            draft.email.length > 0 && !emailValid && styles.inputError,
+          ]}
         />
         {draft.email.length > 0 && !emailValid && (
-          <Text className="font-outfit text-red-400 text-xs">Enter a valid email address</Text>
+          <Text style={styles.hintRed}>Enter a valid email address</Text>
         )}
       </View>
 
+      {/* Terms note */}
+      <View style={[styles.noteCard, { borderColor: `${BLUE}44`, backgroundColor: BLUE_SOFT }]}>
+        <Info size={13} color={BLUE} style={{ marginTop: 1 }} />
+        <Text style={[styles.noteText, { color: TEXT_1 }]}>
+          Your data is sent securely to Razorpay for KYC. NETSA doesn't store your raw account numbers.
+        </Text>
+      </View>
+
+      {/* Submit error */}
       {submitError ? (
-        <View className="rounded-2xl bg-red-500/10 border border-red-500/30 px-4 py-3">
-          <Text className="font-outfit text-red-400 text-sm">{submitError}</Text>
+        <View style={styles.errorCard}>
+          <Text style={styles.errorText}>{submitError}</Text>
         </View>
       ) : null}
 
-      <Pressable
-        onPress={onSubmit}
-        disabled={!canSubmit || submitting}
-        className={`rounded-2xl py-4 items-center ${canSubmit && !submitting ? 'bg-event-brand' : 'bg-event-surface border border-event-border'}`}
-      >
-        {submitting ? (
-          <ActivityIndicator color="#ffffff" />
-        ) : (
-          <Text className={`font-outfit font-bold text-base ${canSubmit && !submitting ? 'text-white' : 'text-event-textMuted'}`}>
-            Submit for verification
-          </Text>
-        )}
-      </Pressable>
-
-      <Text className="font-outfit text-event-textMuted text-xs text-center leading-5">
-        Your data is sent securely to Razorpay for KYC. NETSA doesn't store your raw account numbers.
-      </Text>
+      <View style={styles.navRow}>
+        <Pressable onPress={onBack} style={styles.backBtn}>
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+        <Pressable
+          onPress={onSubmit}
+          disabled={!canSubmit || submitting}
+          style={[styles.continueBtn, (!canSubmit || submitting) && styles.continueBtnDisabled]}
+        >
+          {submitting ? (
+            <ActivityIndicator color={ORANGE_INK} size="small" />
+          ) : (
+            <Text style={[styles.continueText, (!canSubmit || submitting) && { color: TEXT_3 }]}>
+              Submit →
+            </Text>
+          )}
+        </Pressable>
+      </View>
     </View>
   );
 }
 
+/* ─── Review row with edit link ───────────────────────────── */
 function ReviewRow({
   label,
   value,
+  valueSub,
   mono,
   last,
+  onEdit,
 }: {
   label: string;
   value: string;
+  valueSub?: string;
   mono?: boolean;
   last?: boolean;
+  onEdit?: () => void;
 }) {
   return (
-    <View className={`flex-row items-center justify-between px-4 py-3 ${!last ? 'border-b border-event-border' : ''}`}>
-      <Text className="font-outfit text-event-textMuted text-sm flex-1">{label}</Text>
-      <Text className={`${mono ? 'font-mono' : 'font-outfit'} text-event-textPrimary text-sm ml-4`}>
-        {value}
-      </Text>
+    <View style={styles.reviewRow}>
+      <View style={{ minWidth: 48 }}>
+        <Text style={styles.reviewLabel}>{label}</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.reviewValue, mono && styles.monoValue]} numberOfLines={1}>
+          {value}
+        </Text>
+        {valueSub ? (
+          <Text style={styles.reviewValueSub} numberOfLines={1}>{valueSub}</Text>
+        ) : null}
+      </View>
+      {onEdit ? (
+        <Pressable onPress={onEdit} hitSlop={8}>
+          <Text style={styles.editLink}>Edit</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
-/* ─── Shared UI ──────────────────────────────────────────── */
+/* ─── Shared UI primitives ───────────────────────────────── */
 function RadioDot({ on }: { on: boolean }) {
   return (
-    <View
-      className={`w-5 h-5 rounded-full border-2 ${on ? 'border-event-brand' : 'border-event-border'} items-center justify-center`}
-    >
-      {on ? <View className="w-2.5 h-2.5 rounded-full bg-event-brand" /> : null}
+    <View style={[styles.radio, { borderColor: on ? ORANGE : TEXT_4 }]}>
+      {on ? <View style={styles.radioInner} /> : null}
     </View>
   );
 }
+
+function CheckBox({ on }: { on: boolean }) {
+  return (
+    <View
+      style={[
+        styles.checkBox,
+        on
+          ? { borderColor: ORANGE, backgroundColor: ORANGE_SOFT }
+          : { borderColor: TEXT_4, backgroundColor: 'transparent' },
+      ]}
+    >
+      {on ? <Text style={styles.checkMark}>✓</Text> : null}
+    </View>
+  );
+}
+
+/* ─── StyleSheet ─────────────────────────────────────────── */
+const styles = StyleSheet.create({
+  /* Shell */
+  shell: {
+    flex: 1,
+    backgroundColor: BG,
+  },
+
+  /* Header */
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: HAIRLINE,
+  },
+  headerBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontFamily: 'DMSerifDisplay_400Regular',
+    fontSize: 20,
+    color: TEXT_0,
+    letterSpacing: -0.3,
+  },
+
+  /* Wizard dots */
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 6,
+  },
+  dot: {
+    flex: 1,
+    height: 3,
+    borderRadius: 2,
+  },
+  dotDone: { backgroundColor: TEXT_0 },
+  dotCurrent: { backgroundColor: ORANGE },
+  dotFuture: { backgroundColor: SURFACE_HI },
+
+  /* Scroll */
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 44,
+  },
+
+  /* Typography */
+  eyebrow: {
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: ORANGE,
+    marginBottom: 2,
+  },
+  title: {
+    fontFamily: 'DMSerifDisplay_400Regular',
+    fontSize: 28,
+    color: TEXT_0,
+    letterSpacing: -0.4,
+    lineHeight: 34,
+  },
+  sub: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 13.5,
+    color: TEXT_1,
+    lineHeight: 20,
+  },
+  monoLabel: {
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: TEXT_3,
+    marginBottom: 4,
+  },
+  fieldLabel: {
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: 9.5,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: TEXT_3,
+  },
+
+  /* Inputs */
+  input: {
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    color: TEXT_0,
+    fontFamily: 'Outfit-Regular',
+    fontSize: 14.5,
+  },
+  monoInput: {
+    fontFamily: 'SpaceMono-Bold',
+    letterSpacing: 1,
+    fontSize: 13,
+  },
+  inputError: {
+    borderColor: RED,
+  },
+
+  /* Hints */
+  hintRed: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 11.5,
+    color: RED,
+    marginTop: 2,
+  },
+
+  /* Match pill */
+  matchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: GREEN_SOFT,
+    borderRadius: 99,
+    marginTop: 2,
+  },
+  matchDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 99,
+    backgroundColor: GREEN,
+  },
+  matchText: {
+    fontFamily: 'Outfit-Medium',
+    fontSize: 11,
+    color: GREEN,
+  },
+
+  /* Note cards */
+  noteCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+  },
+  noteText: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 12,
+    lineHeight: 17,
+    flex: 1,
+  },
+
+  /* Ready rows (Step 1) */
+  readyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+  },
+  iconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  readyTitle: {
+    fontFamily: 'Outfit-SemiBold',
+    fontSize: 13.5,
+    color: TEXT_0,
+  },
+  readySub: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 11.5,
+    color: TEXT_2,
+  },
+
+  /* Pick rows (Step 2, 5) */
+  pickRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    borderRadius: 10,
+  },
+  pickRowOn: {
+    backgroundColor: ORANGE_SOFT,
+    borderColor: ORANGE_LINE,
+  },
+  pickTitle: {
+    fontFamily: 'Outfit-SemiBold',
+    fontSize: 13.5,
+  },
+  pickSub: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 11.5,
+  },
+
+  /* Radio dot */
+  radio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: ORANGE,
+  },
+
+  /* Checkbox */
+  checkBox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkMark: {
+    color: ORANGE,
+    fontSize: 11,
+    lineHeight: 13,
+    fontFamily: 'Outfit-Bold',
+  },
+
+  /* IFSC lookup card */
+  ifscCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: GREEN_SOFT,
+    borderWidth: 1,
+    borderColor: `${GREEN}44`,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    marginTop: 2,
+  },
+  ifscBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: GREEN,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ifscBadgeText: {
+    fontFamily: 'Outfit-Bold',
+    fontSize: 14,
+    color: '#0a1f0a',
+  },
+  ifscBank: {
+    fontFamily: 'Outfit-SemiBold',
+    fontSize: 13,
+    color: TEXT_0,
+  },
+  ifscBranch: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 11.5,
+    color: TEXT_2,
+  },
+
+  /* Summary card (Step 6) */
+  summaryCard: {
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: HAIRLINE,
+  },
+  reviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  reviewLabel: {
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: 9,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: TEXT_3,
+  },
+  reviewValue: {
+    fontFamily: 'Outfit-Medium',
+    fontSize: 13,
+    color: TEXT_0,
+  },
+  reviewValueSub: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 11,
+    color: TEXT_2,
+    marginTop: 1,
+  },
+  monoValue: {
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  editLink: {
+    fontFamily: 'Outfit-SemiBold',
+    fontSize: 12,
+    color: ORANGE,
+  },
+
+  /* Error card */
+  errorCard: {
+    backgroundColor: `${RED}1a`,
+    borderWidth: 1,
+    borderColor: `${RED}4d`,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+  },
+  errorText: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 13,
+    color: RED,
+  },
+
+  /* Nav row */
+  navRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  backBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backText: {
+    fontFamily: 'Outfit-Medium',
+    fontSize: 13.5,
+    color: TEXT_2,
+  },
+  continueBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 11,
+    backgroundColor: TEXT_0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueBtnDisabled: {
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+  },
+  continueText: {
+    fontFamily: 'Outfit-Bold',
+    fontSize: 14,
+    color: ORANGE_INK,
+  },
+});

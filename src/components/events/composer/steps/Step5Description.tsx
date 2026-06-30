@@ -1,7 +1,6 @@
-import { View, Text, TextInput, Pressable } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Plus, X } from 'lucide-react-native';
 import { useCreateEventStore } from '@/stores/createEventStore';
-import { eventTokens } from '@/lib/eventTokens';
 import type { AgendaItem } from '@/services/eventService';
 
 const SKILL_SUGGESTIONS = [
@@ -9,12 +8,20 @@ const SKILL_SUGGESTIONS = [
   'theatre', 'acting', 'voice', 'singing', 'tabla', 'sitar',
   'choreography', 'direction',
 ];
-
 const ONE_DAY = 86400000;
 
-export default function Step5Description({ onNext }: { onNext: () => void; onBack?: () => void }) {
-  const { form, update, markComplete } = useCreateEventStore();
+const SURFACE = 'rgba(255,255,255,0.04)';
+const BG_2 = '#0E0C12';
+const HAIRLINE = 'rgba(255,255,255,0.1)';
+const TEXT_0 = '#F3EFE8';
+const TEXT_2 = '#71717a';
+const TEXT_3 = '#52525b';
+const ORANGE = '#FF6B35';
+const ORANGE_INK = '#1A0D06';
+const RED = '#EF4444';
 
+export default function Step5Description({ onNext, onBack }: { onNext: () => void; onBack?: () => void }) {
+  const { form, update, markComplete } = useCreateEventStore();
   const isMultiDay = form.durationKind === 'multi';
 
   const toggleSkill = (skill: string) => {
@@ -25,148 +32,143 @@ export default function Step5Description({ onNext }: { onNext: () => void; onBac
 
   const addAgendaItem = () => {
     const base = form.startsAt ? new Date(form.startsAt).getTime() : Date.now();
-    const offset = form.agenda.length;
-    const date = new Date(base + offset * ONE_DAY);
-    const next: AgendaItem = {
-      date: date.toISOString().slice(0, 10),
-      title: '',
-      subtitle: '',
-    };
-    update('agenda', [...form.agenda, next]);
+    const date = new Date(base + form.agenda.length * ONE_DAY);
+    update('agenda', [...form.agenda, { date: date.toISOString().slice(0, 10), title: '', subtitle: '' } as AgendaItem]);
   };
-
-  const editAgendaItem = (i: number, patch: Partial<AgendaItem>) => {
+  const editAgendaItem = (i: number, patch: Partial<AgendaItem>) =>
     update('agenda', form.agenda.map((item, idx) => (idx === i ? { ...item, ...patch } : item)));
-  };
-
-  const removeAgendaItem = (i: number) => {
-    update('agenda', form.agenda.filter((_, idx) => idx !== i));
-  };
+  const removeAgendaItem = (i: number) => update('agenda', form.agenda.filter((_, idx) => idx !== i));
 
   const agendaInvalid = form.agenda.some((item) => !item.title.trim());
-
-  const canContinue =
-    form.about.length >= 100 &&
-    form.about.length <= 2000 &&
-    !agendaInvalid;
+  const canContinue = form.about.length >= 100 && form.about.length <= 2000 && !agendaInvalid;
 
   return (
-    <View className="gap-7 mt-2">
-      <View className="gap-2">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">About · required</Text>
+    <View style={{ gap: 18, marginTop: 2 }}>
+      {/* About */}
+      <View>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>About · required</Text>
+          <Text style={[styles.counter, form.about.length < 100 && { color: RED }]}>{form.about.length} / 2000</Text>
+        </View>
         <TextInput
           value={form.about}
           onChangeText={(v) => update('about', v)}
           placeholder="What's this event about? Who is it for? What will the artist take away?"
-          placeholderTextColor={eventTokens.textMuted ?? '#6E6C76'}
+          placeholderTextColor={TEXT_3}
           multiline
           maxLength={2000}
-          className="font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border border-event-border px-4 py-3 leading-6"
-          style={{ minHeight: 160 }}
+          style={[styles.input, { minHeight: 96, lineHeight: 20, textAlignVertical: 'top' }]}
         />
-        <Text className={`font-outfit text-xs text-right ${form.about.length < 100 ? 'text-event-capacityUrgent' : 'text-event-textMuted'}`}>
-          {form.about.length} / 2000 · minimum 100
-        </Text>
       </View>
 
-      <View className="gap-2">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">What to expect · optional</Text>
+      {/* What to expect */}
+      <View>
+        <Text style={styles.label}>What to expect · optional</Text>
         <TextInput
           value={form.whatToExpect ?? ''}
           onChangeText={(v) => update('whatToExpect', v)}
           placeholder="Schedule, what to bring, after-event"
-          placeholderTextColor={eventTokens.textMuted ?? '#6E6C76'}
+          placeholderTextColor={TEXT_3}
           multiline
           maxLength={500}
-          className="font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border border-event-border px-4 py-3 leading-6"
-          style={{ minHeight: 100 }}
+          style={[styles.input, { minHeight: 66, lineHeight: 20, textAlignVertical: 'top' }]}
         />
-        <Text className="font-outfit text-event-textMuted text-xs text-right">
-          {(form.whatToExpect ?? '').length} / 500
-        </Text>
       </View>
 
+      {/* Agenda (multi-day) */}
       {isMultiDay ? (
-        <View className="gap-3">
-          <View className="flex-row items-baseline justify-between">
-            <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">Day by day · optional</Text>
-            <Text className="font-mono text-event-textMuted text-xs">
-              {form.agenda.length} {form.agenda.length === 1 ? 'day' : 'days'}
-            </Text>
+        <View>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Day by day · optional</Text>
+            <Text style={styles.counter}>{form.agenda.length} {form.agenda.length === 1 ? 'day' : 'days'}</Text>
           </View>
-
-          {form.agenda.map((item, i) => (
-            <View key={`agenda-${i}`} className="gap-2 rounded-2xl bg-event-surface border border-event-border p-3">
-              <View className="flex-row items-center justify-between">
-                <Text className="font-mono text-event-gold text-[11px] tracking-widest">DAY {i + 1}</Text>
-                <Pressable onPress={() => removeAgendaItem(i)} hitSlop={8}>
-                  <X size={16} color="#71717a" />
-                </Pressable>
+          <View style={{ gap: 8 }}>
+            {form.agenda.map((item, i) => (
+              <View key={`agenda-${i}`} style={styles.dayCard}>
+                <View style={styles.dayHead}>
+                  <Text style={styles.dayLabel}>DAY {i + 1}</Text>
+                  <Pressable onPress={() => removeAgendaItem(i)} hitSlop={8}><X size={15} color={TEXT_2} /></Pressable>
+                </View>
+                <TextInput
+                  value={item.title}
+                  onChangeText={(v) => editAgendaItem(i, { title: v })}
+                  placeholder="Topic title · e.g. Aarambh — the beginning"
+                  placeholderTextColor={TEXT_3}
+                  maxLength={60}
+                  style={styles.dayInput}
+                />
+                <TextInput
+                  value={item.subtitle ?? ''}
+                  onChangeText={(v) => editAgendaItem(i, { subtitle: v })}
+                  placeholder="One-line description · optional"
+                  placeholderTextColor={TEXT_3}
+                  maxLength={140}
+                  style={[styles.dayInput, { color: TEXT_2, fontSize: 12 }]}
+                />
               </View>
-              <TextInput
-                value={item.title}
-                onChangeText={(v) => editAgendaItem(i, { title: v })}
-                placeholder="Topic title · e.g. Aarambh — the beginning"
-                placeholderTextColor={eventTokens.textMuted ?? '#6E6C76'}
-                maxLength={60}
-                className="font-outfit text-event-textPrimary text-base rounded-xl bg-event-bgAlt border border-event-border px-3 py-3"
-              />
-              <TextInput
-                value={item.subtitle ?? ''}
-                onChangeText={(v) => editAgendaItem(i, { subtitle: v })}
-                placeholder="One-line description · optional"
-                placeholderTextColor={eventTokens.textMuted ?? '#6E6C76'}
-                maxLength={140}
-                className="font-outfit text-event-textSecondary text-sm rounded-xl bg-event-bgAlt border border-event-border px-3 py-2.5"
-              />
-            </View>
-          ))}
-
-          <Pressable
-            onPress={addAgendaItem}
-            className="flex-row items-center justify-center gap-2 rounded-2xl border border-dashed border-event-border bg-event-surface py-3.5"
-          >
-            <Plus size={16} color="#FF6B35" />
-            <Text className="font-outfit text-event-brand text-sm font-semibold">
-              {form.agenda.length === 0 ? 'Add day 1' : `Add day ${form.agenda.length + 1}`}
-            </Text>
-          </Pressable>
-
-          <Text className="font-outfit text-event-textMuted text-xs leading-5">
-            Shown as a structured day list on the event page. Skip if the days share the same content.
-          </Text>
+            ))}
+            <Pressable onPress={addAgendaItem} style={styles.addDay}>
+              <Plus size={16} color={ORANGE} />
+              <Text style={styles.addDayText}>{form.agenda.length === 0 ? 'Add day 1' : `Add day ${form.agenda.length + 1}`}</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
 
-      <View className="gap-3">
-        <Text className="font-mono text-event-textMuted text-xs uppercase tracking-widest">Skills · who's invited (max 5)</Text>
-        <View className="flex-row flex-wrap gap-2">
+      {/* Skills */}
+      <View>
+        <Text style={styles.label}>Skills · who's invited (max 5)</Text>
+        <View style={styles.chipRow}>
           {SKILL_SUGGESTIONS.map((skill) => {
             const active = form.skills.includes(skill);
             return (
-              <Pressable
-                key={skill}
-                onPress={() => toggleSkill(skill)}
-                className={`px-3 py-2 rounded-full ${active ? 'bg-event-brand' : 'bg-event-surface border border-event-border'}`}
-              >
-                <Text className={`font-outfit text-xs ${active ? 'text-white font-semibold' : 'text-event-textSecondary'}`}>
-                  {skill}
-                </Text>
+              <Pressable key={skill} onPress={() => toggleSkill(skill)} style={[styles.chip, active && styles.chipOn]}>
+                <Text style={[styles.chipText, active && styles.chipTextOn]}>{skill}</Text>
               </Pressable>
             );
           })}
         </View>
       </View>
 
-      <Pressable
-        onPress={() => { markComplete(5); onNext(); }}
-        disabled={!canContinue}
-        className={`rounded-2xl py-4 items-center ${canContinue ? 'bg-event-brand' : 'bg-event-surface'}`}
-      >
-        <Text className={`font-outfit font-bold ${canContinue ? 'text-white' : 'text-event-textMuted'}`}>
-          Continue
-        </Text>
-      </Pressable>
+      {/* Bottom nav */}
+      <View style={styles.navRow}>
+        <Pressable onPress={onBack} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Back">
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => { markComplete(5); onNext(); }}
+          disabled={!canContinue}
+          style={[styles.continueBtn, !canContinue && styles.continueDisabled]}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canContinue }}
+        >
+          <Text style={[styles.continueText, !canContinue && { color: TEXT_3 }]}>Continue →</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  label: { fontFamily: 'SpaceMono-Bold', fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: TEXT_3, marginBottom: 6 },
+  counter: { fontFamily: 'SpaceMono-Regular', fontSize: 10, color: TEXT_3 },
+  input: { backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, color: TEXT_0, fontFamily: 'Outfit-Regular', fontSize: 13.5 },
+  dayCard: { backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE, borderRadius: 12, padding: 12, gap: 6 },
+  dayHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  dayLabel: { fontFamily: 'SpaceMono-Bold', fontSize: 10, letterSpacing: 1.2, color: ORANGE },
+  dayInput: { backgroundColor: BG_2, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, color: TEXT_0, fontFamily: 'Outfit-Regular', fontSize: 13 },
+  addDay: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, borderWidth: 1, borderColor: HAIRLINE, borderStyle: 'dashed', paddingVertical: 13 },
+  addDayText: { fontFamily: 'Outfit-SemiBold', fontSize: 13, color: ORANGE },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE },
+  chipOn: { backgroundColor: TEXT_0, borderColor: TEXT_0 },
+  chipText: { fontFamily: 'Outfit-Medium', fontSize: 12.5, color: TEXT_2 },
+  chipTextOn: { fontFamily: 'Outfit-SemiBold', color: ORANGE_INK },
+  navRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  backBtn: { flex: 1, height: 48, borderRadius: 11, borderWidth: 1, borderColor: HAIRLINE, alignItems: 'center', justifyContent: 'center' },
+  backText: { fontFamily: 'Outfit-Medium', fontSize: 13, color: TEXT_2 },
+  continueBtn: { flex: 1, height: 48, borderRadius: 11, backgroundColor: TEXT_0, alignItems: 'center', justifyContent: 'center' },
+  continueDisabled: { backgroundColor: SURFACE },
+  continueText: { fontFamily: 'Outfit-Bold', fontSize: 14, color: ORANGE_INK },
+});

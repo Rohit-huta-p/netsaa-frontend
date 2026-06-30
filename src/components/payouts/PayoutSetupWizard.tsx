@@ -126,6 +126,7 @@ export default function PayoutSetupWizard({ visible, onClose, onDone }: Props) {
         <PayoutResultScreen
           status={result.status}
           rejectionReason={result.rejectionReason}
+          account={result}
           onPrimary={handleDone}
           onRetry={handleRetry}
         />

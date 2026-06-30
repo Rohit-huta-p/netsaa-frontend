@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
-import { CheckCircle, AlertCircle, Clock, XCircle, ArrowRight } from 'lucide-react-native';
+import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { CheckCircle, AlertCircle, Clock, XCircle, Landmark } from 'lucide-react-native';
 import { usePayoutAccount } from '@/hooks/usePayoutAccount';
 import type { PayoutStatus } from '@/services/payoutService';
 
@@ -8,55 +8,30 @@ interface Props {
   onSetup: () => void;
 }
 
-function statusMeta(status: PayoutStatus): {
-  icon: React.ReactNode;
-  label: string;
-  labelColor: string;
-  buttonText: string;
-  description?: string;
-} {
+const SURFACE = 'rgba(255,255,255,0.04)';
+const HAIRLINE = 'rgba(255,255,255,0.1)';
+const TEXT_0 = '#F3EFE8';
+const TEXT_2 = '#71717a';
+const ORANGE = '#FF6B35';
+const ORANGE_SOFT = 'rgba(255,107,53,0.16)';
+const ORANGE_INK = '#1A0D06';
+const GREEN = '#22C55E';
+const AMBER = '#F59E0B';
+const RED = '#EF4444';
+
+function statusMeta(status: PayoutStatus): { icon: React.ReactNode; label: string; color: string; buttonText: string; description?: string } {
   switch (status) {
     case 'verified':
-      return {
-        icon: <CheckCircle size={18} color="#22C55E" />,
-        label: 'Verified',
-        labelColor: 'text-green-400',
-        buttonText: 'Manage',
-      };
+      return { icon: <CheckCircle size={16} color={GREEN} />, label: 'Verified', color: GREEN, buttonText: 'Manage' };
     case 'submitted':
     case 'pending_kyc':
-      return {
-        icon: <Clock size={18} color="#F59E0B" />,
-        label: 'Verification in progress',
-        labelColor: 'text-amber-400',
-        buttonText: 'Check status',
-        description: "Razorpay is reviewing your details. We'll email you when it's done.",
-      };
+      return { icon: <Clock size={16} color={AMBER} />, label: 'Verification in progress', color: AMBER, buttonText: 'Check status', description: "Razorpay is reviewing your details. We'll email you when it's done." };
     case 'rejected':
-      return {
-        icon: <XCircle size={18} color="#EF4444" />,
-        label: 'Verification failed',
-        labelColor: 'text-red-400',
-        buttonText: 'Try again',
-        description: 'Your bank details could not be verified. Please re-submit with the correct information.',
-      };
+      return { icon: <XCircle size={16} color={RED} />, label: 'Verification failed', color: RED, buttonText: 'Try again', description: 'Your bank details could not be verified. Re-submit with the correct information.' };
     case 'suspended':
-      return {
-        icon: <AlertCircle size={18} color="#EF4444" />,
-        label: 'Account suspended',
-        labelColor: 'text-red-400',
-        buttonText: 'Contact support',
-        description: 'Your payout account has been suspended. Please contact NETSA support.',
-      };
-    default: // not_started
-      return {
-        icon: <ArrowRight size={18} color="#FF6B35" />,
-        label: 'Not set up',
-        labelColor: 'text-event-brand',
-        buttonText: 'Set up payouts',
-        description:
-          'Link your bank account to receive payments instantly when someone registers for your paid event.',
-      };
+      return { icon: <AlertCircle size={16} color={RED} />, label: 'Account suspended', color: RED, buttonText: 'Contact support', description: 'Your payout account has been suspended. Please contact NETSA support.' };
+    default:
+      return { icon: null, label: 'Not set up', color: ORANGE, buttonText: 'Set up payouts' };
   }
 }
 
@@ -65,88 +40,70 @@ export default function PayoutStatusCard({ onSetup }: Props) {
 
   if (isLoading) {
     return (
-      <View className="rounded-2xl bg-event-surface border border-event-border px-4 py-5 items-center gap-3">
-        <ActivityIndicator color="#FF6B35" />
-        <Text className="font-outfit text-event-textMuted text-sm">Loading payout account…</Text>
+      <View style={[styles.card, { alignItems: 'center', gap: 12 }]}>
+        <ActivityIndicator color={ORANGE} />
+        <Text style={styles.dim}>Loading payout account…</Text>
       </View>
     );
   }
 
-  if (isError || !data) {
+  const status: PayoutStatus = isError || !data ? 'not_started' : data.status;
+
+  // not_started → the hero (P1)
+  if (status === 'not_started') {
     return (
-      <View className="rounded-2xl bg-event-surface border border-event-border px-4 py-5 gap-3">
-        <Text className="font-outfit text-event-textSecondary text-sm">
-          Could not load payout account. Set up now to receive payments from paid events.
-        </Text>
-        <Pressable
-          onPress={onSetup}
-          className="flex-row items-center gap-2 rounded-2xl bg-event-brand px-4 py-3 self-start"
-        >
-          <Text className="font-outfit font-semibold text-white text-sm">Set up payouts</Text>
-          <ArrowRight size={16} color="#ffffff" />
+      <View style={styles.hero}>
+        <View style={styles.heroIcon}><Landmark size={26} color={ORANGE} /></View>
+        <Text style={styles.heroTitle}>No bank linked yet</Text>
+        <Text style={styles.heroSub}>~3 minutes · Razorpay verifies live · works with any Indian bank</Text>
+        <Pressable onPress={onSetup} style={styles.heroBtn} accessibilityRole="button" accessibilityLabel="Set up payouts">
+          <Text style={styles.heroBtnText}>Set up payouts →</Text>
         </Pressable>
       </View>
     );
   }
 
-  const status = data.status;
   const meta = statusMeta(status);
 
   if (status === 'verified') {
     return (
-      <View className="rounded-2xl bg-event-surface border border-event-border px-4 py-5 gap-3">
-        {/* Status pill */}
-        <View className="flex-row items-center gap-2">
-          {meta.icon}
-          <Text className={`font-outfit font-semibold text-sm ${meta.labelColor}`}>{meta.label}</Text>
-        </View>
-
-        {/* Bank info */}
-        <View className="gap-1">
-          <Text className="font-outfit font-semibold text-event-textPrimary text-base">
-            {data.accountHolderName ?? 'Account holder'}
-          </Text>
-          <Text className="font-mono text-event-textSecondary text-sm">
-            {data.bankName ? `${data.bankName} · ` : ''}
-            {'****'}
-            {data.bankLast4 ?? ''}
-          </Text>
-        </View>
-
-        <View className="h-px bg-event-border" />
-
-        <Pressable
-          onPress={onSetup}
-          className="flex-row items-center gap-2 self-start"
-        >
-          <Text className="font-outfit text-event-textMuted text-sm">{meta.buttonText}</Text>
-          <ArrowRight size={14} color="#9693A0" />
-        </Pressable>
+      <View style={styles.card}>
+        <View style={styles.pillRow}>{meta.icon}<Text style={[styles.pillText, { color: GREEN }]}>{meta.label}</Text></View>
+        <Text style={styles.holder}>{data?.accountHolderName ?? 'Account holder'}</Text>
+        <Text style={styles.bankLine}>{data?.bankName ? `${data.bankName} · ` : ''}****{data?.bankLast4 ?? ''}</Text>
+        <View style={styles.divider} />
+        <Pressable onPress={onSetup} hitSlop={8}><Text style={styles.manageLink}>{meta.buttonText} →</Text></Pressable>
       </View>
     );
   }
 
   return (
-    <View className="rounded-2xl bg-event-surface border border-event-border px-4 py-5 gap-3">
-      {/* Status pill */}
-      <View className="flex-row items-center gap-2">
-        {meta.icon}
-        <Text className={`font-outfit font-semibold text-sm ${meta.labelColor}`}>{meta.label}</Text>
-      </View>
-
-      {meta.description ? (
-        <Text className="font-outfit text-event-textSecondary text-sm leading-5">
-          {meta.description}
-        </Text>
-      ) : null}
-
-      <Pressable
-        onPress={onSetup}
-        className="flex-row items-center gap-2 rounded-2xl bg-event-brand px-4 py-3 self-start"
-      >
-        <Text className="font-outfit font-semibold text-white text-sm">{meta.buttonText}</Text>
-        <ArrowRight size={16} color="#ffffff" />
+    <View style={styles.card}>
+      <View style={styles.pillRow}>{meta.icon}<Text style={[styles.pillText, { color: meta.color }]}>{meta.label}</Text></View>
+      {meta.description ? <Text style={styles.desc}>{meta.description}</Text> : null}
+      <Pressable onPress={onSetup} style={styles.actionBtn} accessibilityRole="button" accessibilityLabel={meta.buttonText}>
+        <Text style={styles.actionBtnText}>{meta.buttonText} →</Text>
       </Pressable>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: { backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 16, gap: 10 },
+  dim: { fontFamily: 'Outfit-Regular', fontSize: 13, color: TEXT_2 },
+  hero: { backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE, borderRadius: 14, padding: 18, alignItems: 'center' },
+  heroIcon: { width: 56, height: 56, borderRadius: 14, backgroundColor: ORANGE_SOFT, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  heroTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 18, color: TEXT_0, marginBottom: 6 },
+  heroSub: { fontFamily: 'Outfit-Regular', fontSize: 12.5, color: TEXT_2, textAlign: 'center', lineHeight: 18, marginBottom: 16 },
+  heroBtn: { alignSelf: 'stretch', height: 44, borderRadius: 10, backgroundColor: TEXT_0, alignItems: 'center', justifyContent: 'center' },
+  heroBtnText: { fontFamily: 'Outfit-Bold', fontSize: 13.5, color: ORANGE_INK },
+  pillRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pillText: { fontFamily: 'Outfit-SemiBold', fontSize: 13 },
+  holder: { fontFamily: 'Outfit-SemiBold', fontSize: 15, color: TEXT_0 },
+  bankLine: { fontFamily: 'SpaceMono-Regular', fontSize: 12.5, color: TEXT_2 },
+  divider: { height: 1, backgroundColor: HAIRLINE },
+  manageLink: { fontFamily: 'Outfit-Medium', fontSize: 13, color: TEXT_2 },
+  desc: { fontFamily: 'Outfit-Regular', fontSize: 13, color: TEXT_2, lineHeight: 19 },
+  actionBtn: { alignSelf: 'flex-start', backgroundColor: TEXT_0, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 11, marginTop: 2 },
+  actionBtnText: { fontFamily: 'Outfit-Bold', fontSize: 13, color: ORANGE_INK },
+});

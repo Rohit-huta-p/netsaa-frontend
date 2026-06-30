@@ -2,7 +2,7 @@ import { View, Text, Pressable } from 'react-native';
 import { useCreateEventStore } from '@/stores/createEventStore';
 import TopicTagAutocomplete from '../TopicTagAutocomplete';
 
-export default function Step1TopicMode({ onNext }: { onNext: () => void }) {
+export default function Step1TopicMode({ onNext }: { onNext: () => void; onBack?: () => void }) {
   const { form, update, markComplete } = useCreateEventStore();
 
   const canContinue = form.topicTags.length >= 1 && !!form.registrationMode;

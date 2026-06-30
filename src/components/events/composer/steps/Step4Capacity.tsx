@@ -28,7 +28,7 @@ const ATTENDEE_FIELD_TOGGLES: { value: RequiredAttendeeField; label: string; sub
   { value: 'guestNames', label: 'Guest names', sub: 'When group size > 1' },
 ];
 
-export default function Step4Capacity({ onNext }: { onNext: () => void }) {
+export default function Step4Capacity({ onNext }: { onNext: () => void; onBack?: () => void }) {
   const { form, update, markComplete } = useCreateEventStore();
   const router = useRouter();
   const total = form.capacity.total;

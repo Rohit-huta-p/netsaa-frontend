@@ -12,7 +12,7 @@ const SKILL_SUGGESTIONS = [
 
 const ONE_DAY = 86400000;
 
-export default function Step5Description({ onNext }: { onNext: () => void }) {
+export default function Step5Description({ onNext }: { onNext: () => void; onBack?: () => void }) {
   const { form, update, markComplete } = useCreateEventStore();
 
   const isMultiDay = form.durationKind === 'multi';

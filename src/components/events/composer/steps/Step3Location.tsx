@@ -2,7 +2,7 @@ import { View, Text, TextInput, Pressable } from 'react-native';
 import { useCreateEventStore } from '@/stores/createEventStore';
 import { eventTokens } from '@/lib/eventTokens';
 
-export default function Step3Location({ onNext }: { onNext: () => void }) {
+export default function Step3Location({ onNext }: { onNext: () => void; onBack?: () => void }) {
   const { form, update, markComplete } = useCreateEventStore();
   const kind = form.location.kind;
 

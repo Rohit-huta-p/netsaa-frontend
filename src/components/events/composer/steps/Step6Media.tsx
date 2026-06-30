@@ -10,7 +10,7 @@ import type { EventMedia } from '@/services/eventService';
 const NETSA_FALLBACK_URL = 'netsa-fallback';
 const MAX_MEDIA = 6;
 
-export default function Step6Media({ onNext }: { onNext: () => void }) {
+export default function Step6Media({ onNext }: { onNext: () => void; onBack?: () => void }) {
   const { form, update, markComplete } = useCreateEventStore();
   const [uploading, setUploading] = useState(false);
 

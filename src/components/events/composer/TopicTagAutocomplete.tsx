@@ -1,15 +1,23 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { View, Text, TextInput, Pressable, FlatList } from 'react-native';
-import { X } from 'lucide-react-native';
+import { View, Text, TextInput, Pressable, FlatList, StyleSheet } from 'react-native';
+import { X, Search } from 'lucide-react-native';
 import { useTopicTagSuggestions } from '@/hooks/useTopicTags';
 import { eventService } from '@/services/eventService';
-import { eventTokens } from '@/lib/eventTokens';
 
 interface Props {
   selected: string[];
   onChange: (next: string[]) => void;
   max?: number;
 }
+
+const SURFACE = 'rgba(255,255,255,0.04)';
+const SURFACE_HI = 'rgba(255,255,255,0.07)';
+const HAIRLINE = 'rgba(255,255,255,0.1)';
+const TEXT_0 = '#F3EFE8';
+const TEXT_2 = '#71717a';
+const TEXT_3 = '#52525b';
+const ORANGE = '#FF6B35';
+const ORANGE_INK = '#1A0D06';
 
 function normalize(raw: string): string {
   return raw
@@ -51,75 +59,100 @@ export default function TopicTagAutocomplete({ selected, onChange, max = 3 }: Pr
     if (selected.includes(id)) return;
     onChange([...selected, id]);
     setQuery('');
-    // Fire-and-forget tag submit (backend dedups; safe if it already exists)
     eventService.submitTag(raw).catch(() => { /* swallow */ });
   };
 
   const remove = (tagId: string) => onChange(selected.filter((t) => t !== tagId));
 
   return (
-    <View className="gap-3">
-      {selected.length > 0 ? (
-        <View className="flex-row flex-wrap gap-2">
-          {selected.map((tag) => (
-            <Pressable
-              key={tag}
-              onPress={() => remove(tag)}
-              className="flex-row items-center gap-2 px-3 py-2 rounded-full bg-event-brand"
-            >
-              <Text className="font-outfit text-white text-sm">{tag}</Text>
-              <X size={14} color="#fff" />
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-
+    <View style={{ gap: 8 }}>
       {selected.length < max ? (
-        <View className="rounded-2xl bg-event-surface border border-event-border px-4 py-3">
+        <View style={styles.searchBox}>
+          <Search size={15} color={TEXT_3} />
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search or type a topic..."
-            placeholderTextColor={eventTokens.textMuted ?? '#6E6C76'}
+            placeholder="Search or type a topic…"
+            placeholderTextColor={TEXT_3}
             autoCorrect={false}
             autoCapitalize="none"
             onSubmitEditing={() => canCreateNew && add(query)}
-            className="font-outfit text-event-textPrimary text-base"
-            style={{ minHeight: 24 }}
+            style={styles.searchInput}
           />
         </View>
       ) : null}
 
       {selected.length < max && (filtered.length > 0 || canCreateNew) ? (
-        <View className="rounded-2xl bg-event-surface border border-event-border overflow-hidden">
+        <View style={styles.dropdown}>
           <FlatList
             data={filtered}
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => (
-              <Pressable
-                onPress={() => add(item._id)}
-                className="flex-row items-center justify-between px-4 py-3 border-b border-event-border"
-              >
-                <Text className="font-outfit text-event-textPrimary">{item.displayName}</Text>
-                <Text className="font-mono text-event-textMuted text-xs">{item.usageCount}</Text>
+              <Pressable onPress={() => add(item._id)} style={styles.suggestRow}>
+                <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 13.5, color: TEXT_0 }}>{item.displayName}</Text>
+                <Text style={{ fontFamily: 'SpaceMono-Regular', fontSize: 11, color: TEXT_3 }}>{item.usageCount}</Text>
               </Pressable>
             )}
             ListFooterComponent={canCreateNew ? (
-              <Pressable
-                onPress={() => add(query)}
-                className="px-4 py-3 bg-event-surfaceAlt"
-              >
-                <Text className="font-outfit text-event-brand">+ Create "{normalizedQuery}"</Text>
-                <Text className="font-outfit text-event-textMuted text-[10px] mt-1">Tags new to the platform go to moderation. You can still use it immediately.</Text>
+              <Pressable onPress={() => add(query)} style={styles.createRow}>
+                <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 13, color: ORANGE }}>+ Create “{normalizedQuery}”</Text>
+                <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 10.5, color: TEXT_3, marginTop: 2 }}>New tags go to moderation — you can still use it now.</Text>
               </Pressable>
             ) : null}
           />
         </View>
       ) : null}
 
-      <Text className="font-outfit text-event-textMuted text-xs">
-        Pick up to {max} topics.
-      </Text>
+      {selected.length > 0 ? (
+        <View style={styles.chipWrap}>
+          {selected.map((tag) => (
+            <Pressable key={tag} onPress={() => remove(tag)} style={styles.chip} accessibilityLabel={`Remove ${tag}`}>
+              <Text style={styles.chipText}>{tag}</Text>
+              <X size={12} color={ORANGE_INK} />
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
+      <Text style={styles.helper}>Pick up to {max} topics.</Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  searchInput: { flex: 1, color: TEXT_0, fontFamily: 'Outfit-Regular', fontSize: 14, padding: 0 },
+  dropdown: { backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE, borderRadius: 10, overflow: 'hidden' },
+  suggestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(243,239,232,0.06)',
+  },
+  createRow: { paddingHorizontal: 14, paddingVertical: 11, backgroundColor: SURFACE_HI },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 7,
+    backgroundColor: TEXT_0,
+  },
+  chipText: { fontFamily: 'Outfit-SemiBold', fontSize: 12.5, color: ORANGE_INK },
+  helper: { fontFamily: 'Outfit-Regular', fontSize: 11, color: TEXT_3 },
+});

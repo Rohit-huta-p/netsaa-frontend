@@ -10,8 +10,6 @@ const TEXT_0 = '#F3EFE8';
 const TEXT_1 = '#A1A1AA';
 const TEXT_2 = '#71717a';
 const TEXT_3 = '#52525b';
-const TEXT_4 = '#3f3f46';
-const ORANGE = '#FF6B35';
 const ORANGE_INK = '#1A0D06';
 const ORANGE_LINE = 'rgba(255,107,53,0.32)';
 

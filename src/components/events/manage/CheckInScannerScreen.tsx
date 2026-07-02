@@ -4,6 +4,8 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useCheckIn } from '@/hooks/useEvents';
+import { useEvent } from '@/hooks/useEvents';
+import WalkupAddSheet from '@/components/events/manage/WalkupAddSheet';
 
 const BG = '#09090b'; const TEXT_0 = '#f4f4f5'; const TEXT_2 = '#71717a'; const ORANGE = '#FF6B35'; const GREEN_SOFT = 'rgba(34,197,94,0.14)'; const GREEN = '#22C55E';
 
@@ -14,6 +16,10 @@ export default function CheckInScannerScreen() {
   const checkIn = useCheckIn(id);
   const [recent, setRecent] = useState<{ name: string; at: string }[]>([]);
   const [scanning, setScanning] = useState(true);
+  const { data: event } = useEvent(id);
+  const [walkupOpen, setWalkupOpen] = useState(false);
+  const remaining = event ? (event.capacity?.slotsLeft ?? ((event.capacity?.total ?? 0) - (event.capacity?.registeredCount ?? 0))) : 0;
+  const canWalkup = !!event?.walkupsAllowed && remaining > 0;
 
   const onScan = async ({ data }: { data: string }) => {
     if (!scanning) return;
@@ -56,9 +62,25 @@ export default function CheckInScannerScreen() {
           <Text className="font-mono" style={{ color: '#52525b', fontSize: 10 }}>{r.at}</Text>
         </View>
       ))}
-      <Pressable onPress={() => router.push(`/events/${id}/manage/check-in?manual=1`)} style={{ alignItems: 'center', padding: 16 }}>
-        <Text className="font-outfit" style={{ color: ORANGE, fontSize: 13, fontWeight: '600' }}>Can't scan? Manual check-in →</Text>
-      </Pressable>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 16 }}>
+        {canWalkup ? (
+          <Pressable onPress={() => setWalkupOpen(true)}>
+            <Text className="font-outfit" style={{ color: TEXT_0, fontSize: 13, fontWeight: '700' }}>+ Add walk-up</Text>
+          </Pressable>
+        ) : null}
+        <Pressable onPress={() => router.push(`/events/${id}/manage/check-in?manual=1`)}>
+          <Text className="font-outfit" style={{ color: ORANGE, fontSize: 13, fontWeight: '600' }}>Can't scan? Manual check-in →</Text>
+        </Pressable>
+      </View>
+      {event && canWalkup ? (
+        <WalkupAddSheet
+          visible={walkupOpen}
+          event={event}
+          remaining={remaining}
+          onClose={() => setWalkupOpen(false)}
+          onAdded={() => setWalkupOpen(false)}
+        />
+      ) : null}
     </View>
   );
 }

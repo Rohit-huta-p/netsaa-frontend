@@ -281,6 +281,12 @@ export const eventService = {
     return r.data.data;
   },
 
+  addWalkup: async (
+    eventId: string,
+    body: { fullName: string; phone: string; quantity: number; payment: 'free' | 'cash' },
+  ): Promise<{ registrationId: string; status: string; seats: number }> =>
+    (await client.post(`/v1/events/${eventId}/walkup`, body)).data.data,
+
   joinWaitlist: async (eventId: string, quantity: number, attendeeSnapshot: { fullName: string; phone: string; email?: string }): Promise<{
     entryId: string; position: number; status: string;
   }> => (await client.post(`/v1/events/${eventId}/waitlist/join`, { quantity, attendeeSnapshot })).data.data,

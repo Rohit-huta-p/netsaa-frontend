@@ -92,3 +92,15 @@ export function useUpdateEvent(id: string) {
     },
   });
 }
+
+export function useWalkupAdd(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { fullName: string; phone: string; quantity: number; payment: 'free' | 'cash' }) =>
+      eventService.addWalkup(eventId, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
+      qc.invalidateQueries({ queryKey: ['eventRoster', eventId] });
+    },
+  });
+}

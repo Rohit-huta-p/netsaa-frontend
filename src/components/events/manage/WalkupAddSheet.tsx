@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Modal, View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import type { EventDoc } from '@/services/eventService';
 import { useWalkupAdd } from '@/hooks/useEvents';
@@ -25,25 +25,22 @@ export default function WalkupAddSheet({
   const walkup = useWalkupAdd(event._id);
   const [fullName, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [seats, setSeats] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
   const isPaid = event.registrationMode === 'paid_ticket';
   // Price is display-only; the server computes the authoritative amount from Event.ticketPrice.
   const priceRupees: number = (event as any).pricing?.amount ?? (event as any).ticketPrice ?? 0;
-  const maxSeats = Math.max(1, Math.min(event.maxGuestsPerRegistration ?? 5, remaining));
-  const seatOptions = useMemo(() => Array.from({ length: maxSeats }, (_, i) => i + 1), [maxSeats]);
 
   const registered = (event.capacity?.total ?? 0) - remaining;
 
-  const reset = () => { setName(''); setPhone(''); setSeats(1); setError(null); };
+  const reset = () => { setName(''); setPhone(''); setError(null); };
   const close = () => { reset(); onClose(); };
 
   const submit = async () => {
     setError(null);
     if (!fullName.trim() || !phone.trim()) { setError('Name and phone required'); return; }
     try {
-      await walkup.mutateAsync({ fullName: fullName.trim(), phone: phone.trim(), quantity: seats, payment: isPaid ? 'cash' : 'free' });
+      await walkup.mutateAsync({ fullName: fullName.trim(), phone: phone.trim(), quantity: 1, payment: isPaid ? 'cash' : 'free' });
       const name = fullName.trim();
       reset();
       onAdded(name);
@@ -71,25 +68,13 @@ export default function WalkupAddSheet({
           <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="00000 00000" placeholderTextColor={TEXT_3} style={styles.phoneInput} />
         </View>
 
-        <Text style={styles.label}>SEATS</Text>
-        <View style={styles.chipRow}>
-          {seatOptions.map((n) => {
-            const on = n === seats;
-            return (
-              <Pressable key={n} onPress={() => setSeats(n)} style={[styles.chip, on && styles.chipOn]}>
-                <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{n}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
         {isPaid ? (
           <>
             <Text style={styles.label}>PAYMENT</Text>
             <View style={styles.payRow}>
               <View style={[styles.payCard, styles.payCardOn]}>
                 <Text style={styles.payTitleOn}>Cash recorded</Text>
-                <Text style={styles.paySub}>₹{(priceRupees * seats).toLocaleString('en-IN')} marked paid</Text>
+                <Text style={styles.paySub}>₹{priceRupees.toLocaleString('en-IN')} marked paid</Text>
               </View>
               <View style={[styles.payCard, styles.payCardOff]}>
                 <Text style={styles.payTitleOff}>Razorpay link</Text>
@@ -104,7 +89,7 @@ export default function WalkupAddSheet({
         <Pressable onPress={submit} disabled={walkup.isPending} style={[styles.cta, walkup.isPending && { opacity: 0.6 }]}>
           <Text style={styles.ctaTxt}>{walkup.isPending ? 'Adding…' : 'Add & check in →'}</Text>
         </Pressable>
-        <Text style={styles.footer}>Walkup capacity: {registered + seats}/{event.capacity?.total ?? '—'} after this</Text>
+        <Text style={styles.footer}>Walkup capacity: {registered + 1}/{event.capacity?.total ?? '—'} after this</Text>
       </View>
       </View>
     </Modal>
@@ -122,11 +107,6 @@ const styles = StyleSheet.create({
   phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE_2, borderRadius: 9, paddingHorizontal: 14 },
   phonePrefix: { fontFamily: 'Outfit-Regular', color: TEXT_2, fontSize: 14 },
   phoneInput: { flex: 1, color: TEXT_0, fontFamily: 'Outfit-Regular', fontSize: 14, paddingVertical: 12 },
-  chipRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 7, backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE_2 },
-  chipOn: { backgroundColor: TEXT_0, borderColor: TEXT_0 },
-  chipTxt: { fontFamily: 'Outfit-Medium', color: TEXT_2, fontSize: 13 },
-  chipTxtOn: { fontFamily: 'Outfit-SemiBold', color: ORANGE_INK },
   payRow: { flexDirection: 'row', gap: 8 },
   payCard: { flex: 1, padding: 12, borderRadius: 10, borderWidth: 1 },
   payCardOn: { backgroundColor: SURFACE, borderColor: ORANGE_LINE },

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocalSearchParams, Redirect, Stack, useRouter } from 'expo-router';
 import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Heart, Share2 } from 'lucide-react-native';
 import { useEvent } from '@/hooks/useEvents';
 import { useAuthStore } from '@/stores/authStore';
@@ -18,7 +19,7 @@ const HAIRLINE = 'rgba(255,255,255,0.10)';
 
 export default function EventDetailScreen() {
   const router = useRouter();
-  const { id, openRegister } = useLocalSearchParams<{ id: string; openRegister?: string }>();
+  const { id, openRegister, preview } = useLocalSearchParams<{ id: string; openRegister?: string; preview?: string }>();
   const [sheetOpenForce, setSheetOpenForce] = useState(false);
   const { data: event, isLoading, error } = useEvent(id);
 
@@ -66,13 +67,16 @@ export default function EventDetailScreen() {
 
   if (!event) return null;
 
-  // Organizer view → redirect to manage
+  // Organizer view → redirect to manage (unless previewing as viewer via ?preview=1)
   const organizerIdResolved = typeof event.organizerId === 'string'
     ? event.organizerId
     : event.organizerId?._id;
-  if (organizerIdResolved && userId && organizerIdResolved === userId) {
+  if (organizerIdResolved && userId && organizerIdResolved === userId && preview !== '1') {
     return <Redirect href={`/events/${event._id}/manage/overview`} />;
   }
+
+  // Preview-as-viewer: banner shown only to the actual organizer
+  const isPreview = preview === '1' && !!organizerIdResolved && organizerIdResolved === userId;
 
   // Nav meta: city + type
   const city = (event as any).location?.city || '';
@@ -81,6 +85,38 @@ export default function EventDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <Stack.Screen options={{ headerShown: false }} />
+
+      {/* PREVIEW BAR — organizer viewing their own public page */}
+      {isPreview ? (
+        <LinearGradient
+          colors={['rgba(255,107,53,0.16)', 'rgba(255,107,53,0.06)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 9,
+            paddingVertical: 9,
+            paddingHorizontal: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: 'rgba(255,107,53,0.34)',
+          }}>
+          <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#FF6B35' }} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: 'Outfit-SemiBold', color: TEXT_0, fontSize: 11.5 }}>Preview</Text>
+            <Text style={{ fontFamily: 'Outfit-Regular', color: TEXT_2, fontSize: 10 }}>
+              This is what a viewer sees
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => router.replace(`/events/${id}/manage/overview` as any)}
+            hitSlop={10}>
+            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 10, color: '#FF6B35', letterSpacing: 0.6 }}>
+              EXIT ✕
+            </Text>
+          </Pressable>
+        </LinearGradient>
+      ) : null}
 
       {/* NAV — inbox-style */}
       <View style={{

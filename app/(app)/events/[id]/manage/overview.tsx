@@ -83,11 +83,17 @@ export default function OverviewScreen() {
   if (!event) return null;
 
   const tl = timeToGo(event.startsAt, event.endsAt);
-  const dayOf = tl === 'today' || tl === 'underway';
+  // Day-of surfaces (TODAY pill, check-in CTAs, live stats swap) require the
+  // event to actually be live — a draft/cancelled/completed event dated today
+  // is not "doors open".
+  const dayOf = (tl === 'today' || tl === 'underway') && event.status === 'live';
 
   // Live checked-in count (day-of only); undefined until the roster loads → "—".
+  // Sums seats, not roster rows — a 4-seat registration checked in counts as 4.
   const checkedIn = dayOf
-    ? roster?.confirmed.filter((r) => r.status === 'attended').length
+    ? roster?.confirmed
+        .filter((r) => r.status === 'attended')
+        .reduce((n, r) => n + (r.seats ?? 1), 0)
     : undefined;
 
   // Modal derivations — same as OverviewActions.
@@ -109,6 +115,7 @@ export default function OverviewScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <PosterHero
           event={event}
+          status={event.status}
           dayOf={dayOf}
           timeLabel={tl}
           onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}

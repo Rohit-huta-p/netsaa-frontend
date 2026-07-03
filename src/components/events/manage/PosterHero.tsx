@@ -6,7 +6,8 @@
  *   - Background  — paginated media carousel (expo-image) or the brand-gradient
  *                   fallback (EventHeroGallery's logo asset over a dark wash)
  *   - Scrim       — transparent → near-black bottom gradient
- *   - Nav row     — glass back circle · LIVE/TODAY pill · Preview · Share · Settings
+ *   - Nav row     — glass back circle · status pill (TODAY / LIVE / DRAFT…) ·
+ *                   Preview · Share · Settings
  *   - Add-photo   — dashed glass circle on the right edge
  *   - Hero foot   — carousel dots · serif title · orange organizer sub ·
  *                   date/venue meta · 5px capacity fill bar
@@ -27,6 +28,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Eye, Share2, Settings, ImagePlus } from 'lucide-react-native';
 import type { EventDoc, EventMedia } from '@/services/eventService';
+import { eventStatusLabel, eventStatusColor } from '@/lib/eventTokens';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const HERO_H = 360;
@@ -63,7 +65,8 @@ function venueLabel(loc?: EventDoc['location']): string {
 
 interface PosterHeroProps {
   event: EventDoc;
-  dayOf: boolean;                 // true → "TODAY · DOORS OPEN" orange pill; else "LIVE · <timeLabel>"
+  status: EventDoc['status'];     // drives the pill: live → green LIVE; else eventTokens label/color
+  dayOf: boolean;                 // true (live events only) → "TODAY · DOORS OPEN" orange pill
   timeLabel: string;              // e.g. "21 days to go" (from overview's timeToGo)
   onBack(): void;
   onPreview(): void;
@@ -74,6 +77,7 @@ interface PosterHeroProps {
 
 export default function PosterHero({
   event,
+  status,
   dayOf,
   timeLabel,
   onBack,
@@ -97,6 +101,15 @@ export default function PosterHero({
   const pct = event.capacity?.total
     ? Math.max(0, Math.min(100, Math.round((event.capacity.registeredCount / event.capacity.total) * 100)))
     : 0;
+
+  // Non-live pill copy — the status label, plus the countdown only where the
+  // schedule is still forward-looking (draft / pending_review). For cancelled
+  // and completed the timeLabel ("underway", "ended") adds noise, not info.
+  const statusColor = eventStatusColor[status];
+  const statusText =
+    timeLabel && (status === 'draft' || status === 'pending_review')
+      ? `${eventStatusLabel[status].toUpperCase()} · ${timeLabel}`
+      : eventStatusLabel[status].toUpperCase();
 
   return (
     <View style={styles.hero}>
@@ -169,11 +182,20 @@ export default function PosterHero({
               TODAY · DOORS OPEN
             </Text>
           </View>
-        ) : (
+        ) : status === 'live' ? (
           <View style={styles.livePill}>
             <View style={[styles.livePillDot, { backgroundColor: GREEN }]} />
             <Text style={[styles.livePillText, { color: GREEN }]} numberOfLines={1}>
               {timeLabel ? `LIVE · ${timeLabel}` : 'LIVE'}
+            </Text>
+          </View>
+        ) : (
+          // draft / pending_review / cancelled / completed — same glass pill,
+          // dot + text + border tinted with the eventTokens status color.
+          <View style={[styles.livePill, { borderColor: `${statusColor}66` }]}>
+            <View style={[styles.livePillDot, { backgroundColor: statusColor }]} />
+            <Text style={[styles.livePillText, { color: statusColor }]} numberOfLines={1}>
+              {statusText}
             </Text>
           </View>
         )}

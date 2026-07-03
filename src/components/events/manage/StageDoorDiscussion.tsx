@@ -9,14 +9,16 @@
  * Header: 26px orange-soft door square (MessageSquare) · serif "Stage door" ·
  * right-aligned mono yellow "{n} messages" (only when there are comments —
  * discussionCount is a TOTAL, not an unread count, so no "new"/"NEW" claim).
- * Body: the real, shipped <DiscussionTabs event={event} /> — read + reply,
- * public/attendees gating self-managed. NOT restyled here; moderation
- * (pin / mark-answered) is deferred until the backend exists.
+ * Body: the shared <DiscussionTab> thread, rendered DIRECTLY — not the
+ * registration-gated DiscussionTabs wrapper. The manage surface is
+ * organizer-only by construction; the host has no EventRegistration, so the
+ * attendees_only gate would lock them out of their own thread. NOT restyled
+ * here; moderation (pin / mark-answered) is deferred until the backend exists.
  */
 import { View, Text, StyleSheet } from 'react-native';
 import { MessageSquare } from 'lucide-react-native';
 import type { EventDoc } from '@/services/eventService';
-import DiscussionTabs from '@/components/events/detail/DiscussionTabs';
+import DiscussionTab from '@/components/common/DiscussionTab';
 
 // Inbox-rhythm palette (DOCS/designs/INBOX_RHYTHM_DESIGN_SYSTEM.md)
 const BG='#060509', SURFACE='rgba(255,255,255,0.04)', HAIR='rgba(255,255,255,0.07)', HAIR2='rgba(255,255,255,0.10)';
@@ -43,7 +45,7 @@ export default function StageDoorDiscussion({ event }: StageDoorDiscussionProps)
       </View>
 
       {/* The real thread — drop-in, self-managing; do not restyle. */}
-      <DiscussionTabs event={event} />
+      <DiscussionTab id={event._id} type="event" />
     </View>
   );
 }

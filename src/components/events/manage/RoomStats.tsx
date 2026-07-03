@@ -12,8 +12,10 @@
  *                         the screen that hosts PayoutStatusCard + PayoutSetupWizard)
  *
  * Honest data: the Day-of "Checked in" count isn't on EventDoc (check-ins live
- * in the registration/ticket collections), so it renders "—" rather than a
- * fabricated number. Earnings reuse OverviewStatsGrid's exact derivation.
+ * in the registration/ticket collections) — the overview passes it in via the
+ * optional `checkedInCount` prop, derived from the shared roster query; when
+ * it's undefined this renders "—" rather than a fabricated number. Earnings
+ * reuse OverviewStatsGrid's exact derivation.
  */
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -34,9 +36,11 @@ const NETSA_FEE = 0.005; // 0.5% — mirrors eventPricing (same as OverviewStats
 interface RoomStatsProps {
   event: EventDoc;
   dayOf: boolean;
+  /** Live day-of checked-in count (from the roster query); undefined → "—". */
+  checkedInCount?: number;
 }
 
-export default function RoomStats({ event, dayOf }: RoomStatsProps) {
+export default function RoomStats({ event, dayOf, checkedInCount }: RoomStatsProps) {
   const router = useRouter();
   const { data: payout, isLoading: payoutLoading, isError: payoutError } = usePayoutAccount();
 
@@ -77,8 +81,8 @@ export default function RoomStats({ event, dayOf }: RoomStatsProps) {
 
         {dayOf ? (
           <View style={[styles.stat, styles.statDivided]}>
-            {/* Checked-in count isn't on EventDoc — honest "—" until it is. */}
-            <Text style={styles.n} numberOfLines={1}>—</Text>
+            {/* Roster-derived count from the composer — honest "—" until it loads. */}
+            <Text style={styles.n} numberOfLines={1}>{checkedInCount ?? '—'}</Text>
             <Text style={styles.k}>Checked in</Text>
           </View>
         ) : (

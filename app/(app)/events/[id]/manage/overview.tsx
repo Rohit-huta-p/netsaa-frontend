@@ -1,24 +1,49 @@
 /**
- * Event manage / Overview tab — O4 "Manage overview" mockup, exact.
- * (event-flow-mockups-organizer.html · O4)
+ * Event manage / Overview — "The Living Poster".
+ * (event-manage-living-poster.html · Manage + Day-of frames, exact)
  *
- * Top to bottom:
- *   0. Nav      — back · "Manage" · settings gear (O4 nav row)
- *   1. Header   — status badge ("LIVE · 21 days to go") + title + venue·date
- *   2. Stats    — 2×2 gridlined: Registered / Waitlist / Earnings / Discussion
- *   3. Actions  — "Quick actions" rows (roster / announce / scanner / cancel)
+ * A poster hero (cover carousel + fill bar + Preview/Share/Settings/add-photo)
+ * over a rounded, de-carded sheet. Sheet order:
+ *   [day-of only] DayOfCtas   — big check-in CTA + walk-up CTA at the very top
+ *   RoomStats                 — centered "The room" stats + payout line
+ *   BackstageActions          — flush rows (roster · announce · scanner)
+ *   StageDoorDiscussion       — the one warm full-bleed band (real thread)
+ *   Cancel                    — quiet centered red row, only while cancellable
  *
- * The manage flow is a headerless Stack, so this screen draws its own nav row.
+ * This screen owns the day-of computation, the announce/cancel modals, share,
+ * preview navigation, and the live checked-in count (shared roster query).
+ * The manage flow is a headerless Stack — the hero draws its own nav.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { View, Text, ScrollView, ActivityIndicator, Pressable, StyleSheet } from 'react-native';
-import { ChevronLeft, Settings } from 'lucide-react-native';
-import { useEvent } from '@/hooks/useEvents';
-import { eventStatusLabel, eventStatusColor } from '@/lib/eventTokens';
-import OverviewStatsGrid from '@/components/events/manage/OverviewStatsGrid';
-import OverviewActions from '@/components/events/manage/OverviewActions';
-import type { EventDoc } from '@/services/eventService';
+import {
+  View,
+  Text,
+  ScrollView,
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Alert,
+} from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEvent, eventKeys } from '@/hooks/useEvents';
+import { useEventRoster } from '@/hooks/useEventRoster';
+import { shareEvent } from '@/lib/eventShare';
+import PosterHero from '@/components/events/manage/PosterHero';
+import RoomStats from '@/components/events/manage/RoomStats';
+import BackstageActions, { DayOfCtas } from '@/components/events/manage/BackstageActions';
+import StageDoorDiscussion from '@/components/events/manage/StageDoorDiscussion';
+import AnnouncementComposer from '@/components/events/manage/AnnouncementComposer';
+import OrganizerCancellationModal, {
+  type OrganizerCancelResult,
+} from '@/components/events/manage/OrganizerCancellationModal';
+
+// Inbox-rhythm palette (DOCS/designs/INBOX_RHYTHM_DESIGN_SYSTEM.md)
+const BG='#060509', SURFACE='rgba(255,255,255,0.04)', HAIR='rgba(255,255,255,0.07)', HAIR2='rgba(255,255,255,0.10)';
+const T0='#F3EFE8', T1='#A1A1AA', T2='#71717a', T3='#52525b', T4='#3f3f46', INK='#1A0D06';
+const ORANGE='#FF6B35', ORANGE_SOFT='rgba(255,107,53,0.16)', ORANGE_LINE='rgba(255,107,53,0.34)';
+const GREEN='#22C55E', BLUE='#5B8DEF', PURPLE='#8B5CF6', YELLOW='#EAB308', RED='#EF4444';
+const DSC_CARD='#15131C', DSC_BODY='#D5D0C8', DSC_MUT='#6B6878', DSC_SEND='#F97316';
 
 const DAY = 86400000;
 
@@ -37,143 +62,145 @@ function timeToGo(startsAt?: string, endsAt?: string): string {
   return `${d} days to go`;
 }
 
-/** "Mar 14 — 20" (same month) / "Mar 14 — Apr 2" / "Mar 14". */
-function dateRange(startsAt?: string, endsAt?: string): string {
-  if (!startsAt) return 'Date TBD';
-  const s = new Date(startsAt);
-  if (Number.isNaN(s.getTime())) return 'Date TBD';
-  const mon: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
-  const startStr = s.toLocaleDateString('en-IN', mon);
-  if (!endsAt) return startStr;
-  const e = new Date(endsAt);
-  if (Number.isNaN(e.getTime()) || e.toDateString() === s.toDateString()) return startStr;
-  const sameMonth = e.getMonth() === s.getMonth() && e.getFullYear() === s.getFullYear();
-  const endStr = sameMonth ? String(e.getDate()) : e.toLocaleDateString('en-IN', mon);
-  return `${startStr} — ${endStr}`;
-}
-
-function venueLabel(loc?: EventDoc['location']): string {
-  if (!loc) return '';
-  if (loc.kind === 'online') return loc.onlinePlatform ?? 'Online';
-  return loc.venueName ?? loc.address ?? '';
-}
-
 export default function OverviewScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const qc = useQueryClient();
   const { data: event, isLoading } = useEvent(id);
+  // Shared React Query cache with the roster screen — powers the live
+  // day-of "Checked in" stat.
+  const { data: roster } = useEventRoster(id);
+  const [announceOpen, setAnnounceOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#FF6B35" />
+        <ActivityIndicator color={ORANGE} />
       </View>
     );
   }
   if (!event) return null;
 
-  const statusKey = (event.status as keyof typeof eventStatusLabel) ?? 'draft';
-  const statusText = (eventStatusLabel[statusKey] ?? 'Draft').toUpperCase();
-  const statusColor = eventStatusColor[statusKey] ?? '#6B6878';
-  const timeLabel = timeToGo(event.startsAt, event.endsAt);
-  const venue = venueLabel(event.location);
-  const subtitle = [dateRange(event.startsAt, event.endsAt), venue].filter(Boolean).join(' · ');
+  const tl = timeToGo(event.startsAt, event.endsAt);
+  const dayOf = tl === 'today' || tl === 'underway';
+
+  // Live checked-in count (day-of only); undefined until the roster loads → "—".
+  const checkedIn = dayOf
+    ? roster?.confirmed.filter((r) => r.status === 'attended').length
+    : undefined;
+
+  // Modal derivations — same as OverviewActions.
+  const attendeeCount = event.capacity?.registeredCount ?? 0;
+  const ticketPriceRupees: number = (event as any).pricing?.amount ?? 0;
+  const canCancel = event.status === 'live' || event.status === 'pending_review';
+
+  const handleCancelled = (_result: OrganizerCancelResult) => {
+    setCancelOpen(false);
+    qc.invalidateQueries({ queryKey: eventKeys.detail(event._id) });
+    Alert.alert(
+      'Event cancelled',
+      'All attendees have been notified and refunds are being processed.',
+    );
+  };
 
   return (
     <View style={styles.screen}>
-      {/* 0 · Nav — back · Manage · settings */}
-      <View style={styles.nav}>
-        <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-          hitSlop={8}
-          style={styles.navBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <ChevronLeft size={18} color="#F3EFE8" />
-        </Pressable>
-        <Text style={styles.navTitle}>Manage</Text>
-        <Pressable
-          onPress={() => router.push(`/events/${id}/manage/settings` as any)}
-          hitSlop={8}
-          style={styles.navBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Event settings"
-        >
-          <Settings size={17} color="#F3EFE8" />
-        </Pressable>
-      </View>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <PosterHero
+          event={event}
+          dayOf={dayOf}
+          timeLabel={tl}
+          onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+          onPreview={() => router.push(`/events/${id}?preview=1` as any)}
+          onShare={() => shareEvent(event)}
+          onSettings={() => router.push(`/events/${id}/manage/settings` as any)}
+          onAddPhoto={() => router.push(`/events/${id}/edit` as any)}
+        />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 1 · Header */}
-        <View style={styles.header}>
-          <View style={[styles.badge, { backgroundColor: hexAlpha(statusColor, 0.14) }]}>
-            <View style={[styles.badgeDot, { backgroundColor: statusColor }]} />
-            <Text style={[styles.badgeText, { color: statusColor }]}>
-              {statusText}{timeLabel ? ` · ${timeLabel}` : ''}
-            </Text>
-          </View>
-          <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
-          {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
+        {/* The sheet — rounded, pulled up over the poster. overflow:'hidden'
+            so the Stage Door band's marginHorizontal:-20 full-bleed clips
+            cleanly at the screen edge (no horizontal scroll). */}
+        <View style={styles.sheet}>
+          <View style={styles.grab} />
+
+          {/* Day-of — the two door actions lead the sheet */}
+          {dayOf ? <DayOfCtas event={event} /> : null}
+
+          <RoomStats event={event} dayOf={dayOf} checkedInCount={checkedIn} />
+
+          <BackstageActions
+            event={event}
+            dayOf={dayOf}
+            onAnnounce={() => setAnnounceOpen(true)}
+          />
+
+          <StageDoorDiscussion event={event} />
+
+          {/* Quiet Cancel — hairline top, centered red text (only while cancellable) */}
+          {canCancel ? (
+            <Pressable
+              onPress={() => setCancelOpen(true)}
+              style={styles.cancelRow}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel event"
+            >
+              <Text style={styles.cancelText}>Cancel event</Text>
+            </Pressable>
+          ) : null}
         </View>
-
-        {/* 2 · Stats */}
-        <OverviewStatsGrid event={event} />
-
-        {/* 3 · Quick actions */}
-        <OverviewActions event={event} />
       </ScrollView>
+
+      <AnnouncementComposer
+        visible={announceOpen}
+        eventId={event._id}
+        onClose={() => setAnnounceOpen(false)}
+        onSent={() => setAnnounceOpen(false)}
+      />
+      <OrganizerCancellationModal
+        visible={cancelOpen}
+        eventId={event._id}
+        attendeeCount={attendeeCount}
+        ticketPriceRupees={ticketPriceRupees}
+        onClose={() => setCancelOpen(false)}
+        onCancelled={handleCancelled}
+      />
     </View>
   );
 }
 
-function hexAlpha(hex: string, alpha: number): string {
-  const m = hex.match(/^#([0-9a-f]{6})$/i);
-  if (!m) return `rgba(34,197,94,${alpha})`;
-  const int = parseInt(m[1], 16);
-  return `rgba(${(int >> 16) & 255},${(int >> 8) & 255},${int & 255},${alpha})`;
-}
-
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#060509' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#060509' },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  screen: { flex: 1, backgroundColor: BG },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: BG },
+  // .sheet — rounded top, -18 overlap onto the poster, clips the band's bleed
+  sheet: {
+    marginTop: -18,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    backgroundColor: BG,
+    paddingTop: 8,
     paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 10,
+    paddingBottom: 32,
+    overflow: 'hidden',
   },
-  navBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+  // .grab — 36×4 sheet handle
+  grab: {
+    width: 36,
+    height: 4,
+    borderRadius: 99,
+    backgroundColor: T4,
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  // .cancel — quiet centered destructive row at the foot
+  cancelRow: {
     alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: 26,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: HAIR,
   },
-  navTitle: { flex: 1, fontFamily: 'DMSerifDisplay_400Regular', color: '#F3EFE8', fontSize: 20 },
-  content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 64, gap: 16 },
-  header: { gap: 8 },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  badgeDot: { width: 6, height: 6, borderRadius: 99 },
-  badgeText: { fontFamily: 'Outfit-SemiBold', fontSize: 10.5 },
-  title: {
-    fontFamily: 'DMSerifDisplay_400Regular',
-    fontSize: 24,
-    lineHeight: 27,
-    letterSpacing: -0.4,
-    color: '#F3EFE8',
-  },
-  sub: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#9C99A6' },
+  cancelText: { fontFamily: 'Outfit-SemiBold', fontSize: 12, color: RED },
 });

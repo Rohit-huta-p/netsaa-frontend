@@ -7,7 +7,8 @@
  * clips it edge-to-edge) so the conversation reads as its own room.
  *
  * Header: 26px orange-soft door square (MessageSquare) · serif "Stage door" ·
- * right-aligned mono yellow "{n} new" (only when there are comments).
+ * right-aligned mono yellow "{n} messages" (only when there are comments —
+ * discussionCount is a TOTAL, not an unread count, so no "new"/"NEW" claim).
  * Body: the real, shipped <DiscussionTabs event={event} /> — read + reply,
  * public/attendees gating self-managed. NOT restyled here; moderation
  * (pin / mark-answered) is deferred until the backend exists.
@@ -38,7 +39,7 @@ export default function StageDoorDiscussion({ event }: StageDoorDiscussionProps)
           <MessageSquare size={14} color={ORANGE} />
         </View>
         <Text style={styles.title}>Stage door</Text>
-        {count > 0 ? <Text style={styles.count}>{count} new</Text> : null}
+        {count > 0 ? <Text style={styles.count}>{count} messages</Text> : null}
       </View>
 
       {/* The real thread — drop-in, self-managing; do not restyle. */}

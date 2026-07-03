@@ -1,18 +1,20 @@
 /**
  * BackstageActions — the "Backstage" block on the manage overview.
- * (event-manage-living-poster.html · Manage frame `.lab` + `.act` rows ·
- *  Day-of frame `.bigcta`/`.subcta`)
+ * (event-manage-living-poster.html · Manage + Day-of frames · `.lab` + `.act` rows)
  *
  * De-carded flush rows under a mono "Backstage" label:
  *   View roster        → /events/:id/manage/roster
  *   Send announcement  → onAnnounce() (the composer owns AnnouncementComposer)
- *   Check-in scanner   → pre-day only: dimmed, locked behind a mono date pill
+ *   Check-in scanner   → pre-day: dimmed, locked behind a mono date pill;
+ *                        day-of: LIVE ("QR scan · open now"), taps to the scanner.
+ *                        Deliberately duplicated with the big day-of CTA — the
+ *                        scanner must be reachable from Backstage on the day too.
  *
- * On day-of the two door actions lead the block instead:
- *   Open check-in scanner (big white CTA) + Add a walk-up (orange-soft CTA)
- *   — both land on /events/:id/manage/check-in; the walk-up sheet lives on the
- *   scanner screen (WalkupAddSheet via its local "+ Add walk-up" entry), so the
- *   locked row is omitted that day.
+ * The two door CTAs (Open check-in scanner · Add a walk-up) live in the
+ * separately exported <DayOfCtas> — the overview composer renders them at the
+ * TOP of the sheet on day-of, not inside this block. Both land on
+ * /events/:id/manage/check-in (the walk-up sheet lives on the scanner screen);
+ * the walk-up CTA only shows when the event opted into walk-ups.
  *
  * No Cancel here — the overview composer places Cancel separately, at the foot.
  */
@@ -57,30 +59,6 @@ export default function BackstageActions({ event, dayOf, onAnnounce }: Backstage
 
   return (
     <View>
-      {/* Day-of — the two door actions lead the block */}
-      {dayOf ? (
-        <>
-          <Pressable
-            onPress={openCheckIn}
-            style={styles.bigCta}
-            accessibilityRole="button"
-            accessibilityLabel="Open check-in scanner"
-          >
-            <QrCode size={17} color={INK} />
-            <Text style={styles.bigCtaText}>Open check-in scanner</Text>
-          </Pressable>
-          <Pressable
-            onPress={openCheckIn}
-            style={styles.subCta}
-            accessibilityRole="button"
-            accessibilityLabel="Add a walk-up"
-          >
-            <Plus size={15} color={ORANGE} />
-            <Text style={styles.subCtaText}>Add a walk-up</Text>
-          </Pressable>
-        </>
-      ) : null}
-
       <Text style={styles.lab}>Backstage</Text>
 
       <ActionRow
@@ -100,9 +78,18 @@ export default function BackstageActions({ event, dayOf, onAnnounce }: Backstage
         onPress={onAnnounce}
       />
 
-      {/* Pre-day only — locked scanner row with the date pill (on day-of the
-          big button above replaces it) */}
-      {!dayOf ? (
+      {dayOf ? (
+        /* Day-of — the scanner row goes LIVE (deliberately duplicated with the
+           big CTA at the sheet top; the day's key tool stays reachable here) */
+        <ActionRow
+          icon={<QrCode size={16} color={GREEN} />}
+          tint={GREEN_SOFT}
+          title="Check-in scanner"
+          sub="QR scan · open now"
+          onPress={openCheckIn}
+        />
+      ) : (
+        /* Pre-day — dimmed, locked behind the mono date pill */
         <View style={styles.row}>
           <View style={[styles.ci, { backgroundColor: GREEN_SOFT }]}>
             <Lock size={16} color={GREEN} />
@@ -113,6 +100,46 @@ export default function BackstageActions({ event, dayOf, onAnnounce }: Backstage
           </View>
           <Text style={styles.lockPill}>{startDateLabel(event.startsAt)}</Text>
         </View>
+      )}
+    </View>
+  );
+}
+
+/**
+ * DayOfCtas — the two door actions for the day of the event.
+ * (event-manage-living-poster.html · Day-of frame `.bigcta`/`.subcta`)
+ *
+ * Rendered by the overview composer at the TOP of the sheet (above RoomStats)
+ * when dayOf — not inside the Backstage block. Both land on the scanner
+ * screen; "Add a walk-up" only shows when the event allows walk-ups (matches
+ * the walk-up feature's own gating).
+ */
+export function DayOfCtas({ event }: { event: EventDoc }) {
+  const router = useRouter();
+
+  const openCheckIn = () => router.push(`/events/${event._id}/manage/check-in`);
+
+  return (
+    <View>
+      <Pressable
+        onPress={openCheckIn}
+        style={styles.bigCta}
+        accessibilityRole="button"
+        accessibilityLabel="Open check-in scanner"
+      >
+        <QrCode size={17} color={INK} />
+        <Text style={styles.bigCtaText}>Open check-in scanner</Text>
+      </Pressable>
+      {event.walkupsAllowed === true ? (
+        <Pressable
+          onPress={openCheckIn}
+          style={styles.subCta}
+          accessibilityRole="button"
+          accessibilityLabel="Add a walk-up"
+        >
+          <Plus size={15} color={ORANGE} />
+          <Text style={styles.subCtaText}>Add a walk-up</Text>
+        </Pressable>
       ) : null}
     </View>
   );

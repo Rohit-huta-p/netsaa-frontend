@@ -1,9 +1,10 @@
 import { View, Text, Pressable, Image, ActivityIndicator, Alert, StyleSheet } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { Plus, X } from 'lucide-react-native';
 import { useCreateEventStore } from '@/stores/createEventStore';
-import { uploadMediaFlow } from '@/utils/upload';
+import { uploadMediaFlow, uploadVideoFlow } from '@/utils/upload';
+import mediaService from '@/services/mediaService';
 import type { EventMedia } from '@/services/eventService';
 
 const NETSA_FALLBACK_URL = 'netsa-fallback';
@@ -21,6 +22,25 @@ const ORANGE_INK = '#1A0D06';
 export default function Step6Media({ onNext, onBack }: { onNext: () => void; onBack?: () => void }) {
   const { form, update, markComplete, editMode, editEventId } = useCreateEventStore();
   const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    const processing = form.media.filter((m) => m.kind === 'video' && m.status === 'processing' && m.uploadId);
+    if (processing.length === 0) return;
+    const t = setInterval(async () => {
+      for (const m of processing) {
+        try {
+          const r = await mediaService.getAssetStatus(m.uploadId!);
+          const s = r.data.status;
+          if (s === 'ready' || s === 'errored') {
+            update('media', form.media.map((x) => x.uploadId === m.uploadId
+              ? { ...x, status: s === 'ready' ? 'ready' : 'errored', muxPlaybackId: r.data.playbackId, thumbnailUrl: r.data.playbackId ? `https://image.mux.com/${r.data.playbackId}/thumbnail.jpg?time=1` : x.thumbnailUrl }
+              : x));
+          }
+        } catch { /* keep polling */ }
+      }
+    }, 4000);
+    return () => clearInterval(t);
+  }, [form.media, update]);
 
   const pick = async () => {
     if (form.media.length >= MAX_MEDIA) return;
@@ -45,19 +65,25 @@ export default function Step6Media({ onNext, onBack }: { onNext: () => void; onB
     setUploading(true);
     try {
       const isVideo = asset.type === 'video';
-      const uploaded = await uploadMediaFlow({ asset, entityType: 'event', entityId: editEventId, purpose: 'gallery' });
-      if (!uploaded.success || !uploaded.url) throw new Error(uploaded.error ?? 'Upload returned no URL');
-      const newMedia: EventMedia = {
-        kind: isVideo ? 'video' : 'photo',
-        url: uploaded.url,
-        thumbnailUrl: uploaded.url,
-        width: asset.width ?? 1080,
-        height: asset.height ?? 1080,
-        duration: asset.duration ?? undefined,
-        isHero: form.media.length === 0,
-        sortOrder: form.media.length,
-      };
-      update('media', [...form.media, newMedia]);
+      if (isVideo) {
+        const uploaded = await uploadVideoFlow({ asset, entityType: 'event', entityId: editEventId, purpose: 'gallery' });
+        if (!uploaded.success || !uploaded.uploadId) throw new Error(uploaded.error ?? 'Upload failed');
+        const entry: EventMedia = {
+          kind: 'video', url: '', status: 'processing', uploadId: uploaded.uploadId,
+          width: asset.width ?? 1080, height: asset.height ?? 1080, duration: asset.duration ?? undefined,
+          isHero: form.media.length === 0, sortOrder: form.media.length,
+        };
+        update('media', [...form.media, entry]);
+      } else {
+        const uploaded = await uploadMediaFlow({ asset, entityType: 'event', entityId: editEventId, purpose: 'gallery' });
+        if (!uploaded.success || !uploaded.url) throw new Error(uploaded.error ?? 'Upload returned no URL');
+        const entry: EventMedia = {
+          kind: 'photo', url: uploaded.url, thumbnailUrl: uploaded.url,
+          width: asset.width ?? 1080, height: asset.height ?? 1080,
+          isHero: form.media.length === 0, sortOrder: form.media.length,
+        };
+        update('media', [...form.media, entry]);
+      }
     } catch {
       Alert.alert('Upload failed', 'Try again or pick a different file.');
     } finally {
@@ -85,7 +111,13 @@ export default function Step6Media({ onNext, onBack }: { onNext: () => void; onB
         <View style={styles.grid}>
           {form.media.map((m, idx) => (
             <View key={`${m.url}-${idx}`} style={styles.cell}>
-              {m.url === NETSA_FALLBACK_URL ? (
+              {m.kind === 'video' && m.status !== 'ready' ? (
+                <View style={styles.fallbackCell}>
+                  <Text style={styles.makeHeroText}>{m.status === 'errored' ? 'Failed — remove' : 'Processing…'}</Text>
+                </View>
+              ) : m.kind === 'video' && m.muxPlaybackId ? (
+                <Image source={{ uri: m.thumbnailUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              ) : m.url === NETSA_FALLBACK_URL ? (
                 <View style={styles.fallbackCell}><Text style={styles.fallbackMonogram}>N</Text></View>
               ) : (
                 <Image source={{ uri: m.thumbnailUrl ?? m.url }} style={StyleSheet.absoluteFill} resizeMode="cover" />

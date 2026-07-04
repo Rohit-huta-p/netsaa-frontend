@@ -29,6 +29,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Eye, Share2, Settings, ImagePlus } from 'lucide-react-native';
 import type { EventDoc, EventMedia } from '@/services/eventService';
 import { eventStatusLabel, eventStatusColor } from '@/lib/eventTokens';
+import { formatRupees } from '@/lib/eventPricing';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const HERO_H = 360;
@@ -97,6 +98,12 @@ export default function PosterHero({
   const meta = [dateRange(event.startsAt, event.endsAt), venueLabel(event.location)]
     .filter(Boolean)
     .join(' · ');
+
+  // Price — sits opposite the date/venue in the hero foot (justify-between).
+  // Paid → "₹4,500 tkt"; free → "Free". Same pricing read as RoomStats.
+  const isPaid = event.registrationMode === 'paid_ticket';
+  const ticketPrice = (event as any).pricing?.amount ?? (event as any).ticketPrice ?? 0;
+  const priceLabel = isPaid ? formatRupees(ticketPrice) : 'Free';
 
   const pct = event.capacity?.total
     ? Math.max(0, Math.min(100, Math.round((event.capacity.registeredCount / event.capacity.total) * 100)))
@@ -256,7 +263,17 @@ export default function PosterHero({
           {event.title}
         </Text>
         {organizerName ? <Text style={styles.sub}>{organizerName}</Text> : null}
-        {meta ? <Text style={styles.meta}>{meta}</Text> : null}
+        <View style={styles.metaRow}>
+          {meta ? (
+            <Text style={styles.meta} numberOfLines={1}>{meta}</Text>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+          <Text style={styles.price}>
+            {priceLabel}
+            {isPaid ? <Text style={styles.priceUnit}> tkt</Text> : null}
+          </Text>
+        </View>
         <View style={styles.fillTrack}>
           <LinearGradient
             colors={['#FF8A5B', ORANGE]}
@@ -394,11 +411,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginTop: 7,
   },
+  // .metarow — date/venue on the left, price justified to the right, baselines aligned
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 5,
+  },
   meta: {
+    flex: 1,
     fontFamily: 'Outfit-Regular',
     color: 'rgba(255,255,255,0.72)',
     fontSize: 11.5,
-    marginTop: 5,
+  },
+  price: {
+    fontFamily: 'DMSerifDisplay_400Regular',
+    color: '#fff',
+    fontSize: 16,
+    flexShrink: 0,
+  },
+  priceUnit: {
+    fontFamily: 'SpaceMono-Regular',
+    fontSize: 8,
+    color: 'rgba(255,255,255,0.6)',
+    letterSpacing: 0.64,
+    textTransform: 'uppercase',
   },
   fillTrack: {
     height: 5,

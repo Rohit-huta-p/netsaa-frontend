@@ -31,6 +31,7 @@ import { useEventRoster } from '@/hooks/useEventRoster';
 import { shareEvent } from '@/lib/eventShare';
 import PosterHero from '@/components/events/manage/PosterHero';
 import RoomStats from '@/components/events/manage/RoomStats';
+import ViewerMirror from '@/components/events/manage/ViewerMirror';
 import BackstageActions, { DayOfCtas } from '@/components/events/manage/BackstageActions';
 import StageDoorDiscussion from '@/components/events/manage/StageDoorDiscussion';
 import AnnouncementComposer from '@/components/events/manage/AnnouncementComposer';
@@ -135,6 +136,13 @@ export default function OverviewScreen() {
           {dayOf ? <DayOfCtas event={event} /> : null}
 
           <RoomStats event={event} dayOf={dayOf} checkedInCount={checkedIn} />
+
+          {/* How viewers see it — the host proofs their published listing in place */}
+          <ViewerMirror
+            event={event}
+            onEdit={() => router.push(`/events/${id}/edit` as any)}
+            onOpenPreview={() => router.push(`/events/${id}?preview=1` as any)}
+          />
 
           <BackstageActions
             event={event}

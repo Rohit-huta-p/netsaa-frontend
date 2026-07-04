@@ -92,6 +92,23 @@ const mediaService = {
         const response = await API.post<PresignResponse>('/media/presign', request);
         return response.data;
     },
+
+    /**
+     * Request a Mux direct-upload URL for a video (media-service brokers Mux).
+     * Returns an uploadId (to poll status) and a one-time uploadUrl to PUT the file to.
+     */
+    requestVideoUpload: async (request: { entityType: 'event'; entityId: string; purpose: 'gallery' }) => {
+        const response = await API.post<{ success: boolean; data: { uploadId: string; uploadUrl: string }; message?: string }>('/media/video/upload', request);
+        return response.data;
+    },
+
+    /**
+     * Poll the lifecycle status of a video upload by its uploadId.
+     */
+    getAssetStatus: async (uploadId: string) => {
+        const response = await API.get<{ success: boolean; data: { status: 'waiting' | 'asset_created' | 'ready' | 'errored'; playbackId?: string; duration?: number; aspectRatio?: string; error?: string } }>(`/media/asset/${uploadId}`);
+        return response.data;
+    },
 };
 
 export default mediaService;

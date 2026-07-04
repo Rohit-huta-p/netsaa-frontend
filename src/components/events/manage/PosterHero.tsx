@@ -25,6 +25,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
+import EventVideo from '../EventVideo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Eye, Share2, Settings, ImagePlus } from 'lucide-react-native';
 import type { EventDoc, EventMedia } from '@/services/eventService';
@@ -133,12 +134,16 @@ export default function PosterHero({
             setIndex(Math.max(0, Math.min(media.length - 1, i)));
           }}
           renderItem={({ item }) => (
-            <ExpoImage
-              source={{ uri: item.kind === 'video' ? item.thumbnailUrl ?? item.url : item.url }}
-              style={{ width: SCREEN_W, height: HERO_H }}
-              contentFit="cover"
-              transition={200}
-            />
+            item.kind === 'video' && item.muxPlaybackId ? (
+              <EventVideo playbackId={item.muxPlaybackId} style={{ width: SCREEN_W, height: HERO_H }} />
+            ) : (
+              <ExpoImage
+                source={{ uri: item.kind === 'video' ? item.thumbnailUrl ?? item.url : item.url }}
+                style={{ width: SCREEN_W, height: HERO_H }}
+                contentFit="cover"
+                transition={200}
+              />
+            )
           )}
         />
       ) : (

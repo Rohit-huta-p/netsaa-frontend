@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Image, Dimensions, FlatList, Text } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import EventVideo from '../EventVideo';
 import type { EventDoc } from '@/services/eventService';
 import { computeSlotsLeft, isCapacityUrgent, durationKindLabel } from '@/lib/eventTokens';
 
@@ -58,7 +59,9 @@ export default function EventHeroGallery({ event }: Props) {
           }}
           renderItem={({ item }) => (
             <View style={{ width: innerW, height: HERO_H }}>
-              {item.url ? (
+              {item.kind === 'video' && item.muxPlaybackId ? (
+                <EventVideo playbackId={item.muxPlaybackId} style={{ width: innerW, height: HERO_H }} />
+              ) : item.url ? (
                 <ExpoImage
                   source={{ uri: item.url }}
                   style={{ width: innerW, height: HERO_H }}

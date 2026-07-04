@@ -19,11 +19,22 @@ const ORANGE = '#FF6B35';
 const ORANGE_INK = '#1A0D06';
 
 export default function Step6Media({ onNext, onBack }: { onNext: () => void; onBack?: () => void }) {
-  const { form, update, markComplete } = useCreateEventStore();
+  const { form, update, markComplete, editMode, editEventId } = useCreateEventStore();
   const [uploading, setUploading] = useState(false);
 
   const pick = async () => {
     if (form.media.length >= MAX_MEDIA) return;
+    // Presign requires a real, persisted event the organizer owns (media-service
+    // validates entityId is that event's ObjectId). In edit mode we have it
+    // (editEventId); in create mode the event doesn't exist yet, so there's
+    // nothing to presign against — steer to the fallback / add-after-create.
+    if (!editMode || !editEventId) {
+      Alert.alert(
+        'Add photos after creating',
+        'Publish your event first, then reopen it to add photos and video. For now you can use the NETSA fallback below.',
+      );
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       quality: 0.9,
@@ -34,7 +45,7 @@ export default function Step6Media({ onNext, onBack }: { onNext: () => void; onB
     setUploading(true);
     try {
       const isVideo = asset.type === 'video';
-      const uploaded = await uploadMediaFlow({ asset, entityType: 'event', entityId: 'temp', purpose: 'gallery' });
+      const uploaded = await uploadMediaFlow({ asset, entityType: 'event', entityId: editEventId, purpose: 'gallery' });
       if (!uploaded.success || !uploaded.url) throw new Error(uploaded.error ?? 'Upload returned no URL');
       const newMedia: EventMedia = {
         kind: isVideo ? 'video' : 'photo',
@@ -92,7 +103,13 @@ export default function Step6Media({ onNext, onBack }: { onNext: () => void; onB
             </View>
           ))}
           {form.media.length < MAX_MEDIA ? (
-            <Pressable onPress={pick} disabled={uploading} style={styles.uploadCell}>
+            <Pressable
+              onPress={pick}
+              disabled={uploading}
+              style={styles.uploadCell}
+              accessibilityRole="button"
+              accessibilityLabel="Add photo"
+            >
               {uploading ? <ActivityIndicator color={ORANGE} /> : <Plus size={26} color={TEXT_2} />}
             </Pressable>
           ) : null}

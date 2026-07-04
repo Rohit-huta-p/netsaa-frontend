@@ -252,3 +252,38 @@ export function isLargeFile(asset: ImagePickerAsset): boolean {
     const fileSizeMB = (asset.fileSize || 0) / (1024 * 1024);
     return fileSizeMB > 50;
 }
+
+// ─────────────────────────────────────────────────────────────
+// VIDEO UPLOAD FLOW (Mux direct upload)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Complete video upload flow: presign via media-service → PUT direct to Mux.
+ * CRITICAL: This function NEVER sends video bytes to backend APIs.
+ *           Only direct-to-Mux PUT requests via the Mux-issued upload URL.
+ */
+export async function uploadVideoFlow(options: {
+    asset: ImagePickerAsset;
+    entityType: 'event';
+    entityId: string;
+    purpose: 'gallery';
+    onProgress?: (p: number) => void;
+}): Promise<{ success: boolean; uploadId?: string; error?: string }> {
+    const { asset, entityType, entityId, purpose } = options;
+    try {
+        const presign = await mediaService.requestVideoUpload({ entityType, entityId, purpose });
+        if (!presign.success) return { success: false, error: presign.message };
+
+        const fileRes = await fetch(asset.uri);
+        const blob = await fileRes.blob();
+        const put = await fetch(presign.data.uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': asset.mimeType || 'video/mp4' },
+            body: blob,
+        });
+        if (!put.ok) return { success: false, error: `Upload failed (${put.status})` };
+        return { success: true, uploadId: presign.data.uploadId };
+    } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Upload failed' };
+    }
+}

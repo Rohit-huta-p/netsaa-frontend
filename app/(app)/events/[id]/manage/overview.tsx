@@ -123,7 +123,7 @@ export default function OverviewScreen() {
           onPreview={() => router.push(`/events/${id}?preview=1` as any)}
           onShare={() => shareEvent(event)}
           onSettings={() => router.push(`/events/${id}/manage/settings` as any)}
-          onAddPhoto={() => router.push(`/events/${id}/edit` as any)}
+          onAddPhoto={() => router.push(`/events/${id}/edit?step=6` as any)}
         />
 
         {/* The sheet — rounded, pulled up over the poster. overflow:'hidden'

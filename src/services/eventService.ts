@@ -12,6 +12,11 @@ export interface EventMedia {
   duration?: number;
   isHero: boolean;
   sortOrder: number;
+  // Video (Mux) fields
+  status?: 'processing' | 'ready' | 'errored';
+  uploadId?: string;
+  muxPlaybackId?: string;
+  aspectRatio?: string;
 }
 
 export interface EventLocation {

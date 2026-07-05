@@ -38,8 +38,9 @@ import AnnouncementComposer from '@/components/events/manage/AnnouncementCompose
 import OrganizerCancellationModal, {
   type OrganizerCancelResult,
 } from '@/components/events/manage/OrganizerCancellationModal';
+import EventPreviewModal from '@/components/events/detail/EventPreviewModal';
 
-// Inbox-rhythm palette (DOCS/designs/INBOX_RHYTHM_DESIGN_SYSTEM.md)
+// Inbox-rhythm palette (DOCS/04-design/mockups/INBOX_RHYTHM_DESIGN_SYSTEM.md)
 const BG='#060509', SURFACE='rgba(255,255,255,0.04)', HAIR='rgba(255,255,255,0.07)', HAIR2='rgba(255,255,255,0.10)';
 const T0='#F3EFE8', T1='#A1A1AA', T2='#71717a', T3='#52525b', T4='#3f3f46', INK='#1A0D06';
 const ORANGE='#FF6B35', ORANGE_SOFT='rgba(255,107,53,0.16)', ORANGE_LINE='rgba(255,107,53,0.34)';
@@ -73,6 +74,7 @@ export default function OverviewScreen() {
   const { data: roster } = useEventRoster(id);
   const [announceOpen, setAnnounceOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -120,7 +122,7 @@ export default function OverviewScreen() {
           dayOf={dayOf}
           timeLabel={tl}
           onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-          onPreview={() => router.push(`/events/${id}?preview=1` as any)}
+          onPreview={() => setPreviewOpen(true)}
           onShare={() => shareEvent(event)}
           onSettings={() => router.push(`/events/${id}/manage/settings` as any)}
           onAddPhoto={() => router.push(`/events/${id}/edit?step=6` as any)}
@@ -141,7 +143,7 @@ export default function OverviewScreen() {
           <ViewerMirror
             event={event}
             onEdit={() => router.push(`/events/${id}/edit` as any)}
-            onOpenPreview={() => router.push(`/events/${id}?preview=1` as any)}
+            onOpenPreview={() => setPreviewOpen(true)}
           />
 
           <BackstageActions
@@ -180,6 +182,11 @@ export default function OverviewScreen() {
         ticketPriceRupees={ticketPriceRupees}
         onClose={() => setCancelOpen(false)}
         onCancelled={handleCancelled}
+      />
+      <EventPreviewModal
+        event={event}
+        visible={previewOpen}
+        onClose={() => setPreviewOpen(false)}
       />
     </View>
   );

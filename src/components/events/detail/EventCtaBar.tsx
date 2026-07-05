@@ -20,6 +20,9 @@ interface Props {
   event: EventDoc;
   initialOpen?: boolean;
   onInitialOpenConsumed?: () => void;
+  /** Organizer preview: render the bar as a viewer sees it, but inert (the
+   *  organizer can't register for their own event). */
+  preview?: boolean;
 }
 
 const BG = 'rgba(9,9,11,0.92)';
@@ -31,7 +34,7 @@ const TEXT_3 = '#52525b';
 const ORANGE_INK = '#1A0D06';
 const PAD = 20;
 
-export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed }: Props) {
+export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed, preview }: Props) {
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -58,7 +61,7 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
   const isRegistered = !!myRegistration;
 
   useEffect(() => {
-    if (initialOpen) {
+    if (initialOpen && !preview) {
       openRegister();
       onInitialOpenConsumed?.();
     }
@@ -85,7 +88,8 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
           ? `Register · ${slotsLeft} left →`
           : 'Register →';
 
-  const ctaDisabled = deadlinePassed || isFull || !isLive || regLoading;
+  // Preview → the primary CTA is greyed + non-interactive (organizer proofing).
+  const ctaDisabled = deadlinePassed || isFull || !isLive || regLoading || preview;
 
   return (
     <View style={{

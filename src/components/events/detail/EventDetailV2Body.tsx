@@ -10,6 +10,7 @@ import {
 import type { EventDoc } from '@/services/eventService';
 import { durationKindLabel, computeSlotsLeft } from '@/lib/eventTokens';
 import { formatRupees } from '@/lib/eventPricing';
+import EventGallery from '@/components/events/detail/EventGallery';
 
 interface Props {
   event: EventDoc;
@@ -468,6 +469,9 @@ export default function EventDetailV2Body({ event, organizerEventCount }: Props)
           ) : null}
         </View>
       ) : null}
+
+      {/* ═══ GALLERY (organizer photos · scroll rail; self-gates at <2 photos) ═══ */}
+      <EventGallery event={event} />
 
       {/* ═══ SCHEDULE ═══ */}
       {agenda.length ? (

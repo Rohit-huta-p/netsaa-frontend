@@ -8,25 +8,23 @@ import {
     Platform,
     StyleSheet,
     Animated,
+    ActivityIndicator,
     useWindowDimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import {
     Camera,
-    Play,
-    Pause,
     Edit2,
     Plus,
     ImageIcon,
     Film,
-    Volume2,
-    VolumeX,
 } from "lucide-react-native";
-import { FeaturedWorksProps } from "./types";
+import { FeaturedWorksProps, ProfileVideoReel } from "./types";
 import { MasonryGrid } from "./MasonryGrid";
 import { useProfileUiStore } from "@/stores/profileUiStore";
 import { MediaViewerModal, MediaItem } from "./MediaViewerModal";
 import { Colors } from "@/constants/Colors";
+import NetsaVideoPlayer from "@/components/media/NetsaVideoPlayer";
 
 type TabKey = "photos" | "videos";
 
@@ -193,227 +191,112 @@ const MasonryGridInternal = ({
     );
 };
 
-// ─── Video Card (Inline Player) ────────────────────────
+// ─── Video Card (Mux playback via NetsaVideoPlayer) ────
 const VideoCard = ({
-    uri,
+    reel,
     width: cardWidth,
     index,
+    onRemove,
 }: {
-    uri: string;
+    reel: ProfileVideoReel;
     width: number;
     index: number;
+    onRemove?: () => void;
 }) => {
     const cardH = cardWidth * (9 / 16);
-    const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [isMuted, setIsMuted] = useState(false);
-    const [showControls, setShowControls] = useState(true);
-    const controlsOpacity = useRef(new Animated.Value(1)).current;
-    const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const aspectRatio = reel.aspectRatio ? Number(reel.aspectRatio) || 16 / 9 : 16 / 9;
 
-    // Generate thumbnail on native
-    useEffect(() => {
-        if (!uri || Platform.OS === 'web') return;
-        let cancelled = false;
-        (async () => {
-            try {
-                const { getThumbnailAsync } = await import('expo-video-thumbnails');
-                const { uri: thumbUri } = await getThumbnailAsync(uri, { time: 0 });
-                if (!cancelled) setThumbnailUri(thumbUri);
-            } catch { /* fall back to no thumbnail */ }
-        })();
-        return () => { cancelled = true; };
-    }, [uri]);
-
-    const fadeControls = (visible: boolean) => {
-        Animated.timing(controlsOpacity, {
-            toValue: visible ? 1 : 0,
-            duration: 200,
-            useNativeDriver: true,
-        }).start();
-        setShowControls(visible);
-    };
-
-    const handlePlayerTap = () => {
-        if (controlsTimer.current) clearTimeout(controlsTimer.current);
-        fadeControls(true);
-        // Auto-hide controls after 3s when playing
-        if (isPlaying) {
-            controlsTimer.current = setTimeout(() => fadeControls(false), 3000);
-        }
-    };
-
-    const handlePlayPause = () => {
-        const next = !isPlaying;
-        setIsPlaying(next);
-        if (next) {
-            // Auto-hide controls after starting play
-            controlsTimer.current = setTimeout(() => fadeControls(false), 2500);
-        } else {
-            if (controlsTimer.current) clearTimeout(controlsTimer.current);
-            fadeControls(true);
-        }
-    };
-
-    return (
-        <View
-            style={{
-                width: cardWidth,
-                height: cardH,
-                borderRadius: 16,
-                backgroundColor: "#09090b",
-                marginBottom: 16,
-                overflow: "hidden",
-                borderWidth: 1,
-                borderColor: isPlaying ? "rgba(234,105,139,0.3)" : "rgba(255,255,255,0.06)",
-                // Subtle glow when playing
-                shadowColor: isPlaying ? "#ea698b" : "transparent",
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: isPlaying ? 0.25 : 0,
-                shadowRadius: 16,
-            }}
-        >
-            {/* ── Web player ── */}
-            {Platform.OS === 'web' ? (
-                <video
-                    src={uri}
-                    controls
+    if (reel.status === 'processing') {
+        return (
+            <View
+                style={{
+                    width: cardWidth,
+                    height: cardH,
+                    borderRadius: 16,
+                    backgroundColor: "#09090b",
+                    marginBottom: 16,
+                    overflow: "hidden",
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.06)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                }}
+            >
+                <ActivityIndicator size="small" color="#ea698b" />
+                <Text
                     style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain',
-                        backgroundColor: '#09090b',
-                        display: 'block',
+                        color: "#71717a",
+                        fontSize: 10,
+                        fontWeight: "800",
+                        textTransform: "uppercase",
+                        letterSpacing: 1.5,
                     }}
-                />
-            ) : (
-                <>
-                    {/* ── Native: Thumbnail or Live Player ── */}
-                    {!isPlaying && thumbnailUri ? (
-                        <Image
-                            source={{ uri: thumbnailUri }}
-                            style={StyleSheet.absoluteFillObject}
-                            resizeMode="cover"
-                        />
-                    ) : null}
+                >
+                    Processing…
+                </Text>
+            </View>
+        );
+    }
 
-                    {/* The actual video (mounted always on native so it's ready) */}
-                    {isPlaying ? (() => {
-                        // Lazy require to avoid web import issues
-                        const Video = require('react-native-video').default;
-                        return (
-                            <Video
-                                source={{ uri }}
-                                style={StyleSheet.absoluteFillObject}
-                                resizeMode="contain"
-                                paused={false}
-                                muted={isMuted}
-                                repeat={false}
-                                onEnd={() => { setIsPlaying(false); fadeControls(true); }}
-                            />
-                        );
-                    })() : null}
-
-                    {/* Dark gradient at bottom */}
-                    <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.7)']}
+    if (reel.status === 'errored') {
+        return (
+            <View
+                style={{
+                    width: cardWidth,
+                    height: cardH,
+                    borderRadius: 16,
+                    backgroundColor: "#09090b",
+                    marginBottom: 16,
+                    overflow: "hidden",
+                    borderWidth: 1,
+                    borderColor: "rgba(239,68,68,0.25)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                }}
+            >
+                <Text
+                    style={{
+                        color: "#ef4444",
+                        fontSize: 10,
+                        fontWeight: "800",
+                        textTransform: "uppercase",
+                        letterSpacing: 1.5,
+                    }}
+                >
+                    Couldn't process video
+                </Text>
+                {onRemove ? (
+                    <TouchableOpacity
+                        onPress={onRemove}
                         style={{
-                            position: 'absolute', left: 0, right: 0, bottom: 0, height: cardH * 0.4,
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            borderRadius: 20,
+                            backgroundColor: "rgba(239,68,68,0.1)",
+                            borderWidth: 1,
+                            borderColor: "rgba(239,68,68,0.25)",
                         }}
-                    />
-
-                    {/* ── Controls Overlay ── */}
-                    <Animated.View
-                        style={[StyleSheet.absoluteFillObject, { opacity: controlsOpacity }]}
                     >
-                        <TouchableOpacity
-                            activeOpacity={1}
-                            onPress={handlePlayerTap}
-                            style={StyleSheet.absoluteFillObject}
-                        >
-                            {/* Center play/pause button */}
-                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                                <TouchableOpacity
-                                    onPress={handlePlayPause}
-                                    activeOpacity={0.85}
-                                    style={{
-                                        width: 64,
-                                        height: 64,
-                                        borderRadius: 32,
-                                        backgroundColor: isPlaying ? 'rgba(0,0,0,0.55)' : 'rgba(234,105,139,0.92)',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        borderWidth: 2,
-                                        borderColor: isPlaying ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.3)',
-                                        shadowColor: '#ea698b',
-                                        shadowOffset: { width: 0, height: 6 },
-                                        shadowOpacity: isPlaying ? 0 : 0.5,
-                                        shadowRadius: 14,
-                                    }}
-                                >
-                                    {isPlaying
-                                        ? <Pause size={26} color="#fff" fill="#fff" />
-                                        : <Play size={26} color="#fff" fill="#fff" />
-                                    }
-                                </TouchableOpacity>
-                            </View>
+                        <Text style={{ color: "#ef4444", fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 }}>
+                            Remove
+                        </Text>
+                    </TouchableOpacity>
+                ) : null}
+            </View>
+        );
+    }
 
-                            {/* Bottom bar: video badge + mute */}
-                            <View
-                                style={{
-                                    position: 'absolute',
-                                    bottom: 12,
-                                    left: 14,
-                                    right: 14,
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                }}
-                            >
-                                {/* Video pill badge */}
-                                <View
-                                    style={{
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        gap: 5,
-                                        backgroundColor: 'rgba(0,0,0,0.5)',
-                                        paddingHorizontal: 10,
-                                        paddingVertical: 5,
-                                        borderRadius: 20,
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(255,255,255,0.1)',
-                                    }}
-                                >
-                                    <Film size={10} color="#ea698b" />
-                                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' }}>
-                                        Video {index + 1}
-                                    </Text>
-                                </View>
-
-                                {/* Mute toggle */}
-                                <TouchableOpacity
-                                    onPress={() => setIsMuted(!isMuted)}
-                                    style={{
-                                        width: 34,
-                                        height: 34,
-                                        borderRadius: 17,
-                                        backgroundColor: 'rgba(0,0,0,0.5)',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(255,255,255,0.1)',
-                                    }}
-                                >
-                                    {isMuted
-                                        ? <VolumeX size={14} color="#a1a1aa" />
-                                        : <Volume2 size={14} color="#fff" />
-                                    }
-                                </TouchableOpacity>
-                            </View>
-                        </TouchableOpacity>
-                    </Animated.View>
-                </>
-            )}
+    // status === 'ready'
+    return (
+        <View style={{ marginBottom: 16 }}>
+            <NetsaVideoPlayer
+                playbackId={reel.muxPlaybackId}
+                poster={reel.thumbnailUrl}
+                aspectRatio={aspectRatio}
+                style={{ width: cardWidth }}
+            />
         </View>
     );
 };
@@ -519,7 +402,7 @@ const EmptyState = ({
 // ─── Main Component ────────────────────────────────────
 export const FeaturedWorks: React.FC<FeaturedWorksProps> = ({
     galleryUrls,
-    videoUrls,
+    videoReels,
     hasPhotos,
     isEditable = false,
     isDesktop,
@@ -544,10 +427,12 @@ export const FeaturedWorks: React.FC<FeaturedWorksProps> = ({
     const columnWidth = (contentWidth - columnGap) / 2;
 
     const displayGalleryUrls = isEditable ? galleryUrls : galleryUrls.filter(Boolean);
-    const displayVideoUrls = isEditable ? videoUrls : videoUrls.filter(Boolean);
+    // Reels are structured records (not raw URLs) — nothing to filter for
+    // falsy entries the way string arrays needed; every reel is a real item.
+    const displayVideoReels = videoReels || [];
 
     const photoCount = displayGalleryUrls.filter(Boolean).length;
-    const videoCount = displayVideoUrls.filter(Boolean).length;
+    const videoCount = displayVideoReels.length;
 
     // Resolve aspect ratios for photos
     const aspectRatios = useImageAspectRatios(displayGalleryUrls);
@@ -567,23 +452,6 @@ export const FeaturedWorks: React.FC<FeaturedWorksProps> = ({
             setViewerVisible(true);
         },
         [displayGalleryUrls]
-    );
-
-    const openVideoViewer = useCallback(
-        (index: number) => {
-            const validUrls = displayVideoUrls.filter(Boolean);
-            const items: MediaItem[] = validUrls.map((uri) => ({
-                uri,
-                type: "video",
-            }));
-            const targetUri = displayVideoUrls[index];
-            const validIndex = validUrls.indexOf(targetUri);
-
-            setViewerItems(items);
-            setViewerIndex(validIndex >= 0 ? validIndex : 0);
-            setViewerVisible(true);
-        },
-        [displayVideoUrls]
     );
 
     return (
@@ -737,64 +605,62 @@ export const FeaturedWorks: React.FC<FeaturedWorksProps> = ({
                         onAdd={() => openSheet("media")}
                     />
                 )
-            ) : displayVideoUrls.length > 0 ? (
+            ) : displayVideoReels.length > 0 ? (
                 <View>
-                    {displayVideoUrls.map((uri, i) => (
-                        uri ? (
-                            <VideoCard
-                                key={i}
-                                uri={uri}
-                                width={contentWidth}
-                                index={i}
-                            />
-                        ) : (
-                            <TouchableOpacity
-                                key={i}
-                                activeOpacity={0.7}
-                                onPress={() => openSheet("media")}
+                    {displayVideoReels.map((reel, i) => (
+                        <VideoCard
+                            key={reel.uploadId || reel.muxPlaybackId || i}
+                            reel={reel}
+                            width={contentWidth}
+                            index={i}
+                            onRemove={isEditable ? () => openSheet("media") : undefined}
+                        />
+                    ))}
+                    {isEditable && displayVideoReels.length < 3 && (
+                        <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => openSheet("media")}
+                            style={{
+                                width: contentWidth,
+                                height: contentWidth * (9 / 16),
+                                borderRadius: 14,
+                                borderWidth: 2,
+                                borderStyle: "dashed",
+                                borderColor: "rgba(234,105,139,0.25)",
+                                backgroundColor: "rgba(24,24,27,0.4)",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 10,
+                                marginBottom: 12,
+                            }}
+                        >
+                            <View
                                 style={{
-                                    width: contentWidth,
-                                    height: contentWidth * (9 / 16),
-                                    borderRadius: 14,
-                                    borderWidth: 2,
-                                    borderStyle: "dashed",
-                                    borderColor: "rgba(234,105,139,0.25)",
-                                    backgroundColor: "rgba(24,24,27,0.4)",
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: 22,
+                                    backgroundColor: "rgba(234,105,139,0.1)",
+                                    borderWidth: 1,
+                                    borderColor: "rgba(234,105,139,0.2)",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    gap: 10,
-                                    marginBottom: 12,
                                 }}
                             >
-                                <View
-                                    style={{
-                                        width: 44,
-                                        height: 44,
-                                        borderRadius: 22,
-                                        backgroundColor: "rgba(234,105,139,0.1)",
-                                        borderWidth: 1,
-                                        borderColor: "rgba(234,105,139,0.2)",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                    }}
-                                >
-                                    <Plus size={20} color="#ea698b" />
-                                </View>
-                                <Text
-                                    style={{
-                                        color: "#71717a",
-                                        fontSize: 10,
-                                        fontWeight: "800",
-                                        textTransform: "uppercase",
-                                        letterSpacing: 1.5,
-                                    }}
-                                >
-                                    Add Video
-                                </Text>
-                            </TouchableOpacity>
-                        )
-                    ))}
-
+                                <Plus size={20} color="#ea698b" />
+                            </View>
+                            <Text
+                                style={{
+                                    color: "#71717a",
+                                    fontSize: 10,
+                                    fontWeight: "800",
+                                    textTransform: "uppercase",
+                                    letterSpacing: 1.5,
+                                }}
+                            >
+                                Add Video
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             ) : (
                 <EmptyState

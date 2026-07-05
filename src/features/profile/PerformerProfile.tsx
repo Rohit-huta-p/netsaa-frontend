@@ -11,6 +11,7 @@ import { useUser } from '@/hooks/useUser';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import conversationService from '@/services/conversationService';
+import type { ProfileVideoReel } from '@/components/profile/types';
 
 const TIER: Record<string, { c: string; label: string }> = {
     new: { c: '#6B7280', label: 'New' },
@@ -68,7 +69,13 @@ export function PerformerProfile({ userId }: { userId: string }) {
     const avatarUrl: string | undefined = u.profileImageUrl;
     const media = [
         ...((u.galleryUrls || []) as string[]).map((url) => ({ url, type: 'image' as const })),
-        ...((u.videoUrls || []) as string[]).map((url) => ({ url, type: 'video' as const })),
+        ...((u.videoReels || []) as ProfileVideoReel[])
+            .filter((r) => r.status === 'ready')
+            .map((r) => ({
+                url: r.thumbnailUrl || '',
+                type: 'video' as const,
+                muxPlaybackId: r.muxPlaybackId,
+            })),
     ];
 
     const stats = [

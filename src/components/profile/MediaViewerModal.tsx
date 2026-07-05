@@ -12,25 +12,39 @@ import {
     StatusBar,
     ViewToken,
 } from "react-native";
-import Video from "react-native-video";
 import { X, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import NetsaVideoPlayer from "@/components/media/NetsaVideoPlayer";
 
 export type MediaItem = {
     uri: string;
     type: "photo" | "video";
+    /** Mux playback id for reel-backed videos — when present, playback goes
+     *  through NetsaVideoPlayer (HLS) instead of the legacy raw-URL path. */
+    muxPlaybackId?: string;
 };
 
 // Separate component for video slides
 const VideoSlide = ({
     uri,
+    muxPlaybackId,
     width,
     height,
 }: {
     uri: string;
+    muxPlaybackId?: string;
     width: number;
     height: number;
 }) => {
+    if (muxPlaybackId) {
+        return (
+            <View style={{ width, height, backgroundColor: "#000", justifyContent: "center", alignItems: "center" }}>
+                <NetsaVideoPlayer playbackId={muxPlaybackId} style={{ width }} />
+            </View>
+        );
+    }
+
+    // Legacy raw-URL path — retained only for any pre-Mux data still in flight.
     return (
         <View style={{ width, height, backgroundColor: "#000", justifyContent: "center", alignItems: "center" }}>
             {Platform.OS === "web" ? (
@@ -41,14 +55,7 @@ const VideoSlide = ({
                     style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
                 />
             ) : (
-                <Video
-                    source={{ uri }}
-                    style={{ width, height: width * (9 / 16) }}
-                    controls
-                    resizeMode="contain"
-                    repeat={false}
-                    paused={false}
-                />
+                <Image source={{ uri }} style={{ width, height: width * (9 / 16) }} resizeMode="contain" />
             )}
         </View>
     );
@@ -139,7 +146,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
         }
 
         // Video — rendered by its own component so the hook runs at top level
-        return <VideoSlide uri={item.uri} width={width} height={height} />;
+        return <VideoSlide uri={item.uri} muxPlaybackId={item.muxPlaybackId} width={width} height={height} />;
     };
 
     if (!visible || mediaItems.length === 0) return null;

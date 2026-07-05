@@ -100,7 +100,7 @@ export interface ProfileSidebarProps {
 
 export interface FeaturedWorksProps {
     galleryUrls: string[];
-    videoUrls: string[];
+    videoReels: ProfileVideoReel[];
     hasPhotos: boolean;
     isEditable?: boolean;
     isDesktop: boolean;

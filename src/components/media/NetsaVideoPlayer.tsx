@@ -1,8 +1,9 @@
-import { useCallback, useRef, useState } from 'react';
-import { View, Pressable, Text, Image, ActivityIndicator, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Pressable, Text, Image, ActivityIndicator, StyleSheet, Animated, type StyleProp, type ViewStyle } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEvent, useEventListener } from 'expo';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useIsFocused } from '@react-navigation/native';
 import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, RefreshCw } from 'lucide-react-native';
 import VideoScrubber from './VideoScrubber';
 import { useAutoHideControls } from '@/hooks/useAutoHideControls';
@@ -22,9 +23,10 @@ function fmt(t: number): string {
 
 export default function NetsaVideoPlayer({
   playbackId, poster, aspectRatio = 16 / 9, style,
-}: { playbackId: string; poster?: string; aspectRatio?: number; style?: any }) {
+}: { playbackId: string; poster?: string; aspectRatio?: number; style?: StyleProp<ViewStyle> }) {
   const viewRef = useRef<VideoView>(null);
   const player = useVideoPlayer(muxHls(playbackId), (p) => { p.timeUpdateEventInterval = 0.25; p.muted = true; });
+  const focused = useIsFocused();
 
   const { status } = useEvent(player, 'statusChange', { status: player.status });
   const { isPlaying } = useEvent(player, 'playingChange', { isPlaying: player.playing });
@@ -36,7 +38,9 @@ export default function NetsaVideoPlayer({
   useEventListener(player, 'playToEnd', () => setEnded(true));
 
   const { visible, reveal } = useAutoHideControls(isPlaying && !ended);
-  useReducedMotion(); // wired for future fade-timing; controls currently show/hide instantly
+  const rm = useReducedMotion();
+
+  useEffect(() => { if (!focused) player.pause(); }, [focused, player]);
 
   const duration = player.duration || 0;
   const uiState =
@@ -54,7 +58,10 @@ export default function NetsaVideoPlayer({
   const onRetry = useCallback(() => { player.replace(muxHls(playbackId)); setStarted(true); setEnded(false); player.play(); }, [player, playbackId]);
   const onFullscreen = useCallback(() => { viewRef.current?.enterFullscreen(); }, []);
 
-  const showBar = (uiState === 'playing' || uiState === 'paused') && visible;
+  const barOpacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(barOpacity, { toValue: visible ? 1 : 0, duration: rm ? 0 : 200, useNativeDriver: true }).start();
+  }, [visible, rm, barOpacity]);
 
   return (
     <View style={[styles.frame, { aspectRatio }, style]}>
@@ -65,7 +72,7 @@ export default function NetsaVideoPlayer({
       )}
 
       {(uiState === 'playing' || uiState === 'paused') && (
-        <Pressable style={StyleSheet.absoluteFill} onPress={visible ? togglePlay : reveal} accessibilityRole="button" accessibilityLabel={isPlaying ? 'Pause' : 'Play'} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={visible ? togglePlay : reveal} />
       )}
 
       {uiState === 'idle' && (
@@ -95,8 +102,8 @@ export default function NetsaVideoPlayer({
         <View style={styles.pill}><Text style={styles.pillText}>{fmt(duration)}</Text></View>
       )}
 
-      {showBar && (
-        <View style={styles.barWrap} pointerEvents="box-none">
+      {(uiState === 'playing' || uiState === 'paused') && (
+        <Animated.View style={[styles.barWrap, { opacity: barOpacity }]} pointerEvents={visible ? 'box-none' : 'none'}>
           <LinearGradient colors={['transparent', 'rgba(6,5,9,0.9)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
           <View style={styles.bar}>
             <VideoScrubber progress={duration > 0 ? currentTime / duration : 0} onSeek={seek} />
@@ -112,7 +119,7 @@ export default function NetsaVideoPlayer({
               <Pressable onPress={onFullscreen} hitSlop={8} accessibilityRole="button" accessibilityLabel="Fullscreen"><Maximize size={18} color={T0} /></Pressable>
             </View>
           </View>
-        </View>
+        </Animated.View>
       )}
     </View>
   );

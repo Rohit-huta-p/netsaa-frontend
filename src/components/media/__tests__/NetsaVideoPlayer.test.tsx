@@ -11,6 +11,7 @@ jest.mock('expo', () => ({
 }));
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: () => null }));
 jest.mock('@/hooks/useReducedMotion', () => ({ useReducedMotion: () => false }));
+jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
 
 import NetsaVideoPlayer from '../NetsaVideoPlayer';
 

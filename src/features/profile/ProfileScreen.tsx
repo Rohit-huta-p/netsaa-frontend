@@ -22,7 +22,8 @@ import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatu
 import { useProfileUiStore } from '@/stores/profileUiStore';
 import { computeOverallScore } from '@/components/profile/ProfileStrengthWidget';
 import { ProfileEditModal } from '@/features/profile/components/ProfileEditModal';
-import { ProfileData } from '@/components/profile/types';
+import { ProfileData, ProfileVideoReel } from '@/components/profile/types';
+import NetsaVideoPlayer from '@/components/media/NetsaVideoPlayer';
 import type { ConnectionContext } from '@/types/connection';
 import { NotificationsBell } from '@/components/notifications/NotificationsBell';
 import { useMutualConnections, useConnectionDegree, useMyConnectionsCount } from '@/hooks/useConnectionMeta';
@@ -101,6 +102,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const experience: any[] = u.experience || [];
     const galleryUrls: string[] = u.galleryUrls || [];
     const videoUrls: string[] = u.videoUrls || [];
+    const videoReels: ProfileVideoReel[] = u.videoReels || [];
     const profileImageUrl: string | undefined = u.profileImageUrl;
     const tier = (u.trustTier || trustTier || 'new') as string;
     const tierColor = TRUST_COLORS[tier] || '#6B6878';
@@ -139,9 +141,15 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const initials = displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
 
     // ── Portfolio items (combined for bento) ──
-    const allMedia = [
+    // Video items come from `videoReels` (Mux-backed), not the legacy `videoUrls`.
+    // Only `ready` reels are shown; `processing`/`errored` reels are hidden here
+    // (they're visible in the edit modal's upload state instead). The Mux
+    // thumbnail is used as the bento/viewer poster `url`.
+    const readyReels = videoReels.filter((r) => r.status === 'ready');
+    const readyReelsCount = readyReels.length;
+    const allMedia: { url: string; type: 'image' | 'video'; muxPlaybackId?: string }[] = [
         ...galleryUrls.map((url: string) => ({ url, type: 'image' as const })),
-        ...videoUrls.map((url: string) => ({ url, type: 'video' as const })),
+        ...readyReels.map((r) => ({ url: r.thumbnailUrl || '', type: 'video' as const, muxPlaybackId: r.muxPlaybackId })),
     ];
 
     // ── ProfileData for edit modal ──
@@ -153,7 +161,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
         instagramHandle: instagram || '', youtubeUrl: youtube || '',
         spotifyUrl: u.spotifyUrl || '', soundcloudUrl: u.soundcloudUrl || '',
         experience, hasPhotos: galleryUrls.length > 0 || !!profileImageUrl,
-        profileImageUrl: profileImageUrl || '', galleryUrls, videoUrls,
+        profileImageUrl: profileImageUrl || '', galleryUrls, videoUrls, videoReels,
         organizationName: u.organizationName || '', organizationWebsite: u.organizationWebsite || '',
         organizerTypeCategory: u.organizerTypeCategory || '',
         primaryContactName: u.primaryContactName || '', primaryContactPhone: u.primaryContactPhone || '',
@@ -473,7 +481,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                             );
                         })()}
                         <Text style={s.portfolioCount}>
-                            {allMedia.length > 0 ? `${galleryUrls.length} photos${videoUrls.length > 0 ? ` \u00b7 ${videoUrls.length} videos` : ''}` : 'No media yet'}
+                            {allMedia.length > 0 ? `${galleryUrls.length} photos${readyReelsCount > 0 ? ` \u00b7 ${readyReelsCount} videos` : ''}` : 'No media yet'}
                         </Text>
                     </Card>
                 )}
@@ -495,9 +503,10 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                                 keyExtractor={(_, i) => `media-${i}`}
                                 renderItem={({ item }) => (
                                     <View style={{ width: SCREEN_W, justifyContent: 'center', alignItems: 'center' }}>
-                                        <Image source={{ uri: item.url }} style={s.viewerImg} resizeMode="contain" />
-                                        {item.type === 'video' && (
-                                            <View style={s.viewerPlayBadge}><Play size={24} color="#fff" fill="#fff" /><Text style={s.viewerPlayText}>Video</Text></View>
+                                        {item.type === 'video' && item.muxPlaybackId ? (
+                                            <NetsaVideoPlayer playbackId={item.muxPlaybackId} poster={item.url || undefined} style={s.viewerImg} />
+                                        ) : (
+                                            <Image source={{ uri: item.url }} style={s.viewerImg} resizeMode="contain" />
                                         )}
                                     </View>
                                 )}

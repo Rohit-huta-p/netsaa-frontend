@@ -70,7 +70,7 @@ export interface EventDoc {
   registrationDeadline?: string; // ISO datetime · cutoff for new registrations
   agenda?: AgendaItem[];         // optional per-day breakdown, populated for multi-day events
 
-  // Schema migration 2026-06-25 — see DOCS/MIGRATIONS/2026-06-25-event-flow-schema.md
+  // Schema migration 2026-06-25 — see DOCS/02-engineering/migrations/2026-06-25-event-flow-schema.md
   allowWaitlist?: boolean;
   waitlistCount?: number;                   // number of active waitlist entries (backend-computed)
   discussionCount?: number;                 // event-comment count (backend-computed) — powers O4 Discussion tile
@@ -128,6 +128,9 @@ export interface EventListParams {
   mode?: 'free_rsvp' | 'paid_ticket';
   skill?: string;
   q?: string;
+  /** Filter to one organizer's events (public getEvents; still defaults to status:'live'). */
+  organizerId?: string;
+  status?: 'draft' | 'pending_review' | 'live' | 'cancelled' | 'completed';
   page?: number;
   limit?: number;
 }
@@ -301,4 +304,26 @@ export const eventService = {
 
   confirmPromotion: async (entryId: string, idempotencyKey: string): Promise<{ registrationId: string }> =>
     (await client.post(`/v1/waitlist/${entryId}/confirm`, {}, { headers: { 'Idempotency-Key': idempotencyKey } })).data.data,
+
+  // ---- Discussion thread (event comments) ----
+  // Backend: GET/POST /v1/events/:eventId/discussion (both `protect`).
+  // attendees_only events 403 non-registrants server-side (organizer exempt).
+  // Returns the raw envelope { success, data }; DiscussionTab unwraps `.data`
+  // (mirrors gigService.getGigDiscussion / postGigDiscussion).
+  getEventDiscussion: async (eventId: string): Promise<any> => {
+    const r = await client.get(`/v1/events/${eventId}/discussion`);
+    return r.data;
+  },
+
+  postEventDiscussion: async (eventId: string, text: string): Promise<any> => {
+    const r = await client.post(`/v1/events/${eventId}/discussion`, { text });
+    return r.data;
+  },
 };
+
+// Default export so `import eventService from '@/services/eventService'` resolves
+// to the object. Metro/Babel interop yields `undefined` for a default import of a
+// module with only named exports — which silently broke event discussion (and any
+// other default-import site). The named `export const eventService` above is kept
+// for existing `import { eventService }` sites. Mirrors gigService's default export.
+export default eventService;

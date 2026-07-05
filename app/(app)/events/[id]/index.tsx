@@ -1,31 +1,43 @@
 import { useEffect, useState } from 'react';
 import { useLocalSearchParams, Redirect, Stack, useRouter } from 'expo-router';
-import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
-import { ChevronLeft, Heart, Share2 } from 'lucide-react-native';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useEvent } from '@/hooks/useEvents';
 import { useAuthStore } from '@/stores/authStore';
-import EventHeroGallery from '@/components/events/detail/EventHeroGallery';
-import EventDetailSections from '@/components/events/detail/EventDetailSections';
-import EventCapacityBar from '@/components/events/detail/EventCapacityBar';
+import { useEventsByOrganizer } from '@/hooks/useEventsByOrganizer';
+import { shareEvent } from '@/lib/eventShare';
+import EventHeroV2 from '@/components/events/detail/EventHeroV2';
+import EventDetailV2Body from '@/components/events/detail/EventDetailV2Body';
+import MoreByOrganizerRail from '@/components/events/detail/MoreByOrganizerRail';
 import EventCtaBar from '@/components/events/detail/EventCtaBar';
 import MeetingLinkRevealCard from '@/components/events/detail/MeetingLinkRevealCard';
 import DiscussionTabs from '@/components/events/detail/DiscussionTabs';
 
-const BG = '#09090b';
-const TEXT_0 = '#f4f4f5';
-const TEXT_2 = '#71717a';
-const HAIRLINE = 'rgba(255,255,255,0.10)';
+// v2 palette (event-detail-v2.html)
+const BG = '#0B0A0F';
+const TEXT_0 = '#F0ECE6';
+const TEXT_2 = '#8C857B';
 
 export default function EventDetailScreen() {
   const router = useRouter();
   const { id, openRegister, preview } = useLocalSearchParams<{ id: string; openRegister?: string; preview?: string }>();
   const [sheetOpenForce, setSheetOpenForce] = useState(false);
   const { data: event, isLoading, error } = useEvent(id);
+  const userId = useAuthStore((s) => s.user?._id);
+
+  // Organizer identity (resolved off the event, which may be a string id or a
+  // populated { name, verified, avatar } object). Computed before the early
+  // returns so the by-organizer hook can be called unconditionally.
+  const organizerObj = event && typeof event.organizerId === 'object' ? event.organizerId : undefined;
+  const organizerId = organizerObj?._id ?? (event && typeof event.organizerId === 'string' ? event.organizerId : undefined);
+  const organizerName = organizerObj?.name;
+
+  // One query powers both the "N events hosted" count and the "more by
+  // organizer" rail (React Query dedupes the shared key).
+  const { data: orgEvents } = useEventsByOrganizer(organizerId, id);
 
   useEffect(() => {
     if (openRegister === '1') setSheetOpenForce(true);
   }, [openRegister]);
-  const userId = useAuthStore((s) => s.user?._id);
 
   if (isLoading) {
     return (
@@ -69,77 +81,30 @@ export default function EventDetailScreen() {
   // Organizer view → redirect to manage. ?preview=1 bypasses the redirect so the
   // organizer lands on the exact viewer page — no separate preview chrome, it
   // renders identically to what an artist sees.
-  const organizerIdResolved = typeof event.organizerId === 'string'
-    ? event.organizerId
-    : event.organizerId?._id;
-  if (organizerIdResolved && userId && organizerIdResolved === userId && preview !== '1') {
+  if (organizerId && userId && organizerId === userId && preview !== '1') {
     return <Redirect href={`/events/${event._id}/manage/overview`} />;
   }
-
-  // Nav meta: city + type
-  const city = (event as any).location?.city || '';
-  const navMeta = [city, 'event'].filter(Boolean).join(' · ').toLowerCase();
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* NAV — inbox-style */}
-      <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        paddingHorizontal: 20,
-        paddingTop: 14,
-        paddingBottom: 12,
-      }}>
-        <Pressable
-          onPress={() => router.back()}
-          style={{
-            width: 38, height: 38, borderRadius: 19,
-            borderWidth: 1, borderColor: HAIRLINE,
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-          <ChevronLeft size={18} color={TEXT_0} />
-        </Pressable>
-        <View style={{ flex: 1 }} />
-        {navMeta ? (
-          <Text className="font-outfit" style={{ color: '#52525b', fontSize: 11, letterSpacing: 0.6 }}>
-            {navMeta}
-          </Text>
-        ) : null}
-        <Pressable
-          style={{
-            width: 38, height: 38, borderRadius: 19,
-            borderWidth: 1, borderColor: HAIRLINE,
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-          <Heart size={18} color={TEXT_0} />
-        </Pressable>
-        <Pressable
-          style={{
-            width: 38, height: 38, borderRadius: 19,
-            borderWidth: 1, borderColor: HAIRLINE,
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-          <Share2 size={16} color={TEXT_0} />
-        </Pressable>
-      </View>
-
       <ScrollView contentInsetAdjustmentBehavior="never" showsVerticalScrollIndicator={false}>
-        <EventHeroGallery event={event} />
-        <EventDetailSections event={event} />
+        {/* Hero owns the overlaid nav (back · share · save) */}
+        <EventHeroV2 event={event} onBack={() => router.back()} onShare={() => shareEvent(event)} />
+
+        <EventDetailV2Body event={event} organizerEventCount={orgEvents?.total} />
+
         <View style={{ paddingHorizontal: 20 }}>
           <MeetingLinkRevealCard event={event} />
           <DiscussionTabs event={event} />
         </View>
-        <EventCapacityBar
-          total={event.capacity.total}
-          registeredCount={event.capacity.registeredCount}
-          registrationDeadline={event.registrationDeadline}
-        />
-        <View style={{ height: 130 }} />
+
+        <MoreByOrganizerRail organizerId={organizerId} currentEventId={event._id} organizerName={organizerName} />
+
+        <View style={{ height: 110 }} />
       </ScrollView>
+
       <EventCtaBar event={event} initialOpen={sheetOpenForce} onInitialOpenConsumed={() => setSheetOpenForce(false)} />
     </View>
   );

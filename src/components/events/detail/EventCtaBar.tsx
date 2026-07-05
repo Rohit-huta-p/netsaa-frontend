@@ -82,8 +82,8 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
       : !isLive
         ? 'Not accepting registrations'
         : urgent
-          ? `Reserve · ${slotsLeft} left →`
-          : 'Reserve →';
+          ? `Register · ${slotsLeft} left →`
+          : 'Register →';
 
   const ctaDisabled = deadlinePassed || isFull || !isLive || regLoading;
 
@@ -280,7 +280,8 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed 
                 height: 52,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: ctaDisabled ? SURFACE : TEXT_0,
+                // v2 event detail: orange-fill Register CTA (dark ink)
+                backgroundColor: ctaDisabled ? SURFACE : '#FF6B35',
                 borderWidth: ctaDisabled ? 1 : 0,
                 borderColor: HAIRLINE_2,
               }}

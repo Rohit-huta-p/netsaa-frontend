@@ -745,7 +745,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
 
         // ── Video reel pick → Mux direct upload (never S3) ──
         const handlePickVideo = async () => {
-            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Videos, quality: 0.8 });
+            // 60s cap mirrors Step6Media's event-video picker (spec: max 3 reels, 60s each).
+            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Videos, quality: 0.8, videoMaxDuration: 60 });
             if (result.canceled) return;
             const asset = result.assets[0];
             const validation = validateMediaFile(asset, true);

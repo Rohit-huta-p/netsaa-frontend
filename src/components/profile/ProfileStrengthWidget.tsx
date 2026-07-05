@@ -102,7 +102,10 @@ const SECTIONS: Section[] = [
         check: (u) => {
             const missing: string[] = [];
             const galleryCount = u?.galleryUrls?.filter(Boolean)?.length || 0;
-            const videoCount = u?.videoUrls?.filter(Boolean)?.length || 0;
+            // Video-reel completeness reads the Mux-backed `videoReels` (only
+            // `ready` reels count), not the retired `videoUrls` array — the new
+            // write path never populates videoUrls.
+            const videoCount = u?.videoReels?.filter((r: any) => r?.status === 'ready')?.length || 0;
             if (galleryCount < 2) missing.push(`Gallery Photos (${galleryCount}/2 min)`);
             if (videoCount < 1) missing.push(`Video Reel (${videoCount}/1 min)`);
             const total = 2;
@@ -187,7 +190,9 @@ export const meetsMinimumApplyGate = (user: any): { passes: boolean; missing: st
         missing.push("Artist Type");
     if (!user?.skills || user.skills.length < 1) missing.push("At least 1 Skill");
     if ((user?.galleryUrls?.filter(Boolean)?.length || 0) < 2) missing.push("At least 2 Gallery Photos");
-    if ((user?.videoUrls?.filter(Boolean)?.length || 0) < 1) missing.push("At least 1 Video Reel");
+    // Reads ready `videoReels`, not the retired `videoUrls` array — see note
+    // in the `portfolio` section's check() above.
+    if ((user?.videoReels?.filter((r: any) => r?.status === 'ready')?.length || 0) < 1) missing.push("At least 1 Video Reel");
     if ((user?.bio?.length || 0) < 100) missing.push("Bio (min 100 characters)");
     return { passes: missing.length === 0, missing };
 };

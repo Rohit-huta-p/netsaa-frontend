@@ -111,4 +111,23 @@ describe('ProfileEditModal — video reels upload via Mux', () => {
         const processingLabel = await findByText(/processing/i);
         expect(processingLabel).toBeTruthy();
     });
+
+    // Fix 3: the sibling event picker this feature mirrors (Step6Media) caps
+    // picks at 60s via `videoMaxDuration: 60`; the reel picker had no cap.
+    it('caps reel picks at 60s via videoMaxDuration, mirroring Step6Media', async () => {
+        const ImagePicker = require('expo-image-picker');
+        (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
+            canceled: false,
+            assets: [{ uri: 'file://reel.mp4', mimeType: 'video/mp4', fileSize: 1000, width: 720, height: 1280, duration: 12 }],
+        });
+        (uploadVideoFlow as jest.Mock).mockResolvedValue({ success: true, uploadId: 'up_3' });
+
+        const { getAllByLabelText } = render(<ProfileEditModal profileData={baseProfile} />);
+        fireEvent.press(getAllByLabelText('Add reel')[0]);
+
+        await waitFor(() => expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalled());
+        expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledWith(
+            expect.objectContaining({ videoMaxDuration: 60 })
+        );
+    });
 });

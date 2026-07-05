@@ -4,14 +4,17 @@
 // useConnectionStatus as ProfileScreen, so reviews/media/tier are real. The
 // shared ProfileScreen is left untouched for artist self-view / gig-hiring.
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, Image, ActivityIndicator, Modal } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, Star, MessageCircle, Check, Clock, UserPlus, Play } from 'lucide-react-native';
+import { ChevronLeft, Star, MessageCircle, Check, Clock, UserPlus, Play, X } from 'lucide-react-native';
 import { useUser } from '@/hooks/useUser';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import conversationService from '@/services/conversationService';
 import type { ProfileVideoReel } from '@/components/profile/types';
+import NetsaVideoPlayer from '@/components/media/NetsaVideoPlayer';
+
+type ShowcaseItem = { url: string; type: 'image' | 'video'; muxPlaybackId?: string };
 
 const TIER: Record<string, { c: string; label: string }> = {
     new: { c: '#6B7280', label: 'New' },
@@ -37,6 +40,10 @@ export function PerformerProfile({ userId }: { userId: string }) {
 
     const [msgBusy, setMsgBusy] = useState(false);
     const [connBusy, setConnBusy] = useState(false);
+    // Media viewer — mirrors ProfileScreen's mediaViewerIndex pattern: an index
+    // into `media` opens a full-screen viewer; a video item mounts
+    // NetsaVideoPlayer, a photo renders a plain <Image>.
+    const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
     if (isLoading && !data) {
         return <View style={{ flex: 1, backgroundColor: '#09090b', alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="large" color="#FF6B35" /></View>;
@@ -67,7 +74,7 @@ export function PerformerProfile({ userId }: { userId: string }) {
     const travel = u.travelPreference || u.travelWillingness || u.artistDetails?.travelPreferences || '';
     const skills: string[] = u.skills || [];
     const avatarUrl: string | undefined = u.profileImageUrl;
-    const media = [
+    const media: ShowcaseItem[] = [
         ...((u.galleryUrls || []) as string[]).map((url) => ({ url, type: 'image' as const })),
         ...((u.videoReels || []) as ProfileVideoReel[])
             .filter((r) => r.status === 'ready')
@@ -172,7 +179,7 @@ export function PerformerProfile({ userId }: { userId: string }) {
                             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                 <View style={{ flexDirection: 'row', gap: 9 }}>
                                     {media.slice(0, 8).map((m, i) => (
-                                        <View key={i} style={{ width: 104, height: 138, borderRadius: 14, overflow: 'hidden', backgroundColor: '#17151d' }}>
+                                        <Pressable key={i} onPress={() => setViewerIndex(i)} style={{ width: 104, height: 138, borderRadius: 14, overflow: 'hidden', backgroundColor: '#17151d' }}>
                                             <Image source={{ uri: m.url }} style={{ width: '100%', height: '100%' }} />
                                             {m.type === 'video' && (
                                                 <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
@@ -181,7 +188,7 @@ export function PerformerProfile({ userId }: { userId: string }) {
                                                     </View>
                                                 </View>
                                             )}
-                                        </View>
+                                        </Pressable>
                                     ))}
                                 </View>
                             </ScrollView>
@@ -264,6 +271,32 @@ export function PerformerProfile({ userId }: { userId: string }) {
                         )}
                     </Pressable>
                 </View>
+
+                {/* Media viewer — video items mount NetsaVideoPlayer (real playback);
+                    photos render a plain <Image>. Mirrors ProfileScreen's viewer. */}
+                {viewerIndex !== null && media[viewerIndex] && (
+                    <Modal visible transparent animationType="fade" onRequestClose={() => setViewerIndex(null)}>
+                        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.94)', alignItems: 'center', justifyContent: 'center' }}>
+                            <Pressable
+                                onPress={() => setViewerIndex(null)}
+                                style={{ position: 'absolute', top: 54, right: 20, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
+                                accessibilityRole="button"
+                                accessibilityLabel="Close"
+                            >
+                                <X size={18} color="#fff" />
+                            </Pressable>
+                            {media[viewerIndex].type === 'video' && media[viewerIndex].muxPlaybackId ? (
+                                <NetsaVideoPlayer
+                                    playbackId={media[viewerIndex].muxPlaybackId!}
+                                    poster={media[viewerIndex].url || undefined}
+                                    style={{ width: '92%', aspectRatio: 9 / 16, maxHeight: '80%' }}
+                                />
+                            ) : (
+                                <Image source={{ uri: media[viewerIndex].url }} style={{ width: '92%', height: '70%' }} resizeMode="contain" />
+                            )}
+                        </View>
+                    </Modal>
+                )}
             </View>
         </>
     );

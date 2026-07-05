@@ -1,4 +1,6 @@
 // src/types/index.ts
+import type { ProfileVideoReel } from '@/components/profile/types';
+
 export type ExperienceEntry = {
   title?: string;
   role?: string;
@@ -84,6 +86,7 @@ export type User = {
   hasPhotos?: boolean;
   galleryUrls?: string[];
   videoUrls?: string[];
+  videoReels?: ProfileVideoReel[];
   // Organizer-specific fields
   organizationName?: string;
   organizationWebsite?: string;

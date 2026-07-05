@@ -264,9 +264,9 @@ export function isLargeFile(asset: ImagePickerAsset): boolean {
  */
 export async function uploadVideoFlow(options: {
     asset: ImagePickerAsset;
-    entityType: 'event';
+    entityType: 'event' | 'user';
     entityId: string;
-    purpose: 'gallery';
+    purpose: 'gallery' | 'portfolio';
     onProgress?: (p: number) => void;
 }): Promise<{ success: boolean; uploadId?: string; error?: string }> {
     const { asset, entityType, entityId, purpose } = options;

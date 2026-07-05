@@ -14,6 +14,15 @@ export type ExperienceEntry = {
 
 export type AvailabilityStatus = 'available' | 'busy' | 'tentative';
 
+export interface ProfileVideoReel {
+    muxPlaybackId: string;
+    status: 'processing' | 'ready' | 'errored';
+    uploadId?: string;
+    thumbnailUrl?: string;
+    duration?: number;
+    aspectRatio?: string;
+}
+
 export type ProfileData = {
     fullName: string;
     headline?: string;
@@ -35,6 +44,7 @@ export type ProfileData = {
     profileImageUrl?: string;
     galleryUrls?: string[];
     videoUrls?: string[];
+    videoReels?: ProfileVideoReel[];
     testimonials?: {
         text: string;
         author: string;

@@ -45,6 +45,7 @@ export const mapUserToProfileData = (
         profileImageUrl: user.profileImageUrl,
         galleryUrls: (user as any)?.galleryUrls || [],
         videoUrls: (user as any)?.videoUrls || [],
+        videoReels: (user as any)?.videoReels || [],
         testimonials: (user as any)?.testimonials || [],
 
         // Map from organizerDetails if available

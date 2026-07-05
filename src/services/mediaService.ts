@@ -97,7 +97,7 @@ const mediaService = {
      * Request a Mux direct-upload URL for a video (media-service brokers Mux).
      * Returns an uploadId (to poll status) and a one-time uploadUrl to PUT the file to.
      */
-    requestVideoUpload: async (request: { entityType: 'event'; entityId: string; purpose: 'gallery' }) => {
+    requestVideoUpload: async (request: { entityType: 'event' | 'user'; entityId: string; purpose: 'gallery' | 'portfolio' }) => {
         const response = await API.post<{ success: boolean; data: { uploadId: string; uploadUrl: string }; message?: string }>('/media/video/upload', request);
         return response.data;
     },

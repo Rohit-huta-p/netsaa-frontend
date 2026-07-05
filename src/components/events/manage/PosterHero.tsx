@@ -25,7 +25,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import EventVideo from '../EventVideo';
+import NetsaVideoPlayer from '@/components/media/NetsaVideoPlayer';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Eye, Share2, Settings, ImagePlus } from 'lucide-react-native';
 import type { EventDoc, EventMedia } from '@/services/eventService';
@@ -135,7 +135,7 @@ export default function PosterHero({
           }}
           renderItem={({ item }) => (
             item.kind === 'video' && item.muxPlaybackId ? (
-              <EventVideo playbackId={item.muxPlaybackId} style={{ width: SCREEN_W, height: HERO_H }} />
+              <NetsaVideoPlayer playbackId={item.muxPlaybackId} style={{ width: SCREEN_W, height: HERO_H }} />
             ) : (
               <ExpoImage
                 source={{ uri: item.kind === 'video' ? item.thumbnailUrl ?? item.url : item.url }}

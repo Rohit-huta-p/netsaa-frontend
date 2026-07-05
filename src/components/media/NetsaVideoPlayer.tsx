@@ -30,7 +30,9 @@ export default function NetsaVideoPlayer({
 
   const { status } = useEvent(player, 'statusChange', { status: player.status });
   const { isPlaying } = useEvent(player, 'playingChange', { isPlaying: player.playing });
-  const { currentTime } = useEvent(player, 'timeUpdate', { currentTime: player.currentTime });
+  // expo-video's TimeUpdateEventPayload requires more fields than we seed; cast
+  // the partial initial (currentTime is all we read — scrubber + time label).
+  const { currentTime } = useEvent(player, 'timeUpdate', { currentTime: player.currentTime } as any);
   const { muted } = useEvent(player, 'mutedChange', { muted: player.muted });
 
   const [started, setStarted] = useState(false);

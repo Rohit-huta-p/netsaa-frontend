@@ -263,6 +263,20 @@ export const eventService = {
     return [];
   },
 
+  // Current user's saved events / event registrations (artist dashboard
+  // Saved + Upcoming). Backend: GET /v1/users/me/saved-events and
+  // /v1/users/me/event-registrations (both `protect`ed). Returns the raw
+  // { data } envelope — consumers read `.data`.
+  getSavedEvents: async (params?: { limit?: number }): Promise<{ data: any[] }> => {
+    const r = await client.get('/v1/users/me/saved-events', { params });
+    return (r.data ?? { data: [] }) as { data: any[] };
+  },
+
+  getUserRegistrations: async (params?: { limit?: number }): Promise<{ data: any[] }> => {
+    const r = await client.get('/v1/users/me/event-registrations', { params });
+    return (r.data ?? { data: [] }) as { data: any[] };
+  },
+
   getTicket: async (registrationId: string): Promise<{
     registrationId: string; ticketCode: string; backupCode: string;
     qrPayload: string; attendeeCount: number; status: string;

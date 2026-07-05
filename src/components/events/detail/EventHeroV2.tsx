@@ -27,9 +27,10 @@ interface Props {
   onBack(): void;
   onShare(): void;
   onSave?(): void;
+  saved?: boolean;
 }
 
-export default function EventHeroV2({ event, onBack, onShare, onSave }: Props) {
+export default function EventHeroV2({ event, onBack, onShare, onSave, saved = false }: Props) {
   const [index, setIndex] = useState(0);
   const media: EventMedia[] = [...(event.media ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
   const hasMedia = media.length > 0;
@@ -86,8 +87,15 @@ export default function EventHeroV2({ event, onBack, onShare, onSave }: Props) {
         <Pressable onPress={onShare} hitSlop={8} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Share">
           <Share2 size={15} color="#fff" />
         </Pressable>
-        <Pressable onPress={onSave} hitSlop={8} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Save">
-          <Bookmark size={15} color="#fff" />
+        <Pressable
+          onPress={onSave}
+          hitSlop={8}
+          style={styles.iconBtn}
+          accessibilityRole="button"
+          accessibilityLabel={saved ? 'Saved' : 'Save'}
+          accessibilityState={{ selected: saved }}
+        >
+          <Bookmark size={15} color="#fff" fill={saved ? '#fff' : 'none'} />
         </Pressable>
       </View>
 

@@ -277,6 +277,14 @@ export const eventService = {
     return (r.data ?? { data: [] }) as { data: any[] };
   },
 
+  // Toggle-save (bookmark) an event. Backend POST /v1/events/:id/save is a
+  // toggle — creates or deletes the SavedEvent — and returns the new state.
+  // Envelope is { meta, data: { saved }, errors }, so unwrap to { saved }.
+  saveEvent: async (eventId: string): Promise<{ saved: boolean }> => {
+    const r = await client.post(`/v1/events/${eventId}/save`);
+    return r.data.data;
+  },
+
   getTicket: async (registrationId: string): Promise<{
     registrationId: string; ticketCode: string; backupCode: string;
     qrPayload: string; attendeeCount: number; status: string;

@@ -5,6 +5,7 @@ import { useEvent } from '@/hooks/useEvents';
 import { useAuthStore } from '@/stores/authStore';
 import { useEventsByOrganizer } from '@/hooks/useEventsByOrganizer';
 import { shareEvent } from '@/lib/eventShare';
+import { eventService } from '@/services/eventService';
 import EventHeroV2 from '@/components/events/detail/EventHeroV2';
 import EventDetailV2Body from '@/components/events/detail/EventDetailV2Body';
 import MoreByOrganizerRail from '@/components/events/detail/MoreByOrganizerRail';
@@ -21,6 +22,7 @@ export default function EventDetailScreen() {
   const router = useRouter();
   const { id, openRegister, preview } = useLocalSearchParams<{ id: string; openRegister?: string; preview?: string }>();
   const [sheetOpenForce, setSheetOpenForce] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const { data: event, isLoading, error } = useEvent(id);
   const userId = useAuthStore((s) => s.user?._id);
 
@@ -85,13 +87,27 @@ export default function EventDetailScreen() {
     return <Redirect href={`/events/${event._id}/manage/overview`} />;
   }
 
+  // Toggle-save (bookmark). Optimistic; reconciles with the server's toggle
+  // result and reverts on failure. Initial "already saved?" highlight needs an
+  // isSaved flag on the detail payload (backend follow-up).
+  const handleSave = async () => {
+    const next = !isSaved;
+    setIsSaved(next);
+    try {
+      const { saved } = await eventService.saveEvent(id);
+      setIsSaved(saved);
+    } catch {
+      setIsSaved(!next);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <ScrollView contentInsetAdjustmentBehavior="never" showsVerticalScrollIndicator={false}>
         {/* Hero owns the overlaid nav (back · share · save) */}
-        <EventHeroV2 event={event} onBack={() => router.back()} onShare={() => shareEvent(event)} />
+        <EventHeroV2 event={event} onBack={() => router.back()} onShare={() => shareEvent(event)} onSave={handleSave} saved={isSaved} />
 
         <EventDetailV2Body event={event} organizerEventCount={orgEvents?.total} />
 

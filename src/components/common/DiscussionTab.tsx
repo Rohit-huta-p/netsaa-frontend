@@ -462,20 +462,36 @@ export default function DiscussionTab({ id, type, ownerId, inline = false }: Dis
                                                 accessibilityRole="button"
                                                 accessibilityLabel={`Open profile for ${msg.authorName}`}
                                             >
-                                                <Image
-                                                    source={{
-                                                        uri:
-                                                            msg.authorImageUrl ||
-                                                            'https://i.pravatar.cc/150?img=12',
-                                                    }}
-                                                    style={{
-                                                        width: 32,
-                                                        height: 32,
-                                                        borderRadius: 16,
-                                                        backgroundColor: '#2A2730',
-                                                        opacity: msg.isDeleted ? 0.4 : 1,
-                                                    }}
-                                                />
+                                                {msg.authorImageUrl ? (
+                                                    <Image
+                                                        source={{ uri: msg.authorImageUrl }}
+                                                        style={{
+                                                            width: 32,
+                                                            height: 32,
+                                                            borderRadius: 16,
+                                                            backgroundColor: '#2A2730',
+                                                            opacity: msg.isDeleted ? 0.4 : 1,
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    // No profile photo → branded initials circle,
+                                                    // never a stock-stranger pravatar face.
+                                                    <View
+                                                        style={{
+                                                            width: 32,
+                                                            height: 32,
+                                                            borderRadius: 16,
+                                                            backgroundColor: '#3A2A22',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            opacity: msg.isDeleted ? 0.4 : 1,
+                                                        }}
+                                                    >
+                                                        <Text style={{ color: '#F0ECE6', fontFamily: 'Outfit-SemiBold', fontSize: 13 }}>
+                                                            {(msg.authorName || '?').trim().charAt(0).toUpperCase() || '?'}
+                                                        </Text>
+                                                    </View>
+                                                )}
                                             </TouchableOpacity>
                                             <View style={{ flex: 1 }}>
                                                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>

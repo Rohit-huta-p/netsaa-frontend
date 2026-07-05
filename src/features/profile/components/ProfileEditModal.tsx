@@ -13,14 +13,14 @@ import {
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { Video as ExpoVideo, ResizeMode } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
-import { uploadMediaFlow, validateMediaFile, isLargeFile } from "@/utils/upload";
+import { uploadMediaFlow, uploadVideoFlow, validateMediaFile, isLargeFile } from "@/utils/upload";
 import { useProfileUiStore, SectionId } from '@/stores/profileUiStore';
 import { useAuthStore } from '@/stores/authStore';
 import authService from '@/services/authService';
 import gigService from '@/services/gigService';
-import { ProfileData, ExperienceEntry } from '@/components/profile/types';
+import mediaService from '@/services/mediaService';
+import { ProfileData, ExperienceEntry, ProfileVideoReel } from '@/components/profile/types';
 import { AITextInput } from '@/components/ui/AITextInput';
 import { Field, Input, MiniField, P } from './edit/EditModalPrimitives';
 import { EditModalToast, type ToastState } from './edit/EditModalToast';
@@ -286,7 +286,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const [country, setCountry] = useState('');
     const [profileImageUrl, setProfileImageUrl] = useState('');
     const [galleryUrls, setGalleryUrls] = useState<string[]>(['', '', '', '', '']);
-    const [videoUrls, setVideoUrls] = useState<string[]>(['', '', '']);
+    const [videoReels, setVideoReels] = useState<ProfileVideoReel[]>([]);
     const [uploadingState, setUploadingState] = useState<any>({});
     const [experience, setExperience] = useState<ExperienceEntry[]>([]);
 
@@ -335,7 +335,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         setOrgType(profileData.organizerTypeCategory || 'individual'); setOrgWebsite(profileData.organizationWebsite || '');
         setProfileImageUrl(profileData.profileImageUrl || '');
         setGalleryUrls([...(profileData.galleryUrls || []), '', '', '', '', ''].slice(0, 5));
-        setVideoUrls([...(profileData.videoUrls || []), '', '', ''].slice(0, 3));
+        setVideoReels((profileData.videoReels || []).slice(0, 3));
         setUploadingState({});
         setExperience(profileData.experience ? JSON.parse(JSON.stringify(profileData.experience)) : []);
         // @ts-ignore
@@ -357,6 +357,34 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         if (isVisible) { Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 180 }).start(); }
         else { slideAnim.setValue(SCREEN_HEIGHT); }
     }, [isVisible]);
+
+    // ── Video reel status poll — mirrors Step6Media's Mux polling pattern ──
+    useEffect(() => {
+        const processing = videoReels.filter(r => r.status === 'processing' && r.uploadId);
+        if (processing.length === 0) return;
+        const t = setInterval(async () => {
+            for (const r of processing) {
+                try {
+                    const res = await mediaService.getAssetStatus(r.uploadId!);
+                    const s = res.data.status;
+                    if (s === 'ready' || s === 'errored') {
+                        setVideoReels(prev => prev.map(x => {
+                            if (x.uploadId !== r.uploadId) return x;
+                            return {
+                                ...x,
+                                status: s === 'ready' ? 'ready' as const : 'errored' as const,
+                                muxPlaybackId: (res.data as any).playbackId || x.muxPlaybackId,
+                                thumbnailUrl: (res.data as any).playbackId ? `https://image.mux.com/${(res.data as any).playbackId}/thumbnail.jpg?time=1` : x.thumbnailUrl,
+                                duration: (res.data as any).duration ?? x.duration,
+                                aspectRatio: (res.data as any).aspectRatio ?? x.aspectRatio,
+                            };
+                        }));
+                    }
+                } catch { /* keep polling */ }
+            }
+        }, 4000);
+        return () => clearInterval(t);
+    }, [videoReels]);
 
     const handleClose = () => {
         if (discardPromptVisible) {
@@ -414,7 +442,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             Object.assign(artistPayload, {
                 profileImageUrl,
                 galleryUrls: galleryUrls.filter(Boolean),
-                videoUrls: videoUrls.filter(Boolean),
+                videoReels,
                 hasPhotos: galleryUrls.some(Boolean) || !!profileImageUrl,
             });
         }
@@ -694,38 +722,88 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
 
     // ── TAB 5: MEDIA — Bento Upload Grid ──
     const renderMedia = () => {
-        const handlePickMedia = async (type: 'profile' | 'gallery' | 'video', index?: number) => {
-            const mediaType = type === 'video' ? ImagePicker.MediaTypeOptions.Videos : ImagePicker.MediaTypeOptions.Images;
-            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: mediaType, allowsEditing: type === 'profile', aspect: type === 'profile' ? [1, 1] : [16, 9], quality: 0.8 });
+        const handlePickMedia = async (type: 'profile' | 'gallery', index?: number) => {
+            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: type === 'profile', aspect: type === 'profile' ? [1, 1] : [16, 9], quality: 0.8 });
             if (result.canceled) return;
-            const asset = result.assets[0]; const isVideo = type === 'video';
-            const validation = validateMediaFile(asset, isVideo);
+            const asset = result.assets[0];
+            const validation = validateMediaFile(asset, false);
             if (!validation.valid) { Alert.alert('Error', validation.error); return; }
             if (isLargeFile(asset)) { Alert.alert('Large File', 'Continue?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Continue', onPress: () => performUpload(type, asset, index) }]); return; }
             performUpload(type, asset, index);
         };
-        const performUpload = async (type: 'profile' | 'gallery' | 'video', asset: ImagePicker.ImagePickerAsset, index?: number) => {
+        const performUpload = async (type: 'profile' | 'gallery', asset: ImagePicker.ImagePickerAsset, index?: number) => {
             const uploadKey = type === 'profile' ? 'profile' : `${type}-${index}`;
             setUploadingState((prev: any) => ({ ...prev, [uploadKey]: { progress: 0, uploading: true, localUri: asset.uri } }));
-            const purpose = type === 'profile' ? 'avatar' as const : type === 'video' ? 'portfolio' as const : 'gallery' as const;
+            const purpose = type === 'profile' ? 'avatar' as const : 'gallery' as const;
             const result = await uploadMediaFlow({ asset, entityType: 'user', entityId: user?._id || '', purpose, onProgress: (progress) => setUploadingState((prev: any) => ({ ...prev, [uploadKey]: { ...prev[uploadKey], progress, uploading: true } })) });
             setUploadingState((prev: any) => ({ ...prev, [uploadKey]: { ...prev[uploadKey], progress: 100, uploading: false } }));
-            if (result.success && result.url) { if (type === 'profile') setProfileImageUrl(result.url!); else if (type === 'gallery' && index !== undefined) setGalleryUrls(prev => { const n = [...prev]; n[index] = result.url!; return n; }); else if (type === 'video' && index !== undefined) setVideoUrls(prev => { const n = [...prev]; n[index] = result.url!; return n; }); markDirty('media'); }
+            if (result.success && result.url) { if (type === 'profile') setProfileImageUrl(result.url!); else if (type === 'gallery' && index !== undefined) setGalleryUrls(prev => { const n = [...prev]; n[index] = result.url!; return n; }); markDirty('media'); }
             else Alert.alert('Upload Failed', result.error || 'Unknown error');
         };
-        const removeMedia = (type: 'gallery' | 'video', index: number) => { if (type === 'gallery') setGalleryUrls(prev => { const n = [...prev]; n[index] = ''; return n; }); else setVideoUrls(prev => { const n = [...prev]; n[index] = ''; return n; }); markDirty('media'); };
+        const removeMedia = (index: number) => { setGalleryUrls(prev => { const n = [...prev]; n[index] = ''; return n; }); markDirty('media'); };
         const profileState = uploadingState['profile'];
 
-        const MediaSlot = ({ type, index, url }: { type: 'gallery' | 'video'; index: number; url: string }) => {
+        // ── Video reel pick → Mux direct upload (never S3) ──
+        const handlePickVideo = async () => {
+            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Videos, quality: 0.8 });
+            if (result.canceled) return;
+            const asset = result.assets[0];
+            const validation = validateMediaFile(asset, true);
+            if (!validation.valid) { Alert.alert('Error', validation.error); return; }
+            if (isLargeFile(asset)) { Alert.alert('Large File', 'Continue?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Continue', onPress: () => performVideoUpload(asset) }]); return; }
+            performVideoUpload(asset);
+        };
+        const performVideoUpload = async (asset: ImagePicker.ImagePickerAsset) => {
+            const result = await uploadVideoFlow({ asset, entityType: 'user', entityId: user?._id || '', purpose: 'portfolio' });
+            if (result.success && result.uploadId) {
+                setVideoReels(prev => ([...prev, { muxPlaybackId: '', status: 'processing' as const, uploadId: result.uploadId }]).slice(0, 3));
+                markDirty('media');
+            } else {
+                Alert.alert('Upload Failed', result.error || 'Unknown error');
+            }
+        };
+        const removeReel = (index: number) => { setVideoReels(prev => prev.filter((_, i) => i !== index)); markDirty('media'); };
+
+        const MediaSlot = ({ type, index, url }: { type: 'gallery'; index: number; url: string }) => {
             const uploadKey = `${type}-${index}`; const state = uploadingState[uploadKey]; const isUploading = state?.uploading;
             return (
-                <View style={{ flex: 1, aspectRatio: type === 'video' ? 16 / 9 : 1, backgroundColor: `${P.green}06`, borderWidth: 1, borderColor: `${P.green}15`, borderRadius: 16, overflow: 'hidden' }}>
-                    {url ? (<View style={{ flex: 1 }}>{type === 'video' ? (Platform.OS === 'web' ? <video src={url} controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ExpoVideo source={{ uri: url }} style={{ width: '100%', height: '100%' }} useNativeControls resizeMode={ResizeMode.COVER} shouldPlay={false} isLooping={false} />) : <Image source={{ uri: url }} style={{ width: '100%', height: '100%' }} />}<TouchableOpacity onPress={() => removeMedia(type, index)} style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} color={P.danger} /></TouchableOpacity></View>)
+                <View style={{ flex: 1, aspectRatio: 1, backgroundColor: `${P.green}06`, borderWidth: 1, borderColor: `${P.green}15`, borderRadius: 16, overflow: 'hidden' }}>
+                    {url ? (<View style={{ flex: 1 }}><Image source={{ uri: url }} style={{ width: '100%', height: '100%' }} /><TouchableOpacity onPress={() => removeMedia(index)} style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} color={P.danger} /></TouchableOpacity></View>)
                     : isUploading ? (<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color={P.green} /><Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Bold', fontSize: 10, marginTop: 4 }}>{state?.progress || 0}%</Text></View>)
-                    : (<TouchableOpacity onPress={() => handlePickMedia(type, index)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed' }}>{type === 'video' ? <VideoIcon size={20} color={P.green} /> : <Plus size={20} color={P.green} />}<Text style={{ color: P.green, fontFamily: 'Outfit-Bold', fontSize: 9, marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 }}>{type === 'video' ? 'Video' : 'Photo'}</Text></TouchableOpacity>)}
+                    : (<TouchableOpacity onPress={() => handlePickMedia(type, index)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed' }}><Plus size={20} color={P.green} /><Text style={{ color: P.green, fontFamily: 'Outfit-Bold', fontSize: 9, marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Photo</Text></TouchableOpacity>)}
                 </View>
             );
         };
+
+        // Reel slot: mirrors Step6Media's video branch — processing tile, Mux
+        // poster thumbnail when ready, empty "Add reel" affordance otherwise.
+        // Full inline playback is a later task; this edit slot only needs the
+        // processing/poster states.
+        const ReelSlot = ({ reel }: { reel?: ProfileVideoReel }) => (
+            <View style={{ flex: 1, aspectRatio: 16 / 9, backgroundColor: `${P.green}06`, borderWidth: 1, borderColor: `${P.green}15`, borderRadius: 16, overflow: 'hidden' }}>
+                {reel && reel.status === 'processing' ? (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                        <ActivityIndicator size="small" color={P.green} />
+                        <Text style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 10, marginTop: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Processing…</Text>
+                    </View>
+                ) : reel && reel.status === 'errored' ? (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: P.danger, fontFamily: 'Outfit-Bold', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Failed — remove</Text>
+                        <TouchableOpacity onPress={() => removeReel(videoReels.indexOf(reel))} style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} color={P.danger} /></TouchableOpacity>
+                    </View>
+                ) : reel ? (
+                    <View style={{ flex: 1 }}>
+                        {reel.thumbnailUrl ? <Image source={{ uri: reel.thumbnailUrl }} style={{ width: '100%', height: '100%' }} /> : null}
+                        <TouchableOpacity onPress={() => removeReel(videoReels.indexOf(reel))} style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} color={P.danger} /></TouchableOpacity>
+                    </View>
+                ) : (
+                    <TouchableOpacity onPress={handlePickVideo} accessibilityLabel="Add reel" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed' }}>
+                        <VideoIcon size={20} color={P.green} />
+                        <Text style={{ color: P.green, fontFamily: 'Outfit-Bold', fontSize: 9, marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Add reel</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+        );
 
         return (
             <>
@@ -746,9 +824,11 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                 <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.green, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Gallery ({galleryUrls.filter(Boolean).length}/5)</Text>
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>{[0, 1].map(i => <MediaSlot key={i} type="gallery" index={i} url={galleryUrls[i] || ''} />)}</View>
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>{[2, 3, 4].map(i => <MediaSlot key={i} type="gallery" index={i} url={galleryUrls[i] || ''} />)}</View>
-                {/* Videos — 16:9 cinematic */}
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.green, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Reels ({videoUrls.filter(Boolean).length}/3)</Text>
-                <View style={{ gap: 8 }}>{[0, 1, 2].map(i => <MediaSlot key={i} type="video" index={i} url={videoUrls[i] || ''} />)}</View>
+                {/* Videos — 16:9 cinematic, uploaded via Mux */}
+                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.green, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Reels ({videoReels.length}/3)</Text>
+                <View style={{ gap: 8 }}>
+                    {[0, 1, 2].map(i => <ReelSlot key={i} reel={videoReels[i]} />)}
+                </View>
             </>
         );
     };

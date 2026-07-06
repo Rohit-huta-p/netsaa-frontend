@@ -24,6 +24,7 @@ import {
     Pressable,
 } from "react-native";
 import { MoreVertical, Pin, Send, Trash2 } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 import { socketService } from "@/services/socketService";
@@ -31,9 +32,24 @@ import eventService from "@/services/eventService";
 import gigService from "@/services/gigService";
 import useAuthStore from "@/stores/authStore";
 
-// Default avatar shown when a comment has no author image — a branded
-// placeholder, never a stock-stranger photo.
-const NO_PROFILE = require('@/../assets/no-profile.png');
+// Fallback avatar when a comment has no author image: a gradient disc + the
+// author's initial. The gradient is chosen deterministically from the author
+// id, so a given person always gets the same colours (varied across people).
+const AVATAR_GRADIENTS: [string, string][] = [
+  ['#FF6B35', '#F7931E'], // orange
+  ['#8B5CF6', '#6D23B6'], // purple
+  ['#22C55E', '#16A34A'], // green
+  ['#5B8DEF', '#3B82F6'], // blue
+  ['#EC4899', '#BE185D'], // pink
+  ['#EAB308', '#CA8A04'], // gold
+  ['#14B8A6', '#0D9488'], // teal
+  ['#F43F5E', '#BE123C'], // rose
+];
+function avatarGradient(seed: string): [string, string] {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length];
+}
 
 /* ================= TYPES ================= */
 
@@ -466,16 +482,36 @@ export default function DiscussionTab({ id, type, ownerId, inline = false }: Dis
                                                 accessibilityRole="button"
                                                 accessibilityLabel={`Open profile for ${msg.authorName}`}
                                             >
-                                                <Image
-                                                    source={msg.authorImageUrl ? { uri: msg.authorImageUrl } : NO_PROFILE}
-                                                    style={{
-                                                        width: 32,
-                                                        height: 32,
-                                                        borderRadius: 16,
-                                                        backgroundColor: '#2A2730',
-                                                        opacity: msg.isDeleted ? 0.4 : 1,
-                                                    }}
-                                                />
+                                                {msg.authorImageUrl ? (
+                                                    <Image
+                                                        source={{ uri: msg.authorImageUrl }}
+                                                        style={{
+                                                            width: 32,
+                                                            height: 32,
+                                                            borderRadius: 16,
+                                                            backgroundColor: '#2A2730',
+                                                            opacity: msg.isDeleted ? 0.4 : 1,
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <LinearGradient
+                                                        colors={avatarGradient(String(msg.authorId || msg.authorName || '?'))}
+                                                        start={{ x: 0, y: 0 }}
+                                                        end={{ x: 1, y: 1 }}
+                                                        style={{
+                                                            width: 32,
+                                                            height: 32,
+                                                            borderRadius: 16,
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            opacity: msg.isDeleted ? 0.4 : 1,
+                                                        }}
+                                                    >
+                                                        <Text style={{ color: '#fff', fontFamily: 'Outfit-SemiBold', fontSize: 13 }}>
+                                                            {(msg.authorName || '?').trim().charAt(0).toUpperCase() || '?'}
+                                                        </Text>
+                                                    </LinearGradient>
+                                                )}
                                             </TouchableOpacity>
                                             <View style={{ flex: 1 }}>
                                                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>

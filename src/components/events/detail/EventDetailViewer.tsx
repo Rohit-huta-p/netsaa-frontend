@@ -11,10 +11,13 @@
  * and the register CTA is inert — the organizer can't register for their own
  * event. Everything else is byte-identical to what an artist sees.
  */
+import { useState } from 'react';
 import { View, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import type { EventDoc } from '@/services/eventService';
+import { useQueryClient } from '@tanstack/react-query';
+import { eventService, type EventDoc } from '@/services/eventService';
 import { useEventsByOrganizer } from '@/hooks/useEventsByOrganizer';
+import { queryKeys } from '@/constants/queryKeys';
 import { shareEvent } from '@/lib/eventShare';
 import EventHeroV2 from './EventHeroV2';
 import EventDetailV2Body from './EventDetailV2Body';
@@ -46,6 +49,24 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
   // One query powers both the organizer card's "N events" and the rail.
   const { data: orgEvents } = useEventsByOrganizer(organizerId, event._id);
 
+  // Save / unsave — POST /v1/events/:id/save toggles server-side and returns the
+  // new state. Seeded from viewerContext.hasSaved (detail endpoint), optimistic
+  // with rollback, and refreshes the artist dashboard's Saved list.
+  const qc = useQueryClient();
+  const [saved, setSaved] = useState<boolean>(!!(event as any).viewerContext?.hasSaved);
+  const onToggleSave = async () => {
+    const prev = saved;
+    setSaved(!prev);
+    try {
+      const r = await eventService.saveEvent(event._id);
+      setSaved(r.saved);
+      qc.invalidateQueries({ queryKey: ['savedEvents'] });
+      qc.invalidateQueries({ queryKey: queryKeys.artist.savedEvents() });
+    } catch {
+      setSaved(prev); // roll back on failure
+    }
+  };
+
   const handleBack = preview
     ? onClose ?? (() => {})
     : () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -54,7 +75,13 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
     <View style={{ flex: 1, backgroundColor: BG }}>
       <ScrollView contentInsetAdjustmentBehavior="never" showsVerticalScrollIndicator={false}>
         {/* Hero owns the overlaid nav (back · share · save) */}
-        <EventHeroV2 event={event} onBack={handleBack} onShare={() => shareEvent(event)} />
+        <EventHeroV2
+          event={event}
+          onBack={handleBack}
+          onShare={() => shareEvent(event)}
+          onSave={preview ? undefined : onToggleSave}
+          saved={saved}
+        />
 
         <EventDetailV2Body event={event} organizerEventCount={orgEvents?.total} />
 

@@ -6,26 +6,10 @@ import {
     TouchableOpacity,
     ScrollView,
     Modal,
-    Platform,
     useWindowDimensions,
 } from 'react-native';
-import {
-    X,
-    ShieldCheck,
-    IndianRupee,
-    Users,
-    TrendingUp,
-    MapPin,
-    Clock,
-    Calendar,
-    Zap,
-    SlidersHorizontal,
-    BookOpen,
-    Tag,
-} from 'lucide-react-native';
-import { EventFilterSection } from './EventFilterSection';
+import { X } from 'lucide-react-native';
 import { EventFilterState } from '@/types/eventFilters';
-import { EVENT_FILTER_PRESETS, INITIAL_EVENT_FILTERS, countActiveEventFilters } from '@/lib/constants/eventFilters';
 
 interface EventFilterModalProps {
     visible: boolean;
@@ -35,6 +19,111 @@ interface EventFilterModalProps {
     activeFilterCount: number;
 }
 
+/* ----------------------------- option data ----------------------------- */
+
+const CATEGORIES = [
+    { value: 'dance', label: 'Dance' },
+    { value: 'music', label: 'Music' },
+    { value: 'theatre', label: 'Theatre' },
+    { value: 'comedy', label: 'Comedy' },
+    { value: 'film', label: 'Film' },
+];
+
+const CITIES = [
+    { value: 'any', label: 'Any' },
+    { value: 'pune', label: 'Pune' },
+    { value: 'mumbai', label: 'Mumbai' },
+    { value: 'delhi', label: 'Delhi' },
+    { value: 'bangalore', label: 'Bangalore' },
+];
+
+const FORMATS = [
+    { value: 'any', label: 'Any' },
+    { value: 'in_person', label: 'In-person' },
+    { value: 'online', label: 'Online' },
+];
+
+const WHEN_OPTIONS = [
+    { value: 'any', label: 'Any' },
+    { value: 'today', label: 'Today' },
+    { value: 'this_weekend', label: 'This weekend' },
+    { value: 'next_7', label: 'Next 7 days' },
+    { value: 'this_month', label: 'This month' },
+];
+
+const PRICE_OPTIONS = [
+    { value: 'any', label: 'Any' },
+    { value: 'free', label: 'Free' },
+    { value: 'paid', label: 'Paid' },
+];
+
+const SORT_OPTIONS = [
+    { value: 'relevance', label: 'Relevant' },
+    { value: 'soonest', label: 'Soonest' },
+    { value: 'price_low', label: 'Price ↑' },
+    { value: 'popular', label: 'Popular' },
+];
+
+/* ----------------------------- primitives ----------------------------- */
+
+const Chip = ({
+    label,
+    active,
+    onPress,
+}: {
+    label: string;
+    active: boolean;
+    onPress: () => void;
+}) => (
+    <TouchableOpacity
+        onPress={onPress}
+        className={`rounded-full border px-4 py-2.5 ${active ? 'bg-white border-white' : 'bg-white/5 border-white/10'
+            }`}
+    >
+        <Text className={`text-[13px] ${active ? 'text-black font-semibold' : 'text-zinc-300 font-medium'}`}>
+            {label}
+        </Text>
+    </TouchableOpacity>
+);
+
+const Group = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <View className="mb-7">
+        <Text className="text-zinc-500 text-[11px] font-semibold uppercase tracking-widest mb-3">
+            {label}
+        </Text>
+        {children}
+    </View>
+);
+
+const Segmented = ({
+    options,
+    value,
+    onChange,
+}: {
+    options: { value: string; label: string }[];
+    value: string;
+    onChange: (v: string) => void;
+}) => (
+    <View className="flex-row bg-white/5 rounded-xl p-1 gap-1">
+        {options.map((opt) => {
+            const active = value === opt.value;
+            return (
+                <TouchableOpacity
+                    key={opt.value}
+                    onPress={() => onChange(opt.value)}
+                    className={`flex-1 items-center py-2.5 rounded-lg ${active ? 'bg-white' : ''}`}
+                >
+                    <Text className={`text-xs ${active ? 'text-black font-semibold' : 'text-zinc-400 font-medium'}`}>
+                        {opt.label}
+                    </Text>
+                </TouchableOpacity>
+            );
+        })}
+    </View>
+);
+
+/* ------------------------------- modal -------------------------------- */
+
 export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     visible,
     onClose,
@@ -42,34 +131,31 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     onApplyFilters,
     activeFilterCount,
 }) => {
-    const { width, height } = useWindowDimensions();
+    const { width } = useWindowDimensions();
     const isDesktop = width >= 1024;
     const isTablet = width >= 768 && width < 1024;
 
     const [localFilters, setLocalFilters] = useState<EventFilterState>(filters);
-    const [expandedSections, setExpandedSections] = useState<Set<string>>(
-        new Set(['eventType', 'location'])
-    );
 
-    const toggleSection = (sectionId: string) => {
-        const newExpanded = new Set(expandedSections);
-        if (newExpanded.has(sectionId)) {
-            newExpanded.delete(sectionId);
-        } else {
-            newExpanded.add(sectionId);
-        }
-        setExpandedSections(newExpanded);
-    };
+    // Resync local state with the applied filters each time the drawer opens.
+    React.useEffect(() => {
+        if (visible) setLocalFilters(filters);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visible]);
 
-    const handleApplyPreset = (preset: any) => {
-        setLocalFilters({
-            ...localFilters,
+    const adv = localFilters.advanced;
+
+    const patch = (section: keyof EventFilterState['advanced'], updates: Record<string, any>) =>
+        setLocalFilters((prev) => ({
+            ...prev,
             advanced: {
-                ...localFilters.advanced,
-                ...preset.filters.advanced // Merge nested advanced objects
-            }
-        });
-    };
+                ...prev.advanced,
+                [section]: { ...prev.advanced[section], ...updates },
+            },
+        }));
+
+    const toggleInArray = (arr: string[] = [], v: string) =>
+        arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
 
     const handleClearAll = () => {
         onApplyFilters(null);
@@ -82,260 +168,143 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     };
 
     const modalWidth = isDesktop ? 480 : isTablet ? '60%' : '100%';
-    const modalHeight = '100%';
+
+    // Current selections
+    const selectedCategories = adv.category.categories || [];
+    const selectedCity = adv.location.city || 'any';
+    const selectedFormat = adv.location.format || 'any';
+    const selectedWhen = adv.timing.timeFrame || 'any';
+    const selectedPrice = adv.pricing.mode || 'any';
+    const selectedSort = adv.sorting.sortBy || 'relevance';
 
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            transparent
-            onRequestClose={onClose}
-        >
+        <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
             <View className="flex-1 bg-black/60">
                 {/* Backdrop */}
-                <TouchableOpacity
-                    className="flex-1"
-                    activeOpacity={1}
-                    onPress={onClose}
-                />
+                <TouchableOpacity className="flex-1" activeOpacity={1} onPress={onClose} />
 
                 {/* Filter Panel */}
                 <View
-                    className="bg-zinc-950 border-t border-white/10"
-                    style={{
-                        width: modalWidth,
-                        height: modalHeight,
-                        position: 'absolute',
-                        right: 0,
-                        top: 0,
-                    }}
+                    className="bg-zinc-950 border-l border-white/10"
+                    style={{ width: modalWidth, height: '100%', position: 'absolute', right: 0, top: 0 }}
                 >
                     {/* Header */}
-                    <View className="border-b border-white/5 px-6 py-6">
-                        <View className="flex-row items-center justify-between mb-4">
-                            <View className="flex-row items-center gap-3">
-                                <View className="w-10 h-10 rounded-full bg-white/5 items-center justify-center">
-                                    <SlidersHorizontal size={20} color="#FFFFFF" />
-                                </View>
-                                <View>
-                                    <Text className="text-white text-xl font-black tracking-tight">
-                                        FILTERS
-                                    </Text>
-                                    {activeFilterCount > 0 && (
-                                        <Text className="text-zinc-500 text-xs font-medium mt-0.5">
-                                            {activeFilterCount} active
-                                        </Text>
-                                    )}
-                                </View>
-                            </View>
-                            <TouchableOpacity
-                                onPress={onClose}
-                                className="w-10 h-10 rounded-full bg-white/5 items-center justify-center"
-                            >
-                                <X size={20} color="#71717A" />
-                            </TouchableOpacity>
+                    <View className="border-b border-white/5 px-6 pt-14 pb-5 flex-row items-start justify-between">
+                        <View>
+                            <Text className="text-white text-2xl font-bold tracking-tight">Filters</Text>
+                            {activeFilterCount > 0 && (
+                                <Text className="text-zinc-500 text-xs mt-1">{activeFilterCount} active</Text>
+                            )}
                         </View>
-
-                        {/* Quick Presets */}
-                        <View className="mt-4">
-                            <Text className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-3">
-                                QUICK PRESETS
-                            </Text>
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                className="flex-row "
-                                contentContainerStyle={{ gap: 8 }}
-                            >
-                                {Object.entries(EVENT_FILTER_PRESETS).map(([key, preset]) => (
-                                    <TouchableOpacity
-                                        key={key}
-                                        onPress={() => handleApplyPreset(preset)}
-                                        className="bg-zinc-900/50 border border-white/5 rounded-xl px-4 py-3 flex-row items-center gap-2"
-                                    >
-                                        <View className="w-6 h-6 rounded-full bg-white/5 items-center justify-center">
-                                            {preset.icon === 'calendar' && <Calendar size={14} color="#3B82F6" />}
-                                            {preset.icon === 'tag' && <Tag size={14} color="#10B981" />}
-                                            {preset.icon === 'book-open' && <BookOpen size={14} color="#F59E0B" />}
-                                        </View>
-                                        <View>
-                                            <Text className="text-white text-xs font-bold">
-                                                {preset.name}
-                                            </Text>
-                                            <Text className="text-zinc-500 text-[10px] font-medium">
-                                                {preset.description}
-                                            </Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
+                        <TouchableOpacity
+                            onPress={onClose}
+                            className="w-9 h-9 rounded-full bg-white/5 items-center justify-center"
+                        >
+                            <X size={18} color="#a1a1aa" />
+                        </TouchableOpacity>
                     </View>
 
-                    {/* Filter Sections */}
+                    {/* Body */}
                     <ScrollView
                         className="flex-1 px-6"
                         showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingTop: 24, paddingBottom: 40 }}
                     >
-                        <View className="py-6 gap-6">
+                        <Group label="Craft">
+                            <View className="flex-row flex-wrap gap-2">
+                                {CATEGORIES.map((o) => (
+                                    <Chip
+                                        key={o.value}
+                                        label={o.label}
+                                        active={selectedCategories.includes(o.value)}
+                                        onPress={() =>
+                                            patch('category', {
+                                                categories: toggleInArray(selectedCategories, o.value),
+                                            })
+                                        }
+                                    />
+                                ))}
+                            </View>
+                        </Group>
 
-                            {/* Category - already covered by pills but allow selection here too? Yes. */}
-                            <EventFilterSection
-                                id="category"
-                                title="Category & Genre"
-                                icon={<Users size={18} color="#8B5CF6" />}
-                                expanded={expandedSections.has('category')}
-                                onToggle={() => toggleSection('category')}
-                                filters={localFilters.advanced.category}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            category: { ...localFilters.advanced.category, ...updates },
-                                        },
-                                    })
-                                }
+                        <Group label="City">
+                            <View className="flex-row flex-wrap gap-2">
+                                {CITIES.map((o) => (
+                                    <Chip
+                                        key={o.value}
+                                        label={o.label}
+                                        active={selectedCity === o.value}
+                                        onPress={() =>
+                                            patch('location', {
+                                                city: o.value === 'any' ? undefined : o.value,
+                                            })
+                                        }
+                                    />
+                                ))}
+                            </View>
+                        </Group>
+
+                        <Group label="Format">
+                            <Segmented
+                                options={FORMATS}
+                                value={selectedFormat}
+                                onChange={(v) => patch('location', { format: v })}
                             />
+                        </Group>
 
-                            {/* Event Type */}
-                            <EventFilterSection
-                                id="eventType"
-                                title="Event Type"
-                                icon={<Calendar size={18} color="#EC4899" />}
-                                expanded={expandedSections.has('eventType')}
-                                onToggle={() => toggleSection('eventType')}
-                                filters={localFilters.advanced.eventType}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            eventType: { ...localFilters.advanced.eventType, ...updates },
-                                        },
-                                    })
-                                }
+                        <Group label="When">
+                            <View className="flex-row flex-wrap gap-2">
+                                {WHEN_OPTIONS.map((o) => (
+                                    <Chip
+                                        key={o.value}
+                                        label={o.label}
+                                        active={selectedWhen === o.value}
+                                        onPress={() =>
+                                            patch('timing', {
+                                                timeFrame: o.value === 'any' ? undefined : o.value,
+                                            })
+                                        }
+                                    />
+                                ))}
+                            </View>
+                        </Group>
+
+                        <Group label="Price">
+                            <View className="flex-row flex-wrap gap-2">
+                                {PRICE_OPTIONS.map((o) => (
+                                    <Chip
+                                        key={o.value}
+                                        label={o.label}
+                                        active={selectedPrice === o.value}
+                                        onPress={() => patch('pricing', { mode: o.value })}
+                                    />
+                                ))}
+                            </View>
+                        </Group>
+
+                        <Group label="Sort by">
+                            <Segmented
+                                options={SORT_OPTIONS}
+                                value={selectedSort}
+                                onChange={(v) => patch('sorting', { sortBy: v })}
                             />
-
-                            {/* Location */}
-                            <EventFilterSection
-                                id="location"
-                                title="Location"
-                                icon={<MapPin size={18} color="#3B82F6" />}
-                                expanded={expandedSections.has('location')}
-                                onToggle={() => toggleSection('location')}
-                                filters={localFilters.advanced.location}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            location: { ...localFilters.advanced.location, ...updates },
-                                        },
-                                    })
-                                }
-                            />
-
-                            {/* Timing */}
-                            <EventFilterSection
-                                id="timing"
-                                title="Timing"
-                                icon={<Clock size={18} color="#F97316" />}
-                                expanded={expandedSections.has('timing')}
-                                onToggle={() => toggleSection('timing')}
-                                filters={localFilters.advanced.timing}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            timing: { ...localFilters.advanced.timing, ...updates },
-                                        },
-                                    })
-                                }
-                            />
-
-                            {/* Pricing */}
-                            <EventFilterSection
-                                id="pricing"
-                                title="Pricing"
-                                icon={<IndianRupee size={18} color="#ef4444" />}
-                                expanded={expandedSections.has('pricing')}
-                                onToggle={() => toggleSection('pricing')}
-                                filters={localFilters.advanced.pricing}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            pricing: { ...localFilters.advanced.pricing, ...updates },
-                                        },
-                                    })
-                                }
-                            />
-
-                            {/* Artist Types */}
-                            <EventFilterSection
-                                id="artistType"
-                                title="Artist Types"
-                                icon={<Users size={18} color="#10b981" />}
-                                expanded={expandedSections.has('artistType')}
-                                onToggle={() => toggleSection('artistType')}
-                                filters={localFilters.advanced.artistType}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            artistType: { ...localFilters.advanced.artistType, ...updates },
-                                        },
-                                    })
-                                }
-                            />
-
-                            {/* Skill Level (mainly for workshops) */}
-                            <EventFilterSection
-                                id="skillLevel"
-                                title="Skill Level"
-                                icon={<TrendingUp size={18} color="#06b6d4" />}
-                                expanded={expandedSections.has('skillLevel')}
-                                onToggle={() => toggleSection('skillLevel')}
-                                filters={localFilters.advanced.skillLevel}
-                                onUpdateFilters={(updates) =>
-                                    setLocalFilters({
-                                        ...localFilters,
-                                        advanced: {
-                                            ...localFilters.advanced,
-                                            skillLevel: { ...localFilters.advanced.skillLevel, ...updates },
-                                        },
-                                    })
-                                }
-                            />
-
-                        </View>
-
-                        {/* Bottom padding for mobile */}
-                        <View className="h-32" />
+                        </Group>
                     </ScrollView>
 
-                    {/* Footer Actions */}
+                    {/* Footer */}
                     <View className="border-t border-white/5 px-6 py-4 bg-zinc-950">
                         <View className="flex-row gap-3">
                             <TouchableOpacity
                                 onPress={handleClearAll}
                                 className="flex-1 h-14 rounded-2xl border border-white/10 items-center justify-center"
                             >
-                                <Text className="text-zinc-400 font-bold text-sm uppercase tracking-wider">
-                                    Clear All
-                                </Text>
+                                <Text className="text-zinc-400 font-semibold text-sm">Clear all</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={handleApply}
                                 className="flex-[2] h-14 rounded-2xl bg-white items-center justify-center"
                             >
-                                <Text className="text-black font-black text-sm uppercase tracking-wider">
-                                    Apply Filters
-                                </Text>
+                                <Text className="text-black font-bold text-sm">Apply filters</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

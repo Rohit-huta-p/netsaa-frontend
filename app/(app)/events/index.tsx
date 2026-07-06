@@ -46,6 +46,61 @@ const EVENT_SORT_OPTIONS = [
     { value: 'price_low', label: 'Price' },
 ];
 
+/**
+ * Translate a "When" chip into an ISO [startsAfter, startsBefore] window over
+ * the event's startsAt. Returns both undefined for 'any'/undefined.
+ *   today        → start-of-today … end-of-today
+ *   this_weekend → upcoming Sat 00:00 … that Sun 23:59:59
+ *   next_7       → now … now + 7 days
+ *   this_month   → now … last day of current month 23:59:59
+ */
+function timeFrameWindow(
+    tf?: 'today' | 'this_weekend' | 'next_7' | 'this_month',
+): { startsAfter?: string; startsBefore?: string } {
+    if (!tf) return {};
+    const now = new Date();
+
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    switch (tf) {
+        case 'today':
+            return { startsAfter: startOfToday.toISOString(), startsBefore: endOfToday.toISOString() };
+
+        case 'this_weekend': {
+            // Upcoming Saturday (if today is Sat/Sun, use the current weekend).
+            const day = now.getDay(); // 0=Sun … 6=Sat
+            const sat = new Date(startOfToday);
+            if (day === 0) {
+                // Sunday → weekend started yesterday; anchor Saturday to -1 day.
+                sat.setDate(sat.getDate() - 1);
+            } else {
+                sat.setDate(sat.getDate() + ((6 - day + 7) % 7));
+            }
+            const sun = new Date(sat);
+            sun.setDate(sat.getDate() + 1);
+            sun.setHours(23, 59, 59, 999);
+            return { startsAfter: sat.toISOString(), startsBefore: sun.toISOString() };
+        }
+
+        case 'next_7': {
+            const in7 = new Date(now);
+            in7.setDate(in7.getDate() + 7);
+            return { startsAfter: now.toISOString(), startsBefore: in7.toISOString() };
+        }
+
+        case 'this_month': {
+            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+            return { startsAfter: now.toISOString(), startsBefore: endOfMonth.toISOString() };
+        }
+
+        default:
+            return {};
+    }
+}
+
 const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => void }) => {
     const hero =
         (event.media && event.media.find((m) => m.isHero)) ||
@@ -198,19 +253,49 @@ export default function EventsPage() {
     const debouncedQuery = useDebounce(searchState.q, 500);
 
     /**
-     * Map the rich EventFilterState shape from the v1 design onto the new
-     * /api/events list params. Today the new backend supports `topicTag`,
-     * `city`, `mode`, `skill`, `q`, `page`, `limit`. Anything beyond that
-     * gets ignored gracefully; richer filters can be wired later.
+     * Map the trimmed EventFilterState onto the /v1/events list params.
+     * Backend supports: category (csv, any-of), city, format (location.kind),
+     * mode (registrationMode), startsAfter/startsBefore (windows startsAt),
+     * sort. price_low/popular stay client-side (see sortedEvents below).
      */
     const listParams = useMemo(() => {
         const f = searchState.filters;
-        const topicTag = f?.advanced?.category?.categories?.[0]?.toLowerCase();
-        const city = f?.advanced?.location?.city || undefined;
+        const adv = f?.advanced;
+
+        // Craft slugs — lowercase so the Title-cased category pills and the
+        // lowercase modal chips both emit valid backend slugs.
+        const category =
+            adv?.category?.categories && adv.category.categories.length > 0
+                ? adv.category.categories.map((c) => c.toLowerCase()).join(',')
+                : undefined;
+
+        const city = adv?.location?.city && adv.location.city !== 'any' ? adv.location.city : undefined;
+
+        const format =
+            adv?.location?.format === 'in_person' || adv?.location?.format === 'online'
+                ? adv.location.format
+                : undefined;
+
+        const mode =
+            adv?.pricing?.mode === 'free'
+                ? ('free_rsvp' as const)
+                : adv?.pricing?.mode === 'paid'
+                    ? ('paid_ticket' as const)
+                    : undefined;
+
+        const { startsAfter, startsBefore } = timeFrameWindow(adv?.timing?.timeFrame);
+
+        const sort = adv?.sorting?.sortBy === 'soonest' ? ('soonest' as const) : undefined;
+
         return {
             q: debouncedQuery || undefined,
-            topicTag: topicTag === undefined || topicTag === 'all events' ? undefined : topicTag,
+            category,
             city,
+            format,
+            mode,
+            startsAfter,
+            startsBefore,
+            sort,
             page: searchState.page,
             limit: 20,
         };

@@ -124,10 +124,19 @@ export interface RegisterResponse {
 
 export interface EventListParams {
   topicTag?: string;
+  /** Comma-separated craft/category slugs → any-of match server-side. */
+  category?: string;
   city?: string;
   mode?: 'free_rsvp' | 'paid_ticket';
+  /** location.kind filter. */
+  format?: 'in_person' | 'online';
+  /** ISO datetimes bounding startsAt (the "When" window). */
+  startsAfter?: string;
+  startsBefore?: string;
   skill?: string;
   q?: string;
+  /** Server-side sort. Client still handles price_low/popular locally. */
+  sort?: 'soonest' | 'newest' | 'oldest';
   /** Filter to one organizer's events (public getEvents; still defaults to status:'live'). */
   organizerId?: string;
   status?: 'draft' | 'pending_review' | 'live' | 'cancelled' | 'completed';

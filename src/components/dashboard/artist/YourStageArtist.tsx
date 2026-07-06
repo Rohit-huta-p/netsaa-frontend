@@ -2,7 +2,7 @@
  * YourStageArtist — main stage section on artist home.
  *
  * Two-level navigation per locked mockup
- * (DOCS/designs/artist-home-v1.html §4):
+ * (DOCS/04-design/mockups/artist-home-v1.html §4):
  *
  *   ┌─────────────────────────────────────┐
  *   │ GIGS · 4   EVENTS · 3               │  ← primary toggle
@@ -149,10 +149,15 @@ export default function YourStageArtist() {
             ACTIVE_APP_STATUSES.has(String(a?.status ?? '').toLowerCase()),
         );
 
+        // useSavedItems returns a COMBINED `savedItems` (events + gigs, each
+        // tagged with `type`) plus `historyItems` (past registrations). Split
+        // them into the buckets the panels need. The old `savedEvents`/`savedGigs`/
+        // `pastEvents` keys never existed on the hook → Saved was always empty.
         const saved = savedQ as any;
-        const savedGigs = safeArr(saved?.savedGigs ?? saved?.gigs);
-        const savedEvents = safeArr(saved?.savedEvents ?? saved?.events);
-        const pastEvents = safeArr(saved?.pastEvents ?? saved?.history);
+        const allSaved = safeArr(saved?.savedItems);
+        const savedGigs = allSaved.filter((it: any) => it?.type === 'GIG');
+        const savedEvents = allSaved.filter((it: any) => it?.type === 'EVENT');
+        const pastEvents = safeArr(saved?.historyItems);
 
         return {
             upcomingGigs,

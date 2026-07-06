@@ -35,9 +35,10 @@ import useUpcoming, { UpcomingItem } from '@/hooks/useUpcoming';
 import useApplications from '@/hooks/useApplications';
 import { useSavedItems } from '@/hooks/useSavedItems';
 
-type Stage = 'gigs' | 'events';
+type Stage = 'gigs' | 'events' | 'all';
 type GigSub = 'upcoming' | 'active' | 'saved';
 type EventSub = 'upcoming' | 'saved' | 'past';
+type AllSub = 'upcoming' | 'saved';
 
 const PURPLE = '#8B5CF6';
 const PAPER = '#F3EFE8';
@@ -130,6 +131,7 @@ export default function YourStageArtist() {
     const [stage, setStage] = useState<Stage>('gigs');
     const [gigSub, setGigSub] = useState<GigSub>('upcoming');
     const [eventSub, setEventSub] = useState<EventSub>('upcoming');
+    const [allSub, setAllSub] = useState<AllSub>('upcoming');
 
     const upcomingQ = useUpcoming();
     const appsQ = useApplications();
@@ -166,6 +168,11 @@ export default function YourStageArtist() {
             savedGigs,
             savedEvents,
             pastEvents,
+            // ALL — merged across gigs + events (upcoming sorted soonest-first).
+            allUpcoming: [...upcomingGigs, ...upcomingEvents].sort(
+                (a: any, b: any) => new Date(a?.date ?? 0).getTime() - new Date(b?.date ?? 0).getTime(),
+            ),
+            allSaved: [...savedGigs, ...savedEvents],
         };
     }, [upcomingQ, appsQ.data, savedQ]);
 
@@ -177,6 +184,7 @@ export default function YourStageArtist() {
         buckets.upcomingEvents.length +
         buckets.savedEvents.length +
         buckets.pastEvents.length;
+    const allTotal = buckets.allUpcoming.length + buckets.allSaved.length;
 
     return (
         <View style={styles.root}>
@@ -202,6 +210,12 @@ export default function YourStageArtist() {
                     active={stage === 'events'}
                     onPress={() => setStage('events')}
                 />
+                <StageTab
+                    label="ALL"
+                    count={allTotal}
+                    active={stage === 'all'}
+                    onPress={() => setStage('all')}
+                />
             </View>
 
             {/* Stage panels */}
@@ -214,7 +228,7 @@ export default function YourStageArtist() {
                     saved={buckets.savedGigs}
                     onViewAll={() => router.push('/gigs' as any)}
                 />
-            ) : (
+            ) : stage === 'events' ? (
                 <EventsPanel
                     sub={eventSub}
                     setSub={setEventSub}
@@ -222,6 +236,13 @@ export default function YourStageArtist() {
                     saved={buckets.savedEvents}
                     past={buckets.pastEvents}
                     onViewAll={() => router.push('/events' as any)}
+                />
+            ) : (
+                <AllPanel
+                    sub={allSub}
+                    setSub={setAllSub}
+                    upcoming={buckets.allUpcoming}
+                    saved={buckets.allSaved}
                 />
             )}
         </View>
@@ -356,6 +377,61 @@ function EventsPanel({
             ) : (
                 <PastList items={past} onViewAll={onViewAll} />
             )}
+        </View>
+    );
+}
+
+function AllPanel({
+    sub,
+    setSub,
+    upcoming,
+    saved,
+}: {
+    sub: AllSub;
+    setSub: (s: AllSub) => void;
+    upcoming: any[];
+    saved: any[];
+}) {
+    return (
+        <View>
+            <View style={styles.subTabs}>
+                <SubTab label="UPCOMING" count={upcoming.length} active={sub === 'upcoming'} onPress={() => setSub('upcoming')} />
+                <SubTab label="SAVED"    count={saved.length}    active={sub === 'saved'}    onPress={() => setSub('saved')} />
+            </View>
+
+            {sub === 'upcoming' ? (
+                <MergedList items={upcoming} empty="Nothing on your calendar yet — apply to gigs or RSVP to events." />
+            ) : (
+                <MergedList items={saved} empty="Nothing saved yet — bookmark gigs and events to see them here." />
+            )}
+        </View>
+    );
+}
+
+/** Merged gigs + events list — routes each row per its own `type`. */
+function MergedList({ items, empty }: { items: any[]; empty: string }) {
+    const router = useRouter();
+    if (!items || items.length === 0) {
+        return <EmptySlot copy={empty} onViewAll={() => router.push('/events' as any)} label="Browse events" />;
+    }
+    return (
+        <View>
+            {items.map((it: any, i: number) => {
+                const isEvent = it?.type === 'event' || it?.type === 'EVENT';
+                const id = it?.id ?? it?._id;
+                const priceNum = it?.payRupees ?? it?.pricing?.amount;
+                return (
+                    <ItemRow
+                        key={`${it?.type}-${id ?? i}`}
+                        title={it?.title ?? 'Untitled'}
+                        pill={{ label: isEvent ? 'Event' : 'Gig', tone: isEvent ? 'purple' : 'green' }}
+                        metaLeft={[it?.location, it?.date ? fmtShortDate(it.date) : null].filter(Boolean).join(' · ')}
+                        rightTop={typeof priceNum === 'number' ? fmtRupees(priceNum) : ''}
+                        rightBottom={it?.date ? fmtUntil(it.date) : ''}
+                        onPress={() => id && router.push((isEvent ? `/events/${id}` : `/gigs/${id}`) as any)}
+                    />
+                );
+            })}
         </View>
     );
 }

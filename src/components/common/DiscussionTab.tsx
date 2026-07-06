@@ -31,6 +31,10 @@ import eventService from "@/services/eventService";
 import gigService from "@/services/gigService";
 import useAuthStore from "@/stores/authStore";
 
+// Default avatar shown when a comment has no author image — a branded
+// placeholder, never a stock-stranger photo.
+const NO_PROFILE = require('@/../assets/no-profile.png');
+
 /* ================= TYPES ================= */
 
 interface DiscussionMessage {
@@ -462,36 +466,16 @@ export default function DiscussionTab({ id, type, ownerId, inline = false }: Dis
                                                 accessibilityRole="button"
                                                 accessibilityLabel={`Open profile for ${msg.authorName}`}
                                             >
-                                                {msg.authorImageUrl ? (
-                                                    <Image
-                                                        source={{ uri: msg.authorImageUrl }}
-                                                        style={{
-                                                            width: 32,
-                                                            height: 32,
-                                                            borderRadius: 16,
-                                                            backgroundColor: '#2A2730',
-                                                            opacity: msg.isDeleted ? 0.4 : 1,
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    // No profile photo → branded initials circle,
-                                                    // never a stock-stranger pravatar face.
-                                                    <View
-                                                        style={{
-                                                            width: 32,
-                                                            height: 32,
-                                                            borderRadius: 16,
-                                                            backgroundColor: '#3A2A22',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            opacity: msg.isDeleted ? 0.4 : 1,
-                                                        }}
-                                                    >
-                                                        <Text style={{ color: '#F0ECE6', fontFamily: 'Outfit-SemiBold', fontSize: 13 }}>
-                                                            {(msg.authorName || '?').trim().charAt(0).toUpperCase() || '?'}
-                                                        </Text>
-                                                    </View>
-                                                )}
+                                                <Image
+                                                    source={msg.authorImageUrl ? { uri: msg.authorImageUrl } : NO_PROFILE}
+                                                    style={{
+                                                        width: 32,
+                                                        height: 32,
+                                                        borderRadius: 16,
+                                                        backgroundColor: '#2A2730',
+                                                        opacity: msg.isDeleted ? 0.4 : 1,
+                                                    }}
+                                                />
                                             </TouchableOpacity>
                                             <View style={{ flex: 1 }}>
                                                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>

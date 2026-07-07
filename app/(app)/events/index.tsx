@@ -7,10 +7,9 @@ import {
     Image,
     TouchableOpacity,
     useWindowDimensions,
-    ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, MapPin, Calendar, Users, Filter, Plus } from 'lucide-react-native';
+import { Search, MapPin, Calendar, Users, Plus } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 import { useEventsList } from '@/hooks/useEvents';
@@ -18,14 +17,21 @@ import { useUiStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
 import { usePlatform } from '@/utils/platform';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import AppScrollView from '@/components/AppScrollView';
-import { EventFilterModal } from '@/components/events/EventFilterModal';
+import { EventRemote } from '@/components/events/discovery/EventRemote';
+import { EventFacetRail } from '@/components/events/discovery/EventFacetRail';
 import {
-    INITIAL_EVENT_FILTERS,
-    countActiveEventFilters,
-    EVENT_CATEGORIES,
-} from '@/lib/constants/eventFilters';
+    ACTIVE_BG,
+    ACTIVE_BORDER,
+    ACTIVE_FG,
+    SORT_OPTIONS,
+    sortValue,
+    setSort,
+    describeFilters,
+} from '@/components/events/discovery/eventFilterOptions';
+import { INITIAL_EVENT_FILTERS } from '@/lib/constants/eventFilters';
 import { EventFilterState } from '@/types/eventFilters';
 import type { EventDoc } from '@/services/eventService';
 
@@ -35,13 +41,6 @@ import type { EventDoc } from '@/services/eventService';
 
 // Branded placeholder shown when an event has no image (no fake stock photos).
 const NETSA_FALLBACK = require('@/../assets/netsa-logo-fallback.png');
-
-// Active/selected state — neutral + dim (NOT bright white). Reused by the
-// Filters toolbar button and the category pills so "active" reads as a quiet
-// selected state and never steals focus from the search input.
-const ACTIVE_BG = 'rgba(255,255,255,0.10)';
-const ACTIVE_BORDER = 'rgba(255,255,255,0.20)';
-const ACTIVE_FG = '#c4c4cc';
 
 /**
  * Translate a "When" chip into an ISO [startsAfter, startsBefore] window over
@@ -219,7 +218,8 @@ const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => v
 };
 
 /* ------------------------------------------------------------------ */
-/* Main Events page — mirrors the v1 main-branch editorial design.     */
+/* Main Events page — Ask bar (universal) + Remote (mobile) / Rail     */
+/* (desktop). One EventFilterState drives all surfaces + the server.   */
 /* ------------------------------------------------------------------ */
 
 export default function EventsPage() {
@@ -227,13 +227,14 @@ export default function EventsPage() {
     const router = useRouter();
     const { width } = useWindowDimensions();
     const userId = useAuthStore((s) => s.user?._id);
+    const tabBarHeight = useMobileTabBarHeight();
 
-    // Cross-platform breakpoints off measured width (works on web AND native —
-    // the `md:` prefixes only fire on web, leaving native tablets stuck on the
-    // phone layout). sm ≤767 · md 768–1023 · lg 1024–1439 · xl ≥1440.
+    // Cross-platform breakpoint off measured width (works on web AND native —
+    // NativeWind `md:` only fires on web). < 768 → Ask bar + Remote (mobile,
+    // has the tab bar). ≥ 768 → Ask bar + Facet Rail (tablet/desktop, no tab bar).
     const isSm = width < 768;
-    // Card columns step 2 → 3 → 4. Width-based (not NativeWind `grid`, which is
-    // web-only) so native gets the same progression.
+    const isWide = !isSm;
+    // Card columns step 2 → 3 → 4 with width (native gets the same progression).
     const cols = width >= 1440 ? 4 : width >= 1024 ? 3 : 2;
 
     const { setSelectedEventId } = useUiStore();
@@ -252,7 +253,7 @@ export default function EventsPage() {
     const debouncedQuery = useDebounce(searchState.q, 500);
 
     /**
-     * Map the trimmed EventFilterState onto the /v1/events list params.
+     * Map the EventFilterState onto the /v1/events list params.
      * Backend supports: category (csv, any-of), city, format (location.kind),
      * mode (registrationMode), startsAfter/startsBefore (windows startsAt),
      * sort. price_low/popular stay client-side (see sortedEvents below).
@@ -261,8 +262,6 @@ export default function EventsPage() {
         const f = searchState.filters;
         const adv = f?.advanced;
 
-        // Craft slugs — lowercase so the Title-cased category pills and the
-        // lowercase modal chips both emit valid backend slugs.
         const category =
             adv?.category?.categories && adv.category.categories.length > 0
                 ? adv.category.categories.map((c) => c.toLowerCase()).join(',')
@@ -303,12 +302,9 @@ export default function EventsPage() {
     const { data, isLoading: listLoading, error: listError } = useEventsList(listParams);
     const eventsList: EventDoc[] = data?.events ?? [];
 
-    const [showFilterModal, setShowFilterModal] = useState(false);
-
-    // Client-side sort of the current page. The sort choice now comes from the
-    // filter modal ("Sort by" group → filters.advanced.sorting.sortBy).
-    // `soonest` is already applied server-side via listParams.sort, so it (and
-    // anything else, e.g. `relevance`) returns as-is; only price/popular reorder.
+    // Client-side sort of the current page. `soonest` is already applied
+    // server-side via listParams.sort, so it (and `relevance`) returns as-is;
+    // only price_low / popular reorder here.
     const sortedEvents = useMemo(() => {
         const sortBy = searchState.filters?.advanced?.sorting?.sortBy;
         const arr = [...eventsList];
@@ -318,8 +314,6 @@ export default function EventsPage() {
                     (a, b) => (b.capacity?.registeredCount ?? 0) - (a.capacity?.registeredCount ?? 0)
                 );
             case 'price_low':
-                // `pricing` is present at runtime but absent from the EventDoc type
-                // (same access the card already relies on) — cast to read it.
                 return arr.sort(
                     (a, b) => ((a as any).pricing?.amount ?? 0) - ((b as any).pricing?.amount ?? 0)
                 );
@@ -328,12 +322,7 @@ export default function EventsPage() {
         }
     }, [eventsList, searchState.filters]);
 
-    const filters = ['All Events', ...EVENT_CATEGORIES];
-    const activeCategoryPill =
-        searchState.filters?.advanced.category.categories?.[0] || 'All Events';
-    const activeFilterCount = searchState.filters
-        ? countActiveEventFilters(searchState.filters)
-        : 0;
+    const filtersState = searchState.filters ?? INITIAL_EVENT_FILTERS;
 
     const handleEventPress = (id: string) => {
         if (isWeb) {
@@ -344,33 +333,147 @@ export default function EventsPage() {
         }
     };
 
-    const handleCategoryPillPress = (category: string) => {
-        setSearchState((prev) => {
-            const currentFilters = prev.filters || INITIAL_EVENT_FILTERS;
-            return {
-                ...prev,
-                page: 1,
-                filters: {
-                    ...currentFilters,
-                    advanced: {
-                        ...currentFilters.advanced,
-                        category: {
-                            ...currentFilters.advanced.category,
-                            categories: category === 'All Events' ? [] : [category],
-                        },
-                    },
-                },
-            };
-        });
+    // Every surface (Remote · Rail · sort lenses) writes back through here.
+    const updateFilters = (next: EventFilterState) =>
+        setSearchState((prev) => ({ ...prev, filters: next, page: 1 }));
+
+    // Desktop readout — the "one state" connective tissue under the Ask bar.
+    const readoutParts = describeFilters(filtersState);
+    const sortLabel = SORT_OPTIONS.find((s) => s.value === sortValue(filtersState))?.label ?? 'Relevant';
+
+    /* ------------------------------ grid ------------------------------ */
+    const renderGrid = () => {
+        if (listLoading) {
+            return (
+                <View className="py-20 items-center justify-center">
+                    <LoadingAnimation
+                        source="https://lottie.host/a9975e00-d157-4513-b40f-77f83c2039be/fJeNBIUK06.lottie"
+                        width={200}
+                        height={200}
+                    />
+                    <Text className="text-zinc-500 mt-4 text-xs font-medium">Loading events...</Text>
+                </View>
+            );
+        }
+        if (listError) {
+            return (
+                <View className="py-20 items-center justify-center">
+                    <Text className="text-red-500 font-bold">Unable to load events.</Text>
+                </View>
+            );
+        }
+        if (eventsList.length === 0) {
+            return (
+                <View className="py-20 items-center justify-center">
+                    <Text className="text-zinc-500 text-xl font-bold mb-2">No events found.</Text>
+                    <Text className="text-zinc-600 text-sm">Try adjusting your search or filters.</Text>
+                </View>
+            );
+        }
+        return (
+            // Flex grid that works on web AND native. Each card sits in a width-%
+            // cell (50% → 2/row, 33.3% → 3/row); the -6 / +6 gutter keeps even
+            // spacing and left-aligns an incomplete last row.
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, marginBottom: 16 }}>
+                {sortedEvents.map((event) => (
+                    <View key={event._id} style={{ width: `${100 / cols}%`, paddingHorizontal: 6 }}>
+                        <VisualEventCard event={event} onPress={() => handleEventPress(event._id)} />
+                    </View>
+                ))}
+            </View>
+        );
     };
 
-    const handleApplyEventFilters = (newFilters: EventFilterState | null) => {
-        setSearchState((prev) => ({
-            ...prev,
-            filters: newFilters,
-            page: 1,
-        }));
-    };
+    /* ------------------------------ main column ------------------------------ */
+    const renderMain = () => (
+        <View
+            className="pt-10 pb-8"
+            style={{ width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: isSm ? 20 : 32 }}
+        >
+            {/* Hero Typography */}
+            <View className="mb-10">
+                <View className="flex-row items-center justify-between mb-8">
+                    <View className="self-start bg-white/5 border border-white/10 px-4 py-1.5 rounded-full">
+                        <Text className="text-zinc-400 text-[10px] uppercase tracking-[0.3em] font-bold">
+                            The Event Discovery
+                        </Text>
+                    </View>
+                    {userId ? (
+                        <TouchableOpacity
+                            onPress={() => router.push('/events/compose')}
+                            hitSlop={10}
+                            className="flex-row items-center gap-1.5 px-4 py-2 rounded-full bg-rose-500"
+                        >
+                            <Plus size={14} color="#fff" />
+                            <Text className="text-white text-xs font-black uppercase tracking-widest">Host</Text>
+                        </TouchableOpacity>
+                    ) : null}
+                </View>
+                <Text className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-[0.9] mb-4">
+                    EXPERIENCE THE
+                </Text>
+                <Text className="text-5xl md:text-7xl font-black text-rose-400 tracking-tighter leading-[0.9] mb-6">
+                    MAGIC LIVE.
+                </Text>
+                <Text className="text-lg md:text-xl text-zinc-400 font-light italic max-w-2xl">
+                    From underground jazz clubs to national stadiums. Discover and book tickets to the most
+                    exclusive artistic events across India.
+                </Text>
+            </View>
+
+            {/* Ask bar — the dominant, universal search */}
+            <View className="mb-8">
+                <View className="h-12 bg-zinc-900/50 border border-white/10 rounded-2xl flex-row items-center px-4">
+                    <Search size={20} color="#71717a" />
+                    <TextInput
+                        placeholder="Search events, cities..."
+                        placeholderTextColor="#71717a"
+                        className="flex-1 ml-3 text-white text-base font-light h-full"
+                        value={searchState.q}
+                        onChangeText={(text) => setSearchState((prev) => ({ ...prev, q: text, page: 1 }))}
+                    />
+                </View>
+
+                {/* Desktop: readout + sort lenses. Mobile: sort lives in the Remote. */}
+                {isWide && (
+                    <View className="flex-row items-center justify-between mt-5" style={{ gap: 12 }}>
+                        <Text className="text-zinc-500 text-xs flex-1" numberOfLines={1}>
+                            Showing {readoutParts.length ? readoutParts.join('  ·  ') : 'all events'}
+                            {'  ·  '}
+                            <Text style={{ color: ACTIVE_FG }}>{sortLabel.toLowerCase()}</Text>
+                        </Text>
+                        <View className="flex-row" style={{ gap: 6 }}>
+                            {SORT_OPTIONS.map((o) => {
+                                const active = sortValue(filtersState) === o.value;
+                                return (
+                                    <TouchableOpacity
+                                        key={o.value}
+                                        onPress={() => updateFilters(setSort(filtersState, o.value))}
+                                        className="h-8 px-3 rounded-lg items-center justify-center border"
+                                        style={
+                                            active
+                                                ? { backgroundColor: ACTIVE_BG, borderColor: ACTIVE_BORDER }
+                                                : { borderColor: 'rgba(255,255,255,0.08)' }
+                                        }
+                                    >
+                                        <Text
+                                            className="text-[11px] font-bold uppercase tracking-wider"
+                                            style={{ color: active ? ACTIVE_FG : '#71717a' }}
+                                        >
+                                            {o.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
+                )}
+            </View>
+
+            {/* Events Grid */}
+            {renderGrid()}
+        </View>
+    );
 
     return (
         <View className="flex-1 bg-black overflow-hidden">
@@ -381,190 +484,35 @@ export default function EventsPage() {
             <View className="absolute bottom-[10%] -right-[10%] w-[500px] h-[500px] bg-orange-900/10 rounded-full opacity-30 blur-3xl pointer-events-none" />
 
             <SafeAreaView className="flex-1" edges={['top']}>
-                <AppScrollView
-                    className="flex-1"
-                    contentContainerStyle={{ paddingBottom: 100 }}
-                    showsVerticalScrollIndicator={false}
-                >
-                    <View
-                        className="pt-10 pb-8"
-                        style={{ width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: isSm ? 20 : 32 }}
-                    >
-                        {/* Hero Typography */}
-                        <View className="mb-12">
-                            <View className="flex-row items-center justify-between mb-8">
-                                <View className="self-start bg-white/5 border border-white/10 px-4 py-1.5 rounded-full">
-                                    <Text className="text-zinc-400 text-[10px] uppercase tracking-[0.3em] font-bold">
-                                        The Event Discovery
-                                    </Text>
-                                </View>
-                                {userId ? (
-                                    <TouchableOpacity
-                                        onPress={() => router.push('/events/compose')}
-                                        hitSlop={10}
-                                        className="flex-row items-center gap-1.5 px-4 py-2 rounded-full bg-rose-500"
-                                    >
-                                        <Plus size={14} color="#fff" />
-                                        <Text className="text-white text-xs font-black uppercase tracking-widest">
-                                            Host
-                                        </Text>
-                                    </TouchableOpacity>
-                                ) : null}
-                            </View>
-                            <Text className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-[0.9] mb-4">
-                                EXPERIENCE THE
-                            </Text>
-                            <Text className="text-5xl md:text-7xl font-black text-rose-400 tracking-tighter leading-[0.9] mb-6">
-                                MAGIC LIVE.
-                            </Text>
-                            <Text className="text-lg md:text-xl text-zinc-400 font-light italic max-w-2xl">
-                                From underground jazz clubs to national stadiums. Discover and book
-                                tickets to the most exclusive artistic events across India.
-                            </Text>
-                        </View>
-
-                        {/* Search & Filters Row */}
-                        <View className="flex-col md:flex-row gap-6 mb-12" style={{ position: 'relative', zIndex: 30 }}>
-                            <View className="flex-row gap-4 flex-1" style={{ position: 'relative', zIndex: 40 }}>
-                                {/* Search Input — dominant, flex-1, a touch smaller */}
-                                <View className="relative h-11 bg-zinc-900/50 border border-white/5 rounded-xl flex-row items-center px-4 flex-1">
-                                    <Search size={20} color="#71717a" />
-                                    <TextInput
-                                        placeholder="Search events, cities..."
-                                        placeholderTextColor="#71717a"
-                                        className="flex-1 ml-3 text-white text-base font-light h-full"
-                                        value={searchState.q}
-                                        onChangeText={(text) =>
-                                            setSearchState((prev) => ({
-                                                ...prev,
-                                                q: text,
-                                                page: 1,
-                                            }))
-                                        }
-                                    />
-                                </View>
-
-                                {/* Filters Button — single control (sort now lives in the sheet).
-                                    Active (activeFilterCount > 0) = neutral + dim, not bright white. */}
-                                <TouchableOpacity
-                                    onPress={() => setShowFilterModal(true)}
-                                    className={`h-11 rounded-xl flex-row items-center justify-center gap-2 border ${isSm ? 'px-3' : 'px-4'} ${activeFilterCount > 0 ? '' : 'bg-zinc-900/50 border-white/10'
-                                        }`}
-                                    style={
-                                        activeFilterCount > 0
-                                            ? { backgroundColor: ACTIVE_BG, borderColor: ACTIVE_BORDER }
-                                            : undefined
-                                    }
-                                >
-                                    <Filter
-                                        size={18}
-                                        color={activeFilterCount > 0 ? ACTIVE_FG : '#fff'}
-                                    />
-                                    {!isSm && (
-                                        <Text
-                                            className="text-xs font-black uppercase tracking-widest"
-                                            style={{ color: activeFilterCount > 0 ? ACTIVE_FG : '#fff' }}
-                                        >
-                                            Filters
-                                        </Text>
-                                    )}
-                                    {activeFilterCount > 0 && (
-                                        <View
-                                            className="rounded-full w-5 h-5 items-center justify-center"
-                                            style={{ backgroundColor: ACTIVE_FG }}
-                                        >
-                                            <Text className="text-[10px] font-black" style={{ color: '#0a0a0a' }}>
-                                                {activeFilterCount}
-                                            </Text>
-                                        </View>
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Category Pills */}
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                className="flex-grow-0"
-                                contentContainerStyle={{ gap: 8 }}
-                            >
-                                {filters.map((filter) => {
-                                    const isActive = filter === activeCategoryPill;
-                                    return (
-                                        <TouchableOpacity
-                                            key={filter}
-                                            onPress={() => handleCategoryPillPress(filter)}
-                                            className={`h-8 px-3 rounded-xl items-center justify-center border ${isActive ? '' : 'bg-transparent border-white/10'
-                                                }`}
-                                            style={
-                                                isActive
-                                                    ? { backgroundColor: ACTIVE_BG, borderColor: ACTIVE_BORDER }
-                                                    : undefined
-                                            }
-                                        >
-                                            <Text
-                                                className={`text-[10px] font-black uppercase tracking-widest ${isActive ? '' : 'text-zinc-500'
-                                                    }`}
-                                                style={isActive ? { color: ACTIVE_FG } : undefined}
-                                            >
-                                                {filter}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </ScrollView>
-                        </View>
-
-                        {/* Events Grid */}
-                        {listLoading ? (
-                            <View className="py-20 items-center justify-center">
-                                <LoadingAnimation
-                                    source="https://lottie.host/a9975e00-d157-4513-b40f-77f83c2039be/fJeNBIUK06.lottie"
-                                    width={200}
-                                    height={200}
-                                />
-                                <Text className="text-zinc-500 mt-4 text-xs font-medium">
-                                    Loading events...
-                                </Text>
-                            </View>
-                        ) : listError ? (
-                            <View className="py-20 items-center justify-center">
-                                <Text className="text-red-500 font-bold">Unable to load events.</Text>
-                            </View>
-                        ) : eventsList.length === 0 ? (
-                            <View className="py-20 items-center justify-center">
-                                <Text className="text-zinc-500 text-xl font-bold mb-2">
-                                    No events found.
-                                </Text>
-                                <Text className="text-zinc-600 text-sm">
-                                    Try adjusting your search or filters.
-                                </Text>
-                            </View>
-                        ) : (
-                            // Flex grid that works on web AND native. Each card sits in a
-                            // width-% cell (50% → 2/row, 33.3% → 3/row); the -8 / +8 gutter
-                            // keeps even spacing and left-aligns an incomplete last row.
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, marginBottom: 16 }}>
-                                {sortedEvents.map((event) => (
-                                    <View key={event._id} style={{ width: `${100 / cols}%`, paddingHorizontal: 6 }}>
-                                        <VisualEventCard
-                                            event={event}
-                                            onPress={() => handleEventPress(event._id)}
-                                        />
-                                    </View>
-                                ))}
-                            </View>
-                        )}
+                {isWide ? (
+                    // Desktop / tablet — persistent Facet Rail + scrolling grid.
+                    <View style={{ flex: 1, flexDirection: 'row' }}>
+                        <EventFacetRail
+                            filters={filtersState}
+                            onChange={updateFilters}
+                            resultCount={data?.total}
+                        />
+                        <AppScrollView
+                            className="flex-1"
+                            contentContainerStyle={{ paddingBottom: 100 }}
+                            showsVerticalScrollIndicator={false}
+                        >
+                            {renderMain()}
+                        </AppScrollView>
                     </View>
-                </AppScrollView>
-
-                <EventFilterModal
-                    visible={showFilterModal}
-                    onClose={() => setShowFilterModal(false)}
-                    filters={searchState.filters || INITIAL_EVENT_FILTERS}
-                    onApplyFilters={handleApplyEventFilters}
-                    activeFilterCount={activeFilterCount}
-                />
+                ) : (
+                    // Mobile — Ask bar + floating Remote above the tab bar.
+                    <>
+                        <AppScrollView
+                            className="flex-1"
+                            contentContainerStyle={{ paddingBottom: tabBarHeight + 132 }}
+                            showsVerticalScrollIndicator={false}
+                        >
+                            {renderMain()}
+                        </AppScrollView>
+                        <EventRemote filters={filtersState} onChange={updateFilters} />
+                    </>
+                )}
             </SafeAreaView>
         </View>
     );

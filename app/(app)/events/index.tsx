@@ -469,9 +469,10 @@ export default function EventsPage() {
                     </View>
                 )}
 
-                {/* Mobile: the Remote sits inline, right-aligned under the search. */}
+                {/* Mobile: the Remote sits inline, right-aligned under the search.
+                    zIndex keeps its open overlay above the events grid (a later sibling). */}
                 {!isWide && (
-                    <View className="mt-4">
+                    <View className="mt-4" style={{ zIndex: 30 }}>
                         <EventRemote filters={filtersState} onChange={updateFilters} />
                     </View>
                 )}

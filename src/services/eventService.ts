@@ -58,6 +58,8 @@ export interface EventDoc {
   tagline?: string;
   topicTags: string[];
   registrationMode: 'free_rsvp' | 'paid_ticket';
+  /** Detail/list responses carry this — backend maps ticketPrice → pricing.amount. */
+  pricing?: { amount: number; currency?: string; refundPolicy?: string; refundCustomNote?: string };
   about: string;
   whatToExpect?: string;
   skills: string[];

@@ -10,7 +10,7 @@ import {
     ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, MapPin, Calendar, Users, Filter, Plus, ArrowUpDown } from 'lucide-react-native';
+import { Search, MapPin, Calendar, Users, Filter, Plus } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 import { useEventsList } from '@/hooks/useEvents';
@@ -21,7 +21,6 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import AppScrollView from '@/components/AppScrollView';
 import { EventFilterModal } from '@/components/events/EventFilterModal';
-import { SortDropdown } from '@/components/ui/SortDropdown';
 import {
     INITIAL_EVENT_FILTERS,
     countActiveEventFilters,
@@ -37,14 +36,12 @@ import type { EventDoc } from '@/services/eventService';
 // Branded placeholder shown when an event has no image (no fake stock photos).
 const NETSA_FALLBACK = require('@/../assets/netsa-logo-fallback.png');
 
-// Sort is applied client-side over the current page — the events list backend
-// params don't carry a sort field yet.
-const EVENT_SORT_OPTIONS = [
-    { value: 'default', label: 'Suggested' },
-    { value: 'soonest', label: 'Date' },
-    { value: 'popular', label: 'Popular' },
-    { value: 'price_low', label: 'Price' },
-];
+// Active/selected state — neutral + dim (NOT bright white). Reused by the
+// Filters toolbar button and the category pills so "active" reads as a quiet
+// selected state and never steals focus from the search input.
+const ACTIVE_BG = 'rgba(255,255,255,0.10)';
+const ACTIVE_BORDER = 'rgba(255,255,255,0.20)';
+const ACTIVE_FG = '#c4c4cc';
 
 /**
  * Translate a "When" chip into an ISO [startsAfter, startsBefore] window over
@@ -116,18 +113,18 @@ const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => v
     const startDate = event.startsAt ? new Date(event.startsAt) : null;
     const dateDisplay = startDate
         ? startDate.toLocaleDateString('en-IN', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-          })
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+        })
         : 'TBA';
 
     const locationDisplay =
         event.location?.kind === 'online'
             ? 'Online'
             : event.location?.venueName ||
-              event.location?.address?.split(',')[0] ||
-              'Location TBA';
+            event.location?.address?.split(',')[0] ||
+            'Location TBA';
 
     const organizerName =
         typeof event.organizerId === 'object' && event.organizerId !== null
@@ -140,7 +137,7 @@ const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => v
         <TouchableOpacity
             onPress={onPress}
             activeOpacity={0.9}
-            className="group bg-zinc-900/40 border border-white/10 rounded-3xl overflow-hidden flex-col mb-6"
+            className="group bg-zinc-900/40 border border-white/10 rounded-2xl overflow-hidden flex-col mb-6"
         >
             {/* Image Section */}
             <View className="relative w-full aspect-[4/3] overflow-hidden">
@@ -231,11 +228,13 @@ export default function EventsPage() {
     const { width } = useWindowDimensions();
     const userId = useAuthStore((s) => s.user?._id);
 
-    const isDesktop = width >= 1024;
-    const isTablet = width >= 768 && width < 1024;
-    // Card columns: 2 on mobile (web mobile + Android + iOS), 3 on wide desktop.
-    // Width-based (not NativeWind `grid`, which is web-only) so native gets 2 too.
-    const numColumns = isDesktop ? 3 : 2;
+    // Cross-platform breakpoints off measured width (works on web AND native —
+    // the `md:` prefixes only fire on web, leaving native tablets stuck on the
+    // phone layout). sm ≤767 · md 768–1023 · lg 1024–1439 · xl ≥1440.
+    const isSm = width < 768;
+    // Card columns step 2 → 3 → 4. Width-based (not NativeWind `grid`, which is
+    // web-only) so native gets the same progression.
+    const cols = width >= 1440 ? 4 : width >= 1024 ? 3 : 2;
 
     const { setSelectedEventId } = useUiStore();
 
@@ -305,16 +304,15 @@ export default function EventsPage() {
     const eventsList: EventDoc[] = data?.events ?? [];
 
     const [showFilterModal, setShowFilterModal] = useState(false);
-    const [showSortSheet, setShowSortSheet] = useState(false);
-    const [eventSort, setEventSort] = useState('default');
 
-    // Client-side sort of the current page (backend list params carry no sort yet).
+    // Client-side sort of the current page. The sort choice now comes from the
+    // filter modal ("Sort by" group → filters.advanced.sorting.sortBy).
+    // `soonest` is already applied server-side via listParams.sort, so it (and
+    // anything else, e.g. `relevance`) returns as-is; only price/popular reorder.
     const sortedEvents = useMemo(() => {
+        const sortBy = searchState.filters?.advanced?.sorting?.sortBy;
         const arr = [...eventsList];
-        const ts = (s?: string) => (s ? new Date(s).getTime() : 0);
-        switch (eventSort) {
-            case 'soonest':
-                return arr.sort((a, b) => ts(a.startsAt) - ts(b.startsAt));
+        switch (sortBy) {
             case 'popular':
                 return arr.sort(
                     (a, b) => (b.capacity?.registeredCount ?? 0) - (a.capacity?.registeredCount ?? 0)
@@ -328,7 +326,7 @@ export default function EventsPage() {
             default:
                 return arr;
         }
-    }, [eventsList, eventSort]);
+    }, [eventsList, searchState.filters]);
 
     const filters = ['All Events', ...EVENT_CATEGORIES];
     const activeCategoryPill =
@@ -375,8 +373,10 @@ export default function EventsPage() {
     };
 
     return (
-        <View className="flex-1 bg-black">
-            {/* Background ambient effects */}
+        <View className="flex-1 bg-black overflow-hidden">
+            {/* Background ambient effects — clipped by the root's overflow-hidden so
+                the off-screen blobs don't extend the page (web: no horizontal
+                overflow → no zoom-out / white margin). */}
             <View className="absolute top-[10%] -left-[10%] w-[600px] h-[600px] bg-rose-900/20 rounded-full opacity-50 blur-3xl pointer-events-none" />
             <View className="absolute bottom-[10%] -right-[10%] w-[500px] h-[500px] bg-orange-900/10 rounded-full opacity-30 blur-3xl pointer-events-none" />
 
@@ -386,7 +386,10 @@ export default function EventsPage() {
                     contentContainerStyle={{ paddingBottom: 100 }}
                     showsVerticalScrollIndicator={false}
                 >
-                    <View className="px-6 pt-10 pb-8 w-full md:w-[80%] mx-auto">
+                    <View
+                        className="pt-10 pb-8"
+                        style={{ width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: isSm ? 20 : 32 }}
+                    >
                         {/* Hero Typography */}
                         <View className="mb-12">
                             <View className="flex-row items-center justify-between mb-8">
@@ -423,13 +426,13 @@ export default function EventsPage() {
                         {/* Search & Filters Row */}
                         <View className="flex-col md:flex-row gap-6 mb-12" style={{ position: 'relative', zIndex: 30 }}>
                             <View className="flex-row gap-4 flex-1" style={{ position: 'relative', zIndex: 40 }}>
-                                {/* Search Input */}
-                                <View className="relative h-14 bg-zinc-900/50 border border-white/5 rounded-2xl flex-row items-center px-4 flex-1">
+                                {/* Search Input — dominant, flex-1, a touch smaller */}
+                                <View className="relative h-11 bg-zinc-900/50 border border-white/5 rounded-xl flex-row items-center px-4 flex-1">
                                     <Search size={20} color="#71717a" />
                                     <TextInput
                                         placeholder="Search events, cities..."
                                         placeholderTextColor="#71717a"
-                                        className="flex-1 ml-3 text-white text-lg font-light h-full"
+                                        className="flex-1 ml-3 text-white text-base font-light h-full"
                                         value={searchState.q}
                                         onChangeText={(text) =>
                                             setSearchState((prev) => ({
@@ -441,54 +444,41 @@ export default function EventsPage() {
                                     />
                                 </View>
 
-                                {/* Filters Button */}
+                                {/* Filters Button — single control (sort now lives in the sheet).
+                                    Active (activeFilterCount > 0) = neutral + dim, not bright white. */}
                                 <TouchableOpacity
                                     onPress={() => setShowFilterModal(true)}
-                                    className={`h-14 px-6 rounded-2xl flex-row items-center gap-2 border ${
+                                    className={`h-11 rounded-xl flex-row items-center justify-center gap-2 border ${isSm ? 'px-3' : 'px-4'} ${activeFilterCount > 0 ? '' : 'bg-zinc-900/50 border-white/10'
+                                        }`}
+                                    style={
                                         activeFilterCount > 0
-                                            ? 'bg-white border-white'
-                                            : 'bg-zinc-900/50 border-white/10'
-                                    }`}
+                                            ? { backgroundColor: ACTIVE_BG, borderColor: ACTIVE_BORDER }
+                                            : undefined
+                                    }
                                 >
                                     <Filter
                                         size={18}
-                                        color={activeFilterCount > 0 ? '#000' : '#fff'}
+                                        color={activeFilterCount > 0 ? ACTIVE_FG : '#fff'}
                                     />
+                                    {!isSm && (
+                                        <Text
+                                            className="text-xs font-black uppercase tracking-widest"
+                                            style={{ color: activeFilterCount > 0 ? ACTIVE_FG : '#fff' }}
+                                        >
+                                            Filters
+                                        </Text>
+                                    )}
                                     {activeFilterCount > 0 && (
-                                        <View className="bg-black rounded-full w-5 h-5 items-center justify-center">
-                                            <Text className="text-white text-[10px] font-black">
+                                        <View
+                                            className="rounded-full w-5 h-5 items-center justify-center"
+                                            style={{ backgroundColor: ACTIVE_FG }}
+                                        >
+                                            <Text className="text-[10px] font-black" style={{ color: '#0a0a0a' }}>
                                                 {activeFilterCount}
                                             </Text>
                                         </View>
                                     )}
                                 </TouchableOpacity>
-
-                                {/* Sort Button — icon only, anchors a dropdown below it */}
-                                <View style={{ position: 'relative', zIndex: 50 }}>
-                                    <TouchableOpacity
-                                        onPress={() => setShowSortSheet((v) => !v)}
-                                        className={`h-14 px-6 rounded-2xl flex-row items-center gap-2 border ${
-                                            eventSort !== 'default'
-                                                ? 'bg-white border-white'
-                                                : 'bg-zinc-900/50 border-white/10'
-                                        }`}
-                                    >
-                                        <ArrowUpDown
-                                            size={18}
-                                            color={eventSort !== 'default' ? '#000' : '#fff'}
-                                        />
-                                    </TouchableOpacity>
-                                    <SortDropdown
-                                        visible={showSortSheet}
-                                        options={EVENT_SORT_OPTIONS}
-                                        value={eventSort}
-                                        onSelect={setEventSort}
-                                        onClose={() => setShowSortSheet(false)}
-                                        accent="#f43f5e"
-                                        align="right"
-                                        title="Sort events"
-                                    />
-                                </View>
                             </View>
 
                             {/* Category Pills */}
@@ -504,16 +494,18 @@ export default function EventsPage() {
                                         <TouchableOpacity
                                             key={filter}
                                             onPress={() => handleCategoryPillPress(filter)}
-                                            className={`h-14 px-6 rounded-2xl items-center justify-center border ${
+                                            className={`h-8 px-3 rounded-xl items-center justify-center border ${isActive ? '' : 'bg-transparent border-white/10'
+                                                }`}
+                                            style={
                                                 isActive
-                                                    ? 'bg-white border-transparent'
-                                                    : 'bg-transparent border-white/10'
-                                            }`}
+                                                    ? { backgroundColor: ACTIVE_BG, borderColor: ACTIVE_BORDER }
+                                                    : undefined
+                                            }
                                         >
                                             <Text
-                                                className={`text-[10px] font-black uppercase tracking-widest ${
-                                                    isActive ? 'text-black' : 'text-zinc-500'
-                                                }`}
+                                                className={`text-[10px] font-black uppercase tracking-widest ${isActive ? '' : 'text-zinc-500'
+                                                    }`}
+                                                style={isActive ? { color: ACTIVE_FG } : undefined}
                                             >
                                                 {filter}
                                             </Text>
@@ -552,9 +544,9 @@ export default function EventsPage() {
                             // Flex grid that works on web AND native. Each card sits in a
                             // width-% cell (50% → 2/row, 33.3% → 3/row); the -8 / +8 gutter
                             // keeps even spacing and left-aligns an incomplete last row.
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8, marginBottom: 16 }}>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, marginBottom: 16 }}>
                                 {sortedEvents.map((event) => (
-                                    <View key={event._id} style={{ width: `${100 / numColumns}%`, paddingHorizontal: 8 }}>
+                                    <View key={event._id} style={{ width: `${100 / cols}%`, paddingHorizontal: 6 }}>
                                         <VisualEventCard
                                             event={event}
                                             onPress={() => handleEventPress(event._id)}

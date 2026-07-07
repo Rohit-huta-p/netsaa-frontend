@@ -128,7 +128,10 @@ export function EventRemote({ filters, onChange }: Props) {
         ) : null;
 
     return (
-        <View style={styles.wrap}>
+        // zIndex is always on (harmless when closed — nothing overlaps); elevation
+        // only while open so Android lifts the overlay above the grid without
+        // casting a stray shadow line under the collapsed pill.
+        <View style={[styles.wrap, { zIndex: 30, elevation: isOpen ? 24 : 0 }]}>
             {/* Open panel — absolute overlay, 66% width, scales from top-right. */}
             <Animated.View style={[styles.panel, panelAnim]} pointerEvents={isOpen ? 'auto' : 'none'}>
                 <TouchableOpacity activeOpacity={0.85} onPress={toggle} style={styles.header}>
@@ -164,7 +167,7 @@ export function EventRemote({ filters, onChange }: Props) {
 }
 
 const styles = StyleSheet.create({
-    wrap: { position: 'relative', minHeight: PILL_ROW_H, zIndex: 30 },
+    wrap: { position: 'relative', minHeight: PILL_ROW_H, marginBottom: 20 },
     panel: {
         position: 'absolute',
         top: 0,

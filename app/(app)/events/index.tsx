@@ -422,7 +422,7 @@ export default function EventsPage() {
             </View>
 
             {/* Ask bar — the dominant, universal search */}
-            <View className="mb-8">
+            <View style={{ marginBottom: isWide ? 32 : 14 }}>
                 <View className="h-12 bg-zinc-900/50 border border-white/10 rounded-2xl flex-row items-center px-4">
                     <Search size={20} color="#71717a" />
                     <TextInput
@@ -468,18 +468,16 @@ export default function EventsPage() {
                         </View>
                     </View>
                 )}
-
-                {/* Mobile: the Remote sits inline, right-aligned under the search.
-                    zIndex keeps its open overlay above the events grid (a later sibling). */}
-                {!isWide && (
-                    <View className="mt-4" style={{ zIndex: 30 }}>
-                        <EventRemote filters={filtersState} onChange={updateFilters} />
-                    </View>
-                )}
             </View>
 
-            {/* Events Grid */}
-            {renderGrid()}
+            {/* Mobile: the Remote sits between the search and the grid, as a DIRECT
+                sibling of the grid — so its own zIndex + elevation (set while open)
+                lift the open overlay above the grid on iOS, Android, and web. */}
+            {!isWide && <EventRemote filters={filtersState} onChange={updateFilters} />}
+
+            {/* Events Grid — pinned explicitly below the Remote overlay (both
+                siblings need a zIndex for iOS/web ordering to be reliable). */}
+            <View style={{ zIndex: 0 }}>{renderGrid()}</View>
         </View>
     );
 

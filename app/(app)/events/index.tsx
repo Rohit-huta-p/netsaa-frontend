@@ -468,6 +468,13 @@ export default function EventsPage() {
                         </View>
                     </View>
                 )}
+
+                {/* Mobile: the Remote sits inline, right-aligned under the search. */}
+                {!isWide && (
+                    <View className="mt-4">
+                        <EventRemote filters={filtersState} onChange={updateFilters} />
+                    </View>
+                )}
             </View>
 
             {/* Events Grid */}
@@ -501,17 +508,14 @@ export default function EventsPage() {
                         </AppScrollView>
                     </View>
                 ) : (
-                    // Mobile — Ask bar + floating Remote above the tab bar.
-                    <>
-                        <AppScrollView
-                            className="flex-1"
-                            contentContainerStyle={{ paddingBottom: tabBarHeight + 132 }}
-                            showsVerticalScrollIndicator={false}
-                        >
-                            {renderMain()}
-                        </AppScrollView>
-                        <EventRemote filters={filtersState} onChange={updateFilters} />
-                    </>
+                    // Mobile — Ask bar + inline Remote (right-aligned under search).
+                    <AppScrollView
+                        className="flex-1"
+                        contentContainerStyle={{ paddingBottom: tabBarHeight + 24 }}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {renderMain()}
+                    </AppScrollView>
                 )}
             </SafeAreaView>
         </View>

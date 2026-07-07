@@ -1,28 +1,24 @@
 // EventRemote — the mobile refine surface (width < 768).
 //
-// A compact, centered pill that floats ABOVE the app tab bar (never overlaps
-// it). Collapsed = a one-line summary of the current query. Tap → it expands
-// upward into a six-row tuner (Craft · City · Format · When · Price · Sort);
-// the bar stays anchored in the thumb zone while the body grows over the list.
-// Live-applies on every tap (no Apply button) — the grid reacts behind it.
+// Sits inline directly under the Ask bar, right-aligned: collapsed it's a
+// compact trigger pill; tap → it expands downward (accordion, in the scroll
+// flow) into a six-row tuner (Craft · City · Format · When · Price · Sort).
+// Live-applies on every tap — the grid below reacts immediately.
 
 import React, { useState } from 'react';
 import {
     View,
     Text,
     TouchableOpacity,
-    ScrollView,
     StyleSheet,
     Platform,
     UIManager,
     LayoutAnimation,
-    useWindowDimensions,
 } from 'react-native';
 import { SlidersHorizontal, ChevronUp, ChevronDown } from 'lucide-react-native';
 
 import { EventFilterState } from '@/types/eventFilters';
 import { countActiveEventFilters } from '@/lib/constants/eventFilters';
-import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import {
     ACTIVE_BG,
     ACTIVE_BORDER,
@@ -98,8 +94,6 @@ const Group = ({
 
 export function EventRemote({ filters, onChange }: Props) {
     const [open, setOpen] = useState(false);
-    const { width } = useWindowDimensions();
-    const tabBarHeight = useMobileTabBarHeight();
 
     const toggle = () => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -111,75 +105,85 @@ export function EventRemote({ filters, onChange }: Props) {
     const sortLabel = SORT_OPTIONS.find((s) => s.value === sortValue(filters))?.label ?? 'Relevant';
     const lead = parts.length ? parts.slice(0, 2).join(' · ') : 'Filters';
 
-    return (
-        <View style={[styles.dock, { bottom: tabBarHeight + 12 }]} pointerEvents="box-none">
-            <View style={[styles.card, open && { width: Math.min(width - 24, 520) }]}>
-                {open && (
-                    <ScrollView
-                        style={styles.body}
-                        contentContainerStyle={{ paddingBottom: 14 }}
-                        showsVerticalScrollIndicator={false}
-                    >
-                        <Group label="Craft" options={CRAFT_OPTIONS} value={craftValue(filters)} onSelect={(v) => onChange(setCraft(filters, v))} />
-                        <Group label="City" options={CITY_OPTIONS} value={cityValue(filters)} onSelect={(v) => onChange(setCity(filters, v))} />
-                        <Group label="Format" options={FORMAT_OPTIONS} value={formatValue(filters)} onSelect={(v) => onChange(setFormat(filters, v))} />
-                        <Group label="When" options={WHEN_OPTIONS} value={whenValue(filters)} onSelect={(v) => onChange(setWhen(filters, v))} />
-                        <Group label="Price" options={PRICE_OPTIONS} value={priceValue(filters)} onSelect={(v) => onChange(setPrice(filters, v))} />
-                        <View style={styles.divider} />
-                        <Group label="Sort by" options={SORT_OPTIONS} value={sortValue(filters)} onSelect={(v) => onChange(setSort(filters, v))} />
-                    </ScrollView>
-                )}
+    const Summary = ({ grow }: { grow?: boolean }) => (
+        <Text style={[styles.sum, grow && { flex: 1 }]} numberOfLines={1}>
+            {lead} · <Text style={{ color: '#fb923c', fontWeight: '600' }}>{sortLabel}</Text>
+        </Text>
+    );
+    const Badge = () =>
+        count > 0 ? (
+            <View style={styles.badge}>
+                <Text style={styles.badgeText}>{count}</Text>
+            </View>
+        ) : null;
 
-                <TouchableOpacity activeOpacity={0.85} onPress={toggle} style={styles.bar}>
+    if (!open) {
+        // Collapsed — compact trigger pill, hugged to the right end.
+        return (
+            <View style={styles.collapsedRow}>
+                <TouchableOpacity activeOpacity={0.85} onPress={toggle} style={styles.trigger}>
                     <SlidersHorizontal size={16} color="#fb923c" />
-                    <Text style={[styles.sum, open && { flex: 1 }]} numberOfLines={1}>
-                        {lead} · <Text style={{ color: '#fb923c', fontWeight: '600' }}>{sortLabel}</Text>
-                    </Text>
-                    {count > 0 && (
-                        <View style={styles.badge}>
-                            <Text style={styles.badgeText}>{count}</Text>
-                        </View>
-                    )}
-                    {open ? <ChevronDown size={14} color="#8C857B" /> : <ChevronUp size={14} color="#8C857B" />}
+                    <Summary />
+                    <Badge />
+                    <ChevronDown size={14} color="#8C857B" />
                 </TouchableOpacity>
+            </View>
+        );
+    }
+
+    // Expanded — full-width card, the trigger becomes its header.
+    return (
+        <View style={styles.card}>
+            <TouchableOpacity activeOpacity={0.85} onPress={toggle} style={styles.header}>
+                <SlidersHorizontal size={16} color="#fb923c" />
+                <Summary grow />
+                <Badge />
+                <ChevronUp size={14} color="#8C857B" />
+            </TouchableOpacity>
+            <View style={styles.body}>
+                <Group label="Craft" options={CRAFT_OPTIONS} value={craftValue(filters)} onSelect={(v) => onChange(setCraft(filters, v))} />
+                <Group label="City" options={CITY_OPTIONS} value={cityValue(filters)} onSelect={(v) => onChange(setCity(filters, v))} />
+                <Group label="Format" options={FORMAT_OPTIONS} value={formatValue(filters)} onSelect={(v) => onChange(setFormat(filters, v))} />
+                <Group label="When" options={WHEN_OPTIONS} value={whenValue(filters)} onSelect={(v) => onChange(setWhen(filters, v))} />
+                <Group label="Price" options={PRICE_OPTIONS} value={priceValue(filters)} onSelect={(v) => onChange(setPrice(filters, v))} />
+                <View style={styles.divider} />
+                <Group label="Sort by" options={SORT_OPTIONS} value={sortValue(filters)} onSelect={(v) => onChange(setSort(filters, v))} />
             </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    dock: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
+    collapsedRow: { width: '100%', alignItems: 'flex-end' },
+    trigger: {
+        flexDirection: 'row',
         alignItems: 'center',
-        zIndex: 50,
-    },
-    card: {
-        maxWidth: 520,
-        backgroundColor: 'rgba(26,25,34,0.97)',
+        gap: 8,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.14)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+    },
+    card: {
+        width: '100%',
+        backgroundColor: '#0e0d13',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
         borderRadius: 16,
         overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 18 },
-        shadowOpacity: 0.5,
-        shadowRadius: 24,
-        elevation: 14,
     },
-    body: {
-        maxHeight: 352,
-        paddingHorizontal: 14,
-        paddingTop: 6,
-    },
-    bar: {
+    header: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
         paddingHorizontal: 12,
-        paddingVertical: 9,
+        paddingVertical: 11,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.08)',
     },
+    body: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 },
     sum: { color: '#F0ECE6', fontSize: 12 },
     badge: {
         minWidth: 18,

@@ -1,7 +1,7 @@
 // netsa-mobile/app/(app)/dashboard/hirer-home.tsx
 //
 // Plan §7 step 9 — final assembly. Section order matches
-// DOCS/designs/hirer-home-v1.html. Pull-to-refresh invalidates every
+// DOCS/04-design/mockups/hirer-home-v1.html. Pull-to-refresh invalidates every
 // queryKeys.hirer.* key plus the shared artist.hero / artist.conversations
 // / artist.contracts keys that hirer hooks piggyback on.
 
@@ -22,9 +22,10 @@ import { queryKeys } from '../../../src/constants/queryKeys';
 // ─── Active sections ───
 import EditorialHeroHirer from '../../../src/components/dashboard/hirer/EditorialHeroHirer';
 import TrustAnchorCard from '../../../src/components/dashboard/hirer/TrustAnchorCard';
-import ActionQueueTile from '../../../src/components/dashboard/hirer/ActionQueueTile';
-import YourPostsSection from '../../../src/components/dashboard/hirer/YourPostsSection';
+import HowItWorks from '../../../src/components/dashboard/shared/HowItWorks';
 import MatchForYourGigsStrip from '../../../src/components/dashboard/hirer/MatchForYourGigsStrip';
+import YourPostsSection from '../../../src/components/dashboard/hirer/YourPostsSection';
+import useOrganizerPosts from '../../../src/hooks/useOrganizerPosts';
 
 // ─── Replaced / removed (kept commented for fast revert during rollout) ───
 // import DispatchSection from '../../../src/components/dashboard/hirer/DispatchSection';
@@ -42,6 +43,12 @@ import MatchForYourGigsStrip from '../../../src/components/dashboard/hirer/Match
 export default function HirerHome() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+
+  // Empty-state gate: the HowItWorks explainer shows only until the CL has
+  // posted ANY gig or event — 'all' counts every status (active + draft +
+  // past). Once a post exists, "Your posts" takes over.
+  const { totalCount: postCount, isLoading: postsLoading } = useOrganizerPosts('all', 1);
+  const showExplainer = !postsLoading && postCount === 0;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -78,7 +85,7 @@ export default function HirerHome() {
           />
         }
       >
-        {/* Order matches DOCS/designs/hirer-home-v1.html.
+        {/* Order matches DOCS/04-design/mockups/hirer-home-v1.html.
             Sections own their own gutter (paddingHorizontal: 24) so the
             scroll container stays flush at 0. */}
 
@@ -86,9 +93,11 @@ export default function HirerHome() {
 
         <TrustAnchorCard />
 
-        <ActionQueueTile />
-
-        <YourPostsSection />
+        {showExplainer ? (
+          <HowItWorks role="creative_lead" style={styles.hiwGutter} />
+        ) : (
+          <YourPostsSection />
+        )}
 
         {/* Match strip — plan §6.6. Standalone for now; folds into
             ByTheNumbersSection (§6.5) when that section ships. */}
@@ -116,6 +125,7 @@ export default function HirerHome() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#060509' },
   scroll: { paddingTop: 8, paddingBottom: 140 },
+  hiwGutter: { paddingHorizontal: 24 },
   matchWrap: { paddingHorizontal: 24, paddingBottom: 32 },
   footer: {
     alignItems: 'center',

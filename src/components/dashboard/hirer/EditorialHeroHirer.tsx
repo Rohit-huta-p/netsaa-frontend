@@ -1,8 +1,8 @@
 /**
  * EditorialHeroHirer — replaces HeroGreetingHirer with editorial layout.
  *
- * Design source: DOCS/designs/hirer-home-v1.html (Hero section).
- * Plan: DOCS/NETSA_Hirer_Home_RN_Translation.md §6.1.
+ * Design source: DOCS/04-design/mockups/hirer-home-v1.html (Hero section).
+ * Plan: DOCS/02-engineering/NETSA_Hirer_Home_RN_Translation.md §6.1.
  *
  * Layout:
  *   - "Welcome back," 16pt Outfit Medium, orange #FF6B35

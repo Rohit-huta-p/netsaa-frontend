@@ -10,7 +10,7 @@ import AppLoadingScreen from '@/components/ui/AppLoadingScreen';
  *
  * Native keeps its React Native landing in `index.tsx`. On web, Expo Router
  * resolves `index.web.tsx` instead, so we render the marketing HTML design
- * (`DOCS/designs/NETSA_figma_clone_v2photos.html`) pixel-perfect.
+ * (`DOCS/04-design/mockups/NETSA_figma_clone_v2photos.html`) pixel-perfect.
  *
  * Auth gate is identical to `index.tsx`:
  *   logged OUT → public web landing
@@ -30,7 +30,7 @@ export default function Index() {
 
 /**
  * The verbatim CSS + body markup from
- * `DOCS/designs/NETSA_figma_clone_v2photos.html`.
+ * `DOCS/04-design/mockups/NETSA_figma_clone_v2photos.html`.
  *
  * Edits applied to the source ONLY:
  *   - asset paths rewritten to the compressed copies served at `/landing/...`
@@ -67,16 +67,18 @@ const PAGE_HTML = `
 
   /* ---------------- NAV ---------------- */
   .nav{position:absolute;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:26px 56px}
-  .nav .logo{font-family:var(--serif);font-weight:700;font-size:24px;letter-spacing:.02em;background:var(--grad-text);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-style:normal}
+  .nav .logo{height:30px;width:auto;display:block}
   .nav .nav-cta{font-family:var(--sans);font-weight:500;font-size:15px;color:#fff;background:var(--grad-btn);padding:11px 22px;border-radius:9999px;box-shadow:0 0 40px 6px rgba(255,77,136,.18)}
 
   /* ---------------- HERO ---------------- */
   .hero{position:relative;min-height:840px;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:180px 24px 90px;isolation:isolate}
+  /* fade the warm hero glow into the page bg at the bottom so there's no hard section line */
+  .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:clamp(110px,18vh,230px);background:linear-gradient(to bottom,transparent,var(--bg));z-index:1;pointer-events:none}
   .hero .glow{position:absolute;border-radius:9999px;z-index:0;pointer-events:none}
   .hero .g-rose{width:600px;height:600px;left:-60px;top:-180px;background:var(--rose);opacity:.05;filter:blur(75px)}
   .hero .g-or1{width:500px;height:500px;right:0;top:-120px;background:var(--orange);opacity:.06;filter:blur(65px)}
   .hero .g-or2{width:420px;height:420px;left:48%;top:30%;background:var(--peach);opacity:.04;filter:blur(60px)}
-  .hero .blob{position:absolute;z-index:0;left:50%;top:46%;width:1180px;height:700px;transform:translate(-50%,-50%) rotate(-8deg);opacity:.8;pointer-events:none;filter:blur(44px);
+  .hero .blob{position:absolute;z-index:0;left:50%;top:55%;width:1180px;height:840px;transform:translate(-50%,-50%) rotate(-8deg);opacity:.8;pointer-events:none;filter:blur(44px);
     background:
       radial-gradient(closest-side at 52% 50%,rgba(255,26,102,.55),rgba(230,0,0,.28) 45%,transparent 72%),
       radial-gradient(closest-side at 40% 50%,rgba(255,117,26,.45),rgba(255,128,0,0) 70%),
@@ -165,10 +167,8 @@ const PAGE_HTML = `
   .quote .fade-top,.quote .fade-bot{position:absolute;left:0;right:0;height:188px;z-index:2;pointer-events:none}
   .quote .fade-top{top:0;background:linear-gradient(180deg,#09090b 0%,rgba(255,255,255,0) 100%)}
   .quote .fade-bot{bottom:0;background:linear-gradient(0deg,#09090b 0%,rgba(255,255,255,0) 100%)}
-  .quote .stair{font-family:var(--serif);font-weight:700;color:#000;font-size:120px;line-height:1.0;text-align:left;max-width:1200px}
-  .quote .stair .s1{margin-left:0}
-  .quote .stair .s2{margin-left:106px}
-  .quote .stair .s3{margin-left:239px}
+  .quote .stair{font-family:var(--serif);font-weight:700;color:#000;font-size:120px;line-height:1.0;text-align:center;max-width:1200px}
+  .quote .stair .s1,.quote .stair .s2,.quote .stair .s3{margin-left:0}
   .quote .manifesto{margin-top:34px;font-family:var(--sans);font-weight:500;font-size:24px;line-height:32px;
     background:linear-gradient(180deg,#ef4444,#ff4d88);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 
@@ -194,7 +194,7 @@ const PAGE_HTML = `
   .final p{font-family:var(--sans);font-weight:400;font-size:18px;line-height:28px;color:var(--grey);margin:18px auto 32px;max-width:560px;position:relative;z-index:2}
   .final .cta{display:flex;gap:16px;justify-content:center;position:relative;z-index:2}
   footer{border-top:1px solid rgba(245,245,245,.08);padding:40px 56px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;position:relative;z-index:2}
-  footer .logo{font-family:var(--serif);font-weight:700;font-size:22px;background:var(--grad-text);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  footer .logo{height:26px;width:auto;display:block}
   footer .fl{display:flex;gap:28px;font-family:var(--sans);font-size:14px;color:var(--grey)}
   footer .fl a:hover{color:var(--ink)}
   footer .cp{font-family:var(--sans);font-size:13px;color:rgba(245,245,245,.36)}
@@ -202,8 +202,8 @@ const PAGE_HTML = `
   /* ---------------- MATCH (find talent / clients / work) ---------------- */
   .match{position:relative;padding:96px 56px 80px}
   .match .glow{position:absolute;z-index:0;border-radius:9999px;pointer-events:none;width:720px;height:520px;background:var(--orange);opacity:.05;filter:blur(80px);left:50%;top:-40px;transform:translateX(-50%)}
-  .match .head{text-align:center;max-width:780px;margin:0 auto 56px}
-  .match .sec-sub{max-width:600px;margin:18px auto 0}
+  .match .head{text-align:center;max-width:780px;margin:0 auto 16px}
+  .match .sec-sub{max-width:600px;margin:0 auto 48px}
   .mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
   .mcard{position:relative;background:rgba(17,17,19,.3);backdrop-filter:blur(2px);border:1px solid rgba(39,39,42,.25);border-radius:16px;padding:30px;overflow:hidden;transition:transform .3s,border-color .3s,background .3s}
   .mcard:hover{transform:translateY(-6px);border-color:rgba(255,77,136,.35);background:rgba(17,17,19,.5)}
@@ -253,24 +253,39 @@ const PAGE_HTML = `
     .rv3-panel:hover .rv3-open{opacity:1;transform:none;pointer-events:auto}
     .rv3-chev{display:none}
   }
-  /* mobile: sticky, scroll-driven accordion */
+  /* mobile: sticky, SCROLL-LINKED accordion — each card's open amount (--o, 0..1)
+     is driven directly by scroll. Sequence starts when the intro sentence locks to
+     the top; card opens gradually (no snap), holds, then the next. Progress pinned. */
   @media(max-width:759px){
-    .rv3-track{height:280vh}
-    .rv3-sticky{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;justify-content:center;gap:12px}
+    /* tighten the hero on mobile (desktop keeps min-height:840) so the role section
+       follows right after the hero content — no big empty gap between the two */
+    .hero{min-height:85vh;padding-top:132px;padding-bottom:44px}
+    .match{padding-top:44px}
+    .rv3-track{height:340vh}
+    .rv3-sticky{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;justify-content:flex-start;gap:12px;padding:22px 0 0}
+    /* fade backdrop so the pinned progress stays readable over whatever card is behind it */
+    .rv3-sticky::after{content:"";position:absolute;left:0;right:0;bottom:0;height:64px;background:linear-gradient(to top,var(--bg) 42%,transparent);z-index:5;pointer-events:none}
     .rv3sec .head{margin-bottom:16px!important}
-    .rv3-panels{flex-direction:column;height:auto;gap:11px;margin-top:0}
-    .rv3-panel{flex:none;height:104px;transition:height .55s cubic-bezier(.22,.61,.36,1)}
-    .rv3-panel.open{height:348px}
-    .rv3-panel>img{filter:grayscale(.12) brightness(.6)}
-    .rv3-panel.open>img{filter:grayscale(0) brightness(.74)}
-    .rv3-panel.open .rv3-closed{opacity:0;transform:translateY(-12px);pointer-events:none}
-    .rv3-panel.open .rv3-open{opacity:1;transform:none;pointer-events:auto}
-    .rv3-closed{padding:18px 20px}
-    .rv3-closed .ch{font-size:25px;white-space:normal}
-    .rv3-open{padding:20px 22px}
-    .rv3-open .big{font-size:34px}
-    .rv3-progress{display:flex;justify-content:center;gap:8px;margin-top:4px}
-    .rv3-cue{display:flex;justify-content:center;align-items:center;gap:7px;margin-top:8px;color:var(--grey);font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.8}
+    .rv3sec .sec-sub{margin-bottom:14px}
+    .rv3-panels{flex-direction:column;height:auto;gap:10px;margin-top:0}
+    .rv3-panel{flex:none;--o:0;height:calc(134px + var(--o) * 88px);transition:height .12s linear}
+    .rv3-panel>img{filter:grayscale(calc(.18 - var(--o) * .18)) brightness(calc(.6 + var(--o) * .16));transition:filter .12s linear}
+    .rv3-chev{transform:rotate(calc(var(--o) * 180deg));transition:transform .12s linear}
+    .rv3-closed{padding:22px 22px;opacity:clamp(0,calc(1 - var(--o)/0.5),1);transform:translateY(calc(var(--o) * -10px));transition:opacity .12s linear,transform .12s linear}
+    .rv3-closed .ch{font-size:24px;white-space:normal}
+    .rv3-open{padding:20px;opacity:clamp(0,calc((var(--o) - 0.5)/0.5),1);transform:translateY(calc((1 - var(--o)) * 14px));transition:opacity .12s linear,transform .12s linear}
+    .rv3-open .big{font-size:32px}
+    .rv3-progress{position:absolute;left:0;right:0;bottom:26px;z-index:6;display:flex;justify-content:center;gap:8px;margin:0}
+    .rv3-cue{position:absolute;left:0;right:0;bottom:9px;z-index:6;display:flex;justify-content:center;align-items:center;gap:7px;margin:0;color:var(--grey);font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.8}
+  }
+  /* short phones only: the large role headline + open card + pinned progress can't
+     all fit one screen, so scale the headline down just here (stays large elsewhere) */
+  @media(max-width:759px) and (max-height:760px){
+    .rv3sec .sec-h2{font-size:30px;line-height:1.1}
+    .rv3sec .sec-sub{font-size:13px;line-height:1.4;margin-top:6px}
+    .rv3-sticky{padding-top:14px}
+    .rv3-panel{height:calc(134px + var(--o) * min(88px, 13vh))}
+    .rv3-panels{gap:8px}
   }
 
   /* ---------------- EVENTS (never stop growing — scrollable) ---------------- */
@@ -296,7 +311,7 @@ const PAGE_HTML = `
   @media(max-width:1100px){
     /* hero h1 scales via clamp() — no fixed override needed */
     .sec-h2{font-size:48px;line-height:1.05}
-    .quote .stair{font-size:64px}.quote .stair .s2{margin-left:48px}.quote .stair .s3{margin-left:96px}
+    .quote .stair{font-size:64px}
     .cards{flex-wrap:wrap;gap:18px;align-items:flex-start}
     .pcard{flex:1 1 calc(50% - 9px);aspect-ratio:270/360;margin-top:0!important}
     .pcard:nth-child(odd){transform:rotate(-2deg)}
@@ -315,13 +330,14 @@ const PAGE_HTML = `
     .pcard{flex:0 0 auto;width:78%;aspect-ratio:270/350;margin-top:0!important}
     .pcard:nth-child(odd){margin-right:auto;transform:rotate(-2.5deg)}
     .pcard:nth-child(even){margin-left:auto;transform:rotate(2.5deg)}
-    .quote .stair{font-size:40px}.quote .stair .s2{margin-left:24px}.quote .stair .s3{margin-left:48px}
+    .quote .stair{font-size:40px}
   }
 </style>
 
 <!-- NAV -->
 <nav class="nav">
-  <div class="logo">NETSA</div>
+  <img class="logo" src="/landing/netsa-logo-wordmark.png" alt="NETSA">
+
   <a class="nav-cta" href="#" data-nav="join">Join Netsa</a>
 </nav>
 
@@ -354,11 +370,12 @@ const PAGE_HTML = `
   <div class="grid-bg"></div>
   <div class="glow"></div>
   <div class="wrap">
-    <div class="rv3-track"><div class="rv3-sticky">
+    <div class="rv3-track">
       <div class="head">
         <h2 class="sec-h2">Find talent. Find clients.<br><span class="gtext">Find work.</span></h2>
-        <p class="sec-sub">Whichever side of the stage you're on, NETSA connects you to the other — all in one place.</p>
       </div>
+      <div class="rv3-sticky">
+        <p class="sec-sub">Whichever side of the stage you're on, NETSA connects you to the other — all in one place.</p>
       <div class="rv3-panels">
         <button class="rv3-panel" aria-expanded="false">
           <img src="/landing/v2-client.jpg" alt="">
@@ -521,7 +538,8 @@ const PAGE_HTML = `
 </section>
 
 <footer>
-  <div class="logo">NETSA</div>
+  <img class="logo" src="/landing/netsa-logo-wordmark.png" alt="NETSA">
+
   <div class="fl"><a href="#">For Artists</a><a href="#">Discover</a><a href="#">Community</a><a href="#">About</a></div>
   <div class="cp">© 2026 NETSA · Made for the Indian stage</div>
 </footer>
@@ -560,19 +578,33 @@ function WebLanding() {
 
     const cleanups: Array<() => void> = [];
 
-    // Run after the dangerouslySetInnerHTML markup is committed to the DOM.
-    const raf = requestAnimationFrame(() => {
-      // 2. Role section (.rv3): scroll-driven accordion on mobile; desktop uses :hover.
+    // Wire the injected markup — with retries + an idempotency guard so it survives
+    // StrictMode's double-invoke and auth-driven re-renders (a lone rAF can be
+    // cancelled before it ever fires, leaving the accordion + tabs unwired).
+    let wired = false;
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
+    const setupInjected = () => {
+      if (wired || !document.querySelector('.rv3sec')) return;
+      wired = true;
+      // 2. Role section (.rv3): scroll-LINKED accordion on mobile; desktop uses :hover.
+      //    Each card's open amount (--o) is driven directly by scroll. The sequence
+      //    starts when the intro sentence locks to the top (cards closed before that):
+      //    card1 opens gradually -> holds -> card2 -> holds -> card3. Approved feel:
+      //    hold 15% of the scroll budget, open span 20%.
       (function () {
         const sec = document.querySelector('.rv3sec');
         if (!sec) return;
-        const panels = ([] as Element[]).slice.call(sec.querySelectorAll('.rv3-panel'));
+        const panels = (([] as Element[]).slice.call(sec.querySelectorAll('.rv3-panel'))) as HTMLElement[];
         const dots = ([] as Element[]).slice.call(sec.querySelectorAll('.rv3-dot'));
         const track = sec.querySelector('.rv3-track') as HTMLElement | null;
         const sticky = sec.querySelector('.rv3-sticky') as HTMLElement | null;
+        const cue = sec.querySelector('.rv3-cue') as HTMLElement | null;
+        // The title (.head) scrolls away above the sticky; the sticky (sentence + cards)
+        // pins. The scrub is anchored PAST the title height so p=0 = sentence at the top.
+        const head = sec.querySelector('.head') as HTMLElement | null;
         if (!track || !sticky) return;
         // RN-Web renders the landing inside a <ScrollView> (a div that scrolls),
-        // NOT the window — find that scroll container so we can listen to it.
+        // NOT the window — find that scroll container so we can read its position.
         function getScrollContainer(el: HTMLElement): HTMLElement | Window {
           let n: HTMLElement | null = el.parentElement;
           while (n) {
@@ -584,73 +616,94 @@ function WebLanding() {
         }
         const scroller: HTMLElement | Window = getScrollContainer(track);
         const mq = window.matchMedia('(max-width:759px)');
-        let cur = -1;
-        let ticking = false;
-        function setIdx(i: number) {
-          if (i === cur) return;
-          cur = i;
-          panels.forEach(function (p, k) {
-            const on = k === i;
-            p.classList.toggle('open', on);
-            p.setAttribute('aria-expanded', on ? 'true' : 'false');
-          });
-          dots.forEach(function (d, k) {
-            d.classList.toggle('on', k <= i);
-          });
-          const cue = sec!.querySelector('.rv3-cue') as HTMLElement | null;
-          if (cue) cue.style.opacity = i >= 2 ? '0' : '.8';
+        const HOLD = 0.71, SPAN = 0.70;
+        // t = open span, h = hold — in VIEWPORT units (vh). The scroll track GROWS to
+        // fit them (see updateTrack), so the hold is a real dwell and the open is as
+        // gradual as dialed — no squeezing into a fixed track length.
+        function segs() {
+          const t = Math.min(Math.max(SPAN, 0.10), 1.20);
+          const h = Math.min(Math.max(HOLD, 0.02), 1.50);
+          const T = 3 * t + 3 * h;   // 3 opens + 2 holds + final hold, in vh units
+          return { A: t / T, B: (t + h) / T, C: (2 * t + h) / T, D: (2 * t + 2 * h) / T, E: (3 * t + 2 * h) / T, sp: t / T, T };
         }
+        // size the scroll track to the dialed timing (mobile only; desktop uses CSS)
+        function updateTrack() {
+          if (!mq.matches) { track!.style.removeProperty('height'); return; }
+          const hH = head ? head.offsetHeight : 0;
+          track!.style.height = Math.round(hH + (1 + segs().T) * sticky!.offsetHeight) + 'px';
+        }
+        function factors(p: number): number[] {
+          const S = segs(); const o = [0, 0, 0]; let g = 0;
+          if (p <= S.A) { o[0] = p / S.sp; }                            // card 1 opens — STARTS at the sentence
+          else if (p <= S.B) { o[0] = 1; }                              // card 1 holds
+          else if (p <= S.C) { g = (p - S.B) / S.sp; o[0] = 1 - g; o[1] = g; } // -> card 2, scrubbed
+          else if (p <= S.D) { o[1] = 1; }                              // card 2 holds
+          else if (p <= S.E) { g = (p - S.D) / S.sp; o[1] = 1 - g; o[2] = g; } // -> card 3, scrubbed
+          else { o[2] = 1; }                                           // card 3 holds
+          return o;
+        }
+        function setClosed() {
+          panels.forEach(function (p) { p.style.setProperty('--o', '0'); p.setAttribute('aria-expanded', 'false'); });
+          dots.forEach(function (d) { d.classList.remove('on'); });
+          if (cue) cue.style.opacity = '.8';
+        }
+        function scrollerTop() { return scroller === window ? 0 : (scroller as HTMLElement).getBoundingClientRect().top; }
         function compute() {
-          if (!mq.matches) return;
-          const total = track!.offsetHeight - sticky!.offsetHeight;
-          const s = Math.min(Math.max(-track!.getBoundingClientRect().top, 0), total);
-          setIdx(Math.min(2, Math.floor((total > 0 ? s / total : 0) * 3 + 0.0001)));
+          if (!mq.matches) return;                                    // desktop uses :hover
+          const headH = head ? head.offsetHeight : 0;                 // title scrolls off above the sticky
+          const total = (track!.offsetHeight - sticky!.offsetHeight) - headH;
+          if (total <= 0) return;
+          // anchor PAST the title: s<0 until the sentence (top of the sticky) reaches the top
+          const s = (scrollerTop() - track!.getBoundingClientRect().top) - headH;
+          if (s < 0) { setClosed(); return; }                         // title still scrolling / sentence not at top yet
+          const p = Math.min(Math.max(s / total, 0), 1);              // p = 0 exactly when the sentence hits the top
+          const o = factors(p);
+          panels.forEach(function (pn, k) {
+            pn.style.setProperty('--o', o[k].toFixed(3));
+            pn.setAttribute('aria-expanded', o[k] > 0.5 ? 'true' : 'false');
+          });
+          const active = o[2] > 0.5 ? 2 : (o[1] > 0.5 ? 1 : 0);
+          dots.forEach(function (d, k) { d.classList.toggle('on', k <= active); });
+          if (cue) cue.style.opacity = p > 0.85 ? '0' : '.8';
         }
         // Expose compute() so the <ScrollView onScroll> can drive it (RN-Web).
         computeRef.current = compute;
+        let ticking = false;
         function tick() {
           if (!ticking) {
             ticking = true;
-            requestAnimationFrame(function () {
-              compute();
-              ticking = false;
-            });
+            requestAnimationFrame(function () { compute(); ticking = false; });
           }
         }
         function syncMode() {
-          if (mq.matches) {
-            cur = -1;
-            compute();
-          } else {
-            cur = -1;
-            panels.forEach(function (p) {
-              p.classList.remove('open');
-              p.setAttribute('aria-expanded', 'false');
-            });
-            dots.forEach(function (d) {
-              d.classList.remove('on');
-            });
+          if (mq.matches) { updateTrack(); compute(); }
+          else {
+            track!.style.removeProperty('height');
+            panels.forEach(function (p) { p.style.removeProperty('--o'); p.classList.remove('open'); p.setAttribute('aria-expanded', 'false'); });
+            dots.forEach(function (d) { d.classList.remove('on'); });
           }
         }
         // Listen on the real scroll container; also capture window scrolls as a
         // fallback (scroll events don't bubble but DO fire in the capture phase).
         scroller.addEventListener('scroll', tick, { passive: true } as AddEventListenerOptions);
         window.addEventListener('scroll', tick, { passive: true, capture: true });
-        window.addEventListener('resize', function () {
-          syncMode();
-          tick();
-        });
+        window.addEventListener('resize', function () { syncMode(); tick(); });
         if (mq.addEventListener) mq.addEventListener('change', syncMode);
         else mq.addListener(syncMode);
+        // tap a card -> smooth-scroll so it lands fully open (centre of its hold)
         panels.forEach(function (p, i) {
           p.addEventListener('click', function () {
             if (!mq.matches) return;
-            const total = track!.offsetHeight - sticky!.offsetHeight;
+            const headH = head ? head.offsetHeight : 0;
+            const total = (track!.offsetHeight - sticky!.offsetHeight) - headH;
+            const S = segs();
+            const targetP = i === 0 ? (S.A + S.B) / 2 : i === 1 ? (S.C + S.D) / 2 : (S.E + 1) / 2;
             const isWin = scroller === window;
-            const base = isWin ? 0 : (scroller as HTMLElement).getBoundingClientRect().top;
-            const cur = isWin ? window.pageYOffset : (scroller as HTMLElement).scrollTop;
-            const top = cur + (track!.getBoundingClientRect().top - base) + ((i + 0.5) / 3) * total;
-            (scroller as { scrollTo: (o: ScrollToOptions) => void }).scrollTo({ top, behavior: 'smooth' });
+            const sTop = isWin ? 0 : (scroller as HTMLElement).getBoundingClientRect().top;
+            const curScroll = isWin ? window.pageYOffset : (scroller as HTMLElement).scrollTop;
+            // lockScroll = the scroll where the sentence (sticky top) pins, i.e. past the title
+            const lockScroll = curScroll + (track!.getBoundingClientRect().top - sTop) + headH;
+            (scroller as { scrollTo: (o: ScrollToOptions) => void }).scrollTo({ top: lockScroll + targetP * total, behavior: 'smooth' });
           });
         });
         syncMode();
@@ -698,10 +751,13 @@ function WebLanding() {
           cleanups.push(function () { t.removeEventListener('click', h); });
         });
       })();
-    });
+    };
+    const raf = requestAnimationFrame(setupInjected);
+    timers.push(setTimeout(setupInjected, 60), setTimeout(setupInjected, 240), setTimeout(setupInjected, 600));
 
     return () => {
       cancelAnimationFrame(raf);
+      timers.forEach(function (t) { clearTimeout(t); });
       cleanups.forEach((fn) => fn());
     };
     // router from expo-router is stable; run once on mount.

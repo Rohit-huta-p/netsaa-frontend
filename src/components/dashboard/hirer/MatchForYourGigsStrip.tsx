@@ -1,8 +1,8 @@
 /**
  * MatchForYourGigsStrip — horizontal scroll of recommended artists for your gigs.
  *
- * Design source: DOCS/designs/hirer-home-v1.html (Match section inside By the numbers).
- * Plan: DOCS/NETSA_Hirer_Home_RN_Translation.md §6.6.
+ * Design source: DOCS/04-design/mockups/hirer-home-v1.html (Match section inside By the numbers).
+ * Plan: DOCS/02-engineering/NETSA_Hirer_Home_RN_Translation.md §6.6.
  *
  * States:
  *   - Loaded: gold-tinted tile, "Match for your gigs" title, horizontal scroll with % fit per artist.

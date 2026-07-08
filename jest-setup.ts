@@ -50,7 +50,7 @@ jest.mock('react-native-razorpay', () => ({
 }));
 
 // Mock expo-linear-gradient — used in the new artist-home components
-// (HeroGreetingArtistV2, FloatingInboxFab, DiscoverHirersStrip). Renders
+// (HeroGreetingArtistV2, DiscoverHirersStrip). Renders
 // as a host component name so children pass through; avoids the
 // out-of-scope module factory check that bites a require()-based mock.
 jest.mock('expo-linear-gradient', () => ({

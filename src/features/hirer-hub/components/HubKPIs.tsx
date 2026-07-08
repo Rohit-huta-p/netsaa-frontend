@@ -4,7 +4,7 @@ import type { HubKPIs as HubKPIData } from '../hooks/useGigHubData';
 
 // Gig-hub redesign v1 — single hairline KPI band, Space Mono tabular numerals.
 // Cells: Applicants (+new) · Slots filled · Budget · Days left.
-// See DOCS/designs/gig-hub-redesign-v1.html.
+// See DOCS/04-design/mockups/gig-hub-redesign-v1.html.
 
 const COLORS = {
     text0: '#F3EFE8',

@@ -1,9 +1,9 @@
 /**
  * ByTheNumbersArtist — 5-tile KPI grid on artist home.
  *
- * Layout per locked mockup (DOCS/designs/artist-home-v1.html):
+ * Layout per locked mockup (DOCS/04-design/mockups/artist-home-v1.html):
  *   Row 1: [ EARNED THIS MONTH · span-2 + sparkline ]  [ PROFILE VIEWS ]
- *   Row 2: [ APPLICATIONS ]  [ DELIVERED ]  [ ENDORSEMENTS ]
+ *   Row 2: [ APPLICATIONS ]  [ DELIVERED ]  [ RATING ]
  *
  * Editorial typography: SpaceMono labels, DM Serif Display values,
  * Outfit sub-text. Earnings tile uses purple accent (matches artist
@@ -54,14 +54,16 @@ export default function ByTheNumbersArtist() {
         data.delivered > 0
             ? `${data.delivered} gigs delivered${data.pendingPayouts > 0 ? ` · ${data.pendingPayouts} pending payout` : ''}`
             : 'No gigs delivered yet';
-    const endorsementsSub =
-        data.endorsementsDelta > 0 ? `${data.endorsementsDelta} new` : 'all-time';
     const applicationsSub =
         data.applicationsActive > 0
             ? `${data.applicationsActive} active`
             : data.applicationsTotal > 0
                 ? 'all-time'
                 : 'none yet';
+    const ratingSub =
+        data.reviewCount > 0
+            ? `${data.reviewCount} review${data.reviewCount === 1 ? '' : 's'}`
+            : 'no reviews yet';
 
     return (
         <View style={styles.root}>
@@ -109,11 +111,9 @@ export default function ByTheNumbersArtist() {
                 </View>
 
                 <View style={styles.tile}>
-                    <Text style={styles.label}>ENDORSEMENTS</Text>
-                    <Text style={styles.value}>
-                        {data.endorsements > 0 ? data.endorsements : '—'}
-                    </Text>
-                    <Text style={styles.sub}>{endorsementsSub}</Text>
+                    <Text style={styles.label}>RATING</Text>
+                    <Text style={styles.value}>{data.rating > 0 ? data.rating.toFixed(1) : '—'}</Text>
+                    <Text style={styles.sub}>{ratingSub}</Text>
                 </View>
             </View>
         </View>

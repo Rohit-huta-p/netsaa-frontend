@@ -1,8 +1,8 @@
 /**
  * YourPostsSection — editorial card layout for the hirer home "Your posts" feed.
  *
- * Design source: DOCS/designs/hirer-home-v1.html (Your posts section).
- * Plan: DOCS/NETSA_Hirer_Home_RN_Translation.md §6.4.
+ * Design source: DOCS/04-design/mockups/hirer-home-v1.html (Your posts section).
+ * Plan: DOCS/02-engineering/NETSA_Hirer_Home_RN_Translation.md §6.4.
  * Architecture plan: ~/.gstack/projects/NETSA-React/ceo-plans/2026-05-16-your-posts-redesign.md.
  *
  * Now reads from useOrganizerPosts, which fans out parallel queries to

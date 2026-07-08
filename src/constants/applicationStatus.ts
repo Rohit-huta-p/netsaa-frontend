@@ -9,7 +9,7 @@
  *   applied → Pending
  *   hired   → Accepted
  *
- * Source: DOCS/NETSA_Dashboard_ModeToggle_Design_v1.md §4.1 — filter chip
+ * Source: DOCS/04-design/NETSA_Dashboard_ModeToggle_Design_v1.md §4.1 — filter chip
  * order for AppliedSection.
  */
 

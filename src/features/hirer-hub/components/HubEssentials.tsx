@@ -2,7 +2,7 @@
 //
 // Gig-hub redesign v1 — editorial "Essentials" block: always-visible hairline
 // rows with icons (When / Where / Scope / Posted) + an "Edit gig" link.
-// See DOCS/designs/gig-hub-redesign-v1.html.
+// See DOCS/04-design/mockups/gig-hub-redesign-v1.html.
 
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';

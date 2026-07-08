@@ -10,7 +10,7 @@
  *   2. useOrganizerEvents     — GET /v1/organizers/me/events (via eventService)
  *
  * Both hydrate into the same React Query cache so future consumers
- * (Manage-all page, useActionQueue) hit warm cache. Normalized into
+ * (the /posts Manage-all page) hit warm cache. Normalized into
  * PostRow[] with `kind: 'gig' | 'event'` discriminator, sorted by
  * createdAt DESC, sliced to `limit`.
  *
@@ -57,15 +57,17 @@ const TAB_TO_GIG_STATUS: Record<string, 'draft' | 'published' | 'closed' | undef
   active: 'published',
   draft: 'draft',
   past: 'closed',
+  all: undefined, // no status filter → every gig, any status (for "has the user posted anything?")
 };
 
 const TAB_TO_EVENT_STATUS: Record<string, 'draft' | 'live' | 'completed' | undefined> = {
   active: 'live',
   draft: 'draft',
   past: 'completed',
+  all: undefined,
 };
 
-type TabKey = 'active' | 'draft' | 'past';
+type TabKey = 'active' | 'draft' | 'past' | 'all';
 
 function readGigPrice(g: any): string {
   if (typeof g?.price === 'number') return `₹${g.price.toLocaleString('en-IN')}`;

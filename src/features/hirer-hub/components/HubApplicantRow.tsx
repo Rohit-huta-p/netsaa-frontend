@@ -4,7 +4,7 @@
 // avatar, name + ★rating, "type · yrs · time-ago" sub. New (status='applied')
 // applicants get a warm "fresh" treatment. Quick Reject (neutral X) + Hire
 // (orange ✓); Shortlist + View profile live in the action sheet (tap body).
-// See DOCS/designs/gig-hub-redesign-v1.html.
+// See DOCS/04-design/mockups/gig-hub-redesign-v1.html.
 
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';

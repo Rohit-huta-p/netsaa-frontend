@@ -18,7 +18,7 @@ import { Pencil } from 'lucide-react-native';
 import type { EventDoc, EventMedia } from '@/services/eventService';
 import { formatRupees } from '@/lib/eventPricing';
 
-// Inbox-rhythm palette (DOCS/designs/INBOX_RHYTHM_DESIGN_SYSTEM.md)
+// Inbox-rhythm palette (DOCS/04-design/mockups/INBOX_RHYTHM_DESIGN_SYSTEM.md)
 const SURFACE='rgba(255,255,255,0.04)', HAIR2='rgba(255,255,255,0.10)';
 const T0='#F3EFE8', T1='#A1A1AA', T2='#71717a', T3='#52525b';
 const ORANGE='#FF6B35';

@@ -1,7 +1,7 @@
 /**
  * BarChartMini — 7-bar histogram used inside ByTheNumbersSection (Apps/day tile).
  *
- * Plan: DOCS/NETSA_Hirer_Home_RN_Translation.md §6.5 + §4.
+ * Plan: DOCS/02-engineering/NETSA_Hirer_Home_RN_Translation.md §6.5 + §4.
  *
  * Animation (TODO §4):
  *   - Each bar's scaleY animates from 0 to target on mount, staggered 60ms each.

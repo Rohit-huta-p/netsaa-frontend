@@ -7,7 +7,7 @@
  * based on whatever `trustScore` the user record carries.
  *
  * Source of truth for final thresholds + weights:
- *   DOCS/NETSA_Dashboard_ModeToggle_Design_v1.md §TBD (Trust Engine spec).
+ *   DOCS/04-design/NETSA_Dashboard_ModeToggle_Design_v1.md §TBD (Trust Engine spec).
  *
  * Current placeholder ranges (0–100 score):
  *   new       : 0  – 24

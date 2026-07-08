@@ -122,7 +122,6 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const kycStatus = u.kycLevel >= 2 ? 'verified' : u.kycLevel === 1 ? 'pending' : (u.kycStatus || 'none');
     // connectionDegree comes from the useConnectionDegree hook above (real data).
     const workedTogether = u.workedTogether || false;
-    const endorsements: Record<string, number> = u.endorsements || {};
     const availability = u.availability || u.availabilityStatus || null;
     const travelPreference = u.travelPreference || u.travelWillingness || u.artistDetails?.travelPreferences || '';
     const certifications: any[] = u.certifications || u.training || [];
@@ -407,7 +406,6 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                                 {skills.map((sk: string, i: number) => (
                                     <View key={i} style={[s.skillPill, i % 3 === 0 && s.skillRotN1, i % 3 === 1 && s.skillRot05, i % 3 === 2 && s.skillRotN05]}>
                                         <Text style={s.skillPillText}>{sk}</Text>
-                                        {endorsements[sk] > 0 && <View style={s.endorseDot}><Text style={s.endorseNum}>{endorsements[sk]}</Text></View>}
                                     </View>
                                 ))}
                             </View>
@@ -1106,8 +1104,6 @@ const s = StyleSheet.create({
     artformRow: { flexDirection: 'row', gap: 6, marginTop: 10, paddingHorizontal: 4 },
     artformChip: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'transparent' },
     artformText: { fontFamily: 'Outfit-Medium', fontSize: 12, color: '#6B6878' },
-    endorseDot: { backgroundColor: 'rgba(52,211,153,0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 6, minWidth: 18, alignItems: 'center' },
-    endorseNum: { fontFamily: 'Outfit-Bold', fontSize: 10, color: '#34D399' },
     sectionDivider: { marginHorizontal: 20, marginTop: 20, height: 1, backgroundColor: 'rgba(255,255,255,0.04)' },
 
     // ── Bento ──

@@ -61,24 +61,24 @@ const ACTIVE_APP_STATUSES = new Set([
 type AppState = 'applied' | 'reviewed' | 'shortlisted' | 'offered' | 'hired' | 'closed' | 'withdrawn';
 
 const STATE_META: Record<AppState, { pill: string; tone: PillTone; subline: string; dotsFilled: number; active?: boolean }> = {
-    applied:      { pill: 'APPLIED',     tone: 'muted',  subline: 'waiting on review', dotsFilled: 1 },
-    reviewed:     { pill: 'REVIEWED',    tone: 'purple', subline: "hirer's deciding",  dotsFilled: 2 },
-    shortlisted: { pill: 'SHORTLISTED', tone: 'gold',   subline: 'waiting on offer',  dotsFilled: 3 },
-    offered:      { pill: 'OFFERED',     tone: 'green',  subline: 'your decision',     dotsFilled: 4, active: true },
-    hired:        { pill: 'HIRED',       tone: 'green',  subline: 'confirmed',         dotsFilled: 4 },
-    closed:       { pill: 'CLOSED',      tone: 'muted',  subline: 'no go',             dotsFilled: 0 },
-    withdrawn:    { pill: 'WITHDRAWN',   tone: 'muted',  subline: 'you pulled out',    dotsFilled: 0 },
+    applied: { pill: 'APPLIED', tone: 'muted', subline: 'waiting on review', dotsFilled: 1 },
+    reviewed: { pill: 'REVIEWED', tone: 'purple', subline: "hirer's deciding", dotsFilled: 2 },
+    shortlisted: { pill: 'SHORTLISTED', tone: 'gold', subline: 'waiting on offer', dotsFilled: 3 },
+    offered: { pill: 'OFFERED', tone: 'green', subline: 'your decision', dotsFilled: 4, active: true },
+    hired: { pill: 'HIRED', tone: 'green', subline: 'confirmed', dotsFilled: 4 },
+    closed: { pill: 'CLOSED', tone: 'muted', subline: 'no go', dotsFilled: 0 },
+    withdrawn: { pill: 'WITHDRAWN', tone: 'muted', subline: 'you pulled out', dotsFilled: 0 },
 };
 
 function normalizeAppState(raw: string): AppState {
     const s = raw.toLowerCase();
-    if (s === 'applied')      return 'applied';
+    if (s === 'applied') return 'applied';
     if (s === 'reviewed' || s === 'pending') return 'reviewed';
-    if (s === 'shortlisted')  return 'shortlisted';
+    if (s === 'shortlisted') return 'shortlisted';
     if (s === 'offered' || s === 'approved') return 'offered';
-    if (s === 'hired')        return 'hired';
+    if (s === 'hired') return 'hired';
     if (s === 'rejected' || s === 'declined' || s === 'closed') return 'closed';
-    if (s === 'withdrawn')    return 'withdrawn';
+    if (s === 'withdrawn') return 'withdrawn';
     return 'applied';
 }
 
@@ -199,6 +199,12 @@ export default function YourStageArtist() {
             {/* Primary toggle */}
             <View style={styles.stageTabs}>
                 <StageTab
+                    label="ALL"
+                    count={allTotal}
+                    active={stage === 'all'}
+                    onPress={() => setStage('all')}
+                />
+                <StageTab
                     label="GIGS"
                     count={gigsTotal}
                     active={stage === 'gigs'}
@@ -209,12 +215,6 @@ export default function YourStageArtist() {
                     count={eventsTotal}
                     active={stage === 'events'}
                     onPress={() => setStage('events')}
-                />
-                <StageTab
-                    label="ALL"
-                    count={allTotal}
-                    active={stage === 'all'}
-                    onPress={() => setStage('all')}
                 />
             </View>
 
@@ -332,8 +332,8 @@ function GigsPanel({
         <View>
             <View style={styles.subTabs}>
                 <SubTab label="UPCOMING" count={upcoming.length} active={sub === 'upcoming'} onPress={() => setSub('upcoming')} />
-                <SubTab label="ACTIVE"   count={active.length}   active={sub === 'active'}   onPress={() => setSub('active')} />
-                <SubTab label="SAVED"    count={saved.length}    active={sub === 'saved'}    onPress={() => setSub('saved')} />
+                <SubTab label="ACTIVE" count={active.length} active={sub === 'active'} onPress={() => setSub('active')} />
+                <SubTab label="SAVED" count={saved.length} active={sub === 'saved'} onPress={() => setSub('saved')} />
             </View>
 
             {sub === 'upcoming' ? (
@@ -366,8 +366,8 @@ function EventsPanel({
         <View>
             <View style={styles.subTabs}>
                 <SubTab label="UPCOMING" count={upcoming.length} active={sub === 'upcoming'} onPress={() => setSub('upcoming')} />
-                <SubTab label="SAVED"    count={saved.length}    active={sub === 'saved'}    onPress={() => setSub('saved')} />
-                <SubTab label="PAST"     count={past.length}     active={sub === 'past'}     onPress={() => setSub('past')} />
+                <SubTab label="SAVED" count={saved.length} active={sub === 'saved'} onPress={() => setSub('saved')} />
+                <SubTab label="PAST" count={past.length} active={sub === 'past'} onPress={() => setSub('past')} />
             </View>
 
             {sub === 'upcoming' ? (
@@ -396,7 +396,7 @@ function AllPanel({
         <View>
             <View style={styles.subTabs}>
                 <SubTab label="UPCOMING" count={upcoming.length} active={sub === 'upcoming'} onPress={() => setSub('upcoming')} />
-                <SubTab label="SAVED"    count={saved.length}    active={sub === 'saved'}    onPress={() => setSub('saved')} />
+                <SubTab label="SAVED" count={saved.length} active={sub === 'saved'} onPress={() => setSub('saved')} />
             </View>
 
             {sub === 'upcoming' ? (
@@ -565,8 +565,8 @@ function ActiveAppsList({
                 const isOffered = state === 'offered';
                 const replyBy =
                     a?.offerExpiresAt ? `Reply by ${new Date(a.offerExpiresAt).toLocaleDateString('en-IN', { weekday: 'short' })}`
-                    : a?.appliedAt ? fmtUntil(a.appliedAt) + ' ago'
-                    : '';
+                        : a?.appliedAt ? fmtUntil(a.appliedAt) + ' ago'
+                            : '';
 
                 return (
                     <ItemRow
@@ -584,10 +584,10 @@ function ActiveAppsList({
                         actionCta={
                             isOffered
                                 ? {
-                                      label: 'Accept ▸',
-                                      onPress: () =>
-                                          router.push(`/gigs/${a?.gigId ?? a?.gig?._id ?? ''}` as any),
-                                  }
+                                    label: 'Accept ▸',
+                                    onPress: () =>
+                                        router.push(`/gigs/${a?.gigId ?? a?.gig?._id ?? ''}` as any),
+                                }
                                 : undefined
                         }
                         onPress={() => router.push(`/gigs/${a?.gigId ?? a?.gig?._id ?? ''}` as any)}
@@ -686,10 +686,10 @@ function PastList({
 type PillTone = 'muted' | 'gold' | 'purple' | 'green';
 
 const PILL_STYLES: Record<PillTone, { bg: string; color: string }> = {
-    muted:  { bg: 'rgba(255,255,255,0.04)',  color: PAPER_DIM },
-    gold:   { bg: 'rgba(245,158,11,0.10)',   color: '#F59E0B' },
-    purple: { bg: 'rgba(139,92,246,0.12)',   color: PURPLE },
-    green:  { bg: 'rgba(34,197,94,0.10)',    color: '#22C55E' },
+    muted: { bg: 'rgba(255,255,255,0.04)', color: PAPER_DIM },
+    gold: { bg: 'rgba(245,158,11,0.10)', color: '#F59E0B' },
+    purple: { bg: 'rgba(139,92,246,0.12)', color: PURPLE },
+    green: { bg: 'rgba(34,197,94,0.10)', color: '#22C55E' },
 };
 
 function ItemRow({

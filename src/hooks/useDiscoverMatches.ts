@@ -1,6 +1,6 @@
 /**
  * useDiscoverMatches — broader feed of gigs + events that fit the artist's
- * type and skill set (DOCS/designs/artist-home-v1.html §6 Discover, pivot
+ * type and skill set (DOCS/04-design/mockups/artist-home-v1.html §6 Discover, pivot
  * 2026-05-18 from "Hirers who fit you" to gig/event matches).
  *
  * Different lens from useArtistMatches (the "For you" horizontal carousel):

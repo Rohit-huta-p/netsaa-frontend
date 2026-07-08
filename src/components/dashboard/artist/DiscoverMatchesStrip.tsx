@@ -2,7 +2,7 @@
  * DiscoverMatchesStrip — wider horizontal carousel of gigs + events that
  * fit the artist's type and skills.
  *
- * Per DOCS/designs/artist-home-v1.html §6 (pivot 2026-05-18 from Hirers,
+ * Per DOCS/04-design/mockups/artist-home-v1.html §6 (pivot 2026-05-18 from Hirers,
  * then again to horizontal big cards). Differentiated from the "For you"
  * carousel above:
  *

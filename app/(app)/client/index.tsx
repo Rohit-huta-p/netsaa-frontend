@@ -11,6 +11,7 @@ import {
     PersonStanding, Drama, Music, Mic, MicVocal, Laugh,
 } from 'lucide-react-native';
 import { requirementService } from '@/services/requirementService';
+import HowItWorks from '@/components/dashboard/shared/HowItWorks';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import { useOrganizer } from '@/hooks/useOrganizer';
 
@@ -45,7 +46,7 @@ export default function ClientHome() {
     // Server-authoritative agency flag — gates the invites inbox + "are you an agency?" prompt.
     const { isAgency } = useOrganizer();
 
-    const { data: requirements = [], isFetching, refetch } = useQuery({
+    const { data: requirements = [], isFetching, isLoading, refetch } = useQuery({
         queryKey: ['client', 'requirements'],
         queryFn: requirementService.mine,
     });
@@ -123,6 +124,11 @@ export default function ClientHome() {
                             <Text style={{ fontFamily: 'Outfit-SemiBold', color: '#FF6B35', fontSize: 12.5 }}>+ more</Text>
                         </Pressable>
                     </View>
+
+                    {/* ── How it works (orientation) — only until the client has posted a requirement ── */}
+                    {!isLoading && requirements.length === 0 && (
+                        <HowItWorks role="client" style={{ marginTop: 20 }} />
+                    )}
 
                     {/* ── Your briefs (peek) ── */}
                     <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 30, marginBottom: 6 }}>

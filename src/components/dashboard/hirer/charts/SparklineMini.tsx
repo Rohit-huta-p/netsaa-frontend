@@ -1,7 +1,7 @@
 /**
  * SparklineMini — small line chart used inside ByTheNumbersSection (Views tile).
  *
- * Plan: DOCS/NETSA_Hirer_Home_RN_Translation.md §6.5 + §4.
+ * Plan: DOCS/02-engineering/NETSA_Hirer_Home_RN_Translation.md §6.5 + §4.
  *
  * Implementation choice (TODO §4):
  *   - Default path: react-native-svg <Path> with strokeDasharray animated via Reanimated.

@@ -1,8 +1,8 @@
 /**
  * ByTheNumbersSection — Views + Apps/day + Match strip.
  *
- * Design source: DOCS/designs/hirer-home-v1.html (By the numbers section).
- * Plan: DOCS/NETSA_Hirer_Home_RN_Translation.md §6.5.
+ * Design source: DOCS/04-design/mockups/hirer-home-v1.html (By the numbers section).
+ * Plan: DOCS/02-engineering/NETSA_Hirer_Home_RN_Translation.md §6.5.
  *
  * Layout:
  *   1. Section header "By the numbers" + mono "7 DAY" stamp.

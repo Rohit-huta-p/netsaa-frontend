@@ -1,6 +1,6 @@
 /**
  * HeroGreetingArtistV2 — slim artist-home hero per locked mockup
- * (DOCS/designs/artist-home-v1.html, finalized 2026-05-18).
+ * (DOCS/04-design/mockups/artist-home-v1.html, finalized 2026-05-18).
  *
  * Layout (single row + name line, no big headline):
  *   - Avatar (44×44, purple→pink gradient, first-letter monogram)

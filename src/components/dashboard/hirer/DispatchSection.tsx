@@ -1,8 +1,8 @@
 /**
  * DispatchSection — editorial city pulse (3 entries).
  *
- * Design source: DOCS/designs/hirer-home-v1.html (Dispatch section).
- * Plan: DOCS/NETSA_Hirer_Home_RN_Translation.md §6.7.
+ * Design source: DOCS/04-design/mockups/hirer-home-v1.html (Dispatch section).
+ * Plan: DOCS/02-engineering/NETSA_Hirer_Home_RN_Translation.md §6.7.
  *
  * Layout:
  *   - Title "Dispatch" + mono stamp "PUNE · 1H AGO".

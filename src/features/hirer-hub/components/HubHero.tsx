@@ -21,7 +21,7 @@ export const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 // Editorial hero (gig-hub redesign v1): status pill → orange eyebrow →
 // DM Serif title → location/date submeta with a pin. See
-// DOCS/designs/gig-hub-redesign-v1.html.
+// DOCS/04-design/mockups/gig-hub-redesign-v1.html.
 function formatHeroDate(iso?: string): string {
     if (!iso) return '';
     try {

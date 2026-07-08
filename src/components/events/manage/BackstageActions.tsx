@@ -23,7 +23,7 @@ import { useRouter } from 'expo-router';
 import { Users, Megaphone, Lock, QrCode, Plus, ChevronRight } from 'lucide-react-native';
 import type { EventDoc } from '@/services/eventService';
 
-// Inbox-rhythm palette (DOCS/designs/INBOX_RHYTHM_DESIGN_SYSTEM.md)
+// Inbox-rhythm palette (DOCS/04-design/mockups/INBOX_RHYTHM_DESIGN_SYSTEM.md)
 const BG='#060509', SURFACE='rgba(255,255,255,0.04)', HAIR='rgba(255,255,255,0.07)', HAIR2='rgba(255,255,255,0.10)';
 const T0='#F3EFE8', T1='#A1A1AA', T2='#71717a', T3='#52525b', T4='#3f3f46', INK='#1A0D06';
 const ORANGE='#FF6B35', ORANGE_SOFT='rgba(255,107,53,0.16)', ORANGE_LINE='rgba(255,107,53,0.34)';

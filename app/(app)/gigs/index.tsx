@@ -1,37 +1,30 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, ScrollView, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, ScrollView, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Search, Filter, TrendingUp, Sparkles, ArrowUpDown } from 'lucide-react-native';
-import { SequentialLoadingAnimation } from '@/components/ui/SequentialLoadingAnimation';
+import { Search, TrendingUp, Sparkles } from 'lucide-react-native';
 import { useGigs, useGig } from '@/hooks/useGigs';
 import { useDebounce } from '@/hooks/useDebounce';
 import { GigCard } from '@/components/gigs/GigCard';
 import { GigDetails } from '@/components/gigs/GigDetails';
-import { BackgroundElements } from '@/components/ui/BackgroundElements';
 import AppScrollView from '@/components/AppScrollView';
 import AppLoadingScreen from '@/components/ui/AppLoadingScreen';
-import { FilterModal } from '@/components/gigs/FilterModal';
-import { SortDropdown } from '@/components/ui/SortDropdown';
+import { useMobileTabBarHeight } from '@/components/MobileTabBar';
+import { GigFacetRail } from '@/components/gigs/discovery/GigFacetRail';
+import { GigRemote } from '@/components/gigs/discovery/GigRemote';
+import {
+    ACCENT,
+    ACTIVE_BG,
+    ACTIVE_BORDER,
+    ACTIVE_FG,
+    SORT_OPTIONS,
+    sortValue,
+    setSort,
+    describeGigFilters,
+    countGigFacets,
+    emptyGigFilters,
+} from '@/components/gigs/discovery/gigFilterOptions';
 import { FilterState } from '@/types/filters';
-import { countActiveFilters } from '@/lib/constants/filters';
-
-const isWeb = Platform.OS === 'web';
-
-// Sort options mirror the values the search service understands (mapped to
-// `sortMode`; 'relevance' is the no-op default).
-const GIG_SORT_OPTIONS = [
-    { value: 'relevance', label: 'Relevant' },
-    { value: 'newest', label: 'Newest' },
-    { value: 'compensation', label: 'Top pay' },
-];
-
-const emptyFilters = (): FilterState => ({
-    quick: null,
-    advanced: {
-        trust: {}, compensation: {}, artistType: {}, experience: {},
-        location: {}, timing: {}, eventType: {}, requirements: {}, sorting: {},
-    },
-});
 
 // Wrapper component to fetch full gig details (including viewerContext) on desktop
 const DesktopGigPreview = ({ gigId, placeholderData }: { gigId: string, placeholderData: any }) => {
@@ -44,7 +37,7 @@ const DesktopGigPreview = ({ gigId, placeholderData }: { gigId: string, placehol
     if (isLoading && !gigToRender) {
         return (
             <View className="flex-1 justify-center items-center">
-                <ActivityIndicator size="large" color="#8B5CF6" />
+                <ActivityIndicator size="large" color={ACCENT} />
             </View>
         );
     }
@@ -55,6 +48,15 @@ const DesktopGigPreview = ({ gigId, placeholderData }: { gigId: string, placehol
 export default function GigsListPage() {
     const router = useRouter();
     const { width } = useWindowDimensions();
+    const tabBarHeight = useMobileTabBarHeight();
+
+    // Cross-platform breakpoints off measured width (works on web AND native).
+    // < 768 → search + Remote pill (mobile). ≥ 768 → Facet Rail + board.
+    // Master-detail split (list + preview) still only kicks in at ≥ 1024.
+    const isSm = width < 768;
+    const isWide = !isSm;
+    const isDesktopLayout = width >= 1024;
+
     // Single source of truth for gig search
     const [searchState, setSearchState] = useState<{
         q: string;
@@ -68,14 +70,10 @@ export default function GigsListPage() {
 
     // UI states
     const [selectedGig, setSelectedGig] = useState<any>(null);
-    const [showFilterModal, setShowFilterModal] = useState(false);
-    const [showSortSheet, setShowSortSheet] = useState(false);
     const [isPageReady, setIsPageReady] = useState(false);
 
     // Local input state for controlled TextInput (before debounce)
     const [inputQuery, setInputQuery] = useState('');
-
-    // Debounce the input query and update searchState
     const debouncedQuery = useDebounce(inputQuery, 500);
 
     // Update searchState.q when debounced query changes
@@ -87,10 +85,7 @@ export default function GigsListPage() {
         }));
     }, [debouncedQuery]);
 
-    // Determine if we should show side-by-side layout (desktop only)
-    const isDesktopLayout = width >= 1024;
-
-    // Pass searchState directly to useGigs
+    // Pass searchState directly to useGigs (unchanged data path)
     const { data: gigsData, isLoading, error, isFetching } = useGigs({
         q: searchState.q,
         filters: searchState.filters || undefined,
@@ -109,12 +104,19 @@ export default function GigsListPage() {
         }
     }, [isLoading, gigsData, error]);
 
-    // Sort lives inside filters.advanced.sorting, but it's surfaced as its own
-    // button — so exclude it from the Filters badge. (The search hook still counts
-    // it independently for routing, so the sort is applied server-side.)
-    const sortBy = searchState.filters?.advanced?.sorting?.sortBy || 'relevance';
-    const rawFilterCount = searchState.filters ? countActiveFilters(searchState.filters) : 0;
-    const activeFilterCount = Math.max(0, rawFilterCount - (sortBy !== 'relevance' ? 1 : 0));
+    // The filter surfaces read/write a non-null FilterState; the raw
+    // searchState.filters stays null-until-touched so useGigs keeps hitting the
+    // plain gigs list until a filter is actually set.
+    const filtersState = searchState.filters ?? emptyGigFilters();
+
+    // Every surface (Rail · Remote · sort lenses) writes back through here.
+    const updateFilters = useCallback((next: FilterState) => {
+        setSearchState((prev) => ({ ...prev, filters: next, page: 1 }));
+    }, []);
+
+    const facetCount = countGigFacets(filtersState);
+    const readoutParts = describeGigFilters(filtersState);
+    const sortLabel = SORT_OPTIONS.find((s) => s.value === sortValue(filtersState))?.label ?? 'Relevant';
 
     React.useEffect(() => {
         // Only auto-select on desktop layout
@@ -124,8 +126,7 @@ export default function GigsListPage() {
     }, [gigsData, isDesktopLayout]);
 
     const handleGigPress = (gig: any) => {
-        // Navigate to detail page on mobile, tablets, and small screens
-        // Show side-by-side only on desktop (>= 1024px)
+        // Side-by-side preview only on desktop (>= 1024px); otherwise navigate.
         if (isDesktopLayout) {
             setSelectedGig(gig);
         } else {
@@ -133,259 +134,223 @@ export default function GigsListPage() {
         }
     };
 
-    const handleApplyFilters = useCallback((newFilters: FilterState) => {
-        setSearchState((prev) => ({
-            ...prev,
-            filters: newFilters,
-            page: 1, // Reset to page 1 on filter change
-        }));
-    }, []);
-
-    const handleSelectSort = useCallback((value: string) => {
-        setSearchState((prev) => {
-            const base = prev.filters || emptyFilters();
-            return {
-                ...prev,
-                filters: {
-                    ...base,
-                    advanced: {
-                        ...base.advanced,
-                        sorting: { ...base.advanced.sorting, sortBy: value },
-                    },
-                },
-                page: 1,
-            };
-        });
-    }, []);
-
     if (!isPageReady) {
         return <AppLoadingScreen />;
     }
 
-    return (
-        <View style={{ flex: 1, backgroundColor: '#000000' }}>
-            {/* <BackgroundElements /> */}
-            <AppScrollView className="flex-1">
-                {/* HERO SECTION - COMPACT */}
-                <View className="pt-32 pb-12 px-6 border-b border-white/5" style={{ position: 'relative', zIndex: 30 }}>
-                    <View className="container mx-auto max-w-7xl">
-                        <View className="flex-row items-end justify-between mb-10">
-                            <View className="flex-1 max-w-2xl">
-                                <Text className="text-4xl md:text-6xl font-black tracking-tighter mb-6 text-white">
-                                    THE GIG BOARD.
-                                </Text>
-                                <Text className="text-xl text-zinc-500 font-light">
-                                    Explore hand-picked professional opportunities in your city.
-                                </Text>
-                            </View>
-                        </View>
-
-                        {/* SEARCH & FILTERS */}
-                        <View className="flex-row gap-4 w-full">
-                            {/* Search */}
-                            <View className="relative flex-1 lg:w-80">
-                                <View className="absolute left-5 top-1/2 -translate-y-1/2 z-10">
-                                    <Search size={20} color={isFetching ? "#8B5CF6" : "rgba(255, 255, 255, 0.4)"} />
-                                </View>
-                                <TextInput
-                                    placeholder="Search gigs..."
-                                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                                    style={{
-                                        width: '100%',
-                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(255, 255, 255, 0.08)',
-                                        height: 56,
-                                        paddingLeft: 48,
-                                        paddingRight: 16,
-                                        borderRadius: 12,
-                                        color: '#FFFFFF',
-                                        fontSize: 16,
-                                        // outline: 'none',
-                                    }}
-                                    value={inputQuery}
-                                    onChangeText={setInputQuery}
-                                    returnKeyType="search"
-                                />
-                                {/* Search indicator */}
-                                {isFetching && inputQuery && (
-                                    <View className="absolute right-4 top-1/2 -translate-y-1/2">
-                                        <ActivityIndicator size="small" color="#8B5CF6" />
-                                    </View>
-                                )}
-                            </View>
-
-                            {/* Filter Button — icon only */}
-                            <TouchableOpacity
-                                onPress={() => setShowFilterModal(true)}
-                                style={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                    borderWidth: 1,
-                                    borderColor: 'rgba(255, 255, 255, 0.08)',
-                                    height: 56,
-                                    paddingHorizontal: 18,
-                                    borderRadius: 12,
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: 8,
-                                }}
-                            >
-                                <Filter size={20} color="#FFFFFF" />
-                                {activeFilterCount > 0 && (
-                                    <View style={{
-                                        backgroundColor: '#8B5CF6',
-                                        borderRadius: 12,
-                                        width: 24,
-                                        height: 24,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}>
-                                        <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
-                                            {activeFilterCount}
-                                        </Text>
-                                    </View>
-                                )}
-                            </TouchableOpacity>
-
-                            {/* Sort Button — icon only, anchors a dropdown below it */}
-                            <View style={{ position: 'relative', zIndex: 50 }}>
-                                <TouchableOpacity
-                                    onPress={() => setShowSortSheet((v) => !v)}
-                                    style={{
-                                        backgroundColor: sortBy !== 'relevance' ? 'rgba(139,92,246,0.15)' : 'rgba(255, 255, 255, 0.05)',
-                                        borderWidth: 1,
-                                        borderColor: sortBy !== 'relevance' ? 'rgba(139,92,246,0.5)' : 'rgba(255, 255, 255, 0.08)',
-                                        height: 56,
-                                        paddingHorizontal: 18,
-                                        borderRadius: 12,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    <ArrowUpDown size={20} color="#FFFFFF" />
-                                </TouchableOpacity>
-                                <SortDropdown
-                                    visible={showSortSheet}
-                                    options={GIG_SORT_OPTIONS}
-                                    value={sortBy}
-                                    onSelect={handleSelectSort}
-                                    onClose={() => setShowSortSheet(false)}
-                                    accent="#8B5CF6"
-                                    align="right"
-                                    title="Sort gigs"
-                                />
-                            </View>
+    /* ------------------------------ board ------------------------------ */
+    const renderBoard = () => {
+        if (isLoading && isPageReady) {
+            return (
+                <View className="flex-1 justify-center items-center py-20">
+                    <ActivityIndicator size="large" color={ACCENT} />
+                    <Text className="text-zinc-500 mt-4 text-xs font-medium">Updating results...</Text>
+                </View>
+            );
+        }
+        if (error) {
+            return (
+                <View className="flex-1 justify-center items-center py-20 px-8">
+                    <View className="w-20 h-20 rounded-full items-center justify-center mb-4 bg-red-500/10">
+                        <Sparkles size={32} color="#EF4444" />
+                    </View>
+                    <Text className="text-white font-bold text-xl text-center mb-2">Oops!</Text>
+                    <Text className="text-zinc-400 text-center">
+                        Unable to load gigs. Please check your connection.
+                    </Text>
+                </View>
+            );
+        }
+        if (!gigsData || gigsData.length === 0) {
+            return (
+                <View className="flex-1 justify-center items-center py-20 px-8">
+                    <View className="w-20 h-20 rounded-full items-center justify-center mb-4 bg-zinc-800/50">
+                        <Sparkles size={32} color="#71717A" />
+                    </View>
+                    <Text className="text-white font-bold text-xl text-center mb-2">No Gigs Yet</Text>
+                    <Text className="text-zinc-400 text-center">Check back soon for new opportunities.</Text>
+                </View>
+            );
+        }
+        return (
+            <View className="grid grid-cols-1 lg:grid-cols-8 gap-12">
+                {/* LIST VIEW */}
+                <View className="col-span-2">
+                    <View className="flex-row items-center justify-between px-2 mb-4">
+                        <Text className="text-zinc-500 text-[10px] uppercase font-black tracking-[0.3em]">
+                            {gigsData.length} {gigsData.length === 1 ? 'result' : 'results'}
+                            {(searchState.q || facetCount > 0) && ' found'}
+                        </Text>
+                        <View className="flex-row items-center gap-1">
+                            {isFetching ? (
+                                <ActivityIndicator size="small" color="#3B82F6" />
+                            ) : (
+                                <>
+                                    <TrendingUp size={12} color="#3B82F6" />
+                                    <Text className="text-blue-400 text-[10px] font-black uppercase">Live Feed</Text>
+                                </>
+                            )}
                         </View>
                     </View>
+
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingBottom: 24 }}
+                        style={{ maxHeight: 900 }}
+                    >
+                        {gigsData.map((gig: any) => (
+                            <GigCard
+                                key={gig._id}
+                                gig={gig}
+                                onPress={() => handleGigPress(gig)}
+                                isSelected={isDesktopLayout && selectedGig?._id === gig._id}
+                            />
+                        ))}
+                    </ScrollView>
                 </View>
 
-                {/* BOARD SECTION */}
-                <View className="w-[90%] mx-auto py-12  ">
-                    <View className="flex-1">
-                        {isLoading && isPageReady ? (
-                            <View className="flex-1 justify-center items-center py-20">
-                                <ActivityIndicator size="large" color="#8B5CF6" />
-                                <Text className="text-zinc-500 mt-4 text-xs font-medium">
-                                    Updating results...
-                                </Text>
-                            </View>
-                        ) : error ? (
-                            <View className="flex-1 justify-center items-center py-20 px-8">
-                                <View className="w-20 h-20 rounded-full items-center justify-center mb-4 bg-red-500/10">
-                                    <Sparkles size={32} color="#EF4444" />
-                                </View>
-                                <Text className="text-white font-bold text-xl text-center mb-2">Oops!</Text>
-                                <Text className="text-zinc-400 text-center">
-                                    Unable to load gigs. Please check your connection.
-                                </Text>
-                            </View>
-                        ) : !gigsData || gigsData.length === 0 ? (
-                            <View className="flex-1 justify-center items-center py-20 px-8">
-                                <View className="w-20 h-20 rounded-full items-center justify-center mb-4 bg-zinc-800/50">
-                                    <Sparkles size={32} color="#71717A" />
-                                </View>
-                                <Text className="text-white font-bold text-xl text-center mb-2">No Gigs Yet</Text>
-                                <Text className="text-zinc-400 text-center">
-                                    Check back soon for new opportunities.
-                                </Text>
-                            </View>
-                        ) : (
-                            <View className="grid grid-cols-1 lg:grid-cols-8 gap-12">
-                                {/* LIST VIEW */}
-                                <View className="col-span-2">
-                                    <View className="flex-row items-center justify-between px-2 mb-4">
-                                        <Text className="text-zinc-500 text-[10px] uppercase font-black tracking-[0.3em]">
-                                            {gigsData.length} {gigsData.length === 1 ? 'result' : 'results'}
-                                            {(searchState.q || activeFilterCount > 0) && ' found'}
-                                        </Text>
-                                        <View className="flex-row items-center gap-1">
-                                            {isFetching ? (
-                                                <ActivityIndicator size="small" color="#3B82F6" />
-                                            ) : (
-                                                <>
-                                                    <TrendingUp size={12} color="#3B82F6" />
-                                                    <Text className="text-blue-400 text-[10px] font-black uppercase">
-                                                        Live Feed
-                                                    </Text>
-                                                </>
-                                            )}
-                                        </View>
-                                    </View>
+                {/* DETAIL VIEW - DESKTOP ONLY (>= 1024px) */}
+                {isDesktopLayout && selectedGig && (
+                    <View className="col-span-6">
+                        <View className="bg-zinc-900/40 border border-white/10 rounded-[4rem] overflow-hidden min-h-[900px]">
+                            <DesktopGigPreview gigId={selectedGig._id} placeholderData={selectedGig} />
+                        </View>
+                    </View>
+                )}
+            </View>
+        );
+    };
 
-                                    <ScrollView
-                                        showsVerticalScrollIndicator={false}
-                                        contentContainerStyle={{ paddingBottom: 24 }}
-                                        style={{ maxHeight: 900 }}
-                                    >
-                                        {gigsData.map((gig: any) => (
-                                            <>
-                                                <GigCard
-                                                    key={gig._id}
-                                                    gig={gig}
-                                                    onPress={() => handleGigPress(gig)}
-                                                    isSelected={isDesktopLayout && selectedGig?._id === gig._id}
-                                                />
-                                            </>
-                                        ))}
-                                    </ScrollView>
-                                </View>
+    /* ------------------------------ main column ------------------------------ */
+    const renderMain = () => (
+        <View>
+            {/* HERO + SEARCH */}
+            <View className="pt-16 pb-8 px-6" style={{ position: 'relative', zIndex: 30 }}>
+                <View className="container mx-auto max-w-7xl w-full">
+                    <View className="mb-8 max-w-2xl">
+                        <Text className="text-4xl md:text-6xl font-black tracking-tighter mb-4 text-white">
+                            THE GIG BOARD.
+                        </Text>
+                        <Text className="text-xl text-zinc-500 font-light">
+                            Explore hand-picked professional opportunities in your city.
+                        </Text>
+                    </View>
 
-                                {/* DETAIL VIEW - DESKTOP ONLY (>= 1024px) */}
-                                {isDesktopLayout && selectedGig && (
-                                    <View className="col-span-6">
-                                        <View className="bg-zinc-900/40 border border-white/10 rounded-[4rem] overflow-hidden min-h-[900px]">
-                                            <DesktopGigPreview gigId={selectedGig._id} placeholderData={selectedGig} />
-                                        </View>
-                                    </View>
-                                )}
+                    {/* Search — the dominant, universal filter */}
+                    <View className="relative w-full">
+                        <View className="absolute left-5 top-1/2 -translate-y-1/2 z-10">
+                            <Search size={20} color={isFetching ? ACCENT : 'rgba(255, 255, 255, 0.4)'} />
+                        </View>
+                        <TextInput
+                            placeholder="Search gigs..."
+                            placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                            style={{
+                                width: '100%',
+                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                borderWidth: 1,
+                                borderColor: 'rgba(255, 255, 255, 0.08)',
+                                height: 56,
+                                paddingLeft: 48,
+                                paddingRight: 16,
+                                borderRadius: 12,
+                                color: '#FFFFFF',
+                                fontSize: 16,
+                            }}
+                            value={inputQuery}
+                            onChangeText={setInputQuery}
+                            returnKeyType="search"
+                        />
+                        {isFetching && inputQuery && (
+                            <View className="absolute right-4 top-1/2 -translate-y-1/2">
+                                <ActivityIndicator size="small" color={ACCENT} />
                             </View>
                         )}
                     </View>
-                </View>
 
-                {/* Filter Modal */}
-                <FilterModal
-                    visible={showFilterModal}
-                    onClose={() => setShowFilterModal(false)}
-                    filters={searchState.filters || {
-                        quick: null,
-                        advanced: {
-                            trust: {},
-                            compensation: {},
-                            artistType: {},
-                            experience: {},
-                            location: {},
-                            timing: {},
-                            eventType: {},
-                            requirements: {},
-                            sorting: { sortBy: 'relevance' },
-                        },
-                    }}
-                    onApplyFilters={handleApplyFilters}
-                    activeFilterCount={activeFilterCount}
-                />
-            </AppScrollView>
+                    {/* Desktop: readout + sort lenses. Mobile: sort lives in the Remote. */}
+                    {isWide && (
+                        <View className="flex-row items-center justify-between mt-5" style={{ gap: 12 }}>
+                            <Text className="text-zinc-500 text-xs flex-1" numberOfLines={1}>
+                                Showing {readoutParts.length ? readoutParts.join('  ·  ') : 'all gigs'}
+                                {'  ·  '}
+                                <Text style={{ color: ACTIVE_FG }}>{sortLabel.toLowerCase()}</Text>
+                            </Text>
+                            <View className="flex-row" style={{ gap: 6 }}>
+                                {SORT_OPTIONS.map((o) => {
+                                    const active = sortValue(filtersState) === o.value;
+                                    return (
+                                        <TouchableOpacity
+                                            key={o.value}
+                                            onPress={() => updateFilters(setSort(filtersState, o.value))}
+                                            className="h-8 px-3 rounded-lg items-center justify-center border"
+                                            style={
+                                                active
+                                                    ? { backgroundColor: ACTIVE_BG, borderColor: ACTIVE_BORDER }
+                                                    : { borderColor: 'rgba(255,255,255,0.08)' }
+                                            }
+                                        >
+                                            <Text
+                                                className="text-[11px] font-bold uppercase tracking-wider"
+                                                style={{ color: active ? ACTIVE_FG : '#71717a' }}
+                                            >
+                                                {o.label}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        </View>
+                    )}
+                </View>
+            </View>
+
+            {/* Mobile: the Remote sits between the search and the board, right-aligned.
+                Its own zIndex + elevation lift the open overlay above the board. */}
+            {!isWide && (
+                <View className="px-6" style={{ zIndex: 30 }}>
+                    <View className="container mx-auto max-w-7xl w-full">
+                        <GigRemote filters={filtersState} onChange={updateFilters} />
+                    </View>
+                </View>
+            )}
+
+            {/* BOARD — pinned explicitly below the Remote overlay. */}
+            <View className="w-[90%] mx-auto pb-12" style={{ zIndex: 0 }}>
+                {renderBoard()}
+            </View>
+        </View>
+    );
+
+    return (
+        <View className="flex-1 bg-black overflow-hidden">
+            <SafeAreaView className="flex-1" edges={['top']}>
+                {isWide ? (
+                    // Desktop / tablet — persistent Facet Rail + scrolling board.
+                    <View style={{ flex: 1, flexDirection: 'row' }}>
+                        <GigFacetRail
+                            filters={filtersState}
+                            onChange={updateFilters}
+                            resultCount={gigsData?.length}
+                        />
+                        <AppScrollView
+                            className="flex-1"
+                            contentContainerStyle={{ paddingBottom: 100 }}
+                            showsVerticalScrollIndicator={false}
+                        >
+                            {renderMain()}
+                        </AppScrollView>
+                    </View>
+                ) : (
+                    // Mobile — search + inline Remote (right-aligned under search).
+                    <AppScrollView
+                        className="flex-1"
+                        contentContainerStyle={{ paddingBottom: tabBarHeight + 24 }}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {renderMain()}
+                    </AppScrollView>
+                )}
+            </SafeAreaView>
         </View>
     );
 }

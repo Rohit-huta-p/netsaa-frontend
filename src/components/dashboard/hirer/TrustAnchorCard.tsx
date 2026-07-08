@@ -1,8 +1,8 @@
 /**
  * TrustAnchorCard — opening "Standing" card on hirer home.
  *
- * Design source: DOCS/designs/hirer-home-v1.html (Trust anchor section).
- * Plan: DOCS/NETSA_Hirer_Home_RN_Translation.md §6.2.
+ * Design source: DOCS/04-design/mockups/hirer-home-v1.html (Trust anchor section).
+ * Plan: DOCS/02-engineering/NETSA_Hirer_Home_RN_Translation.md §6.2.
  *
  * Replaces TrustTierProgress on the hirer home with a richer editorial
  * presentation. Reads the same data model:

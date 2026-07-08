@@ -1,18 +1,17 @@
 // netsa-mobile/app/(app)/dashboard/artist-home.tsx
 //
-// Final assembly for the redesigned artist home (DOCS/designs/artist-home-v1.html,
+// Final assembly for the redesigned artist home (DOCS/04-design/mockups/artist-home-v1.html,
 // locked 2026-05-18). Mirrors the hirer-home editorial pattern with artist-side
 // lenses + a floating inbox FAB.
 //
 // Section order:
 //   1. HeroGreetingArtistV2  — slim hero (avatar + greeting + name + trust pill)
-//   2. ByTheNumbersArtist    — KPI grid (earnings / views / applications / delivered / endorsements)
-//   3. TodayQueueArtist      — action queue (hidden when empty)
+//   2. ByTheNumbersArtist    — KPI grid (earnings / views / applications / delivered)
+//   3. HowItWorks (shared)   — empty-state explainer, shown only when no posts
 //   4. YourStageArtist       — GIGS / EVENTS toggle with sub-tabs
 //   5. ForYouMatchStrip      — horizontal carousel, mixed gigs+events
 //   6. DiscoverHirersStrip   — curated hirers near you
 //   7. Editorial footer
-//   FAB. FloatingInboxFab    — rendered outside ScrollView so it floats
 //
 // Pull-to-refresh invalidates every queryKeys.artist.* key plus the shared
 // hero / conversations / contracts keys also touched by the hirer dashboard,
@@ -44,17 +43,23 @@ import { queryKeys } from '../../../src/constants/queryKeys';
 
 import HeroGreetingArtistV2 from '../../../src/components/dashboard/artist/HeroGreetingArtistV2';
 import ByTheNumbersArtist from '../../../src/components/dashboard/artist/ByTheNumbersArtist';
-import TodayQueueArtist from '../../../src/components/dashboard/artist/TodayQueueArtist';
 import YourStageArtist from '../../../src/components/dashboard/artist/YourStageArtist';
 import ForYouMatchStrip from '../../../src/components/dashboard/artist/ForYouMatchStrip';
 import DiscoverMatchesStrip from '../../../src/components/dashboard/artist/DiscoverMatchesStrip';
-import FloatingInboxFab from '../../../src/components/dashboard/artist/FloatingInboxFab';
+import HowItWorks from '../../../src/components/dashboard/shared/HowItWorks';
+import useOrganizerPosts from '../../../src/hooks/useOrganizerPosts';
 
 export default function ArtistHome() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const role = useAuthStore((s) => s.role);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Empty-state gate — an artist's "posts" are the events they host (they
+  // apply to gigs, not post them). Show the explainer only until they've
+  // hosted something (any status); hide it once they have.
+  const { totalCount: postCount, isLoading: postsLoading } = useOrganizerPosts('all', 1);
+  const showExplainer = !postsLoading && postCount === 0;
 
   // Invites badge — count pending (sent|viewed) invites
   const { data: receivedInvites = [] } = useQuery({
@@ -103,7 +108,7 @@ export default function ArtistHome() {
 
         <ByTheNumbersArtist />
 
-        <TodayQueueArtist />
+        {showExplainer && <HowItWorks role="artist" style={styles.hiwGutter} />}
 
         {/* Invites entry card — visible for artists and CLs who can receive client invites */}
         <Pressable
@@ -155,8 +160,6 @@ export default function ArtistHome() {
         </View>
       </ScrollView>
 
-      <FloatingInboxFab />
-
       <ScreenTooltip
         screenId="home-toggle"
         anchorTop={110}
@@ -170,6 +173,7 @@ export default function ArtistHome() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#060509' },
   scroll: { paddingTop: 8, paddingBottom: 140 },
+  hiwGutter: { paddingHorizontal: 20 },
   // Invites entry card — both artists and CLs
   invitesCard: {
     flexDirection: 'row',

@@ -20,8 +20,8 @@ describe('ByTheNumbersArtist (smoke)', () => {
         applicationsTotal: 23,
         applicationsActive: 12,
         delivered: 7,
-        endorsements: 14,
-        endorsementsDelta: 3,
+        rating: 4.8,
+        reviewCount: 12,
         pendingPayouts: 1,
         sparkline: [3, 5, 4, 7, 6, 9, 8],
       },
@@ -33,9 +33,10 @@ describe('ByTheNumbersArtist (smoke)', () => {
     expect(getByText('PROFILE VIEWS')).toBeTruthy();
     expect(getByText('APPLICATIONS')).toBeTruthy();
     expect(getByText('DELIVERED')).toBeTruthy();
-    expect(getByText('ENDORSEMENTS')).toBeTruthy();
+    expect(getByText('RATING')).toBeTruthy();
     expect(getByText(/42[,.]?500/)).toBeTruthy();
     expect(getByText('184')).toBeTruthy();
+    expect(getByText('4.8')).toBeTruthy();
   });
 
   it('shows em-dash placeholders for zero metrics', () => {
@@ -47,8 +48,8 @@ describe('ByTheNumbersArtist (smoke)', () => {
         applicationsTotal: 0,
         applicationsActive: 0,
         delivered: 0,
-        endorsements: 0,
-        endorsementsDelta: 0,
+        rating: 0,
+        reviewCount: 0,
         pendingPayouts: 0,
         sparkline: [],
       },
@@ -56,7 +57,8 @@ describe('ByTheNumbersArtist (smoke)', () => {
     });
 
     const { getAllByText } = render(<ByTheNumbersArtist />);
-    // Earnings + profile views + applications + delivered + endorsements = 5 "—"
+    // Standalone "—" placeholders: profile views + applications + delivered + rating = 4.
+    // (The earnings tile renders "₹—" as one node, so it isn't matched here.)
     expect(getAllByText('—').length).toBeGreaterThanOrEqual(4);
   });
 });

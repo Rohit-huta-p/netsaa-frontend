@@ -1,7 +1,7 @@
 /**
  * ForYouMatchStrip — horizontal carousel of personalized matches.
  *
- * Per DOCS/designs/artist-home-v1.html §5: mixed feed of gigs + events
+ * Per DOCS/04-design/mockups/artist-home-v1.html §5: mixed feed of gigs + events
  * with type-tag pills (match% for gigs, WORKSHOP / AUDITION etc. for
  * events). 240px card width with scroll-snap.
  *

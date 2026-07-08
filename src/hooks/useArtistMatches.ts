@@ -1,6 +1,6 @@
 /**
  * useArtistMatches — feed of personalized matches for the artist home
- * "For you" rail (DOCS/designs/artist-home-v1.html §5).
+ * "For you" rail (DOCS/04-design/mockups/artist-home-v1.html §5).
  *
  * v1: stubbed feed. Returns a small mix of gig + event matches with
  * placeholder match-percentages. Lights up real data when the matcher

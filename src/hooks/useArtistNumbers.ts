@@ -1,6 +1,6 @@
 /**
  * useArtistNumbers — aggregate KPI feed for the artist-home
- * By-the-numbers section (DOCS/designs/artist-home-v1.html).
+ * By-the-numbers section (DOCS/04-design/mockups/artist-home-v1.html).
  *
  * Returns the five metrics shown in the KPI grid plus a 7-point sparkline
  * for the earnings tile. Where real data already exists, it's pulled from
@@ -13,11 +13,11 @@
  *   - delivered       → useApplications filtered by status === 'completed'
  *                       OR fall back to backend `cached.totalGigsDelivered` on
  *                       the user profile (whichever the artist hook surfaces)
+ *   - rating          → profile.cached.averageRating (+ totalReviews)
  *
  * Stubbed (returns 0 + TODO):
  *   - earnedThisMonth — needs payouts endpoint (Plan 8 follow-up)
  *   - profileViews    — needs analytics service (V2)
- *   - endorsements    — needs endorsements aggregator (V2)
  *   - sparkline       — depends on earnedThisMonth time-series
  *
  * The metrics object is always defined; isLoading reflects the underlying
@@ -40,10 +40,10 @@ export interface ArtistNumbers {
     applicationsActive: number;
     /** Lifetime delivered/completed gigs. Real: profile.cached.totalGigsDelivered fallback. */
     delivered: number;
-    /** Endorsement count. Stub: 0. */
-    endorsements: number;
-    /** Endorsements gained in the last 30d. Stub: 0. */
-    endorsementsDelta: number;
+    /** Average rating 0..5. Real: profile.cached.averageRating. */
+    rating: number;
+    /** Number of reviews backing the rating. Real: profile.cached.totalReviews. */
+    reviewCount: number;
     /** Pending payout count. Stub: 0. */
     pendingPayouts: number;
     /**
@@ -85,7 +85,6 @@ export function useArtistNumbers(): { data: ArtistNumbers; isLoading: boolean } 
 
         // TODO(plan-8-followup): hydrate earnedThisMonth + sparkline from /payouts.
         // TODO(v2-analytics):     hydrate profileViews + profileViewsDelta.
-        // TODO(v2-endorsements):  hydrate endorsements + endorsementsDelta.
         return {
             earnedThisMonth: 0,
             profileViews: 0,
@@ -93,8 +92,8 @@ export function useArtistNumbers(): { data: ArtistNumbers; isLoading: boolean } 
             applicationsTotal,
             applicationsActive,
             delivered,
-            endorsements: user?.cached?.endorsementCount ?? 0,
-            endorsementsDelta: 0,
+            rating: user?.cached?.averageRating ?? 0,
+            reviewCount: user?.cached?.totalReviews ?? 0,
             pendingPayouts: 0,
             sparkline: [],
         };

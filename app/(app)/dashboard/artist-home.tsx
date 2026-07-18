@@ -82,6 +82,9 @@ export default function ArtistHome() {
         queryClient.invalidateQueries({ queryKey: queryKeys.artist.savedEvents() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.artist.conversations() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.artist.contracts() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.earnings() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.deliveredCount() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.artist.profileViews() }),
         // Shared reads — hirer home consumes the same hero / contracts cache.
         queryClient.invalidateQueries({ queryKey: queryKeys.hirer.hero() }),
       ]);

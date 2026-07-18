@@ -53,6 +53,20 @@ jest.mock('@/services/conversationService', () => ({
     default: { createConversation: jest.fn().mockResolvedValue({ _id: 'c1' }) },
 }));
 
+// PerformerProfile fires authService.recordProfileView(userId) unconditionally
+// on mount (it only ever renders for a client viewing someone else's profile),
+// and that call's own guard checks useAuthStore.getState().accessToken before
+// issuing a network POST. Mock the store — mirroring the store-built-inside-
+// the-factory pattern ProfileScreen.reels.test.tsx uses — so accessToken is
+// reliably falsy and this suite never depends on incidental real-store /
+// SecureStore-mock behavior to avoid hitting a real backend.
+jest.mock('@/stores/authStore', () => {
+    const store: { accessToken: string | null } = { accessToken: null };
+    const useAuthStore: any = (selector?: (s: any) => any) => (selector ? selector(store) : store);
+    useAuthStore.getState = () => store;
+    return { __esModule: true, useAuthStore };
+});
+
 jest.mock('@/components/MobileTabBar', () => ({
     useMobileTabBarHeight: () => 64,
 }));

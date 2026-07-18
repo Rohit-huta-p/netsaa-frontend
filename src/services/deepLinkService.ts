@@ -34,8 +34,8 @@ class DeepLinkService {
         /^\/(app)\/events$/,                           // /(app)/events
         /^\/contracts\/[a-zA-Z0-9_-]+$/,               // /contracts/:id
         /^\/(app)\/contracts\/[a-zA-Z0-9_-]+$/,       // /(app)/contracts/:id
-        /^\/messages$/,                                 // /messages
-        /^\/(app)\/messages$/,                          // /(app)/messages
+        /^\/inbox$/,                                    // /inbox
+        /^\/(app)\/inbox$/,                             // /(app)/inbox
         /^\/notifications$/,                            // /notifications
         /^\/(app)\/notifications$/,                     // /(app)/notifications
         /^\/profile\/[a-zA-Z0-9_-]+$/,                 // /profile/:userId

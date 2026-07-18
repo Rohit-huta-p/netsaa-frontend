@@ -13,7 +13,6 @@ import {
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { uploadMediaFlow, uploadVideoFlow, validateMediaFile, isLargeFile } from "@/utils/upload";
 import { useProfileUiStore, SectionId } from '@/stores/profileUiStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -56,22 +55,24 @@ interface TabDef {
     checkComplete: (d: ProfileData) => boolean;
 }
 
+// Single accent for every section — one color carries "you're editing here",
+// state colors (green/gold/red) stay reserved for actual meaning.
 const TABS: TabDef[] = [
-    { key: 'header', label: 'Basic', icon: UserIcon, color: P.orange, gradient: [P.orange, P.gold],
+    { key: 'header', label: 'Basic', icon: UserIcon, color: P.orange, gradient: [P.orange, P.orange],
         checkComplete: (d) => !!(d.fullName && d.location && d.artistType) },
-    { key: 'about', label: 'Bio', icon: FileText, color: P.gold, gradient: [P.gold, '#D97706'],
+    { key: 'about', label: 'Bio', icon: FileText, color: P.orange, gradient: [P.orange, P.orange],
         checkComplete: (d) => !!(d.bio && d.bio.length >= 50) },
-    { key: 'identity', label: 'Skills', icon: Zap, color: P.pink, gradient: [P.pink, P.orange],
+    { key: 'identity', label: 'Skills', icon: Zap, color: P.orange, gradient: [P.orange, P.orange],
         checkComplete: (d) => d.skills.length >= 1 },
-    { key: 'experience', label: 'Experience', icon: Briefcase, color: P.cyan, gradient: [P.cyan, '#0891B2'],
+    { key: 'experience', label: 'Experience', icon: Briefcase, color: P.orange, gradient: [P.orange, P.orange],
         checkComplete: (d) => d.experience.length >= 1 },
-    { key: 'media', label: 'Media', icon: ImageIcon, color: P.green, gradient: [P.green, '#059669'],
+    { key: 'media', label: 'Media', icon: ImageIcon, color: P.orange, gradient: [P.orange, P.orange],
         checkComplete: (d) => !!(d.profileImageUrl || (d.galleryUrls && d.galleryUrls.filter(Boolean).length >= 1)) },
-    { key: 'socials', label: 'Social', icon: Link2, color: '#E040A0', gradient: ['#E040A0', P.pink],
+    { key: 'socials', label: 'Social', icon: Link2, color: P.orange, gradient: [P.orange, P.orange],
         checkComplete: (d) => !!(d.instagramHandle || d.youtubeUrl) },
-    { key: 'organization', label: 'Org', icon: Building2, color: P.cyan, gradient: [P.cyan, '#0891B2'],
+    { key: 'organization', label: 'Org', icon: Building2, color: P.orange, gradient: [P.orange, P.orange],
         optional: true, checkComplete: (d) => !!(d.organizationName) },
-    { key: 'billing', label: 'Billing', icon: CreditCard, color: P.gold, gradient: [P.gold, P.orange],
+    { key: 'billing', label: 'Billing', icon: CreditCard, color: P.orange, gradient: [P.orange, P.orange],
         optional: true, checkComplete: () => false },
 ];
 
@@ -119,7 +120,7 @@ function HeightPickerSheet({
                                 key={opt}
                                 onPress={() => { onSelect(opt); onClose(); }}
                                 style={{ paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: P.border }}>
-                                <Text style={{ color: value === opt ? P.gold : P.textPrimary, fontFamily: value === opt ? 'Outfit-Bold' : 'Outfit-Regular', fontSize: 14 }}>
+                                <Text style={{ color: value === opt ? P.orange : P.textPrimary, fontFamily: value === opt ? 'Outfit-Bold' : 'Outfit-Regular', fontSize: 14 }}>
                                     {opt}
                                 </Text>
                             </TouchableOpacity>
@@ -150,7 +151,7 @@ function SkillSearchSheet({
                 <Pressable onPress={() => {}} style={{ backgroundColor: P.surfaceLight, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingBottom: 28, maxHeight: '60%' }}>
                     <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)', marginBottom: 12 }} />
                     <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: P.border, paddingHorizontal: 16, paddingVertical: 10 }}>
-                        <Search size={14} color={P.pink} />
+                        <Search size={14} color={P.orange} />
                         <TextInput
                             value={search}
                             onChangeText={setSearch}
@@ -165,8 +166,8 @@ function SkillSearchSheet({
                             <TouchableOpacity
                                 onPress={() => { onToggle(trimmed); onClose(); }}
                                 style={{ paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: P.border, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <Plus size={14} color={P.pink} />
-                                <Text style={{ color: P.pink, fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase' }}>
+                                <Plus size={14} color={P.orange} />
+                                <Text style={{ color: P.orange, fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase' }}>
                                     Add "{trimmed}"
                                 </Text>
                             </TouchableOpacity>
@@ -607,10 +608,10 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('about'); };
         return (
             <>
-                {/* Bio with editorial gold border */}
-                <View style={{ position: 'relative', borderLeftWidth: 3, borderLeftColor: `${P.gold}40`, paddingLeft: 16, backgroundColor: `${P.gold}04`, borderRadius: 16, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, paddingVertical: 16, paddingRight: 16, marginBottom: 24 }}>
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 48, lineHeight: 48, color: `${P.gold}15`, position: 'absolute', top: -4, left: 8 }}>&ldquo;</Text>
-                    {isFieldMissing('bio') && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: P.gold }} /><Text style={{ color: P.gold, fontSize: 10, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5 }}>Required</Text></View>}
+                {/* Bio — neutral editorial card, orange accent only if required */}
+                <View style={{ position: 'relative', borderLeftWidth: 3, borderLeftColor: 'rgba(255,255,255,0.10)', paddingLeft: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, paddingVertical: 16, paddingRight: 16, marginBottom: 24 }}>
+                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 48, lineHeight: 48, color: 'rgba(255,255,255,0.06)', position: 'absolute', top: -4, left: 8 }}>&ldquo;</Text>
+                    {isFieldMissing('bio') && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: P.orange }} /><Text style={{ color: P.orange, fontSize: 10, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5 }}>Required</Text></View>}
                     <AITextInput label="Bio" value={bio} onChangeText={set(setBio)} placeholder="Tell your story..." containerStyle={{ marginBottom: 0 }} />
                 </View>
                 {/* Physical specs — compact inline row */}
@@ -631,7 +632,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
                             {SKIN_TONES.map(t => (
                                 <TouchableOpacity key={t.label} onPress={() => { setSkinTone(t.label); setSkinToneHex(t.hex); markDirty('about'); }}
-                                    style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: t.hex, borderWidth: 2, borderColor: skinTone === t.label ? P.gold : 'transparent' }}>
+                                    style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: t.hex, borderWidth: 2, borderColor: skinTone === t.label ? P.orange : 'transparent' }}>
                                     {skinTone === t.label && <Check size={10} color={t.hex === '#fcd9b8' || t.hex === '#f0cbb0' ? '#000' : '#fff'} style={{ alignSelf: 'center', marginTop: 3 }} />}
                                 </TouchableOpacity>
                             ))}
@@ -647,8 +648,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         <>
             <TouchableOpacity
                 onPress={() => setShowSkillDropdown(true)}
-                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: `${P.pink}08`, borderWidth: 1.5, borderColor: `${P.pink}30`, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 16 }}>
-                <Search size={16} color={P.pink} />
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: P.border, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 16 }}>
+                <Search size={16} color={P.textSecondary} />
                 <Text style={{ flex: 1, marginLeft: 10, color: P.textMuted, fontFamily: 'Outfit-Regular', fontSize: 14 }}>
                     Search or add skill…
                 </Text>
@@ -656,13 +657,13 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {skills.map((skill, i) => (
                     <TouchableOpacity key={i} onPress={() => { setSkills(prev => prev.filter(s => s !== skill)); markDirty('identity'); }}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: `${P.pink}12`, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100, borderWidth: 1, borderColor: `${P.pink}30`, transform: [{ rotate: `${(i % 3 - 1) * 0.8}deg` }] }}>
-                        <Text style={{ color: P.pink, fontFamily: 'Outfit-Medium', fontSize: 13 }}>{skill}</Text>
-                        <X size={12} color={P.pink} />
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.04)', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100, borderWidth: 1, borderColor: P.border }}>
+                        <Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Medium', fontSize: 13 }}>{skill}</Text>
+                        <X size={12} color={P.textSecondary} />
                     </TouchableOpacity>
                 ))}
             </View>
-            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.pink, textTransform: 'uppercase', letterSpacing: 1.5, textAlign: 'right', marginTop: 12 }}>
+            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, textAlign: 'right', marginTop: 12 }}>
                 {skills.length} skill{skills.length !== 1 ? 's' : ''} selected
             </Text>
         </>
@@ -678,28 +679,28 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         return (
             <>
                 <View style={{ position: 'relative', paddingLeft: 28 }}>
-                    {/* Timeline line */}
-                    {experience.length > 0 && <View style={{ position: 'absolute', left: 8, top: 6, bottom: 60, width: 2, backgroundColor: `${P.cyan}30`, borderRadius: 1 }} />}
+                    {/* Timeline line — neutral rail */}
+                    {experience.length > 0 && <View style={{ position: 'absolute', left: 8, top: 6, bottom: 60, width: 2, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 1 }} />}
                     {experience.map((exp, index) => {
                         const isExpanded = expandedEntries.has(index);
                         return (
                             <View key={index} style={{ position: 'relative', paddingBottom: 20 }}>
-                                {/* Timeline dot */}
-                                <View style={{ position: 'absolute', left: -24, top: 6, width: index === 0 ? 12 : 10, height: index === 0 ? 12 : 10, borderRadius: index === 0 ? 6 : 5, backgroundColor: P.cyan, borderWidth: 2, borderColor: P.bg, ...(index === 0 ? { shadowColor: P.cyan, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 8 } : {}) }} />
-                                {/* Entry card */}
-                                <View style={{ backgroundColor: `${P.cyan}04`, borderWidth: 1, borderColor: `${P.cyan}15`, borderRadius: 14, padding: 14 }}>
+                                {/* Timeline dot — orange only on the most recent (first) entry, neutral otherwise */}
+                                <View style={{ position: 'absolute', left: -24, top: 6, width: index === 0 ? 12 : 10, height: index === 0 ? 12 : 10, borderRadius: index === 0 ? 6 : 5, backgroundColor: index === 0 ? P.orange : 'rgba(255,255,255,0.25)', borderWidth: 2, borderColor: P.bg }} />
+                                {/* Entry card — neutral surface */}
+                                <View style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: P.border, borderRadius: 14, padding: 14 }}>
                                     <Pressable onPress={() => toggleExpand(index)} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <View style={{ flex: 1 }}>
                                             <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 14, color: P.textPrimary }}>{exp.role || exp.title || exp.projectName || 'New Entry'}</Text>
-                                            {exp.date && <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.cyan, marginTop: 2 }}>{exp.date}</Text>}
+                                            {exp.date && <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.textSecondary, marginTop: 2 }}>{exp.date}</Text>}
                                         </View>
                                         <View style={{ flexDirection: 'row', gap: 8 }}>
                                             <TouchableOpacity onPress={() => handleRemove(index)} hitSlop={12}><Trash2 size={14} color={P.danger} /></TouchableOpacity>
-                                            {isExpanded ? <ChevronUp size={16} color={P.cyan} /> : <ChevronDown size={16} color={P.textMuted} />}
+                                            {isExpanded ? <ChevronUp size={16} color={P.textSecondary} /> : <ChevronDown size={16} color={P.textMuted} />}
                                         </View>
                                     </Pressable>
                                     {isExpanded && (
-                                        <View style={{ gap: 10, marginTop: 14, borderTopWidth: 1, borderTopColor: `${P.cyan}10`, paddingTop: 14 }}>
+                                        <View style={{ gap: 10, marginTop: 14, borderTopWidth: 1, borderTopColor: P.border, paddingTop: 14 }}>
                                             <MiniField label="Role / Title"><Input placeholder="Lead Singer" value={exp.role ?? exp.title ?? ''} onChangeText={(v) => handleChange(index, 'role', v)} /></MiniField>
                                             <MiniField label="Production / Project"><Input placeholder="Summer Fest 2024" value={exp.projectName ?? exp.title ?? ''} onChangeText={(v) => handleChange(index, 'projectName', v)} /></MiniField>
                                             <MiniField label="Organization"><Input placeholder="Moonlight Studios" value={exp.organization || ''} onChangeText={(v) => handleChange(index, 'organization', v)} /></MiniField>
@@ -713,8 +714,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                         );
                     })}
                 </View>
-                <TouchableOpacity onPress={handleAdd} style={{ height: 48, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: `${P.cyan}50`, backgroundColor: `${P.cyan}06`, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
-                    <Plus size={16} color={P.cyan} /><Text style={{ color: P.cyan, fontFamily: 'Outfit-Bold', fontSize: 13 }}>Add Experience</Text>
+                <TouchableOpacity onPress={handleAdd} style={{ height: 48, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: `${P.orange}50`, backgroundColor: `${P.orange}08`, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
+                    <Plus size={16} color={P.orange} /><Text style={{ color: P.orange, fontFamily: 'Outfit-Bold', fontSize: 13 }}>Add Experience</Text>
                 </TouchableOpacity>
             </>
         );
@@ -768,10 +769,10 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         const MediaSlot = ({ type, index, url }: { type: 'gallery'; index: number; url: string }) => {
             const uploadKey = `${type}-${index}`; const state = uploadingState[uploadKey]; const isUploading = state?.uploading;
             return (
-                <View style={{ flex: 1, aspectRatio: 1, backgroundColor: `${P.green}06`, borderWidth: 1, borderColor: `${P.green}15`, borderRadius: 16, overflow: 'hidden' }}>
+                <View style={{ flex: 1, aspectRatio: 1, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: P.border, borderRadius: 16, overflow: 'hidden' }}>
                     {url ? (<View style={{ flex: 1 }}><Image source={{ uri: url }} style={{ width: '100%', height: '100%' }} /><TouchableOpacity onPress={() => removeMedia(index)} style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} color={P.danger} /></TouchableOpacity></View>)
-                    : isUploading ? (<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color={P.green} /><Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Bold', fontSize: 10, marginTop: 4 }}>{state?.progress || 0}%</Text></View>)
-                    : (<TouchableOpacity onPress={() => handlePickMedia(type, index)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed' }}><Plus size={20} color={P.green} /><Text style={{ color: P.green, fontFamily: 'Outfit-Bold', fontSize: 9, marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Photo</Text></TouchableOpacity>)}
+                    : isUploading ? (<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color={P.orange} /><Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Bold', fontSize: 10, marginTop: 4 }}>{state?.progress || 0}%</Text></View>)
+                    : (<TouchableOpacity onPress={() => handlePickMedia(type, index)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed' }}><Plus size={20} color={P.textSecondary} /><Text style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 9, marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Photo</Text></TouchableOpacity>)}
                 </View>
             );
         };
@@ -781,10 +782,10 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         // Full inline playback is a later task; this edit slot only needs the
         // processing/poster states.
         const ReelSlot = ({ reel }: { reel?: ProfileVideoReel }) => (
-            <View style={{ flex: 1, aspectRatio: 16 / 9, backgroundColor: `${P.green}06`, borderWidth: 1, borderColor: `${P.green}15`, borderRadius: 16, overflow: 'hidden' }}>
+            <View style={{ flex: 1, aspectRatio: 16 / 9, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: P.border, borderRadius: 16, overflow: 'hidden' }}>
                 {reel && reel.status === 'processing' ? (
                     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                        <ActivityIndicator size="small" color={P.green} />
+                        <ActivityIndicator size="small" color={P.orange} />
                         <Text style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 10, marginTop: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Processing…</Text>
                     </View>
                 ) : reel && reel.status === 'errored' ? (
@@ -799,8 +800,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                     </View>
                 ) : (
                     <TouchableOpacity onPress={handlePickVideo} accessibilityLabel="Add reel" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed' }}>
-                        <VideoIcon size={20} color={P.green} />
-                        <Text style={{ color: P.green, fontFamily: 'Outfit-Bold', fontSize: 9, marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Add reel</Text>
+                        <VideoIcon size={20} color={P.textSecondary} />
+                        <Text style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 9, marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Add reel</Text>
                     </TouchableOpacity>
                 )}
             </View>
@@ -808,25 +809,25 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
 
         return (
             <>
-                {/* Profile photo with gradient ring */}
+                {/* Profile photo — solid ring, no gradient */}
                 <View style={{ alignItems: 'center', marginBottom: 24 }}>
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.green, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Profile Photo</Text>
+                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Profile Photo</Text>
                     <TouchableOpacity onPress={() => handlePickMedia('profile')} disabled={profileState?.uploading}>
-                        <LinearGradient colors={[P.pink, P.orange]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 126, height: 126, borderRadius: 27, padding: 3, alignItems: 'center', justifyContent: 'center' }}>
+                        <View style={{ width: 126, height: 126, borderRadius: 27, padding: 3, backgroundColor: P.orange, alignItems: 'center', justifyContent: 'center' }}>
                             <View style={{ width: 120, height: 120, borderRadius: 24, backgroundColor: P.bg, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
                                 {profileImageUrl ? <Image source={{ uri: profileImageUrl }} style={{ width: '100%', height: '100%' }} />
-                                    : profileState?.uploading ? <><ActivityIndicator size="small" color={P.green} /><Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Bold', fontSize: 10, marginTop: 4 }}>{profileState?.progress || 0}%</Text></>
+                                    : profileState?.uploading ? <><ActivityIndicator size="small" color={P.orange} /><Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Bold', fontSize: 10, marginTop: 4 }}>{profileState?.progress || 0}%</Text></>
                                     : <><Camera size={28} color={P.textMuted} /><Text style={{ color: P.textMuted, fontFamily: 'Outfit-Bold', fontSize: 9, marginTop: 4, textTransform: 'uppercase' }}>Upload</Text></>}
                             </View>
-                        </LinearGradient>
+                        </View>
                     </TouchableOpacity>
                 </View>
                 {/* Gallery — 2+3 bento */}
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.green, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Gallery ({galleryUrls.filter(Boolean).length}/5)</Text>
+                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Gallery ({galleryUrls.filter(Boolean).length}/5)</Text>
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>{[0, 1].map(i => <MediaSlot key={i} type="gallery" index={i} url={galleryUrls[i] || ''} />)}</View>
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>{[2, 3, 4].map(i => <MediaSlot key={i} type="gallery" index={i} url={galleryUrls[i] || ''} />)}</View>
                 {/* Videos — 16:9 cinematic, uploaded via Mux */}
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.green, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Reels ({videoReels.length}/3)</Text>
+                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Reels ({videoReels.length}/3)</Text>
                 <View style={{ gap: 8 }}>
                     {[0, 1, 2].map(i => <ReelSlot key={i} reel={videoReels[i]} />)}
                 </View>
@@ -878,21 +879,21 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                 <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginBottom: 16 }}>
                     Optional — fill this in when you want to post gigs as an organization.
                 </Text>
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.cyan, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Type</Text>
+                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Type</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
                     {ORG_TYPES.map(type => {
                         const isSelected = orgType === type.value; const OrgIcon = type.icon;
                         return (
-                            <TouchableOpacity key={type.value} onPress={() => { setOrgType(type.value); markDirty('organization'); }} style={{ width: (SCREEN_WIDTH - 40 - 20 - 10) / 2, minHeight: 72, backgroundColor: isSelected ? `${P.cyan}08` : 'rgba(255,255,255,0.02)', borderRadius: 16, borderWidth: 1.5, borderColor: isSelected ? P.cyan : P.border, padding: 14, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                                <OrgIcon size={20} color={isSelected ? P.cyan : P.textMuted} />
-                                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 12, color: isSelected ? P.cyan : P.textSecondary }}>{type.label}</Text>
+                            <TouchableOpacity key={type.value} onPress={() => { setOrgType(type.value); markDirty('organization'); }} style={{ width: (SCREEN_WIDTH - 40 - 20 - 10) / 2, minHeight: 72, backgroundColor: isSelected ? `${P.orange}10` : 'rgba(255,255,255,0.02)', borderRadius: 16, borderWidth: 1.5, borderColor: isSelected ? P.orange : P.border, padding: 14, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                <OrgIcon size={20} color={isSelected ? P.orange : P.textMuted} />
+                                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 12, color: isSelected ? P.textPrimary : P.textSecondary }}>{type.label}</Text>
                             </TouchableOpacity>
                         );
                     })}
                 </View>
                 <View style={{ height: 1, backgroundColor: P.border, marginBottom: 20 }} />
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.cyan, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Details</Text>
-                <Field label="Organization Name" highlighted={isFieldMissing('organization')} accent={P.cyan}>
+                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Details</Text>
+                <Field label="Organization Name" highlighted={isFieldMissing('organization')} accent={P.orange}>
                     <Input value={orgName} onChangeText={set(setOrgName)} placeholder="Organization name" />
                 </Field>
                 <Field label="Website"><Input value={orgWebsite} onChangeText={set(setOrgWebsite)} placeholder="https://..." /></Field>
@@ -905,23 +906,23 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('billing'); };
         return (
             <>
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 }}>Billing Details</Text>
+                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.textPrimary, letterSpacing: -0.2, marginBottom: 4 }}>Billing Details</Text>
                 <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginBottom: 20 }}>Optional — only required if you'll invoice as a registered business.</Text>
-                {/* Group 1: Business Identity */}
-                <View style={{ borderLeftWidth: 2, borderLeftColor: `${P.gold}30`, paddingLeft: 16, backgroundColor: `${P.gold}02`, borderRadius: 14, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 16, marginBottom: 20 }}>
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 14 }}>Business Identity</Text>
-                    <View style={{ borderBottomWidth: 1, borderBottomColor: `${P.gold}10`, paddingBottom: 20, marginBottom: 20 }}>
+                {/* Group 1: Business Identity — neutral card */}
+                <View style={{ borderLeftWidth: 2, borderLeftColor: 'rgba(255,255,255,0.10)', paddingLeft: 16, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 14, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 16, marginBottom: 20 }}>
+                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 14 }}>Business Identity</Text>
+                    <View style={{ borderBottomWidth: 1, borderBottomColor: P.border, paddingBottom: 20, marginBottom: 20 }}>
                         <Field label="Legal Business Name"><Input value={legalBusinessName} onChangeText={set(setLegalBusinessName)} placeholder="Registered business name" /></Field>
                     </View>
                     <Field label="GST Number" style={{ marginBottom: 0 }}><Input value={gstNumber} onChangeText={set(setGstNumber)} placeholder="22AAAAA0000A1Z5" /></Field>
                 </View>
-                {/* Group 2: Address */}
-                <View style={{ borderLeftWidth: 2, borderLeftColor: `${P.gold}30`, paddingLeft: 16, backgroundColor: `${P.gold}02`, borderRadius: 14, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 16 }}>
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 14 }}>Address</Text>
-                    <View style={{ borderBottomWidth: 1, borderBottomColor: `${P.gold}10`, paddingBottom: 20, marginBottom: 20 }}>
+                {/* Group 2: Address — neutral card */}
+                <View style={{ borderLeftWidth: 2, borderLeftColor: 'rgba(255,255,255,0.10)', paddingLeft: 16, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 14, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 16 }}>
+                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 14 }}>Address</Text>
+                    <View style={{ borderBottomWidth: 1, borderBottomColor: P.border, paddingBottom: 20, marginBottom: 20 }}>
                         <Field label="Billing Address"><Input value={billingAddress} onChangeText={set(setBillingAddress)} placeholder="Street address" /></Field>
                     </View>
-                    <View style={{ flexDirection: 'row', gap: 10, borderBottomWidth: 1, borderBottomColor: `${P.gold}10`, paddingBottom: 20, marginBottom: 20 }}>
+                    <View style={{ flexDirection: 'row', gap: 10, borderBottomWidth: 1, borderBottomColor: P.border, paddingBottom: 20, marginBottom: 20 }}>
                         <Field label="State" style={{ flex: 1, marginBottom: 0 }}><Input value={billingState} onChangeText={set(setBillingState)} placeholder="State" /></Field>
                         <Field label="Pincode" style={{ flex: 1, marginBottom: 0 }}><Input value={pincode} onChangeText={set(setPincode)} placeholder="560001" /></Field>
                     </View>
@@ -996,8 +997,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                         <View key={key} onLayout={onSectionLayout(key)} style={{ marginTop: i === 0 ? 0 : 28 }}>
                                             {i > 0 && <View style={{ height: 1, backgroundColor: P.border, marginBottom: 24 }} />}
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                                                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: def.color }} />
-                                                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: def.color, textTransform: 'uppercase', letterSpacing: 2 }}>{def.label}</Text>
+                                                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: P.orange }} />
+                                                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.textPrimary, textTransform: 'uppercase', letterSpacing: 2 }}>{def.label}</Text>
                                                 {def.optional && (
                                                     <View style={{ borderWidth: 1, borderColor: `${P.gold}30`, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1 }}>
                                                         <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 8, color: P.gold, letterSpacing: 1, textTransform: 'uppercase' }}>Optional</Text>
@@ -1016,12 +1017,12 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                     <Text style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>Cancel</Text>
                                 </TouchableOpacity>
                                 <Pressable onPress={handleSaveAll} disabled={isSaving} style={({ pressed }) => ({ flex: 1, opacity: isSaving ? 0.6 : pressed ? 0.9 : 1 })}>
-                                    <LinearGradient colors={isSaved ? [P.green, '#059669'] : ['#F0ECE6', '#E4DED4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 14, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                                        {isSaving ? <ActivityIndicator size="small" color={isSaved ? '#fff' : '#15131A'} /> : isSaved ? <Check size={16} color="#fff" /> : null}
-                                        <Text style={{ color: isSaved ? '#fff' : '#15131A', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                    <View style={{ paddingVertical: 14, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: isSaved ? P.green : P.orange }}>
+                                        {isSaving ? <ActivityIndicator size="small" color="#fff" /> : isSaved ? <Check size={16} color="#fff" /> : null}
+                                        <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>
                                             {isSaving ? 'Saving…' : isSaved ? 'Saved!' : 'Save changes'}
                                         </Text>
-                                    </LinearGradient>
+                                    </View>
                                 </Pressable>
                             </View>
 

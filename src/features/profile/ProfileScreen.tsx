@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, Image, ScrollView, Pressable, StyleSheet,
     ActivityIndicator, Dimensions, Modal, FlatList, TextInput, Alert,
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react-native';
 
 import { useAuthStore } from '@/stores/authStore';
+import authService from '@/services/authService';
 import { useUser } from '@/hooks/useUser';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
 import { useProfileUiStore } from '@/stores/profileUiStore';
@@ -83,6 +84,13 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const { data: myConnectionsCount } = useMyConnectionsCount(isOwner);
 
     const user = isOwner ? authUser : fetchedUser;
+
+    // Record a profile view only when someone views *another* person's profile.
+    useEffect(() => {
+        if (!isOwner && userId && authUser?._id && authUser._id !== userId) {
+            authService.recordProfileView(userId);
+        }
+    }, [isOwner, userId, authUser?._id]);
 
     // ── Loading / Error / Not found ──
     if (isLoading && !isOwner) return <View style={s.center}><ActivityIndicator size="large" color="#F97316" /></View>;

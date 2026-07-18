@@ -3,7 +3,7 @@
 // Lead (from a proposal header or Talent). Reuses the same useUser data +
 // useConnectionStatus as ProfileScreen, so reviews/media/tier are real. The
 // shared ProfileScreen is left untouched for artist self-view / gig-hiring.
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, Pressable, ScrollView, Image, ActivityIndicator, Modal } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { ChevronLeft, Star, MessageCircle, Check, Clock, UserPlus, Play, X } from 'lucide-react-native';
@@ -11,6 +11,7 @@ import { useUser } from '@/hooks/useUser';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import conversationService from '@/services/conversationService';
+import authService from '@/services/authService';
 import type { ProfileVideoReel } from '@/components/profile/types';
 import NetsaVideoPlayer from '@/components/media/NetsaVideoPlayer';
 
@@ -44,6 +45,12 @@ export function PerformerProfile({ userId }: { userId: string }) {
     // into `media` opens a full-screen viewer; a video item mounts
     // NetsaVideoPlayer, a photo renders a plain <Image>.
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+
+    // Record a profile view. This screen only renders for a client viewing
+    // another person's performer profile, so it is always a non-owner view.
+    useEffect(() => {
+        if (userId) authService.recordProfileView(userId);
+    }, [userId]);
 
     if (isLoading && !data) {
         return <View style={{ flex: 1, backgroundColor: '#09090b', alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="large" color="#FF6B35" /></View>;
@@ -103,7 +110,7 @@ export function PerformerProfile({ userId }: { userId: string }) {
         setMsgBusy(true);
         try {
             const conv = await conversationService.createConversation(userId);
-            router.push((conv?._id ? `/(app)/messages?c=${conv._id}` : '/(app)/messages') as any);
+            router.push((conv?._id ? `/(app)/inbox?c=${conv._id}` : '/(app)/inbox') as any);
         } catch {
             // keep quiet; user can retry
         } finally {

@@ -207,6 +207,24 @@ const authService = {
     const res = await API.post('/auth/reset-password', payload);
     return res.data;
   },
+
+  recordProfileView: async (id: string): Promise<void> => {
+    // Fire-and-forget: a failed view record must never disrupt the profile view.
+    // Skip without a session: the endpoint requires auth, so an unauthenticated
+    // call is a guaranteed 401 that only trips the response interceptor's
+    // clearAuth() for no benefit (view screens are only reachable when logged in).
+    if (!useAuthStore.getState().accessToken) return;
+    try {
+      await API.post(`/users/${id}/view`);
+    } catch {
+      /* ignore */
+    }
+  },
+
+  getMyProfileViews: async (): Promise<{ total: number; last7: number }> => {
+    const res = await API.get('/users/me/profile-views');
+    return res.data?.data ?? { total: 0, last7: 0 };
+  },
 };
 
 export default authService;

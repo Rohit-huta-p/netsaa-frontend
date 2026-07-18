@@ -288,7 +288,7 @@ function ProposalMiniCard({
         setChatBusy(true);
         try {
             const conv = await conversationService.createConversation(leadId);
-            router.push((conv?._id ? `/(app)/messages?c=${conv._id}` : '/(app)/messages') as any);
+            router.push((conv?._id ? `/(app)/inbox?c=${conv._id}` : '/(app)/inbox') as any);
         } catch {
             // kept quiet in the list — the proposal detail surfaces messaging errors
         } finally {
@@ -864,9 +864,9 @@ function ProposalDetail({
         try {
             const conv = await conversationService.createConversation(leadId);
             if (conv?._id) {
-                router.push(`/(app)/messages?c=${conv._id}` as any);
+                router.push(`/(app)/inbox?c=${conv._id}` as any);
             } else {
-                router.push('/(app)/messages' as any);
+                router.push('/(app)/inbox' as any);
             }
         } catch (e: any) {
             setMessageError(

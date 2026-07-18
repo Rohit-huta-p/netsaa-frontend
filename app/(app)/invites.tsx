@@ -7,7 +7,7 @@
 // Web-safe: no Alert.alert, inline error surfaces.
 // Accept routing (unchanged):
 //   - requirement-attached: respond(accept) → /(app)/requirements/:requirementId?invited=1
-//   - context-free:          respond(accept) → create conversation → /(app)/messages?c=:conversationId
+//   - context-free:          respond(accept) → create conversation → /(app)/inbox?c=:conversationId
 
 import { useState } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
@@ -98,7 +98,7 @@ export default function ActivityInbox() {
                     seedText,
                 );
                 const convoId = (convo as any)?._id ?? (convo as any)?.id ?? '';
-                router.push(`/(app)/messages${convoId ? `?c=${convoId}` : ''}` as any);
+                router.push(`/(app)/inbox${convoId ? `?c=${convoId}` : ''}` as any);
             }
         } catch (e: any) {
             const msg =
@@ -150,7 +150,7 @@ export default function ActivityInbox() {
 
     // Booked → jump to messages (the client opened an anchored thread on accept).
     const handleOpenChat = (_proposal: SentProposal) => {
-        router.push('/(app)/messages' as any);
+        router.push('/(app)/inbox' as any);
     };
 
     const switchMode = (m: Mode) => {

@@ -89,7 +89,7 @@ export function PerformerProfile({ userId }: { userId: string }) {
         setMsgBusy(true);
         try {
             const conv = await conversationService.createConversation(userId);
-            router.push((conv?._id ? `/(app)/messages?c=${conv._id}` : '/(app)/messages') as any);
+            router.push((conv?._id ? `/(app)/inbox?c=${conv._id}` : '/(app)/inbox') as any);
         } catch {
             // keep quiet; user can retry
         } finally {

@@ -35,7 +35,7 @@ export default function FloatingInboxFab({ bottom = 104 }: Props) {
         <Pressable
             accessibilityLabel={`Open messages${totalUnread > 0 ? `, ${totalUnread} unread` : ''}`}
             accessibilityRole="button"
-            onPress={() => router.push('/messages' as any)}
+            onPress={() => router.push('/inbox' as any)}
             style={[styles.fab, { bottom }]}
         >
             <LinearGradient

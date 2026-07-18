@@ -1,117 +1,111 @@
-// app/(app)/notifications.tsx
-import React, { useEffect } from 'react';
-import { View, Text, ActivityIndicator, RefreshControl } from 'react-native';
+// app/(app)/notifications.tsx — editorial inbox (v2)
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, ActivityIndicator, RefreshControl, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { Bell } from 'lucide-react-native';
 import { useNotificationsStore } from '@/stores/notificationsStore';
 import { NotificationCard } from '@/components/notifications/NotificationCard';
 import { DateSectionHeader } from '@/components/notifications/DateSectionHeader';
+import { NotificationFilterTabs } from '@/components/notifications/NotificationFilterTabs';
 import { flattenGroupedNotifications, groupNotificationsByDate } from '@/utils/dateGrouping';
-import { Bell } from 'lucide-react-native';
+import {
+    N, FONT, CATEGORY_TABS, bucketCounts, filterByCategory, type NotifCategory,
+} from '@/constants/notificationsTheme';
 import AppFlatList from '@/components/AppFlatList';
 
 export default function NotificationsScreen() {
     const {
-        notifications,
-        isLoading,
-        isLoadingMore,
-        hasMore,
-        error,
-        fetchNotifications,
-        loadMore,
-        resetUnread,
+        notifications, isLoading, isLoadingMore, hasMore, error,
+        fetchNotifications, loadMore, markAllAsRead,
     } = useNotificationsStore();
 
-    // Fetch notifications on mount
-    useEffect(() => {
-        fetchNotifications();
-    }, []);
+    const [cat, setCat] = useState<NotifCategory>('all');
 
-    // Reset unread count when screen gains focus
-    useFocusEffect(
-        React.useCallback(() => {
-            resetUnread();
-        }, [resetUnread])
+    // Fetch on mount. NOTE: we intentionally do NOT resetUnread() on focus —
+    // the unread treatment (orange rail + count) is the point of the redesign;
+    // items clear as they're read (tap/swipe) or via "Mark all read".
+    useEffect(() => { fetchNotifications(); }, []);
+
+    const unread = notifications.filter((n) => !n.isRead).length;
+    const counts = useMemo(() => bucketCounts(notifications), [notifications]);
+    const flattenedData = useMemo(
+        () => flattenGroupedNotifications(groupNotificationsByDate(filterByCategory(notifications, cat))),
+        [notifications, cat]
     );
 
-    // Group notifications by date
-    const groupedNotifications = groupNotificationsByDate(notifications);
-    const flattenedData = flattenGroupedNotifications(groupedNotifications);
+    const handleLoadMore = () => { if (!isLoadingMore && hasMore) loadMore(); };
 
-    const handleRefresh = () => {
-        fetchNotifications();
-    };
+    const renderItem = ({ item }: { item: any }) =>
+        item.type === 'header'
+            ? <DateSectionHeader date={item.date} />
+            : <NotificationCard notification={item.data} />;
 
-    const handleLoadMore = () => {
-        if (!isLoadingMore && hasMore) {
-            loadMore();
-        }
-    };
-
-    const renderItem = ({ item }: { item: any }) => {
-        if (item.type === 'header') {
-            return <DateSectionHeader date={item.date} />;
-        } else {
-            return <NotificationCard notification={item.data} />;
-        }
-    };
-
-    const renderFooter = () => {
-        if (!isLoadingMore) return null;
-
-        return (
-            <View className="py-4 items-center">
-                <ActivityIndicator size="small" color="#A855F7" />
+    const renderFooter = () =>
+        isLoadingMore ? (
+            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={N.orange} />
             </View>
-        );
-    };
+        ) : null;
 
+    const catLabel = CATEGORY_TABS.find((t) => t.key === cat)?.label ?? '';
     const renderEmpty = () => {
         if (isLoading) {
             return (
-                <View className="flex-1 items-center justify-center py-20">
-                    <ActivityIndicator size="large" color="#A855F7" />
-                    <Text className="text-gray-400 mt-4">Loading notifications...</Text>
+                <View style={s.empty}>
+                    <ActivityIndicator size="large" color={N.orange} />
+                    <Text style={s.emptySub}>Loading notifications…</Text>
                 </View>
             );
         }
-
         return (
-            <View className="flex-1 items-center justify-center py-20">
-                <View className="bg-white/5 p-6 rounded-full mb-4">
-                    <Bell size={48} color="#6B7280" />
-                </View>
-                <Text className="text-white text-xl font-semibold mb-2">No Notifications</Text>
-                <Text className="text-gray-400 text-center px-8">
-                    You're all caught up! We'll notify you when something new happens.
+            <View style={s.empty}>
+                <View style={s.emptyIcon}><Bell size={40} color={N.text3} /></View>
+                <Text style={s.emptyTitle}>
+                    {cat === 'all' ? 'No notifications' : `No ${catLabel.toLowerCase()} notifications`}
+                </Text>
+                <Text style={s.emptySub}>
+                    {cat === 'all'
+                        ? "You're all caught up — we'll ping you when something happens."
+                        : `Nothing under ${catLabel} yet.`}
                 </Text>
             </View>
         );
     };
 
     return (
-        <View className="flex-1 bg-black">
-            <SafeAreaView className="flex-1" edges={['top']}>
+        <View style={{ flex: 1, backgroundColor: N.bg1 }}>
+            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Header */}
-                <View className="px-6 pt-4 pb-3 border-b border-white/10">
-                    <Text className="text-3xl font-bold text-white">Notifications</Text>
+                <View style={s.header}>
+                    <Text style={s.eyebrow}>INBOX</Text>
+                    <Text style={s.title}>Notifications</Text>
+                    <View style={s.meta}>
+                        <Text style={s.metaCount}>
+                            {unread > 0 ? <><Text style={s.metaUnread}>{unread}</Text> unread</> : 'All caught up'}
+                        </Text>
+                        {unread > 0 ? (
+                            <Pressable onPress={markAllAsRead} hitSlop={8}>
+                                <Text style={s.markAll}>MARK ALL READ <Text style={{ color: N.orange }}>→</Text></Text>
+                            </Pressable>
+                        ) : null}
+                    </View>
                 </View>
 
-                {/* Error State */}
-                {error && (
-                    <View className="bg-red-500/10 border border-red-500/30 mx-4 mt-4 p-4 rounded-xl">
-                        <Text className="text-red-400 text-sm">{error}</Text>
-                    </View>
-                )}
+                {/* Category filter tabs */}
+                <NotificationFilterTabs active={cat} counts={counts} onChange={setCat} />
 
-                {/* Notifications List - Uses AppFlatList for automatic tab bar padding */}
+                {/* Error */}
+                {error ? (
+                    <View style={s.errorBox}><Text style={s.errorText}>{error}</Text></View>
+                ) : null}
+
+                {/* List */}
                 <AppFlatList
                     data={flattenedData}
                     renderItem={renderItem}
-                    keyExtractor={(item, index) =>
-                        item.type === 'header' ? `header-${item.date}` : `notification-${item.data._id}`
+                    keyExtractor={(item: any, index) =>
+                        item.type === 'header' ? `header-${item.date}` : `notification-${item.data._id ?? index}`
                     }
-                    contentContainerStyle={{ paddingTop: 16 }}
                     ListEmptyComponent={renderEmpty}
                     ListFooterComponent={renderFooter}
                     onEndReached={handleLoadMore}
@@ -119,9 +113,9 @@ export default function NotificationsScreen() {
                     refreshControl={
                         <RefreshControl
                             refreshing={isLoading}
-                            onRefresh={handleRefresh}
-                            tintColor="#A855F7"
-                            colors={['#A855F7']}
+                            onRefresh={fetchNotifications}
+                            tintColor={N.orange}
+                            colors={[N.orange]}
                         />
                     }
                 />
@@ -130,3 +124,26 @@ export default function NotificationsScreen() {
     );
 }
 
+const s = StyleSheet.create({
+    header: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14 },
+    eyebrow: { fontFamily: FONT.monoBold, fontSize: 9.5, letterSpacing: 2.3, color: N.orange },
+    title: { fontFamily: FONT.serif, fontSize: 27, letterSpacing: -0.5, color: N.text0, marginTop: 5 },
+    meta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
+    metaCount: { fontFamily: FONT.mono, fontSize: 10.5, letterSpacing: 0.5, color: N.text2 },
+    metaUnread: { fontFamily: FONT.monoBold, color: N.orange },
+    markAll: { fontFamily: FONT.mono, fontSize: 10.5, letterSpacing: 0.4, color: N.text1 },
+
+    errorBox: {
+        marginHorizontal: 16, marginTop: 14, padding: 14, borderRadius: 12,
+        backgroundColor: N.redSoft, borderWidth: 1, borderColor: 'rgba(239,68,68,0.30)',
+    },
+    errorText: { color: '#FCA5A5', fontFamily: FONT.reg, fontSize: 13 },
+
+    empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 32 },
+    emptyIcon: {
+        width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center',
+        backgroundColor: N.bg2, borderWidth: 1, borderColor: N.hairline, marginBottom: 18,
+    },
+    emptyTitle: { fontFamily: FONT.serif, fontSize: 22, color: N.text0, marginBottom: 8 },
+    emptySub: { fontFamily: FONT.reg, fontSize: 13, color: N.text2, textAlign: 'center', lineHeight: 19, marginTop: 4 },
+});

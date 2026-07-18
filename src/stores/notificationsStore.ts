@@ -12,7 +12,7 @@ export type Notification = {
         profileImageUrl?: string;
         artistType?: string;
     };
-    type: 'connection' | 'message' | 'gig' | 'event' | 'payment' | 'contract' | 'system';
+    type: 'connection' | 'message' | 'gig' | 'event' | 'payment' | 'contract' | 'system' | 'profile';
     subtype: string;
     title: string;
     message: string; // mapped from body on backend
@@ -28,6 +28,41 @@ export type Notification = {
     createdAt: string;
     updatedAt: string;
 };
+
+/**
+ * Shape of the real-time payload the users-service emits over Socket.IO
+ * (`notification:new`). It is a PARTIAL notification — note `id` (not `_id`),
+ * `body` (not `message`), and no `isRead`/`actorId`/`updatedAt`.
+ * See netsa-backend/users-service/src/notifications/notification.worker.ts.
+ */
+export type NotificationSocketPayload = {
+    id: string;
+    type: Notification['type'];
+    subtype: string;
+    title: string;
+    body?: string;
+    data?: Notification['data'];
+    createdAt: string;
+};
+
+/** Normalize a socket payload into a store Notification so it renders like a
+ *  fetched one (actorId absent → the card shows the semantic icon, not an avatar,
+ *  until the next fetch backfills it). */
+export function normalizeSocketNotification(p: NotificationSocketPayload): Notification {
+    return {
+        _id: p.id,
+        userId: '',
+        type: p.type,
+        subtype: p.subtype,
+        title: p.title,
+        message: p.body ?? '',
+        body: p.body,
+        data: p.data,
+        isRead: false,
+        createdAt: p.createdAt,
+        updatedAt: p.createdAt,
+    };
+}
 
 type NotificationsState = {
     // State
@@ -169,11 +204,15 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
         }
     },
 
-    // Increment unread count when receiving a new notification via socket
+    // Prepend a new notification received in real time via socket.
+    // Deduped by _id so a socket insert + a later fetch (or a double emit)
+    // can't create a duplicate row.
     incrementUnread: (notification: Notification) => {
-        set(state => ({
-            notifications: [notification, ...state.notifications]
-        }));
+        set(state =>
+            state.notifications.some(n => n._id === notification._id)
+                ? state
+                : { notifications: [notification, ...state.notifications] }
+        );
     },
 
     // Reset unread count when notification screen opens

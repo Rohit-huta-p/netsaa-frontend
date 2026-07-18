@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { Platform } from 'react-native';
+import type { NotificationSocketPayload } from '@/stores/notificationsStore';
 
 // Use env var or production fallback
 const getBaseUrl = () => {
@@ -108,6 +109,22 @@ class SocketService {
         return () => {
             if (this.socket) {
                 this.socket.off('discussion:delete', callback);
+            }
+        };
+    }
+
+    /**
+     * Subscribe to real-time notifications. The users-service emits
+     * `notification:new` to the caller's `user:<id>` room (joined automatically
+     * on connect). Returns an unsubscribe fn — call it on cleanup.
+     */
+    public onNotificationNew(callback: (payload: NotificationSocketPayload) => void): () => void {
+        if (this.socket) {
+            this.socket.on('notification:new', callback);
+        }
+        return () => {
+            if (this.socket) {
+                this.socket.off('notification:new', callback);
             }
         };
     }

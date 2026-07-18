@@ -3,7 +3,7 @@
 // Lead (from a proposal header or Talent). Reuses the same useUser data +
 // useConnectionStatus as ProfileScreen, so reviews/media/tier are real. The
 // shared ProfileScreen is left untouched for artist self-view / gig-hiring.
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, Pressable, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { ChevronLeft, Star, MessageCircle, Check, Clock, UserPlus, Play } from 'lucide-react-native';
@@ -11,6 +11,7 @@ import { useUser } from '@/hooks/useUser';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import conversationService from '@/services/conversationService';
+import authService from '@/services/authService';
 
 const TIER: Record<string, { c: string; label: string }> = {
     new: { c: '#6B7280', label: 'New' },
@@ -36,6 +37,12 @@ export function PerformerProfile({ userId }: { userId: string }) {
 
     const [msgBusy, setMsgBusy] = useState(false);
     const [connBusy, setConnBusy] = useState(false);
+
+    // Record a profile view. This screen only renders for a client viewing
+    // another person's performer profile, so it is always a non-owner view.
+    useEffect(() => {
+        if (userId) authService.recordProfileView(userId);
+    }, [userId]);
 
     if (isLoading && !data) {
         return <View style={{ flex: 1, backgroundColor: '#09090b', alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="large" color="#FF6B35" /></View>;

@@ -2,21 +2,31 @@ import React, { useEffect, useRef } from 'react';
 import { ScrollView } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { SplitText } from 'gsap/SplitText';
+
 import useAuthStore from '@/stores/authStore';
 import AppLoadingScreen from '@/components/ui/AppLoadingScreen';
+import Footer from '@/components/Footer';
 
 /**
  * Root route `/` — WEB ONLY (`index.web.tsx`).
  *
  * Native keeps its React Native landing in `index.tsx`. On web, Expo Router
  * resolves `index.web.tsx` instead, so we render the marketing HTML design
- * (`DOCS/designs/NETSA_figma_clone_v2photos.html`) pixel-perfect.
+ * (`DOCS/04-design/mockups/NETSA_figma_clone_v2photos.html`) pixel-perfect.
  *
  * Auth gate is identical to `index.tsx`:
  *   logged OUT → public web landing
  *   logged IN  → /(app)/dashboard
  * Flash-safe: waits for SecureStore rehydration (isHydrated) before deciding.
  */
+// Register GSAP plugins once at module scope (guarded for SSR/static render).
+if (typeof document !== 'undefined') {
+  gsap.registerPlugin(ScrollTrigger, SplitText);
+}
+
 export default function Index() {
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -30,7 +40,7 @@ export default function Index() {
 
 /**
  * The verbatim CSS + body markup from
- * `DOCS/designs/NETSA_figma_clone_v2photos.html`.
+ * `DOCS/04-design/mockups/NETSA_figma_clone_v2photos.html`.
  *
  * Edits applied to the source ONLY:
  *   - asset paths rewritten to the compressed copies served at `/landing/...`
@@ -67,16 +77,18 @@ const PAGE_HTML = `
 
   /* ---------------- NAV ---------------- */
   .nav{position:absolute;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:26px 56px}
-  .nav .logo{font-family:var(--serif);font-weight:700;font-size:24px;letter-spacing:.02em;background:var(--grad-text);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-style:normal}
+  .nav .logo{height:30px;width:auto;display:block}
   .nav .nav-cta{font-family:var(--sans);font-weight:500;font-size:15px;color:#fff;background:var(--grad-btn);padding:11px 22px;border-radius:9999px;box-shadow:0 0 40px 6px rgba(255,77,136,.18)}
 
   /* ---------------- HERO ---------------- */
   .hero{position:relative;min-height:840px;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:180px 24px 90px;isolation:isolate}
+  /* fade the warm hero glow into the page bg at the bottom so there's no hard section line */
+  .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:clamp(110px,18vh,230px);background:linear-gradient(to bottom,transparent,var(--bg));z-index:1;pointer-events:none}
   .hero .glow{position:absolute;border-radius:9999px;z-index:0;pointer-events:none}
   .hero .g-rose{width:600px;height:600px;left:-60px;top:-180px;background:var(--rose);opacity:.05;filter:blur(75px)}
   .hero .g-or1{width:500px;height:500px;right:0;top:-120px;background:var(--orange);opacity:.06;filter:blur(65px)}
   .hero .g-or2{width:420px;height:420px;left:48%;top:30%;background:var(--peach);opacity:.04;filter:blur(60px)}
-  .hero .blob{position:absolute;z-index:0;left:50%;top:46%;width:1180px;height:700px;transform:translate(-50%,-50%) rotate(-8deg);opacity:.8;pointer-events:none;filter:blur(44px);
+  .hero .blob{position:absolute;z-index:0;left:50%;top:55%;width:1180px;height:840px;transform:translate(-50%,-50%) rotate(-8deg);opacity:.8;pointer-events:none;filter:blur(44px);
     background:
       radial-gradient(closest-side at 52% 50%,rgba(255,26,102,.55),rgba(230,0,0,.28) 45%,transparent 72%),
       radial-gradient(closest-side at 40% 50%,rgba(255,117,26,.45),rgba(255,128,0,0) 70%),
@@ -165,10 +177,8 @@ const PAGE_HTML = `
   .quote .fade-top,.quote .fade-bot{position:absolute;left:0;right:0;height:188px;z-index:2;pointer-events:none}
   .quote .fade-top{top:0;background:linear-gradient(180deg,#09090b 0%,rgba(255,255,255,0) 100%)}
   .quote .fade-bot{bottom:0;background:linear-gradient(0deg,#09090b 0%,rgba(255,255,255,0) 100%)}
-  .quote .stair{font-family:var(--serif);font-weight:700;color:#000;font-size:120px;line-height:1.0;text-align:left;max-width:1200px}
-  .quote .stair .s1{margin-left:0}
-  .quote .stair .s2{margin-left:106px}
-  .quote .stair .s3{margin-left:239px}
+  .quote .stair{font-family:var(--serif);font-weight:700;color:#000;font-size:120px;line-height:1.0;text-align:center;max-width:1200px}
+  .quote .stair .s1,.quote .stair .s2,.quote .stair .s3{margin-left:0}
   .quote .manifesto{margin-top:34px;font-family:var(--sans);font-weight:500;font-size:24px;line-height:32px;
     background:linear-gradient(180deg,#ef4444,#ff4d88);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 
@@ -193,17 +203,12 @@ const PAGE_HTML = `
   .final h2{font-family:var(--serif);font-weight:700;font-size:72px;line-height:78px;color:var(--ink);position:relative;z-index:2}
   .final p{font-family:var(--sans);font-weight:400;font-size:18px;line-height:28px;color:var(--grey);margin:18px auto 32px;max-width:560px;position:relative;z-index:2}
   .final .cta{display:flex;gap:16px;justify-content:center;position:relative;z-index:2}
-  footer{border-top:1px solid rgba(245,245,245,.08);padding:40px 56px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;position:relative;z-index:2}
-  footer .logo{font-family:var(--serif);font-weight:700;font-size:22px;background:var(--grad-text);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  footer .fl{display:flex;gap:28px;font-family:var(--sans);font-size:14px;color:var(--grey)}
-  footer .fl a:hover{color:var(--ink)}
-  footer .cp{font-family:var(--sans);font-size:13px;color:rgba(245,245,245,.36)}
 
   /* ---------------- MATCH (find talent / clients / work) ---------------- */
   .match{position:relative;padding:96px 56px 80px}
   .match .glow{position:absolute;z-index:0;border-radius:9999px;pointer-events:none;width:720px;height:520px;background:var(--orange);opacity:.05;filter:blur(80px);left:50%;top:-40px;transform:translateX(-50%)}
-  .match .head{text-align:center;max-width:780px;margin:0 auto 56px}
-  .match .sec-sub{max-width:600px;margin:18px auto 0}
+  .match .head{text-align:center;max-width:780px;margin:0 auto 16px}
+  .match .sec-sub{max-width:600px;margin:0 auto 48px}
   .mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
   .mcard{position:relative;background:rgba(17,17,19,.3);backdrop-filter:blur(2px);border:1px solid rgba(39,39,42,.25);border-radius:16px;padding:30px;overflow:hidden;transition:transform .3s,border-color .3s,background .3s}
   .mcard:hover{transform:translateY(-6px);border-color:rgba(255,77,136,.35);background:rgba(17,17,19,.5)}
@@ -215,62 +220,56 @@ const PAGE_HTML = `
   .mcard .find{font-family:var(--sans);font-weight:500;font-size:14px;color:var(--ink);display:inline-flex;align-items:center;gap:7px}
   .mcard .find b{color:var(--rose);font-weight:500;transition:transform .3s;display:inline-block}
   .mcard:hover .find b{transform:translateX(4px)}
-  /* ===== ROLE SECTION (Variation 3) — desktop hover panels / mobile scroll accordion ===== */
-  .rv3-track{position:relative}
-  .rv3-sticky{position:relative}
-  .rv3-panels{display:flex;flex-direction:row;gap:14px;height:480px;margin-top:8px}
-  .rv3-panel{position:relative;flex:1;border:0;padding:0;text-align:left;color:var(--ink);border-radius:18px;overflow:hidden;cursor:pointer;background:var(--grey16);transition:flex .5s cubic-bezier(.22,.61,.36,1);-webkit-tap-highlight-color:transparent}
-  .rv3-panel>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:grayscale(.2) brightness(.6);transition:filter .5s}
-  .rv3-tint{position:absolute;inset:0;z-index:1;opacity:.5;mix-blend-mode:soft-light;pointer-events:none}
-  .rv3-tint.client{background:linear-gradient(135deg,#f7c45a,#ff822e)}
-  .rv3-tint.lead{background:linear-gradient(135deg,#ff4d88,#ff822e)}
-  .rv3-tint.artist{background:linear-gradient(135deg,#ff4d88,#6d23b6)}
-  .rv3-ov{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(to top,rgba(9,9,11,.93) 0%,rgba(9,9,11,.5) 50%,rgba(9,9,11,.26) 100%)}
-  .rv3-chev{position:absolute;top:15px;right:15px;z-index:4;width:28px;height:28px;border-radius:99px;display:grid;place-items:center;background:rgba(9,9,11,.45);border:1px solid rgba(255,255,255,.28);transition:transform .45s ease}
-  .rv3-chev svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-  .rv3-rt{font-family:var(--serif);font-weight:600;font-style:italic;line-height:1.04;background:linear-gradient(120deg,#fff,#ffe3d3);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  .rv3-closed{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:24px;display:flex;flex-direction:column;align-items:flex-start;opacity:1;transform:translateY(0);transition:opacity .34s ease,transform .5s cubic-bezier(.22,.61,.36,1)}
-  .rv3-closed .ck{font-family:var(--sans);font-weight:700;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,233,217,.86);margin-bottom:7px}
-  .rv3-closed .ch{font-family:var(--serif);font-weight:600;font-size:28px;line-height:1.04;color:#fff;white-space:nowrap}
-  .rv3-open{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:26px;background:radial-gradient(135% 78% at 50% 54%,rgba(9,9,11,.5),transparent 76%);opacity:0;transform:translateY(16px);pointer-events:none;transition:opacity .42s ease .04s,transform .52s cubic-bezier(.22,.61,.36,1)}
-  .rv3-open .pre{font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.82);margin-bottom:8px}
-  .rv3-open .big{font-size:38px}
-  .rv3-open .act{font-family:var(--serif);font-weight:500;font-size:19px;line-height:1.2;color:rgba(245,245,245,.96);margin-top:12px}
-  .rv3-open .desc{font-family:var(--sans);font-size:14px;line-height:1.5;color:rgba(245,245,245,.86);max-width:300px;margin-top:11px}
-  .rv3-open .go{display:inline-flex;align-items:center;gap:7px;font-family:var(--sans);font-weight:500;font-size:14px;color:#fff;margin-top:28px}
-  .rv3-open .go b{color:#ffd9c2;font-weight:600}
-  .rv3-progress,.rv3-cue{display:none}
-  .rv3-dot{width:30px;height:4px;border-radius:99px;background:rgba(255,255,255,.16);overflow:hidden}
-  .rv3-dot i{display:block;height:100%;width:100%;border-radius:99px;background:var(--grad-btn);transform:scaleX(0);transform-origin:left;transition:transform .4s ease}
-  .rv3-dot.on i{transform:scaleX(1)}
-  .rv3-cue svg{width:15px;height:15px;stroke:var(--rose);fill:none;stroke-width:2;animation:rv3bob 1.6s ease-in-out infinite}
-  @keyframes rv3bob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
-  /* desktop: hover expands a lane into the centered hero */
-  @media(hover:hover) and (min-width:760px){
-    .rv3-panel:hover{flex:2.6}
-    .rv3-panel:hover>img{filter:grayscale(0) brightness(.82)}
-    .rv3-panel:hover .rv3-closed{opacity:0;transform:translateY(-12px);pointer-events:none}
-    .rv3-panel:hover .rv3-open{opacity:1;transform:none;pointer-events:auto}
-    .rv3-chev{display:none}
+  /* ===== ROLE SPOTLIGHT — horizontal pinned spotlight (GSAP ScrollTrigger) ===== */
+  .roles{position:relative;height:calc(100vh + 2200px)}
+  .roles-inner{position:sticky;top:0;height:100vh;overflow:hidden;display:flex;flex-direction:column;background:radial-gradient(120% 80% at 50% -10%,rgba(255,130,46,.08),transparent 60%)}
+  .roles .head{position:relative;z-index:3;text-align:center;padding:72px 24px 0;flex:0 0 auto;max-width:820px;margin:0 auto}
+  .roles .eye{display:block;font-family:var(--sans);font-weight:700;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--orange);margin-bottom:14px}
+  .roles .sec-h2{font-size:clamp(32px,5.2vw,68px);line-height:1.04}
+  .roles .sec-sub{color:var(--grey);max-width:600px;margin:14px auto 0;font-size:16px;line-height:1.5}
+  .rview{position:relative;z-index:2;flex:1;min-height:0;display:flex;align-items:center;overflow:hidden}
+  .rtrack{display:flex;gap:4vw;will-change:transform}
+  .rcard{position:relative;flex:0 0 auto;width:min(54vw,640px);height:min(52vh,560px);border-radius:24px;overflow:hidden;border:1px solid rgba(255,255,255,.09);background:var(--grey16);transform:scale(.82);opacity:.44;transition:transform .55s cubic-bezier(.22,.61,.36,1),opacity .55s,box-shadow .55s}
+  .rcard.on{transform:scale(1);opacity:1;box-shadow:0 40px 120px rgba(0,0,0,.55)}
+  .rcard .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.55) brightness(.5);transition:filter .55s}
+  .rcard.on .bg{filter:saturate(1) brightness(.72)}
+  .rcard .tint{position:absolute;inset:0;mix-blend-mode:soft-light;opacity:.5;pointer-events:none}
+  .rcard.rc1 .tint{background:linear-gradient(135deg,#f7c45a,#ff822e)}
+  .rcard.rc2 .tint{background:linear-gradient(135deg,#ff4d88,#ff822e)}
+  .rcard.rc3 .tint{background:linear-gradient(135deg,#ff4d88,#6d23b6)}
+  .rcard .veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(9,9,11,.12) 0%,rgba(9,9,11,.45) 46%,rgba(9,9,11,.88) 100%);pointer-events:none}
+  .rcard .ct{position:absolute;inset:0;padding:clamp(22px,3vw,42px);display:flex;flex-direction:column;justify-content:flex-end;gap:6px;z-index:2}
+  .rcard .role{font-family:var(--sans);font-weight:700;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,233,217,.9)}
+  .rcard .lab{font-family:var(--serif);font-weight:700;font-size:clamp(28px,3.8vw,50px);line-height:1.02;color:#fff}
+  .rcard .desc{font-family:var(--sans);font-size:14.5px;line-height:1.5;color:rgba(245,240,235,.86);max-width:26em;margin-top:8px}
+  .rcard .go{margin-top:16px;font-family:var(--sans);font-weight:500;font-size:14px;color:#fff;display:inline-flex;align-items:center;gap:7px;cursor:pointer;align-self:flex-start}
+  .rcard .go b{color:#ffd9c2;font-weight:600;transition:transform .3s;display:inline-block}
+  .rcard.on .go b{transform:translateX(4px)}
+  .rhud{position:absolute;left:0;right:0;bottom:24px;z-index:5;display:flex;flex-direction:column;align-items:center;gap:13px;pointer-events:none}
+  .rrail{display:flex;gap:10px}
+  .rseg{width:48px;height:4px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden}
+  .rseg i{display:block;height:100%;width:0;background:var(--grad-btn);transition:width .35s}
+  @media(max-width:760px){
+    /* preserved from the prior role-section block: tighten hero on mobile */
+    .hero{min-height:85vh;padding-top:132px;padding-bottom:44px}
+    .roles .head{padding:46px 20px 0}
+    .roles .sec-sub{font-size:14px}
+    .rcard{width:80vw;height:46vh}
+    .rcard .lab{font-size:clamp(26px,7vw,40px)}
   }
-  /* mobile: sticky, scroll-driven accordion */
-  @media(max-width:759px){
-    .rv3-track{height:280vh}
-    .rv3-sticky{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;justify-content:center;gap:12px}
-    .rv3sec .head{margin-bottom:16px!important}
-    .rv3-panels{flex-direction:column;height:auto;gap:11px;margin-top:0}
-    .rv3-panel{flex:none;height:104px;transition:height .55s cubic-bezier(.22,.61,.36,1)}
-    .rv3-panel.open{height:348px}
-    .rv3-panel>img{filter:grayscale(.12) brightness(.6)}
-    .rv3-panel.open>img{filter:grayscale(0) brightness(.74)}
-    .rv3-panel.open .rv3-closed{opacity:0;transform:translateY(-12px);pointer-events:none}
-    .rv3-panel.open .rv3-open{opacity:1;transform:none;pointer-events:auto}
-    .rv3-closed{padding:18px 20px}
-    .rv3-closed .ch{font-size:25px;white-space:normal}
-    .rv3-open{padding:20px 22px}
-    .rv3-open .big{font-size:34px}
-    .rv3-progress{display:flex;justify-content:center;gap:8px;margin-top:4px}
-    .rv3-cue{display:flex;justify-content:center;align-items:center;gap:7px;margin-top:8px;color:var(--grey);font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.8}
+  @media(max-width:760px) and (max-height:720px){
+    .roles .sec-h2{font-size:27px}
+    .roles .head{padding-top:34px}
+    .rcard{height:48vh}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .roles{height:auto;overflow:visible;padding-bottom:56px}
+    .roles-inner{position:static;height:auto;overflow:visible;display:block}
+    .rview{display:block;min-height:0}
+    .rtrack{flex-direction:column;transform:none!important;gap:20px;padding:16px 24px 0;align-items:center;will-change:auto}
+    .rcard{width:min(92vw,640px);height:54vh;min-height:320px;transform:none;opacity:1;box-shadow:0 30px 90px rgba(0,0,0,.5)}
+    .rcard .bg{filter:saturate(1) brightness(.7)}
+    .rhud{display:none}
   }
 
   /* ---------------- EVENTS (never stop growing — scrollable) ---------------- */
@@ -279,7 +278,7 @@ const PAGE_HTML = `
   .events .head{max-width:1192px;margin:0 auto 40px;padding:0 56px;position:relative;z-index:2}
   .events .sec-sub{max-width:540px;margin-top:16px}
   .escroll-wrap{position:relative;z-index:2}
-  .escroll{display:flex;gap:20px;overflow-x:auto;scroll-snap-type:x mandatory;padding:6px 56px 18px;scrollbar-width:thin;scrollbar-color:rgba(255,77,136,.4) transparent}
+  .escroll{display:flex;align-items:flex-start;gap:20px;overflow-x:auto;scroll-snap-type:x mandatory;padding:6px 56px 18px;scrollbar-width:thin;scrollbar-color:rgba(255,77,136,.4) transparent}
   .escroll::-webkit-scrollbar{height:6px}
   .escroll::-webkit-scrollbar-thumb{background:rgba(255,77,136,.4);border-radius:99px}
   .escroll::-webkit-scrollbar-track{background:transparent}
@@ -296,7 +295,7 @@ const PAGE_HTML = `
   @media(max-width:1100px){
     /* hero h1 scales via clamp() — no fixed override needed */
     .sec-h2{font-size:48px;line-height:1.05}
-    .quote .stair{font-size:64px}.quote .stair .s2{margin-left:48px}.quote .stair .s3{margin-left:96px}
+    .quote .stair{font-size:64px}
     .cards{flex-wrap:wrap;gap:18px;align-items:flex-start}
     .pcard{flex:1 1 calc(50% - 9px);aspect-ratio:270/360;margin-top:0!important}
     .pcard:nth-child(odd){transform:rotate(-2deg)}
@@ -315,14 +314,55 @@ const PAGE_HTML = `
     .pcard{flex:0 0 auto;width:78%;aspect-ratio:270/350;margin-top:0!important}
     .pcard:nth-child(odd){margin-right:auto;transform:rotate(-2.5deg)}
     .pcard:nth-child(even){margin-left:auto;transform:rotate(2.5deg)}
-    .quote .stair{font-size:40px}.quote .stair .s2{margin-left:24px}.quote .stair .s3{margin-left:48px}
+    .quote .stair{font-size:40px}
   }
+  /* ---------------- WAITLIST MODAL ---------------- */
+  .wl-overlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:24px}
+  .wl-overlay.open{display:flex}
+  .wl-scrim{position:absolute;inset:0;background:rgba(6,6,8,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  .wl-card{position:relative;z-index:2;width:min(560px,100%);max-height:92vh;overflow-y:auto;background:#141317;border:1px solid rgba(255,255,255,.09);border-radius:24px;padding:34px 34px 26px;box-shadow:0 40px 120px rgba(0,0,0,.6);opacity:0;transform:translateY(14px) scale(.98);transition:opacity .28s ease,transform .28s cubic-bezier(.22,.61,.36,1)}
+  .wl-overlay.open .wl-card{opacity:1;transform:none}
+  .wl-card::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(115deg,var(--orange),var(--rose))}
+  .wl-glow{position:absolute;left:50%;top:-120px;width:520px;height:240px;transform:translateX(-50%);background:radial-gradient(closest-side,rgba(255,130,46,.32),transparent 70%);filter:blur(30px);pointer-events:none}
+  .wl-x{position:absolute;top:18px;right:20px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:var(--grey);font-size:19px;line-height:1;cursor:pointer;z-index:3}
+  .wl-x:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+  .wl-eye{position:relative;z-index:2;font-family:var(--sans);font-weight:700;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--orange);display:flex;align-items:center;gap:8px}
+  .wl-dot{width:5px;height:5px;border-radius:50%;background:var(--orange);box-shadow:0 0 10px 1px var(--orange)}
+  .wl-h{position:relative;z-index:2;font-family:var(--serif);font-weight:600;font-size:32px;line-height:1.05;margin:12px 0 8px;color:var(--ink)}
+  .wl-sub{position:relative;z-index:2;color:var(--grey);font-size:14px;line-height:1.5;max-width:82%}
+  .wl-label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#6b6660;font-weight:500;margin:24px 0 11px}
+  .wl-roles{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+  .wl-role{position:relative;text-align:left;background:#1b1a20;border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:14px 13px;cursor:pointer;transition:border-color .2s,background .2s}
+  .wl-role:hover{border-color:rgba(255,255,255,.2)}
+  .wl-role.wl-on{border-color:rgba(255,130,46,.75);background:linear-gradient(180deg,rgba(255,130,46,.12),rgba(255,77,136,.05))}
+  .wl-rn{display:block;font-family:var(--sans);font-weight:600;font-size:14.5px;color:var(--ink)}
+  .wl-rd{display:block;font-size:11.5px;line-height:1.35;color:var(--grey);margin-top:4px}
+  .wl-tick{position:absolute;top:11px;right:11px;width:17px;height:17px;border-radius:50%;background:linear-gradient(115deg,var(--orange),var(--rose));color:#1a0d06;display:none;align-items:center;justify-content:center;font-size:10px}
+  .wl-role.wl-on .wl-tick{display:flex}
+  .wl-field{display:flex;align-items:center;background:#1b1a20;border:1px solid rgba(255,255,255,.1);border-radius:13px;height:52px;overflow:hidden;transition:border-color .2s}
+  .wl-field:focus-within{border-color:rgba(255,130,46,.55)}
+  .wl-cc{display:flex;align-items:center;padding:0 14px;height:100%;border-right:1px solid rgba(255,255,255,.1);color:#d7d2cc;font-size:15px;font-weight:500;white-space:nowrap}
+  .wl-field input{flex:1;min-width:0;border:0;background:none;outline:none;color:#fff;font-size:15.5px;font-family:var(--sans);padding:0 15px}
+  .wl-field input::placeholder{color:#55524d}
+  .wl-cta{margin-top:15px;height:52px;width:100%;border:0;border-radius:13px;background:linear-gradient(115deg,var(--orange),var(--rose));color:#1a0d06;font-family:var(--sans);font-weight:700;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;transition:filter .2s,transform .1s}
+  .wl-cta:hover{filter:brightness(1.06)}.wl-cta:active{transform:scale(.99)}
+  .wl-foot{margin-top:13px;text-align:center;font-size:12px;color:#6b6660}
+  .wl-done{display:none;text-align:center;padding:10px 4px 6px}
+  .wl-overlay.wl-confirmed .wl-form{display:none}
+  .wl-overlay.wl-confirmed .wl-done{display:block}
+  .wl-badge{width:70px;height:70px;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;background:radial-gradient(closest-side,rgba(255,130,46,.28),rgba(255,77,136,.08));border:1px solid rgba(255,130,46,.4);color:var(--peach)}
+  .wl-done .wl-h{text-align:center}.wl-done b{color:#e9c6b6;font-weight:600}
+  .wl-again{margin-top:20px;background:none;border:0;color:var(--grey);font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .wl-again:hover{color:var(--ink)}
+  @media(prefers-reduced-motion:reduce){.wl-card{transition:none}}
+  @media(max-width:520px){.wl-roles{grid-template-columns:1fr}.wl-card{padding:28px 22px 22px}.wl-h{font-size:27px}}
 </style>
 
 <!-- NAV -->
 <nav class="nav">
-  <div class="logo">NETSA</div>
-  <a class="nav-cta" href="#" data-nav="join">Join Netsa</a>
+  <img class="logo" src="/landing/netsa-logo-wordmark.png" alt="NETSA">
+
+  <a class="nav-cta" href="#" data-nav="join">Join the waitlist</a>
 </nav>
 
 <!-- HERO -->
@@ -334,7 +374,7 @@ const PAGE_HTML = `
     <h1><span class="l1">THE STAGE IS</span><span class="l2">REVOLUTIONIZED</span></h1>
     <p class="sub">Empowering India's performing artists with a transparent, direct, and professional ecosystem. No more WhatsApp calls, just your talent.</p>
     <div class="cta">
-      <a class="btn btn-fill" href="#" data-cta="join">Join Netsa</a>
+      <a class="btn btn-fill" href="#" data-cta="join">Join the waitlist</a>
       <a class="btn btn-out" href="#" data-cta="gigs">Explore Gigs</a>
     </div>
     <div class="proof">
@@ -349,42 +389,52 @@ const PAGE_HTML = `
   </div>
 </section>
 
-<!-- MATCH: find talent / clients / work -->
-<section class="match rv3sec">
+<!-- ROLE SPOTLIGHT: find talent / clients / work -->
+<section class="roles rv3sec">
+  <div class="roles-inner">
   <div class="grid-bg"></div>
-  <div class="glow"></div>
-  <div class="wrap">
-    <div class="rv3-track"><div class="rv3-sticky">
-      <div class="head">
-        <h2 class="sec-h2">Find talent. Find clients.<br><span class="gtext">Find work.</span></h2>
-        <p class="sec-sub">Whichever side of the stage you're on, NETSA connects you to the other — all in one place.</p>
-      </div>
-      <div class="rv3-panels">
-        <button class="rv3-panel" aria-expanded="false">
-          <img src="/landing/v2-client.jpg" alt="">
-          <span class="rv3-tint client"></span><span class="rv3-ov"></span>
-          <span class="rv3-chev"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
-          <span class="rv3-closed"><span class="ck">For Clients</span><span class="ch">Find your talent</span></span>
-          <span class="rv3-open"><span class="pre">On NETSA for</span><span class="big rv3-rt">Clients</span><span class="act">Find your talent</span><span class="desc">Post your event and get matched with vetted creative leads and performers.</span><span class="go">Hire the stage <b>&rarr;</b></span></span>
-        </button>
-        <button class="rv3-panel" aria-expanded="false">
-          <img src="/landing/imgSagarBora.jpg" alt="">
-          <span class="rv3-tint lead"></span><span class="rv3-ov"></span>
-          <span class="rv3-chev"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
-          <span class="rv3-closed"><span class="ck">For Creative Leads</span><span class="ch">Find clients &amp; crew</span></span>
-          <span class="rv3-open"><span class="pre">On NETSA for</span><span class="big rv3-rt">Creative Leads</span><span class="act">Find clients &amp; crew</span><span class="desc">Win work, then build and book your own team — both sides, one profile.</span><span class="go">Lead the show <b>&rarr;</b></span></span>
-        </button>
-        <button class="rv3-panel" aria-expanded="false">
-          <img src="/landing/imgSagarBora2.jpg" alt="">
-          <span class="rv3-tint artist"></span><span class="rv3-ov"></span>
-          <span class="rv3-chev"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
-          <span class="rv3-closed"><span class="ck">For Artists</span><span class="ch">Find your next gig</span></span>
-          <span class="rv3-open"><span class="pre">On NETSA for</span><span class="big rv3-rt">Artists</span><span class="act">Find your next gig</span><span class="desc">Get discovered, apply to gigs that fit, and build your name.</span><span class="go">Take the stage <b>&rarr;</b></span></span>
-        </button>
-      </div>
-      <div class="rv3-progress"><span class="rv3-dot"><i></i></span><span class="rv3-dot"><i></i></span><span class="rv3-dot"><i></i></span></div>
-      <div class="rv3-cue"><span>scroll</span><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></div>
-    </div></div>
+  <div class="head">
+    <span class="eye">Three sides, one stage</span>
+    <h2 class="sec-h2">Find talent. Find clients. <span class="gtext">Find work.</span></h2>
+    <p class="sec-sub">Whichever side of the stage you're on, NETSA connects you to the other — all in one place.</p>
+  </div>
+  <div class="rview">
+    <div class="rtrack">
+      <article class="rcard rc1 on" data-lab="Find your talent">
+        <img class="bg" src="/landing/v2-client.jpg" alt="">
+        <span class="tint"></span><span class="veil"></span>
+        <div class="ct">
+          <span class="role">For Clients</span>
+          <span class="lab">Find your talent</span>
+          <p class="desc">Post your event and get matched with vetted creative leads and performers.</p>
+          <span class="go" data-cta="join">Hire the stage <b>&rarr;</b></span>
+        </div>
+      </article>
+      <article class="rcard rc2" data-lab="Find clients &amp; crew">
+        <img class="bg" src="/landing/imgSagarBora.jpg" alt="">
+        <span class="tint"></span><span class="veil"></span>
+        <div class="ct">
+          <span class="role">For Creative Leads</span>
+          <span class="lab">Find clients &amp; crew</span>
+          <p class="desc">Win work, then build and book your own team — both sides, one profile.</p>
+          <span class="go" data-cta="join">Lead the show <b>&rarr;</b></span>
+        </div>
+      </article>
+      <article class="rcard rc3" data-lab="Find your next gig">
+        <img class="bg" src="/landing/imgSagarBora2.jpg" alt="">
+        <span class="tint"></span><span class="veil"></span>
+        <div class="ct">
+          <span class="role">For Artists</span>
+          <span class="lab">Find your next gig</span>
+          <p class="desc">Get discovered, apply to gigs that fit, and build your name.</p>
+          <span class="go" data-cta="join">Take the stage <b>&rarr;</b></span>
+        </div>
+      </article>
+    </div>
+  </div>
+  <div class="rhud">
+    <div class="rrail"><span class="rseg"><i></i></span><span class="rseg"><i></i></span><span class="rseg"><i></i></span></div>
+  </div>
   </div>
 </section>
 
@@ -515,16 +565,41 @@ const PAGE_HTML = `
   <h2>Ready to take <span class="gtext">center stage?</span></h2>
   <p>Join a growing community of performing artists finding work, building reputation, and owning their craft.</p>
   <div class="cta">
-    <a class="btn btn-fill" href="#" data-cta="join">Join Netsa</a>
+    <a class="btn btn-fill" href="#" data-cta="join">Join the waitlist</a>
     <a class="btn btn-out" href="#" data-cta="gigs">Explore Gigs</a>
   </div>
 </section>
 
-<footer>
-  <div class="logo">NETSA</div>
-  <div class="fl"><a href="#">For Artists</a><a href="#">Discover</a><a href="#">Community</a><a href="#">About</a></div>
-  <div class="cp">© 2026 NETSA · Made for the Indian stage</div>
-</footer>
+<!-- WAITLIST MODAL -->
+<div class="wl-overlay" id="wl">
+  <div class="wl-scrim" data-wl-close></div>
+  <div class="wl-card" role="dialog" aria-modal="true" aria-label="Join the waitlist">
+    <div class="wl-glow"></div>
+    <button class="wl-x" data-wl-close aria-label="Close">&times;</button>
+    <div class="wl-form" id="wl-form">
+      <div class="wl-eye"><span class="wl-dot"></span>Pre-launch · Pune</div>
+      <h3 class="wl-h">Join the waitlist</h3>
+      <p class="wl-sub">Pick your side of the stage and leave your number — we'll text you the moment doors open.</p>
+      <div class="wl-label">You're joining as</div>
+      <div class="wl-roles" id="wl-roles">
+        <button class="wl-role wl-on" data-role="Artist"><span class="wl-tick">&#10003;</span><span class="wl-rn">Artist</span><span class="wl-rd">You perform. You want work.</span></button>
+        <button class="wl-role" data-role="Creative Lead"><span class="wl-tick">&#10003;</span><span class="wl-rn">Creative Lead</span><span class="wl-rd">You hire artists &amp; take clients.</span></button>
+        <button class="wl-role" data-role="Client"><span class="wl-tick">&#10003;</span><span class="wl-rn">Client</span><span class="wl-rd">You book talent for events.</span></button>
+      </div>
+      <div class="wl-label">Mobile number</div>
+      <div class="wl-field"><span class="wl-cc">+91 &#9662;</span><input id="wl-phone" inputmode="numeric" maxlength="11" placeholder="98765 43210" /></div>
+      <button class="wl-cta" id="wl-join">Join the waitlist <span>&rarr;</span></button>
+      <div class="wl-foot">One text when we open. No spam, ever.</div>
+    </div>
+    <div class="wl-done" id="wl-done">
+      <div class="wl-badge"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>
+      <div class="wl-eye" style="justify-content:center">You're in</div>
+      <h3 class="wl-h">See you in the wings.</h3>
+      <p class="wl-sub" style="text-align:center;margin-left:auto;margin-right:auto;max-width:90%">We'll text <b id="wl-dphone"></b> the moment NETSA opens in Pune — as <span id="wl-drole"></span>.</p>
+      <button class="wl-again" id="wl-again">&larr; edit my details</button>
+    </div>
+  </div>
+</div>
 `;
 
 const GOOGLE_FONTS_HREF =
@@ -560,19 +635,21 @@ function WebLanding() {
 
     const cleanups: Array<() => void> = [];
 
-    // Run after the dangerouslySetInnerHTML markup is committed to the DOM.
-    const raf = requestAnimationFrame(() => {
-      // 2. Role section (.rv3): scroll-driven accordion on mobile; desktop uses :hover.
+    // Wire the injected markup — with retries + an idempotency guard so it survives
+    // StrictMode's double-invoke and auth-driven re-renders (a lone rAF can be
+    // cancelled before it ever fires, leaving the accordion + tabs unwired).
+    let wired = false;
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
+    const setupInjected = () => {
+      if (wired || !document.querySelector('.rv3sec')) return;
+      wired = true;
+      // 2. GSAP scroll motion — role spotlight (horizontal pinned) + manifesto
+      //    word-brighten. RN-Web scrolls an inner <div>, not window, so ScrollTrigger
+      //    is given that element as its `scroller`; ScrollTrigger then listens to that
+      //    div's native scroll and drives the pin/scrub on its own rAF ticker.
       (function () {
-        const sec = document.querySelector('.rv3sec');
-        if (!sec) return;
-        const panels = ([] as Element[]).slice.call(sec.querySelectorAll('.rv3-panel'));
-        const dots = ([] as Element[]).slice.call(sec.querySelectorAll('.rv3-dot'));
-        const track = sec.querySelector('.rv3-track') as HTMLElement | null;
-        const sticky = sec.querySelector('.rv3-sticky') as HTMLElement | null;
-        if (!track || !sticky) return;
-        // RN-Web renders the landing inside a <ScrollView> (a div that scrolls),
-        // NOT the window — find that scroll container so we can listen to it.
+        const rolesSec = document.querySelector('.roles') as HTMLElement | null;
+        // nearest overflow:auto/scroll ancestor = the RN-Web ScrollView scroll container
         function getScrollContainer(el: HTMLElement): HTMLElement | Window {
           let n: HTMLElement | null = el.parentElement;
           while (n) {
@@ -582,97 +659,176 @@ function WebLanding() {
           }
           return window;
         }
-        const scroller: HTMLElement | Window = getScrollContainer(track);
-        const mq = window.matchMedia('(max-width:759px)');
-        let cur = -1;
-        let ticking = false;
-        function setIdx(i: number) {
-          if (i === cur) return;
-          cur = i;
-          panels.forEach(function (p, k) {
-            const on = k === i;
-            p.classList.toggle('open', on);
-            p.setAttribute('aria-expanded', on ? 'true' : 'false');
-          });
-          dots.forEach(function (d, k) {
-            d.classList.toggle('on', k <= i);
-          });
-          const cue = sec!.querySelector('.rv3-cue') as HTMLElement | null;
-          if (cue) cue.style.opacity = i >= 2 ? '0' : '.8';
-        }
-        function compute() {
-          if (!mq.matches) return;
-          const total = track!.offsetHeight - sticky!.offsetHeight;
-          const s = Math.min(Math.max(-track!.getBoundingClientRect().top, 0), total);
-          setIdx(Math.min(2, Math.floor((total > 0 ? s / total : 0) * 3 + 0.0001)));
-        }
-        // Expose compute() so the <ScrollView onScroll> can drive it (RN-Web).
-        computeRef.current = compute;
-        function tick() {
-          if (!ticking) {
-            ticking = true;
-            requestAnimationFrame(function () {
-              compute();
-              ticking = false;
-            });
+        const scrollerEl: HTMLElement | Window = rolesSec ? getScrollContainer(rolesSec) : window;
+        const scroller: HTMLElement | undefined = scrollerEl === window ? undefined : (scrollerEl as HTMLElement);
+
+        // Do NOT manually pump ScrollTrigger.update() from onScroll. With `scroller`
+        // set, ScrollTrigger listens to the div's native scroll and eases the pin/scrub
+        // on its own rAF ticker. A throttled manual update() applied the pin at the raw
+        // (non-eased) scroll position every 16ms, fighting the scrub → visible flicker.
+        // Leave computeRef null so <ScrollView onScroll> is a no-op.
+        computeRef.current = null;
+
+        const mm = gsap.matchMedia();
+
+        mm.add('(prefers-reduced-motion: no-preference)', function () {
+          const triggers: ScrollTrigger[] = [];
+          const splits: SplitText[] = [];
+
+          // ROLE SPOTLIGHT — pin the section; slide the track so each card centers,
+          // lighting + scaling the active one; advance the rail + index counter.
+          if (rolesSec) {
+            const track = rolesSec.querySelector('.rtrack') as HTMLElement | null;
+            const cards = Array.prototype.slice.call(rolesSec.querySelectorAll('.rcard')) as HTMLElement[];
+            const segs = Array.prototype.slice.call(rolesSec.querySelectorAll('.rseg > i')) as HTMLElement[];
+            if (track && cards.length > 1) {
+              const N = cards.length;
+              const metrics = function () {
+                // clientWidth can momentarily read 0 during first layout / resize —
+                // fall back so centering never captures a degenerate viewport width.
+                const W = (scroller ? scroller.clientWidth : 0) || window.innerWidth || document.documentElement.clientWidth;
+                const cw = cards[0].offsetWidth;
+                return { x0: W / 2 - cw / 2, stride: cw + W * 0.04 };
+              };
+              const setA = function (i: number) {
+                cards.forEach(function (c, k) { c.classList.toggle('on', k === i); });
+                segs.forEach(function (s, k) { s.style.width = k <= i ? '100%' : '0'; });
+              };
+              setA(0);
+              // Function-based endpoints + invalidateOnRefresh: both x values are
+              // re-evaluated on every ScrollTrigger.refresh(), so the centering stays
+              // correct across resize / late layout instead of freezing a stale width.
+              const tw = gsap.fromTo(track,
+                { x: function () { return metrics().x0; } },
+                {
+                  x: function () { const m = metrics(); return m.x0 - (N - 1) * m.stride; },
+                  ease: 'none',
+                  scrollTrigger: {
+                    trigger: rolesSec,
+                    scroller: scroller,
+                    // No GSAP pin: the .roles-inner is held by native CSS position:sticky
+                    // (rock-stable, zero per-frame JS). GSAP only scrubs the track's x, so
+                    // ONLY the cards move — the section itself never shifts (no flicker).
+                    start: 'top top',
+                    end: '+=2200',
+                    scrub: 1,
+                    invalidateOnRefresh: true,
+                    snap: { snapTo: cards.map(function (_c: HTMLElement, k: number) { return k / (N - 1); }), duration: { min: 0.2, max: 0.5 }, ease: 'power1.inOut' },
+                    onUpdate: function (self: ScrollTrigger) { setA(Math.round(self.progress * (N - 1))); },
+                  },
+                });
+              if (tw.scrollTrigger) triggers.push(tw.scrollTrigger);
+            }
           }
-        }
-        function syncMode() {
-          if (mq.matches) {
-            cur = -1;
-            compute();
-          } else {
-            cur = -1;
-            panels.forEach(function (p) {
-              p.classList.remove('open');
-              p.setAttribute('aria-expanded', 'false');
+
+          // MANIFESTO — split the stair into words, dim, then brighten across scroll.
+          const stair = document.querySelector('.quote .stair') as HTMLElement | null;
+          if (stair) {
+            const sp = new SplitText(stair, { type: 'words' });
+            splits.push(sp);
+            gsap.set(sp.words, { opacity: 0.12 });
+            const tw = gsap.to(sp.words, {
+              opacity: 1,
+              ease: 'none',
+              stagger: 0.4,
+              scrollTrigger: {
+                trigger: document.querySelector('.quote') as HTMLElement,
+                scroller: scroller,
+                start: 'top 75%',
+                end: 'center 55%',
+                scrub: true,
+              },
             });
-            dots.forEach(function (d) {
-              d.classList.remove('on');
-            });
+            if (tw.scrollTrigger) triggers.push(tw.scrollTrigger);
           }
-        }
-        // Listen on the real scroll container; also capture window scrolls as a
-        // fallback (scroll events don't bubble but DO fire in the capture phase).
-        scroller.addEventListener('scroll', tick, { passive: true } as AddEventListenerOptions);
-        window.addEventListener('scroll', tick, { passive: true, capture: true });
-        window.addEventListener('resize', function () {
-          syncMode();
-          tick();
+
+          ScrollTrigger.refresh();
+
+          return function () {
+            triggers.forEach(function (t) { t.kill(); });
+            splits.forEach(function (s) { s.revert(); });
+          };
         });
-        if (mq.addEventListener) mq.addEventListener('change', syncMode);
-        else mq.addListener(syncMode);
-        panels.forEach(function (p, i) {
-          p.addEventListener('click', function () {
-            if (!mq.matches) return;
-            const total = track!.offsetHeight - sticky!.offsetHeight;
-            const isWin = scroller === window;
-            const base = isWin ? 0 : (scroller as HTMLElement).getBoundingClientRect().top;
-            const cur = isWin ? window.pageYOffset : (scroller as HTMLElement).scrollTop;
-            const top = cur + (track!.getBoundingClientRect().top - base) + ((i + 0.5) / 3) * total;
-            (scroller as { scrollTo: (o: ScrollToOptions) => void }).scrollTo({ top, behavior: 'smooth' });
-          });
+
+        // Reduced motion: CSS renders the cards as a static stack; just ensure the
+        // manifesto stair stays fully lit (never split, never dimmed).
+        mm.add('(prefers-reduced-motion: reduce)', function () {
+          const stair = document.querySelector('.quote .stair') as HTMLElement | null;
+          if (stair) gsap.set(stair, { opacity: 1 });
+          return function () {};
         });
-        syncMode();
-        // Note: the IIFE registers scroll/resize/mq listeners for the page
-        // lifetime (as in the original standalone HTML). They are idempotent
-        // and harmless if WebLanding unmounts; we leave them in place.
+
+        // Fonts/images settle after first paint and shift measurements — refresh then.
+        const onLoad = function () { ScrollTrigger.refresh(); };
+        window.addEventListener('load', onLoad);
+        const refreshTimers = [
+          setTimeout(function () { ScrollTrigger.refresh(); }, 400),
+          setTimeout(function () { ScrollTrigger.refresh(); }, 1200),
+        ];
+
+        cleanups.push(function () {
+          window.removeEventListener('load', onLoad);
+          refreshTimers.forEach(function (t) { clearTimeout(t); });
+          mm.revert();
+          computeRef.current = null;
+        });
       })();
 
-      // 3. Wire CTA anchors → /(auth)/welcome.
-      const wire = (selector: string) => {
-        const handler = (e: Event) => {
-          e.preventDefault();
-          router.push('/(auth)/welcome');
+      // 3. Waitlist modal + CTA wiring. "join" CTAs open the waitlist modal;
+      //    "gigs" still routes to /(auth)/welcome.
+      let openWaitlist = (_role?: string | null) => {};
+      const wlOverlay = document.getElementById('wl');
+      if (wlOverlay) {
+        const wlRoles = document.getElementById('wl-roles');
+        const wlPhone = document.getElementById('wl-phone') as HTMLInputElement | null;
+        const wlJoin = document.getElementById('wl-join');
+        const wlAgain = document.getElementById('wl-again');
+        const wlDphone = document.getElementById('wl-dphone');
+        const wlDrole = document.getElementById('wl-drole');
+        const ART: Record<string, string> = { Artist: 'an Artist', 'Creative Lead': 'a Creative Lead', Client: 'a Client' };
+        let picked = 'Artist';
+        const setRole = (r: string) => {
+          picked = r;
+          if (wlRoles) wlRoles.querySelectorAll('.wl-role').forEach((b) => (b as HTMLElement).classList.toggle('wl-on', (b as HTMLElement).dataset.role === r));
         };
+        const closeWL = () => { wlOverlay.classList.remove('open'); document.removeEventListener('keydown', onKey); };
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeWL(); };
+        openWaitlist = (role?: string | null) => {
+          if (role) setRole(role);
+          wlOverlay.classList.remove('wl-confirmed');
+          wlOverlay.classList.add('open');
+          document.addEventListener('keydown', onKey);
+        };
+        if (wlRoles) wlRoles.addEventListener('click', (e) => {
+          const b = (e.target as HTMLElement).closest('.wl-role') as HTMLElement | null;
+          if (b && b.dataset.role) setRole(b.dataset.role);
+        });
+        if (wlPhone) wlPhone.addEventListener('input', () => { wlPhone.value = wlPhone.value.replace(/[^0-9 ]/g, ''); });
+        if (wlJoin && wlPhone) wlJoin.addEventListener('click', () => {
+          const digits = wlPhone.value.replace(/\D/g, '');
+          if (digits.length < 10) { wlPhone.focus(); return; }
+          if (wlDphone) wlDphone.textContent = '+91 ' + wlPhone.value;
+          if (wlDrole) wlDrole.textContent = ART[picked] || ('a ' + picked);
+          // TODO: POST /waitlist { phone: '+91' + digits, role: picked } once the backend endpoint exists.
+          wlOverlay.classList.add('wl-confirmed');
+        });
+        if (wlAgain) wlAgain.addEventListener('click', () => wlOverlay.classList.remove('wl-confirmed'));
+        wlOverlay.querySelectorAll('[data-wl-close]').forEach((el) => el.addEventListener('click', closeWL));
+        cleanups.push(() => document.removeEventListener('keydown', onKey));
+      }
+      const wireTo = (selector: string, handler: (e: Event) => void) => {
         document.querySelectorAll(selector).forEach((el) => {
           el.addEventListener('click', handler);
           cleanups.push(() => el.removeEventListener('click', handler));
         });
       };
-      wire('[data-nav="join"]');
-      wire('[data-cta="join"]');
-      wire('[data-cta="gigs"]');
+      wireTo('[data-nav="join"]', (e) => { e.preventDefault(); openWaitlist(); });
+      wireTo('[data-cta="join"]', (e) => {
+        e.preventDefault();
+        const card = (e.target as HTMLElement).closest('.rcard');
+        openWaitlist(card ? (card.classList.contains('rc1') ? 'Client' : card.classList.contains('rc2') ? 'Creative Lead' : 'Artist') : null);
+      });
+      wireTo('[data-cta="gigs"]', (e) => { e.preventDefault(); router.push('/(auth)/welcome'); });
 
       // 4. Discover (.disc): filter tabs (scripts inside dangerouslySetInnerHTML
       //    don't execute, so the tab filtering is wired here).
@@ -698,10 +854,13 @@ function WebLanding() {
           cleanups.push(function () { t.removeEventListener('click', h); });
         });
       })();
-    });
+    };
+    const raf = requestAnimationFrame(setupInjected);
+    timers.push(setTimeout(setupInjected, 60), setTimeout(setupInjected, 240), setTimeout(setupInjected, 600));
 
     return () => {
       cancelAnimationFrame(raf);
+      timers.forEach(function (t) { clearTimeout(t); });
       cleanups.forEach((fn) => fn());
     };
     // router from expo-router is stable; run once on mount.
@@ -719,6 +878,7 @@ function WebLanding() {
       }}
     >
       {React.createElement('div', { dangerouslySetInnerHTML: { __html: PAGE_HTML } })}
+      <Footer />
     </ScrollView>
   );
 }

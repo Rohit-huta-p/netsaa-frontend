@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, Pressable, TextInput, ActivityIndicator, ScrollView } from 'react-native';
 import { X } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import authService from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
-import { useProfileUiStore } from '@/stores/profileUiStore';
+import { uploadMediaFlow, validateMediaFile } from '@/utils/upload';
 import type { InterviewField } from './interviewFieldMeta';
 
 interface ProfileInterviewSheetProps {
@@ -38,7 +39,7 @@ const ProfileInterviewSheet: React.FC<ProfileInterviewSheetProps> = ({ visible, 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<string[]>([]);
-  const openSheet = useProfileUiStore((s) => s.openSheet);
+  const [uploadPct, setUploadPct] = useState(0);
 
   useEffect(() => {
     if (visible) {
@@ -47,6 +48,7 @@ const ProfileInterviewSheet: React.FC<ProfileInterviewSheetProps> = ({ visible, 
       setSelected([]);
       setError(null);
       setSavedIds([]);
+      setUploadPct(0);
     }
   }, [visible]);
 
@@ -63,11 +65,6 @@ const ProfileInterviewSheet: React.FC<ProfileInterviewSheetProps> = ({ visible, 
   };
 
   const save = async () => {
-    if (field.inputType === 'media') {
-      onClose();
-      openSheet('media'); // hand off to the existing upload flow
-      return;
-    }
     setSaving(true); setError(null);
     try {
       const payload = payloadFor(field, text, selected);
@@ -76,6 +73,62 @@ const ProfileInterviewSheet: React.FC<ProfileInterviewSheetProps> = ({ visible, 
       if (user) {
         useAuthStore.getState().setAuth({
           user: { ...user, ...updatedUser },
+          accessToken: useAuthStore.getState().accessToken || '',
+        });
+      }
+      advance(field.id);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Could not save — try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const pickAndUploadMedia = async () => {
+    const isVideo = field.id === 'videoReel';
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: isVideo ? ImagePicker.MediaTypeOptions.Videos : ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: field.id === 'photo',
+      aspect: field.id === 'photo' ? [1, 1] : [16, 9],
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+
+    const v = validateMediaFile(asset, isVideo);
+    if (!v.valid) { setError(v.error || "That file won't work."); return; }
+
+    setSaving(true); setError(null); setUploadPct(0);
+    const user = useAuthStore.getState().user;
+    const purpose = field.id === 'photo' ? 'avatar' as const : isVideo ? 'portfolio' as const : 'gallery' as const;
+    const up = await uploadMediaFlow({
+      asset,
+      entityType: 'user',
+      entityId: (user as any)?._id || (user as any)?.id || '',
+      purpose,
+      onProgress: setUploadPct,
+    });
+    if (!up.success || !up.url) {
+      setError(up.error || 'Upload failed — try again.');
+      setSaving(false);
+      return;
+    }
+
+    let payload: Partial<any> = {};
+    if (field.id === 'photo') {
+      payload = { profileImageUrl: up.url };
+    } else if (field.id === 'gallery') {
+      payload = { galleryUrls: [...((user as any)?.galleryUrls || []).filter(Boolean), up.url] };
+    } else if (field.id === 'videoReel') {
+      payload = { videoUrls: [...((user as any)?.videoUrls || []).filter(Boolean), up.url] };
+    }
+
+    try {
+      const updatedUser = await authService.updateProfile(payload);
+      const cur = useAuthStore.getState().user;
+      if (cur) {
+        useAuthStore.getState().setAuth({
+          user: { ...cur, ...updatedUser },
           accessToken: useAuthStore.getState().accessToken || '',
         });
       }
@@ -132,17 +185,23 @@ const ProfileInterviewSheet: React.FC<ProfileInterviewSheetProps> = ({ visible, 
 
           {field.inputType === 'media' && (
             <Text style={{ color: C.muted, fontFamily: 'Outfit-Regular', fontSize: 13, marginBottom: 16 }}>
-              We'll open your gallery to add this.
+              {saving ? `Uploading… ${uploadPct}%` : "Pick from your gallery — we'll upload it right away."}
             </Text>
           )}
 
           {error && <Text style={{ color: '#F0736B', fontSize: 12, marginBottom: 10 }}>{error}</Text>}
 
-          <Pressable onPress={save} disabled={saving}
+          <Pressable onPress={field.inputType === 'media' ? pickAndUploadMedia : save} disabled={saving}
             style={{ backgroundColor: C.orange, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
-            {saving ? <ActivityIndicator color="#fff" /> : (
+            {saving ? (
+              field.inputType === 'media'
+                ? <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 15 }}>{`${uploadPct}%`}</Text>
+                : <ActivityIndicator color="#fff" />
+            ) : (
               <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 15 }}>
-                {field.inputType === 'media' ? 'Add it' : idx + 1 >= fields.length ? 'Done' : 'Save'}
+                {field.inputType === 'media'
+                  ? (field.id === 'photo' ? 'Add your photo' : field.id === 'videoReel' ? 'Add your clip' : 'Add a photo')
+                  : idx + 1 >= fields.length ? 'Done' : 'Save'}
               </Text>
             )}
           </Pressable>

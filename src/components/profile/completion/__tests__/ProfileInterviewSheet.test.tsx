@@ -13,7 +13,7 @@ jest.mock('@/services/authService', () => ({
 
 const nameField: InterviewField = {
   id: 'displayName', label: 'Display Name', section: 'header',
-  question: 'What should hirers call you?', inputType: 'text', playbillSlot: 'name',
+  question: 'What should hirers call you?', inputType: 'text', playbillSlot: 'name', chipLabel: 'Name',
 };
 
 describe('ProfileInterviewSheet', () => {

@@ -27,3 +27,24 @@ input:-webkit-autofill:active {
     -webkit-text-fill-color: #F5F0EB;
     background: rgba(255, 107, 53, 0.55);
 }
+
+/*
+ * Remove the browser's default blue focus outline on ALL inputs, project-wide.
+ * React Native Web renders <TextInput> as a real <input>/<textarea>, so the
+ * browser paints its own focus ring on tap/focus. Inputs carry their own
+ * focus styling in-component, so the UA ring is redundant.
+ * (a11y note: keyboard-only users lose the default ring; component border
+ *  states provide the focus affordance instead.)
+ */
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible,
+[contenteditable]:focus,
+[role="textbox"]:focus,
+[role="combobox"]:focus {
+    outline: none !important;
+    box-shadow: none;
+}

@@ -27,32 +27,24 @@ type FieldProps = {
     accent?: string;
 };
 
+// Editorial (v1) field: SpaceMono kicker label over an underline input, no box.
+// `highlighted` (a required/missing field) is signalled with an orange dot +
+// orange label, not a filled card — keeps the page airy.
 export function Field({ label, children, style, highlighted, accent }: FieldProps) {
     return (
-        <View
-            style={[
-                { marginBottom: 20 },
-                style,
-                highlighted && {
-                    borderWidth: 1.5,
-                    borderColor: `${accent || P.orange}80`,
-                    borderRadius: 14,
-                    padding: 10,
-                    backgroundColor: `${accent || P.orange}08`,
-                },
-            ]}>
+        <View style={[{ marginBottom: 24 }, style]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 {highlighted && (
                     <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: accent || P.orange }} />
                 )}
                 <Text
                     style={{
-                        fontFamily: 'Outfit-Bold',
-                        fontSize: 11,
+                        fontFamily: 'SpaceMono-Bold',
+                        fontSize: 10,
                         color: highlighted ? accent || P.orange : P.textSecondary,
                         textTransform: 'uppercase',
                         letterSpacing: 1.5,
-                        marginBottom: 8,
+                        marginBottom: 10,
                     }}>
                     {label}
                 </Text>
@@ -94,18 +86,16 @@ export function Input({
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             style={{
-                backgroundColor: `${P.surface}cc`,
-                borderWidth: 1,
-                borderColor: focused ? P.borderActive : P.border,
-                borderRadius: 14,
-                paddingHorizontal: 16,
-                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderBottomColor: focused ? P.orange : P.border,
+                paddingHorizontal: 0,
+                paddingVertical: 10,
                 color: P.textPrimary,
                 fontFamily: 'Outfit-Regular',
-                fontSize: 14,
+                fontSize: 16,
                 minHeight: multiline ? 120 : undefined,
                 textAlignVertical: multiline ? 'top' : 'center',
-                ...(accentBorder ? { borderLeftWidth: 2, borderLeftColor: accentBorder } : {}),
+                ...(accentBorder ? { borderLeftWidth: 2, borderLeftColor: accentBorder, paddingLeft: 12 } : {}),
             }}
         />
     );
@@ -116,7 +106,7 @@ export function MiniField({ label, children }: { label: string; children: React.
         <View style={{ gap: 4 }}>
             <Text
                 style={{
-                    fontFamily: 'Outfit-Bold',
+                    fontFamily: 'SpaceMono-Bold',
                     fontSize: 10,
                     color: P.textSecondary,
                     textTransform: 'uppercase',

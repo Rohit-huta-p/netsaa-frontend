@@ -55,22 +55,21 @@ export function EditModalTabBar<K extends string>({ tabs, active, onChange }: Pr
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10, gap: 6 }}>
                 <View>
-                    {/* Pill indicator — absolutely positioned over the tab row */}
+                    {/* Editorial underline indicator — thin orange rule under the active tab */}
                     <Animated.View
                         style={{
                             position: 'absolute',
                             left: 0,
-                            top: 0,
                             bottom: 0,
+                            height: 2,
                             width: indicatorW,
                             transform: [{ translateX: indicatorX }],
-                            backgroundColor: `${P.orange}18`,
-                            borderRadius: 999,
+                            backgroundColor: P.orange,
+                            borderRadius: 1,
                         }}
                     />
                     <View style={{ flexDirection: 'row', gap: 6 }}>
                         {tabs.map(tab => {
-                            const Icon = tab.icon;
                             const isActive = active === tab.key;
                             return (
                                 <Pressable
@@ -84,12 +83,13 @@ export function EditModalTabBar<K extends string>({ tabs, active, onChange }: Pr
                                             indicatorW.setValue(width);
                                         }
                                     }}
-                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 14 }}>
-                                    <Icon size={14} color={isActive ? P.textPrimary : P.textMuted} />
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 14 }}>
                                     <Text style={{
                                         fontFamily: isActive ? 'Outfit-Bold' : 'Outfit-Medium',
                                         fontSize: 12,
-                                        color: isActive ? P.textPrimary : P.textSecondary,
+                                        letterSpacing: 1.2,
+                                        textTransform: 'uppercase',
+                                        color: isActive ? P.textPrimary : P.textMuted,
                                     }}>
                                         {tab.label}
                                     </Text>

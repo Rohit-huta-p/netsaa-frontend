@@ -8,7 +8,7 @@ import {
     X, Check, Plus, Search, ChevronDown, ChevronUp, Trash2, Camera,
     Video as VideoIcon, Sparkles, User as UserIcon, FileText,
     Briefcase, Image as ImageIcon, Link2, Building2, CreditCard,
-    Zap, MapPin, Edit3, Instagram, Youtube, Music, Headphones,
+    Zap, Instagram, Youtube, Music, Headphones,
     Users, Home, Landmark, Tag,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,8 +24,9 @@ import { AITextInput } from '@/components/ui/AITextInput';
 import { Field, Input, MiniField, P } from './edit/EditModalPrimitives';
 import { EditModalToast, type ToastState } from './edit/EditModalToast';
 import { EditModalTabBar } from './edit/EditModalTabBar';
+import { BioComposer } from './edit/BioComposer';
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const SKILL_OPTIONS = [
     'Contemporary', 'Kathak', 'Hip Hop', 'Jazz', 'Classical',
@@ -535,32 +536,38 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     //  SECTION RENDERERS (Variant H — each visually distinct)
     // ══════════════════════════════════
 
-    // ── TAB 1: BASIC — Profile Card Preview ──
+    // ── TAB 1: BASIC (v1 Editorial) — "Who you are" ──
+    // Underline-only fields on the page (no cards): name, headline, type +
+    // location paired on one row, then availability as underline status tabs
+    // (≥44pt targets, green/gold/red semantics). No live preview card — the
+    // editorial column keeps the eye on one narrow measure.
     const renderHeader = () => {
         const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('header'); };
         return (
             <>
-                {/* Live preview card */}
-                <View style={{ borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: `${P.orange}20`, paddingVertical: 24, paddingHorizontal: 20, marginBottom: 24, borderLeftWidth: 3, borderLeftColor: `${P.orange}99`, position: 'relative' }}>
-                    <View style={{ alignItems: 'center', gap: 4 }}>
-                        <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: displayName ? P.textPrimary : P.textMuted }}>{displayName || 'Your Name'}</Text>
-                        {headline ? <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textSecondary }}>{headline}</Text> : null}
-                        {artistType ? <View style={{ paddingVertical: 2, paddingHorizontal: 10, borderRadius: 100, backgroundColor: `${P.orange}10`, borderWidth: 1, borderColor: `${P.orange}20`, marginTop: 4 }}><Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.orange, textTransform: 'uppercase', letterSpacing: 2 }}>{artistType}</Text></View> : null}
-                        {location ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}><MapPin size={10} color={P.textMuted} /><Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted }}>{location}</Text></View> : null}
-                    </View>
-                </View>
-                <View style={{ height: 1, backgroundColor: P.border, marginBottom: 20 }} />
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}><Edit3 size={12} color={P.orange} /><Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.orange, textTransform: 'uppercase', letterSpacing: 2 }}>Edit Details</Text></View>
-                <Field label="Display Name" highlighted={isFieldMissing('display name')} accent={P.orange}>
+                <Field label="Full name" highlighted={isFieldMissing('display name')} accent={P.orange}>
                     <Input value={displayName} onChangeText={set(setDisplayName)} placeholder="Your name" />
                 </Field>
-                <Field label="Headline"><Input value={headline} onChangeText={set(setHeadline)} placeholder="Singer | Performer | 5+ years" /></Field>
-                <Field label="Artist Type" highlighted={isFieldMissing('artist type')} accent={P.orange}>
-                    <Input value={artistType} onChangeText={set(setArtistType)} placeholder="Dancer, Singer..." />
+                <Field label="Headline">
+                    <Input value={headline} onChangeText={set(setHeadline)} placeholder="Bharatanatyam artist · Storyteller" />
                 </Field>
-                <Field label="Location" highlighted={isFieldMissing('location')} accent={P.orange}><Input value={location} onChangeText={set(setLocation)} placeholder="City, Country" /></Field>
-                <Field label="Availability" accent={P.orange}>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
+
+                {/* Artist type + location paired — reads as one identity row */}
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                        <Field label="Artist Type" highlighted={isFieldMissing('artist type')} accent={P.orange}>
+                            <Input value={artistType} onChangeText={set(setArtistType)} placeholder="Dancer, Singer…" />
+                        </Field>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Field label="Location" highlighted={isFieldMissing('location')} accent={P.orange}>
+                            <Input value={location} onChangeText={set(setLocation)} placeholder="City, Country" />
+                        </Field>
+                    </View>
+                </View>
+
+                <Field label="Availability" accent={P.orange} style={{ marginTop: 12 }}>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 22 }}>
                         {([
                             { value: 'available', label: 'Available', color: P.green },
                             { value: 'tentative', label: 'Tentative', color: P.gold },
@@ -574,23 +581,23 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                         setAvailability(isSelected ? '' : opt.value);
                                         markDirty('header');
                                     }}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Set availability to ${opt.label}`}
+                                    accessibilityState={{ selected: isSelected }}
                                     style={{
-                                        flex: 1,
+                                        minHeight: 44,
                                         flexDirection: 'row',
                                         alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: 6,
-                                        paddingVertical: 12,
-                                        borderRadius: 12,
-                                        borderWidth: 1.5,
-                                        borderColor: isSelected ? opt.color : P.border,
-                                        backgroundColor: isSelected ? `${opt.color}10` : 'rgba(255,255,255,0.02)',
+                                        gap: 9,
+                                        paddingVertical: 8,
+                                        borderBottomWidth: 1.5,
+                                        borderBottomColor: isSelected ? opt.color : 'transparent',
                                     }}>
-                                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: opt.color }} />
+                                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: opt.color, opacity: isSelected ? 1 : 0.4 }} />
                                     <Text style={{
-                                        fontFamily: isSelected ? 'Outfit-Bold' : 'Outfit-Medium',
-                                        fontSize: 12,
-                                        color: isSelected ? opt.color : P.textSecondary,
+                                        fontFamily: isSelected ? 'Outfit-SemiBold' : 'Outfit-Regular',
+                                        fontSize: 15,
+                                        color: isSelected ? P.textPrimary : P.textSecondary,
                                     }}>
                                         {opt.label}
                                     </Text>
@@ -603,42 +610,59 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         );
     };
 
-    // ── TAB 2: ABOUT — Editorial Canvas ──
+    // ── TAB 2: ABOUT — Editorial composer + physical specs data-strip ──
+    // Design intent:
+    //   • Bio becomes a serif "composer" surface with a live rhythm meter —
+    //     the meter turns character count into a signal (too brief / getting
+    //     there / great / consider trimming) and highlights the sweet-spot
+    //     band on the track so users see when they've landed the target.
+    //   • Physical specs collapse from three separate tiles into one hairline
+    //     data strip — reads as a spec card, not another form.
     const renderAbout = () => {
-        const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('about'); };
         return (
             <>
-                {/* Bio — neutral editorial card, orange accent only if required */}
-                <View style={{ position: 'relative', borderLeftWidth: 3, borderLeftColor: 'rgba(255,255,255,0.10)', paddingLeft: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, paddingVertical: 16, paddingRight: 16, marginBottom: 24 }}>
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 48, lineHeight: 48, color: 'rgba(255,255,255,0.06)', position: 'absolute', top: -4, left: 8 }}>&ldquo;</Text>
-                    {isFieldMissing('bio') && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: P.orange }} /><Text style={{ color: P.orange, fontSize: 10, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5 }}>Required</Text></View>}
-                    <AITextInput label="Bio" value={bio} onChangeText={set(setBio)} placeholder="Tell your story..." containerStyle={{ marginBottom: 0 }} />
+                <BioComposer
+                    value={bio}
+                    onChangeText={(v) => { setBio(v); markDirty('about'); }}
+                    isRequired={isFieldMissing('bio')}
+                />
+
+                {/* Physical specs — editorial underline fields + swatch row */}
+                <View style={{ flexDirection: 'row', gap: 22, marginTop: 30 }}>
+                    <View style={{ flex: 1 }}>
+                        <Field label="Age" style={{ marginBottom: 0 }}>
+                            <Input value={age} onChangeText={(v) => { setAge(v); markDirty('about'); }} placeholder="—" keyboardType="number-pad" />
+                        </Field>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Field label="Height" style={{ marginBottom: 0 }}>
+                            <TouchableOpacity onPress={() => setShowHeightDropdown(true)} style={{ borderBottomWidth: 1, borderBottomColor: P.border, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 16, color: height ? P.textPrimary : P.textMuted }}>{height || '—'}</Text>
+                                <ChevronDown size={16} color={P.textSecondary} />
+                            </TouchableOpacity>
+                        </Field>
+                    </View>
                 </View>
-                {/* Physical specs — compact inline row */}
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Physical Specs</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-                    <View style={{ flex: 1, minWidth: 80, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: P.border, padding: 10 }}>
-                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Age</Text>
-                        <TextInput value={age} onChangeText={set(setAge)} placeholder="--" placeholderTextColor={P.textMuted} keyboardType="number-pad" style={{ fontFamily: 'Outfit-SemiBold', fontSize: 16, color: P.textPrimary, padding: 0 }} />
-                    </View>
-                    <View style={{ flex: 1, minWidth: 80, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: P.border, padding: 10 }}>
-                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Height</Text>
-                        <TouchableOpacity onPress={() => setShowHeightDropdown(true)}>
-                            <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 16, color: height ? P.textPrimary : P.textMuted }}>{height || '--'}</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <View style={{ flex: 1, minWidth: 80, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: P.border, padding: 10 }}>
-                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Skin Tone</Text>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                            {SKIN_TONES.map(t => (
-                                <TouchableOpacity key={t.label} onPress={() => { setSkinTone(t.label); setSkinToneHex(t.hex); markDirty('about'); }}
-                                    style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: t.hex, borderWidth: 2, borderColor: skinTone === t.label ? P.orange : 'transparent' }}>
-                                    {skinTone === t.label && <Check size={10} color={t.hex === '#fcd9b8' || t.hex === '#f0cbb0' ? '#000' : '#fff'} style={{ alignSelf: 'center', marginTop: 3 }} />}
+
+                <Field label="Skin tone" style={{ marginTop: 26, marginBottom: 0 }}>
+                    <View style={{ flexDirection: 'row', gap: 14, marginTop: 4 }}>
+                        {SKIN_TONES.map((t) => {
+                            const sel = skinTone === t.label;
+                            return (
+                                <TouchableOpacity
+                                    key={t.label}
+                                    onPress={() => { setSkinTone(t.label); setSkinToneHex(t.hex); markDirty('about'); }}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Skin tone ${t.label}`}
+                                    accessibilityState={{ selected: sel }}
+                                    style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: t.hex, alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    {sel ? <View style={{ position: 'absolute', top: -4, left: -4, right: -4, bottom: -4, borderRadius: 19, borderWidth: 2, borderColor: P.orange }} /> : null}
                                 </TouchableOpacity>
-                            ))}
-                        </View>
+                            );
+                        })}
                     </View>
-                </View>
+                </Field>
             </>
         );
     };
@@ -646,26 +670,28 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     // ── TAB 3: SKILLS — Tag Cloud Manager ──
     const renderIdentity = () => (
         <>
-            <TouchableOpacity
-                onPress={() => setShowSkillDropdown(true)}
-                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: P.border, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 16 }}>
-                <Search size={16} color={P.textSecondary} />
-                <Text style={{ flex: 1, marginLeft: 10, color: P.textMuted, fontFamily: 'Outfit-Regular', fontSize: 14 }}>
-                    Search or add skill…
-                </Text>
-            </TouchableOpacity>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {skills.map((skill, i) => (
-                    <TouchableOpacity key={i} onPress={() => { setSkills(prev => prev.filter(s => s !== skill)); markDirty('identity'); }}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.04)', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100, borderWidth: 1, borderColor: P.border }}>
-                        <Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Medium', fontSize: 13 }}>{skill}</Text>
-                        <X size={12} color={P.textSecondary} />
-                    </TouchableOpacity>
-                ))}
-            </View>
-            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, textAlign: 'right', marginTop: 12 }}>
+            {/* Count line first — the editorial "5 skills selected" readout */}
+            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: P.textSecondary, marginBottom: 18 }}>
                 {skills.length} skill{skills.length !== 1 ? 's' : ''} selected
             </Text>
+
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 26 }}>
+                {skills.map((skill, i) => (
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: P.border, borderRadius: 100, paddingLeft: 15, paddingRight: 10, paddingVertical: 8 }}>
+                        <Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Regular', fontSize: 14 }}>{skill}</Text>
+                        <TouchableOpacity onPress={() => { setSkills(prev => prev.filter(s => s !== skill)); markDirty('identity'); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove ${skill}`}>
+                            <X size={13} color={P.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+                ))}
+            </View>
+
+            <Field label="Add a skill" style={{ marginBottom: 0 }}>
+                <TouchableOpacity onPress={() => setShowSkillDropdown(true)} style={{ borderBottomWidth: 1, borderBottomColor: P.border, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 16, color: P.textMuted }}>Search or add skill…</Text>
+                    <Search size={18} color={P.textSecondary} />
+                </TouchableOpacity>
+            </Field>
         </>
     );
 
@@ -678,44 +704,48 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
 
         return (
             <>
-                <View style={{ position: 'relative', paddingLeft: 28 }}>
-                    {/* Timeline line — neutral rail */}
-                    {experience.length > 0 && <View style={{ position: 'absolute', left: 8, top: 6, bottom: 60, width: 2, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 1 }} />}
+                <View style={{ position: 'relative', paddingLeft: 26 }}>
+                    {/* Editorial rail — a single hairline */}
+                    {experience.length > 0 && <View style={{ position: 'absolute', left: 4, top: 6, bottom: 14, width: 1, backgroundColor: 'rgba(255,255,255,0.12)' }} />}
                     {experience.map((exp, index) => {
                         const isExpanded = expandedEntries.has(index);
+                        const isNow = index === 0;
                         return (
-                            <View key={index} style={{ position: 'relative', paddingBottom: 20 }}>
-                                {/* Timeline dot — orange only on the most recent (first) entry, neutral otherwise */}
-                                <View style={{ position: 'absolute', left: -24, top: 6, width: index === 0 ? 12 : 10, height: index === 0 ? 12 : 10, borderRadius: index === 0 ? 6 : 5, backgroundColor: index === 0 ? P.orange : 'rgba(255,255,255,0.25)', borderWidth: 2, borderColor: P.bg }} />
-                                {/* Entry card — neutral surface */}
-                                <View style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: P.border, borderRadius: 14, padding: 14 }}>
-                                    <Pressable onPress={() => toggleExpand(index)} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 14, color: P.textPrimary }}>{exp.role || exp.title || exp.projectName || 'New Entry'}</Text>
-                                            {exp.date && <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.textSecondary, marginTop: 2 }}>{exp.date}</Text>}
-                                        </View>
-                                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                                            <TouchableOpacity onPress={() => handleRemove(index)} hitSlop={12}><Trash2 size={14} color={P.danger} /></TouchableOpacity>
-                                            {isExpanded ? <ChevronUp size={16} color={P.textSecondary} /> : <ChevronDown size={16} color={P.textMuted} />}
-                                        </View>
-                                    </Pressable>
-                                    {isExpanded && (
-                                        <View style={{ gap: 10, marginTop: 14, borderTopWidth: 1, borderTopColor: P.border, paddingTop: 14 }}>
-                                            <MiniField label="Role / Title"><Input placeholder="Lead Singer" value={exp.role ?? exp.title ?? ''} onChangeText={(v) => handleChange(index, 'role', v)} /></MiniField>
-                                            <MiniField label="Production / Project"><Input placeholder="Summer Fest 2024" value={exp.projectName ?? exp.title ?? ''} onChangeText={(v) => handleChange(index, 'projectName', v)} /></MiniField>
-                                            <MiniField label="Organization"><Input placeholder="Moonlight Studios" value={exp.organization || ''} onChangeText={(v) => handleChange(index, 'organization', v)} /></MiniField>
-                                            <MiniField label="Location"><Input placeholder="Main Stadium" value={exp.location ?? exp.venue ?? ''} onChangeText={(v) => handleChange(index, 'location', v)} /></MiniField>
-                                            <AITextInput label="Description" placeholder="Describe your role..." value={exp.description || ''} onChangeText={(val: string) => handleChange(index, 'description', val)} />
-                                            <MiniField label="Date"><Input placeholder="MM - YYYY or range" value={exp.date || ''} onChangeText={(v) => handleChange(index, 'date', v)} /></MiniField>
-                                        </View>
-                                    )}
-                                </View>
+                            <View key={index} style={{ position: 'relative', paddingBottom: 30 }}>
+                                {/* Node — orange (with glow) on the most recent, hollow otherwise */}
+                                <View style={{ position: 'absolute', left: -26, top: 5, width: 9, height: 9, borderRadius: 5, backgroundColor: isNow ? P.orange : P.bg, borderWidth: 1.5, borderColor: isNow ? P.orange : P.textSecondary, ...(isNow ? { shadowColor: P.orange, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 8 } : {}) }} />
+                                <Pressable onPress={() => toggleExpand(index)} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <View style={{ flex: 1 }}>
+                                        {exp.date ? <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 11, letterSpacing: 1.5, color: isNow ? P.orange : P.textSecondary, marginBottom: 6 }}>{exp.date}</Text> : null}
+                                        <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 16.5, color: P.textPrimary, lineHeight: 22 }}>{exp.role || exp.title || exp.projectName || 'New entry'}</Text>
+                                        {(exp.organization || exp.location || exp.venue) ? (
+                                            <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 13.5, color: P.textSecondary, marginTop: 3 }}>
+                                                {[exp.organization, exp.location ?? exp.venue].filter(Boolean).join(' · ')}
+                                            </Text>
+                                        ) : null}
+                                    </View>
+                                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginLeft: 10 }}>
+                                        <TouchableOpacity onPress={() => handleRemove(index)} hitSlop={12}><Trash2 size={14} color={P.danger} /></TouchableOpacity>
+                                        {isExpanded ? <ChevronUp size={16} color={P.textSecondary} /> : <ChevronDown size={16} color={P.textMuted} />}
+                                    </View>
+                                </Pressable>
+                                {isExpanded && (
+                                    <View style={{ gap: 12, marginTop: 16, borderTopWidth: 1, borderTopColor: P.border, paddingTop: 16 }}>
+                                        <MiniField label="Role / Title"><Input placeholder="Lead Singer" value={exp.role ?? exp.title ?? ''} onChangeText={(v) => handleChange(index, 'role', v)} /></MiniField>
+                                        <MiniField label="Production / Project"><Input placeholder="Summer Fest 2024" value={exp.projectName ?? exp.title ?? ''} onChangeText={(v) => handleChange(index, 'projectName', v)} /></MiniField>
+                                        <MiniField label="Organization"><Input placeholder="Moonlight Studios" value={exp.organization || ''} onChangeText={(v) => handleChange(index, 'organization', v)} /></MiniField>
+                                        <MiniField label="Location"><Input placeholder="Main Stadium" value={exp.location ?? exp.venue ?? ''} onChangeText={(v) => handleChange(index, 'location', v)} /></MiniField>
+                                        <AITextInput label="Description" placeholder="Describe your role..." value={exp.description || ''} onChangeText={(val: string) => handleChange(index, 'description', val)} />
+                                        <MiniField label="Date"><Input placeholder="MM - YYYY or range" value={exp.date || ''} onChangeText={(v) => handleChange(index, 'date', v)} /></MiniField>
+                                    </View>
+                                )}
                             </View>
                         );
                     })}
                 </View>
-                <TouchableOpacity onPress={handleAdd} style={{ height: 48, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: `${P.orange}50`, backgroundColor: `${P.orange}08`, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
-                    <Plus size={16} color={P.orange} /><Text style={{ color: P.orange, fontFamily: 'Outfit-Bold', fontSize: 13 }}>Add Experience</Text>
+                <TouchableOpacity onPress={handleAdd} style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 8 }} accessibilityRole="button">
+                    <Plus size={15} color={P.orange} />
+                    <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: P.orange }}>Add an engagement</Text>
                 </TouchableOpacity>
             </>
         );
@@ -807,29 +837,49 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             </View>
         );
 
+        const MediaLabel = ({ l, c }: { l: string; c?: string }) => (
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
+                <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', color: P.textSecondary }}>{l}</Text>
+                {c ? <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 10, letterSpacing: 1, color: P.textMuted }}>{c}</Text> : null}
+            </View>
+        );
         return (
             <>
-                {/* Profile photo — solid ring, no gradient */}
-                <View style={{ alignItems: 'center', marginBottom: 24 }}>
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Profile Photo</Text>
-                    <TouchableOpacity onPress={() => handlePickMedia('profile')} disabled={profileState?.uploading}>
-                        <View style={{ width: 126, height: 126, borderRadius: 27, padding: 3, backgroundColor: P.orange, alignItems: 'center', justifyContent: 'center' }}>
-                            <View style={{ width: 120, height: 120, borderRadius: 24, backgroundColor: P.bg, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
-                                {profileImageUrl ? <Image source={{ uri: profileImageUrl }} style={{ width: '100%', height: '100%' }} />
-                                    : profileState?.uploading ? <><ActivityIndicator size="small" color={P.orange} /><Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Bold', fontSize: 10, marginTop: 4 }}>{profileState?.progress || 0}%</Text></>
-                                    : <><Camera size={28} color={P.textMuted} /><Text style={{ color: P.textMuted, fontFamily: 'Outfit-Bold', fontSize: 9, marginTop: 4, textTransform: 'uppercase' }}>Upload</Text></>}
+                {/* Profile photo — avatar + quiet CTA (editorial row) */}
+                <View style={{ marginBottom: 34 }}>
+                    <MediaLabel l="Profile photo" />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+                        <TouchableOpacity onPress={() => handlePickMedia('profile')} disabled={profileState?.uploading}>
+                            <View style={{ width: 92, height: 92, borderRadius: 46, padding: 3, backgroundColor: P.orange, alignItems: 'center', justifyContent: 'center' }}>
+                                <View style={{ width: 86, height: 86, borderRadius: 43, backgroundColor: P.bg, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+                                    {profileImageUrl ? <Image source={{ uri: profileImageUrl }} style={{ width: '100%', height: '100%' }} />
+                                        : profileState?.uploading ? <><ActivityIndicator size="small" color={P.orange} /><Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Bold', fontSize: 10, marginTop: 4 }}>{profileState?.progress || 0}%</Text></>
+                                        : <Camera size={26} color={P.textMuted} />}
+                                </View>
                             </View>
+                        </TouchableOpacity>
+                        <View style={{ gap: 8 }}>
+                            <TouchableOpacity onPress={() => handlePickMedia('profile')} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: P.border, borderRadius: 99, paddingHorizontal: 14, paddingVertical: 8, alignSelf: 'flex-start' }}>
+                                <Camera size={15} color={P.textPrimary} />
+                                <Text style={{ fontFamily: 'Outfit-Medium', fontSize: 13.5, color: P.textPrimary }}>Change photo</Text>
+                            </TouchableOpacity>
+                            <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textSecondary }}>Square, at least 800×800</Text>
                         </View>
-                    </TouchableOpacity>
+                    </View>
                 </View>
-                {/* Gallery — 2+3 bento */}
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Gallery ({galleryUrls.filter(Boolean).length}/5)</Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>{[0, 1].map(i => <MediaSlot key={i} type="gallery" index={i} url={galleryUrls[i] || ''} />)}</View>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>{[2, 3, 4].map(i => <MediaSlot key={i} type="gallery" index={i} url={galleryUrls[i] || ''} />)}</View>
-                {/* Videos — 16:9 cinematic, uploaded via Mux */}
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Reels ({videoReels.length}/3)</Text>
-                <View style={{ gap: 8 }}>
-                    {[0, 1, 2].map(i => <ReelSlot key={i} reel={videoReels[i]} />)}
+
+                {/* Gallery — editorial 3-col grid */}
+                <View style={{ marginBottom: 34 }}>
+                    <MediaLabel l="Gallery" c={`${galleryUrls.filter(Boolean).length} / 5`} />
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>{[0, 1, 2].map(i => <MediaSlot key={i} type="gallery" index={i} url={galleryUrls[i] || ''} />)}</View>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>{[3, 4].map(i => <MediaSlot key={i} type="gallery" index={i} url={galleryUrls[i] || ''} />)}<View style={{ flex: 1 }} /></View>
+                </View>
+
+                {/* Reels — 16:9, 2-col grid */}
+                <View>
+                    <MediaLabel l="Reels" c={`${videoReels.length} / 3`} />
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>{[0, 1].map(i => <ReelSlot key={i} reel={videoReels[i]} />)}</View>
+                    <View style={{ flexDirection: 'row', gap: 10 }}><ReelSlot reel={videoReels[2]} /><View style={{ flex: 1 }} /></View>
                 </View>
             </>
         );
@@ -847,14 +897,21 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             {SOCIAL_PLATFORMS.map((p, i) => {
                 const Icon = p.icon;
                 return (
-                    <View key={p.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: i < SOCIAL_PLATFORMS.length - 1 ? 1 : 0, borderBottomColor: P.border }}>
-                        <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: `${p.color}18`, alignItems: 'center', justifyContent: 'center' }}>
-                            <Icon size={20} color={p.color} />
+                    <View key={p.key} style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16, marginBottom: i < SOCIAL_PLATFORMS.length - 1 ? 24 : 0 }}>
+                        {/* Brand color lives on the glyph only — no filled chip */}
+                        <View style={{ width: 24, marginBottom: 10, alignItems: 'center' }}>
+                            <Icon size={22} color={p.color} />
                         </View>
-                        <View style={{ flex: 1, gap: 4 }}>
-                            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: p.color, textTransform: 'uppercase', letterSpacing: 1.5 }}>{p.label}</Text>
-                            <TextInput value={(socials as any)[p.key]} onChangeText={t => { setSocials(s => ({ ...s, [p.key]: t })); markDirty('socials'); }} placeholder={p.placeholder} placeholderTextColor={P.textMuted}
-                                style={{ backgroundColor: `${P.surface}cc`, borderWidth: 1, borderColor: P.border, borderLeftWidth: 2, borderLeftColor: `${p.color}40`, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, color: P.textPrimary, fontFamily: 'Outfit-Regular', fontSize: 14 }} autoCapitalize="none" />
+                        <View style={{ flex: 1 }}>
+                            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 9 }}>{p.label}</Text>
+                            <TextInput
+                                value={(socials as any)[p.key]}
+                                onChangeText={t => { setSocials(s => ({ ...s, [p.key]: t })); markDirty('socials'); }}
+                                placeholder={p.placeholder}
+                                placeholderTextColor={P.textMuted}
+                                autoCapitalize="none"
+                                style={{ borderBottomWidth: 1, borderBottomColor: P.border, paddingVertical: 8, color: P.textPrimary, fontFamily: 'Outfit-Regular', fontSize: 16 }}
+                            />
                         </View>
                     </View>
                 );
@@ -876,27 +933,27 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('organization'); };
         return (
             <>
-                <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginBottom: 16 }}>
-                    Optional — fill this in when you want to post gigs as an organization.
-                </Text>
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Type</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
-                    {ORG_TYPES.map(type => {
-                        const isSelected = orgType === type.value; const OrgIcon = type.icon;
-                        return (
-                            <TouchableOpacity key={type.value} onPress={() => { setOrgType(type.value); markDirty('organization'); }} style={{ width: (SCREEN_WIDTH - 40 - 20 - 10) / 2, minHeight: 72, backgroundColor: isSelected ? `${P.orange}10` : 'rgba(255,255,255,0.02)', borderRadius: 16, borderWidth: 1.5, borderColor: isSelected ? P.orange : P.border, padding: 14, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                                <OrgIcon size={20} color={isSelected ? P.orange : P.textMuted} />
-                                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 12, color: isSelected ? P.textPrimary : P.textSecondary }}>{type.label}</Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-                <View style={{ height: 1, backgroundColor: P.border, marginBottom: 20 }} />
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Details</Text>
-                <Field label="Organization Name" highlighted={isFieldMissing('organization')} accent={P.orange}>
+                <Field label="Account type">
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18 }}>
+                        {ORG_TYPES.map(type => {
+                            const isSelected = orgType === type.value;
+                            return (
+                                <TouchableOpacity
+                                    key={type.value}
+                                    onPress={() => { setOrgType(type.value); markDirty('organization'); }}
+                                    accessibilityRole="button"
+                                    accessibilityState={{ selected: isSelected }}
+                                    style={{ paddingVertical: 6, borderBottomWidth: 1.5, borderBottomColor: isSelected ? P.orange : 'transparent' }}>
+                                    <Text style={{ fontFamily: isSelected ? 'Outfit-SemiBold' : 'Outfit-Regular', fontSize: 15, color: isSelected ? P.orange : P.textSecondary }}>{type.label}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                </Field>
+                <Field label="Organization name" highlighted={isFieldMissing('organization')} accent={P.orange} style={{ marginTop: 8 }}>
                     <Input value={orgName} onChangeText={set(setOrgName)} placeholder="Organization name" />
                 </Field>
-                <Field label="Website"><Input value={orgWebsite} onChangeText={set(setOrgWebsite)} placeholder="https://..." /></Field>
+                <Field label="Website" style={{ marginBottom: 0 }}><Input value={orgWebsite} onChangeText={set(setOrgWebsite)} placeholder="https://" /></Field>
             </>
         );
     };
@@ -906,28 +963,14 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('billing'); };
         return (
             <>
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.textPrimary, letterSpacing: -0.2, marginBottom: 4 }}>Billing Details</Text>
-                <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginBottom: 20 }}>Optional — only required if you'll invoice as a registered business.</Text>
-                {/* Group 1: Business Identity — neutral card */}
-                <View style={{ borderLeftWidth: 2, borderLeftColor: 'rgba(255,255,255,0.10)', paddingLeft: 16, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 14, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 16, marginBottom: 20 }}>
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 14 }}>Business Identity</Text>
-                    <View style={{ borderBottomWidth: 1, borderBottomColor: P.border, paddingBottom: 20, marginBottom: 20 }}>
-                        <Field label="Legal Business Name"><Input value={legalBusinessName} onChangeText={set(setLegalBusinessName)} placeholder="Registered business name" /></Field>
-                    </View>
-                    <Field label="GST Number" style={{ marginBottom: 0 }}><Input value={gstNumber} onChangeText={set(setGstNumber)} placeholder="22AAAAA0000A1Z5" /></Field>
+                <Field label="Legal business name"><Input value={legalBusinessName} onChangeText={set(setLegalBusinessName)} placeholder="Registered business name" /></Field>
+                <Field label="GST number"><Input value={gstNumber} onChangeText={set(setGstNumber)} placeholder="22AAAAA0000A1Z5" /></Field>
+                <Field label="Billing address"><Input value={billingAddress} onChangeText={set(setBillingAddress)} placeholder="Street, area" /></Field>
+                <View style={{ flexDirection: 'row', gap: 22 }}>
+                    <View style={{ flex: 1 }}><Field label="State"><Input value={billingState} onChangeText={set(setBillingState)} placeholder="State" /></Field></View>
+                    <View style={{ flex: 1 }}><Field label="Pincode"><Input value={pincode} onChangeText={set(setPincode)} placeholder="560001" /></Field></View>
                 </View>
-                {/* Group 2: Address — neutral card */}
-                <View style={{ borderLeftWidth: 2, borderLeftColor: 'rgba(255,255,255,0.10)', paddingLeft: 16, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 14, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: 16 }}>
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 9, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 14 }}>Address</Text>
-                    <View style={{ borderBottomWidth: 1, borderBottomColor: P.border, paddingBottom: 20, marginBottom: 20 }}>
-                        <Field label="Billing Address"><Input value={billingAddress} onChangeText={set(setBillingAddress)} placeholder="Street address" /></Field>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 10, borderBottomWidth: 1, borderBottomColor: P.border, paddingBottom: 20, marginBottom: 20 }}>
-                        <Field label="State" style={{ flex: 1, marginBottom: 0 }}><Input value={billingState} onChangeText={set(setBillingState)} placeholder="State" /></Field>
-                        <Field label="Pincode" style={{ flex: 1, marginBottom: 0 }}><Input value={pincode} onChangeText={set(setPincode)} placeholder="560001" /></Field>
-                    </View>
-                    <Field label="Country" style={{ marginBottom: 0 }}><Input value={country} onChangeText={set(setCountry)} placeholder="India" /></Field>
-                </View>
+                <Field label="Country" style={{ marginBottom: 0 }}><Input value={country} onChangeText={set(setCountry)} placeholder="India" /></Field>
             </>
         );
     };
@@ -948,6 +991,18 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
 
     const isSaved = justSaved;
 
+    // Editorial (v1) section headlines — pair with the folio numeral + kicker.
+    const EDITORIAL_HEADLINES: Record<TabKey, string> = {
+        header: 'Who you are', about: 'Your story', identity: 'The craft',
+        experience: 'Selected work', media: 'The gallery', socials: 'Elsewhere',
+        organization: 'The organisation', billing: 'Billing details',
+    };
+    // Optional one-line notes under the headline (only where the mockup shows one).
+    const SECTION_NOTES: Partial<Record<TabKey, string>> = {
+        organization: 'Add these only if you represent an academy, agency, or company.',
+        billing: 'Used only on invoices and GST-compliant receipts.',
+    };
+
     return (
         <Modal visible transparent animationType="none" onRequestClose={handleClose}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -960,7 +1015,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                 <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.12)' }} />
                             </View>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: P.border }}>
-                                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 18, color: P.textPrimary, letterSpacing: -0.3 }}>Edit Profile</Text>
+                                <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: P.textPrimary, letterSpacing: -0.3 }}>Edit Profile</Text>
                                 <TouchableOpacity
                                     onPress={handleClose}
                                     accessibilityLabel="Close edit modal"
@@ -994,16 +1049,31 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                 {SECTION_RENDERERS.map(({ key, render }, i) => {
                                     const def = visibleTabs.find(t => t.key === key)!;
                                     return (
-                                        <View key={key} onLayout={onSectionLayout(key)} style={{ marginTop: i === 0 ? 0 : 28 }}>
-                                            {i > 0 && <View style={{ height: 1, backgroundColor: P.border, marginBottom: 24 }} />}
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                                                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: P.orange }} />
-                                                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.textPrimary, textTransform: 'uppercase', letterSpacing: 2 }}>{def.label}</Text>
-                                                {def.optional && (
-                                                    <View style={{ borderWidth: 1, borderColor: `${P.gold}30`, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1 }}>
-                                                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 8, color: P.gold, letterSpacing: 1, textTransform: 'uppercase' }}>Optional</Text>
-                                                    </View>
-                                                )}
+                                        <View key={key} onLayout={onSectionLayout(key)} style={{ marginTop: i === 0 ? 4 : 44 }}>
+                                            {i > 0 && <View style={{ height: 1, backgroundColor: P.border, marginBottom: 28 }} />}
+                                            {/* Editorial section header: oversized folio numeral + SpaceMono kicker + DM Serif headline */}
+                                            <View style={{ position: 'relative', marginBottom: 22 }}>
+                                                <Text style={{ position: 'absolute', right: -4, top: -20, fontFamily: 'DMSerifDisplay_400Regular', fontSize: 64, lineHeight: 64, color: 'rgba(240,236,230,0.05)' }}>
+                                                    {String(i + 1).padStart(2, '0')}
+                                                </Text>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                    <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 10, color: P.orange, textTransform: 'uppercase', letterSpacing: 2 }}>
+                                                        {String(i + 1).padStart(2, '0')} / {def.label}
+                                                    </Text>
+                                                    {def.optional && (
+                                                        <View style={{ borderWidth: 1, borderColor: `${P.gold}30`, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1 }}>
+                                                            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 8, color: P.gold, letterSpacing: 1, textTransform: 'uppercase' }}>Optional</Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                                <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 30, color: P.textPrimary, letterSpacing: -0.5, marginTop: 6 }}>
+                                                    {EDITORIAL_HEADLINES[key]}
+                                                </Text>
+                                                {SECTION_NOTES[key] ? (
+                                                    <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 13, color: P.textSecondary, lineHeight: 19, marginTop: 9, maxWidth: 320 }}>
+                                                        {SECTION_NOTES[key]}
+                                                    </Text>
+                                                ) : null}
                                             </View>
                                             {render()}
                                         </View>

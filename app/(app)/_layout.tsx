@@ -1,9 +1,8 @@
 import { Stack, useRouter, usePathname, useGlobalSearchParams } from "expo-router";
 import { View } from "react-native";
 import useAuthStore from "@/stores/authStore";
-import ProfileCompletionModal from "@/components/common/ProfileCompletionModal";
+import { ProfilePlaybillCard } from "@/components/profile/completion";
 import AccountDeletionScheduledModal from "@/components/settings/AccountDeletionScheduledModal";
-import { computeOverallScore, computeMissing, computeOrganizerScore, computeOrganizerMissing } from "@/components/profile/ProfileStrengthWidget";
 import BottomNav from "@/components/nav/BottomNav";
 import { useModeStore } from "@/stores/modeStore";
 import { resolveBootstrapMode } from "@/lib/modeInference";
@@ -24,19 +23,7 @@ export default function AppLayout() {
     // Global (not local) params: this layout is the parent of /inbox, so the
     // conversation id lives in the global search params, not the local ones.
     const { c: openConversationId } = useGlobalSearchParams<{ c?: string }>();
-    const [showProfileModal, setShowProfileModal] = useState(false);
     const [showDeletionModal, setShowDeletionModal] = useState(false);
-
-    // Two-context model: every user is both artist AND hirer
-    // Context is determined by the page, not a role field
-    const isArtist = true; // Always true in two-context model
-    const isOrganizer = true; // Always true (hirer context)
-
-    // Profile completion uses artist score (primary context for most users)
-    const score = user ? computeOverallScore(user) : 100;
-    const missing = user ? computeMissing(user) : [];
-
-    const userRole: 'artist' | 'organizer' = 'artist'; // Default context for profile completion
 
     // Redirect unauthenticated users to login page
     useEffect(() => {
@@ -50,10 +37,6 @@ export default function AppLayout() {
             // Check for deletion scheduling first
             if (user.accountStatus === 'scheduled_for_deletion') {
                 setShowDeletionModal(true);
-            } else if ((isArtist || isOrganizer) && missing.length > 0 && user.role !== 'client') {
-                // Otherwise check profile completion — clients don't have the
-                // artist/organizer profile this nudges, so never show it for them.
-                setShowProfileModal(true);
             }
         }
     }, [isHydrated, isAuthLoading, user?.accountStatus]);
@@ -112,21 +95,8 @@ export default function AppLayout() {
 
             {!hideBottomNav && <BottomNav />}
 
-            {/* Profile completion modal — artists/organizers with incomplete profiles */}
-            {showProfileModal && (
-                <ProfileCompletionModal
-                    index={true}
-                    visible={true}
-                    score={score}
-                    missing={missing}
-                    role={userRole}
-                    onClose={() => { setShowProfileModal(false); }}
-                    onGoToProfile={() => {
-                        setShowProfileModal(false);
-                        router.push("/(app)/profile?highlight=true");
-                    }}
-                />
-            )}
+            {/* Profile completion — ambient Playbill nudge (self-gating) */}
+            <ProfilePlaybillCard />
 
             {/* Deletion scheduled warning modal */}
             {showDeletionModal && (

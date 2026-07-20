@@ -92,9 +92,10 @@ export default function AppLayout() {
             {!hideBottomNav && <BottomNav />}
 
             {/* Profile completion — ambient Playbill nudge, floats above the tab bar
-                (self-gating; not for clients, who have no artist profile). box-none lets
-                taps outside the card fall through to the screen underneath. */}
-            {user?.role !== 'client' && (
+                on the HOME/dashboard only (not on every route — it'd nag over chat,
+                settings, the profile editor, etc). Self-gating; not for clients, who
+                have no artist profile. box-none lets taps outside the card fall through. */}
+            {user?.role !== 'client' && pathname === '/dashboard' && (
                 <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 64, zIndex: 20 }}>
                     <ProfilePlaybillCard />
                 </View>

@@ -4,6 +4,8 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import ProfileInterviewSheet from '../ProfileInterviewSheet';
 import authService from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadMediaFlow } from '@/utils/upload';
 import type { InterviewField } from '../interviewFieldMeta';
 
 jest.mock('@/services/authService', () => ({
@@ -11,15 +13,52 @@ jest.mock('@/services/authService', () => ({
   default: { updateProfile: jest.fn() },
 }));
 
+jest.mock('expo-image-picker', () => ({
+  MediaTypeOptions: { Images: 'Images', Videos: 'Videos' },
+  launchImageLibraryAsync: jest.fn(),
+}));
+jest.mock('@/utils/upload', () => ({
+  uploadMediaFlow: jest.fn(),
+  validateMediaFile: () => ({ valid: true }),
+}));
+
 const nameField: InterviewField = {
   id: 'displayName', label: 'Display Name', section: 'header',
   question: 'What should hirers call you?', inputType: 'text', playbillSlot: 'name', chipLabel: 'Name',
 };
 
+const videoField: InterviewField = {
+  id: 'videoReel', label: 'Video reel', section: 'media',
+  question: 'Add one short performance clip.', inputType: 'media', playbillSlot: 'none', chipLabel: 'Video reel',
+};
+
 describe('ProfileInterviewSheet', () => {
   beforeEach(() => {
     (authService.updateProfile as jest.Mock).mockReset();
+    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockReset();
+    (uploadMediaFlow as jest.Mock).mockReset();
     useAuthStore.setState({ user: { id: 'u1' } as any, accessToken: 'tok' } as any);
+  });
+
+  it('picks, uploads, and persists a media answer inline, then completes', async () => {
+    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file://x.mp4', mimeType: 'video/mp4', fileSize: 1000 }],
+    });
+    (uploadMediaFlow as jest.Mock).mockResolvedValue({ success: true, url: 'https://cdn/x.mp4' });
+    (authService.updateProfile as jest.Mock).mockResolvedValue({ videoUrls: ['https://cdn/x.mp4'] });
+    useAuthStore.setState({ user: { id: 'u1', videoUrls: [] } as any, accessToken: 'tok' } as any);
+    const onComplete = jest.fn();
+
+    const { getByText } = render(
+      <ProfileInterviewSheet visible fields={[videoField]} onClose={() => {}} onComplete={onComplete} />
+    );
+
+    fireEvent.press(getByText('Add your clip'));
+
+    await waitFor(() => expect(uploadMediaFlow).toHaveBeenCalled());
+    await waitFor(() => expect(authService.updateProfile).toHaveBeenCalledWith({ videoUrls: ['https://cdn/x.mp4'] }));
+    await waitFor(() => expect(onComplete).toHaveBeenCalled());
   });
 
   it('saves a text answer via updateProfile and calls onComplete', async () => {

@@ -24,12 +24,15 @@ describe('enrichMissing', () => {
     expect(f.id).toBe('bio');
     expect(f.section).toBe('about');
     expect(f.playbillSlot).toBe('quote');
+    expect(f.chipLabel).toBe('Bio');
+    expect(/\d|\(/.test(f.chipLabel)).toBe(false);
   });
 
   it('maps gallery + video reel to media fields', () => {
     const fields = enrichMissing(['Gallery Photos (0/2 min)', 'Video Reel (0/1 min)']);
     expect(fields.map((f) => f.id)).toEqual(['gallery', 'videoReel']);
     expect(fields.every((f) => f.inputType === 'media')).toBe(true);
+    expect(fields.map((f) => f.chipLabel)).toEqual(['Gallery', 'Video reel']);
   });
 
   it('maps a profile-photo label (server may emit it) to the portrait media slot', () => {

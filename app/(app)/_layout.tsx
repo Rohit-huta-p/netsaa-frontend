@@ -95,8 +95,8 @@ export default function AppLayout() {
 
             {!hideBottomNav && <BottomNav />}
 
-            {/* Profile completion — ambient Playbill nudge (self-gating) */}
-            <ProfilePlaybillCard />
+            {/* Profile completion — ambient Playbill nudge (self-gating; not for clients, who have no artist profile) */}
+            {user?.role !== 'client' && <ProfilePlaybillCard />}
 
             {/* Deletion scheduled warning modal */}
             {showDeletionModal && (

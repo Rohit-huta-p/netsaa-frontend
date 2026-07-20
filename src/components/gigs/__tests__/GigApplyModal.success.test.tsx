@@ -33,6 +33,7 @@ jest.mock('@/services/draftService', () => ({
 }));
 jest.mock('expo-router', () => ({
     useRouter: () => ({ push: jest.fn(), back: jest.fn() }),
+    useLocalSearchParams: () => ({}),
 }));
 jest.mock('@/stores/authStore', () => ({
     __esModule: true,
@@ -43,13 +44,6 @@ jest.mock('expo-linear-gradient', () => {
     const { View } = require('react-native');
     return { LinearGradient: View };
 });
-jest.mock('@/components/common/ProfileCompletionModal', () => ({
-    ProfileCompletionModal: () => null,
-}));
-jest.mock('../../common/ProfileCompletionModal', () => ({
-    ProfileCompletionModal: () => null,
-}));
-
 import { GigApplyModal } from '../GigApplyModal';
 
 describe('GigApplyModal — success-panel scaffold', () => {

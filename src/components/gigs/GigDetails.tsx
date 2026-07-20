@@ -64,7 +64,7 @@ import { GigApplyModal } from './GigApplyModal';
 import { GigSettingsModal } from './GigSettingsModal';
 import { AuthPromptModal } from '../common/AuthPromptModal';
 import { ShareBottomSheet } from '../common/ShareBottomSheet';
-import { ProfileInterviewSheet, enrichMissing } from '@/components/profile/completion';
+import { ProfileInterviewSheet, enrichMissing, HirerMirrorNudge } from '@/components/profile/completion';
 import { GigEditModal } from './GigEditModal';
 import { Edit2 } from 'lucide-react-native';
 
@@ -186,6 +186,9 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                     totalApplications={totalCount}
                     pendingApplications={pendingCount}
                 />
+
+                {/* Surface B — the Mirror, a just-in-time nudge on gig detail (self-gates) */}
+                <HirerMirrorNudge />
 
                 <View>
                     {/* MAIN CONTENT — Two Column Layout */}

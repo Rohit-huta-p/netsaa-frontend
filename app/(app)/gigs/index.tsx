@@ -7,6 +7,7 @@ import { useGigs, useGig } from '@/hooks/useGigs';
 import { useDebounce } from '@/hooks/useDebounce';
 import { GigCard } from '@/components/gigs/GigCard';
 import { GigDetails } from '@/components/gigs/GigDetails';
+import { HirerMirrorNudge } from '@/components/profile/completion';
 import AppScrollView from '@/components/AppScrollView';
 import AppLoadingScreen from '@/components/ui/AppLoadingScreen';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
@@ -198,13 +199,16 @@ export default function GigsListPage() {
                         contentContainerStyle={{ paddingBottom: 24 }}
                         style={{ maxHeight: 900 }}
                     >
-                        {gigsData.map((gig: any) => (
-                            <GigCard
-                                key={gig._id}
-                                gig={gig}
-                                onPress={() => handleGigPress(gig)}
-                                isSelected={isDesktopLayout && selectedGig?._id === gig._id}
-                            />
+                        {gigsData.map((gig: any, i: number) => (
+                            <React.Fragment key={gig._id}>
+                                <GigCard
+                                    gig={gig}
+                                    onPress={() => handleGigPress(gig)}
+                                    isSelected={isDesktopLayout && selectedGig?._id === gig._id}
+                                />
+                                {/* Surface B — the Mirror, an interstitial after the first few cards (self-gates) */}
+                                {i === 2 && <HirerMirrorNudge />}
+                            </React.Fragment>
                         ))}
                     </ScrollView>
                 </View>

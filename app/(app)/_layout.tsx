@@ -95,8 +95,14 @@ export default function AppLayout() {
 
             {!hideBottomNav && <BottomNav />}
 
-            {/* Profile completion — ambient Playbill nudge (self-gating; not for clients, who have no artist profile) */}
-            {user?.role !== 'client' && <ProfilePlaybillCard />}
+            {/* Profile completion — ambient Playbill nudge, floats above the tab bar
+                (self-gating; not for clients, who have no artist profile). box-none lets
+                taps outside the card fall through to the screen underneath. */}
+            {user?.role !== 'client' && (
+                <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 64, zIndex: 20 }}>
+                    <ProfilePlaybillCard />
+                </View>
+            )}
 
             {/* Deletion scheduled warning modal */}
             {showDeletionModal && (

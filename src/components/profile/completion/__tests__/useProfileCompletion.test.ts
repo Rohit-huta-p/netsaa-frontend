@@ -7,7 +7,10 @@ const COMPLETE_USER = {
   skills: ['Kathak'],
   bio: 'x'.repeat(100),
   galleryUrls: ['a', 'b'],
-  videoUrls: ['https://v/1.mp4'], // origin/main portfolio + apply gate read videoUrls, not videoReels
+  // This branch (notifications) scores video off Mux `videoReels` (status: 'ready'),
+  // not the retired `videoUrls`. Keep both so the fixture is "complete" here.
+  videoUrls: ['https://v/1.mp4'],
+  videoReels: [{ status: 'ready', playbackId: 'p1' }],
   experience: [{ role: 'Lead', date: '2024' }],
   profileImageUrl: 'https://img/x.jpg',
 };

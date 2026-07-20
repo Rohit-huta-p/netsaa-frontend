@@ -45,4 +45,12 @@ describe('enrichMissing', () => {
   it('drops labels it does not recognise (never invents a field)', () => {
     expect(enrichMissing(['Some Future Thing'])).toEqual([]);
   });
+
+  it('marks artist type as mirror-relevant (a hirer-facing gap)', () => {
+    expect(enrichMissing(['Artist Type'])[0].mirrorRelevant).toBe(true);
+  });
+
+  it('does not mark skills as mirror-relevant', () => {
+    expect(enrichMissing(['At least 1 Skill'])[0].mirrorRelevant).toBe(false);
+  });
 });

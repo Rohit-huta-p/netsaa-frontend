@@ -37,4 +37,12 @@ describe('selectCompletion', () => {
     expect(c.blanks.every((f) => f.playbillSlot !== 'none')).toBe(true);
     expect(c.nextBest).toBe(c.missing[0]);
   });
+
+  it('mirrorGaps is a subset of missing fields, and every entry is mirror-relevant', () => {
+    const c = selectCompletion({}, 'new');
+    const missingIds = new Set(c.missing.map((f) => f.id));
+    expect(c.mirrorGaps.length).toBeGreaterThan(0);
+    expect(c.mirrorGaps.every((f) => missingIds.has(f.id))).toBe(true);
+    expect(c.mirrorGaps.every((f) => f.mirrorRelevant === true)).toBe(true);
+  });
 });

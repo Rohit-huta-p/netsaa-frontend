@@ -12,6 +12,7 @@ export interface InterviewField {
   inputType: 'text' | 'chips' | 'multiselect' | 'media';
   chips?: string[];
   playbillSlot: PlaybillSlot;
+  mirrorRelevant: boolean;
 }
 
 // Kept in sync with SkillsBottomSheet's local lists (single source lives here).
@@ -25,15 +26,15 @@ export const SKILL_OPTIONS = [
 type Rule = { test: RegExp; build: (label: string) => InterviewField };
 
 const RULES: Rule[] = [
-  { test: /profile photo|portrait|avatar/i, build: (label) => ({ id: 'photo', label, chipLabel: 'Photo', section: 'media', question: 'Add a photo so hirers recognise you.', inputType: 'media', playbillSlot: 'portrait' }) },
-  { test: /display name|^name/i, build: (label) => ({ id: 'displayName', label, chipLabel: 'Name', section: 'header', question: 'What should hirers call you?', inputType: 'text', playbillSlot: 'name' }) },
-  { test: /artist type|art form/i, build: (label) => ({ id: 'artistType', label, chipLabel: 'Art form', section: 'identity', question: 'Which art form should hirers book you for?', inputType: 'chips', chips: ARTIST_TYPES, playbillSlot: 'craft' }) },
-  { test: /skill/i, build: (label) => ({ id: 'skills', label, chipLabel: 'Skills', section: 'identity', question: 'Pick the styles you perform.', inputType: 'multiselect', chips: SKILL_OPTIONS, playbillSlot: 'none' }) },
-  { test: /bio/i, build: (label) => ({ id: 'bio', label, chipLabel: 'Bio', section: 'about', question: 'In a line or two — who are you on stage?', inputType: 'text', playbillSlot: 'quote' }) },
-  { test: /gallery|photos/i, build: (label) => ({ id: 'gallery', label, chipLabel: 'Gallery', section: 'media', question: 'Add a couple of photos of you performing.', inputType: 'media', playbillSlot: 'none' }) },
-  { test: /video reel|reel|video/i, build: (label) => ({ id: 'videoReel', label, chipLabel: 'Video reel', section: 'media', question: 'Add one short performance clip.', inputType: 'media', playbillSlot: 'none' }) },
-  { test: /experience|past performance/i, build: (label) => ({ id: 'experience', label, chipLabel: 'Past performance', section: 'about', question: "Add one past show you're proud of.", inputType: 'text', playbillSlot: 'signature' }) },
-  { test: /location|city/i, build: (label) => ({ id: 'location', label, chipLabel: 'City', section: 'header', question: 'Which city are you based in?', inputType: 'text', playbillSlot: 'none' }) },
+  { test: /profile photo|portrait|avatar/i, build: (label) => ({ id: 'photo', label, chipLabel: 'Photo', section: 'media', question: 'Add a photo so hirers recognise you.', inputType: 'media', playbillSlot: 'portrait', mirrorRelevant: true }) },
+  { test: /display name|^name/i, build: (label) => ({ id: 'displayName', label, chipLabel: 'Name', section: 'header', question: 'What should hirers call you?', inputType: 'text', playbillSlot: 'name', mirrorRelevant: false }) },
+  { test: /artist type|art form/i, build: (label) => ({ id: 'artistType', label, chipLabel: 'Art form', section: 'identity', question: 'Which art form should hirers book you for?', inputType: 'chips', chips: ARTIST_TYPES, playbillSlot: 'craft', mirrorRelevant: true }) },
+  { test: /skill/i, build: (label) => ({ id: 'skills', label, chipLabel: 'Skills', section: 'identity', question: 'Pick the styles you perform.', inputType: 'multiselect', chips: SKILL_OPTIONS, playbillSlot: 'none', mirrorRelevant: false }) },
+  { test: /bio/i, build: (label) => ({ id: 'bio', label, chipLabel: 'Bio', section: 'about', question: 'In a line or two — who are you on stage?', inputType: 'text', playbillSlot: 'quote', mirrorRelevant: true }) },
+  { test: /gallery|photos/i, build: (label) => ({ id: 'gallery', label, chipLabel: 'Gallery', section: 'media', question: 'Add a couple of photos of you performing.', inputType: 'media', playbillSlot: 'none', mirrorRelevant: true }) },
+  { test: /video reel|reel|video/i, build: (label) => ({ id: 'videoReel', label, chipLabel: 'Video reel', section: 'media', question: 'Add one short performance clip.', inputType: 'media', playbillSlot: 'none', mirrorRelevant: true }) },
+  { test: /experience|past performance/i, build: (label) => ({ id: 'experience', label, chipLabel: 'Past performance', section: 'about', question: "Add one past show you're proud of.", inputType: 'text', playbillSlot: 'signature', mirrorRelevant: false }) },
+  { test: /location|city/i, build: (label) => ({ id: 'location', label, chipLabel: 'City', section: 'header', question: 'Which city are you based in?', inputType: 'text', playbillSlot: 'none', mirrorRelevant: false }) },
 ];
 
 // Order matters: 'photo' before 'gallery/photos', 'video reel' before 'video'.

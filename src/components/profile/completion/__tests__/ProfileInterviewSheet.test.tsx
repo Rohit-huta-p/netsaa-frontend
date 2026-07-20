@@ -25,11 +25,13 @@ jest.mock('@/utils/upload', () => ({
 const nameField: InterviewField = {
   id: 'displayName', label: 'Display Name', section: 'header',
   question: 'What should hirers call you?', inputType: 'text', playbillSlot: 'name', chipLabel: 'Name',
+  mirrorRelevant: false,
 };
 
 const videoField: InterviewField = {
   id: 'videoReel', label: 'Video reel', section: 'media',
   question: 'Add one short performance clip.', inputType: 'media', playbillSlot: 'none', chipLabel: 'Video reel',
+  mirrorRelevant: true,
 };
 
 describe('ProfileInterviewSheet', () => {
@@ -86,8 +88,8 @@ describe('ProfileInterviewSheet', () => {
   it('resets to the first field when reopened', async () => {
     (authService.updateProfile as jest.Mock).mockResolvedValue({ displayName: 'Rohit' });
     const f2: InterviewField[] = [
-      { id: 'displayName', label: 'Display Name', section: 'header', question: 'What should hirers call you?', inputType: 'text', playbillSlot: 'name', chipLabel: 'Name' },
-      { id: 'location', label: 'Location', section: 'header', question: 'Which city are you based in?', inputType: 'text', playbillSlot: 'none', chipLabel: 'City' },
+      { id: 'displayName', label: 'Display Name', section: 'header', question: 'What should hirers call you?', inputType: 'text', playbillSlot: 'name', chipLabel: 'Name', mirrorRelevant: false },
+      { id: 'location', label: 'Location', section: 'header', question: 'Which city are you based in?', inputType: 'text', playbillSlot: 'none', chipLabel: 'City', mirrorRelevant: false },
     ] as any;
     const { getByText, getByPlaceholderText, rerender } = render(
       <ProfileInterviewSheet visible fields={f2} onClose={() => {}} onComplete={() => {}} />

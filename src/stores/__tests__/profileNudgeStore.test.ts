@@ -37,3 +37,37 @@ describe('profileNudgeStore', () => {
     expect(useProfileNudgeStore.getState().isPlaybillVisible(85, 1, 1000)).toBe(false); // +5 → still snoozed
   });
 });
+
+describe('mirror eligibility', () => {
+  beforeEach(() => {
+    useProfileNudgeStore.setState({ mirrorLastShownAt: null, mirrorShownThisSession: false, mirrorCtaTappedThisSession: false });
+  });
+
+  it('is eligible when hasGapTrigger is true and state is fresh', () => {
+    expect(useProfileNudgeStore.getState().isMirrorEligible(true, 1000)).toBe(true);
+  });
+
+  it('is not eligible when hasGapTrigger is false, even with fresh state', () => {
+    expect(useProfileNudgeStore.getState().isMirrorEligible(false, 1000)).toBe(false);
+  });
+
+  it('is not eligible again this session after markMirrorShown', () => {
+    act(() => useProfileNudgeStore.getState().markMirrorShown());
+    expect(useProfileNudgeStore.getState().isMirrorEligible(true)).toBe(false);
+  });
+
+  it('is not eligible this session after markMirrorCtaTapped', () => {
+    act(() => useProfileNudgeStore.getState().markMirrorCtaTapped());
+    expect(useProfileNudgeStore.getState().isMirrorEligible(true)).toBe(false);
+  });
+
+  it('is not eligible when now is within 24h of mirrorLastShownAt', () => {
+    useProfileNudgeStore.setState({ mirrorLastShownAt: 1000 });
+    expect(useProfileNudgeStore.getState().isMirrorEligible(true, 1000 + DAY - 1)).toBe(false);
+  });
+
+  it('is eligible again once now is >= 24h after mirrorLastShownAt', () => {
+    useProfileNudgeStore.setState({ mirrorLastShownAt: 1000 });
+    expect(useProfileNudgeStore.getState().isMirrorEligible(true, 1000 + DAY)).toBe(true);
+  });
+});

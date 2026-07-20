@@ -11,17 +11,19 @@ export interface ProfileCompletion {
   tier: Tier;
   blanks: InterviewField[];
   nextBest: InterviewField | null;
+  mirrorGaps: InterviewField[];
 }
 
 export function selectCompletion(user: any, trustTier: Tier): ProfileCompletion {
   if (!user) {
-    return { score: 100, missing: [], applyReady: true, tier: trustTier, blanks: [], nextBest: null };
+    return { score: 100, missing: [], applyReady: true, tier: trustTier, blanks: [], nextBest: null, mirrorGaps: [] };
   }
   const score = computeOverallScore(user);
   const missing = enrichMissing(computeMissing(user));
   const applyReady = meetsMinimumApplyGate(user).passes; // returns { passes, missing }
   const blanks = missing.filter((f) => f.playbillSlot !== 'none');
-  return { score, missing, applyReady, tier: trustTier, blanks, nextBest: missing[0] ?? null };
+  const mirrorGaps = missing.filter((f) => f.mirrorRelevant);
+  return { score, missing, applyReady, tier: trustTier, blanks, nextBest: missing[0] ?? null, mirrorGaps };
 }
 
 export function useProfileCompletion(): ProfileCompletion {

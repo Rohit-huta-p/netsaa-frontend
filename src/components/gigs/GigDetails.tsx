@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, ScrollView, Alert, useWindowDimensions, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
 
 // Custom hook — all action handlers, modal state, and application data
 import { useGigActions } from '@/hooks/useGigActions';
@@ -65,7 +64,7 @@ import { GigApplyModal } from './GigApplyModal';
 import { GigSettingsModal } from './GigSettingsModal';
 import { AuthPromptModal } from '../common/AuthPromptModal';
 import { ShareBottomSheet } from '../common/ShareBottomSheet';
-import { ProfileCompletionModal } from '../common/ProfileCompletionModal';
+import { ProfileInterviewSheet, enrichMissing } from '@/components/profile/completion';
 import { GigEditModal } from './GigEditModal';
 import { Edit2 } from 'lucide-react-native';
 
@@ -95,7 +94,6 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
     const { width } = useWindowDimensions();
     const tabBarHeight = useMobileTabBarHeight();
     const isMobileWidth = width < 768;
-    const router = useRouter();
 
     // Plan 5 — viewer's profile city for the QuickMetaRow distance fallback.
     const authUser = useAuthStore((s) => s.user);
@@ -483,15 +481,11 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
             />
 
             {/* Profile Completion Gate */}
-            <ProfileCompletionModal
+            <ProfileInterviewSheet
                 visible={profileGateVisible}
+                fields={enrichMissing(profileGateData.missing)}
                 onClose={() => setProfileGateVisible(false)}
-                onGoToProfile={() => {
-                    setProfileGateVisible(false);
-                    router.push('/(app)/profile');
-                }}
-                score={profileGateData.score}
-                missing={profileGateData.missing}
+                onComplete={() => setProfileGateVisible(false)}
             />
         </View>
     );

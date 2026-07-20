@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { View, Text, Modal, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApplyToGig } from '../../hooks/useGigApplications';
 import { useEventFunnelSource } from '../../hooks/useEventFunnelSource';
 import { X, Link as LinkIcon, Plus, Trash2, Check, Shield, FileText, Save } from 'lucide-react-native';
-import { ProfileCompletionModal } from '../common/ProfileCompletionModal';
+import { ProfileInterviewSheet, enrichMissing } from '@/components/profile/completion';
 import { draftService, generateDraftId, type ApplicationDraft } from '../../services/draftService';
 // CONTRACTS-DISABLED: Phase 4C contract PDF preview imports retained below
 // for fast revert when the contract artifact is restored.
@@ -83,7 +82,6 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
     const [profileModalData, setProfileModalData] = useState<{ score: number; missing: string[] }>({ score: 0, missing: [] });
 
     const applyMutation = useApplyToGig();
-    const router = useRouter();
     // Plan 7 Task 18 — reads ?from=event:<id> query param when the artist
     // enters the apply flow from an event context (e.g. a related-gig CTA).
     // Forwarded to gigApplication.source on the backend (Plan 6 Task 21).
@@ -563,6 +561,7 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
                                         }}
                                         style={styles.checkboxRow}
                                         activeOpacity={0.7}
+                                        testID="apply-terms-checkbox"
                                     >
                                         <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
                                             {termsAccepted && <Check size={14} color="#fff" />}
@@ -616,16 +615,14 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
                 </View>
             </Modal>
 
-            <ProfileCompletionModal
+            <ProfileInterviewSheet
                 visible={profileModalVisible}
+                fields={enrichMissing(profileModalData.missing)}
                 onClose={() => setProfileModalVisible(false)}
-                onGoToProfile={() => {
+                onComplete={() => {
                     setProfileModalVisible(false);
-                    onClose();
-                    router.push('/(app)/profile?highlight=true');
+                    handleSubmit(); // re-run the same apply mutation; user stays in-flow
                 }}
-                score={profileModalData.score}
-                missing={profileModalData.missing}
             />
         </>
     );

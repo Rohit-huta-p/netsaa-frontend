@@ -1,5 +1,5 @@
 // netsa-frontend/src/components/profile/completion/ProfileInterviewSheet.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, Pressable, TextInput, ActivityIndicator, ScrollView } from 'react-native';
 import { X } from 'lucide-react-native';
 import authService from '@/services/authService';
@@ -39,6 +39,16 @@ const ProfileInterviewSheet: React.FC<ProfileInterviewSheetProps> = ({ visible, 
   const [error, setError] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const openSheet = useProfileUiStore((s) => s.openSheet);
+
+  useEffect(() => {
+    if (visible) {
+      setIdx(0);
+      setText('');
+      setSelected([]);
+      setError(null);
+      setSavedIds([]);
+    }
+  }, [visible]);
 
   if (!visible) return null;
   const field = fields[idx];
@@ -84,7 +94,7 @@ const ProfileInterviewSheet: React.FC<ProfileInterviewSheetProps> = ({ visible, 
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' }}>
         <View style={{ backgroundColor: C.surface, borderTopLeftRadius: 26, borderTopRightRadius: 26, borderTopWidth: 1, borderColor: C.hair, padding: 20, paddingBottom: 28 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, letterSpacing: 1.5, color: C.muted }}>
+            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 11, letterSpacing: 1.5, color: C.muted }}>
               {`YOUR STORY · ${idx + 1} of ${fields.length}`}
             </Text>
             <Pressable onPress={onClose} hitSlop={12}><X size={18} color={C.muted} /></Pressable>

@@ -43,4 +43,25 @@ describe('ProfileInterviewSheet', () => {
     );
     expect(getByText('What should hirers call you?')).toBeTruthy();
   });
+
+  it('resets to the first field when reopened', async () => {
+    (authService.updateProfile as jest.Mock).mockResolvedValue({ displayName: 'Rohit' });
+    const f2: InterviewField[] = [
+      { id: 'displayName', label: 'Display Name', section: 'header', question: 'What should hirers call you?', inputType: 'text', playbillSlot: 'name', chipLabel: 'Name' },
+      { id: 'location', label: 'Location', section: 'header', question: 'Which city are you based in?', inputType: 'text', playbillSlot: 'none', chipLabel: 'City' },
+    ] as any;
+    const { getByText, getByPlaceholderText, rerender } = render(
+      <ProfileInterviewSheet visible fields={f2} onClose={() => {}} onComplete={() => {}} />
+    );
+
+    // advance past field 0
+    fireEvent.changeText(getByPlaceholderText(/type your answer/i), 'Rohit');
+    fireEvent.press(getByText(/save|next/i));
+    await waitFor(() => expect(getByText('Which city are you based in?')).toBeTruthy()); // now on field 1
+
+    // close then reopen -> should be back on field 0
+    rerender(<ProfileInterviewSheet visible={false} fields={f2} onClose={() => {}} onComplete={() => {}} />);
+    rerender(<ProfileInterviewSheet visible fields={f2} onClose={() => {}} onComplete={() => {}} />);
+    expect(getByText('What should hirers call you?')).toBeTruthy();
+  });
 });

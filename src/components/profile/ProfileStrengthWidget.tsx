@@ -98,7 +98,7 @@ const SECTIONS: Section[] = [
         label: "Showcase",
         icon: ImageIcon,
         color: "#EC4899",
-        weight: 30,
+        weight: 25, // was 30 — 5 pts reassigned to the "verify" section below
         check: (u) => {
             const missing: string[] = [];
             const galleryCount = u?.galleryUrls?.filter(Boolean)?.length || 0;
@@ -122,6 +122,21 @@ const SECTIONS: Section[] = [
             const missing: string[] = [];
             const expCount = u?.experience?.length || 0;
             if (expCount < 1) missing.push("At least 1 past performance");
+            const total = 1;
+            return { filled: total - missing.length, total, missing };
+        },
+    },
+    {
+        // Account security, not profile content — a strengthener only.
+        // Never read by meetsMinimumApplyGate (email must never gate apply).
+        key: "verify",
+        label: "Verification",
+        icon: Shield,
+        color: "#06B6D4",
+        weight: 5,
+        check: (u) => {
+            const missing: string[] = [];
+            if (!u?.emailVerifiedAt) missing.push("Verified Email");
             const total = 1;
             return { filled: total - missing.length, total, missing };
         },

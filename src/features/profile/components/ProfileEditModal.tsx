@@ -5,7 +5,7 @@ import {
     ActivityIndicator, Image, Alert, Pressable,
 } from 'react-native';
 import {
-    X, Check, Plus, Search, ChevronDown, ChevronUp, Trash2, Camera,
+    X, Check, ShieldCheck, Plus, Search, ChevronDown, ChevronUp, Trash2, Camera,
     Video as VideoIcon, Sparkles, User as UserIcon, FileText,
     Briefcase, Image as ImageIcon, Link2, Building2, CreditCard,
     Zap, Instagram, Youtube, Music, Headphones,
@@ -45,7 +45,7 @@ const HEIGHT_OPTIONS = Array.from({ length: 37 }, (_, i) => {
 });
 
 // ── Tab definitions ──
-type TabKey = 'header' | 'about' | 'identity' | 'experience' | 'media' | 'socials' | 'organization' | 'billing';
+type TabKey = 'verify' | 'header' | 'about' | 'identity' | 'experience' | 'media' | 'socials' | 'organization' | 'billing';
 interface TabDef {
     key: TabKey;
     label: string;
@@ -59,6 +59,12 @@ interface TabDef {
 // Single accent for every section — one color carries "you're editing here",
 // state colors (green/gold/red) stay reserved for actual meaning.
 const TABS: TabDef[] = [
+    // Leftmost tab. TABS is module-scope (no live authStore access), so
+    // checkComplete here is a static placeholder — the real "email verified"
+    // read happens at the EditModalTabBar call site below via the component's
+    // `emailVerified` state, which overrides this for the 'verify' key.
+    { key: 'verify', label: 'Verify', icon: ShieldCheck, color: P.orange, gradient: [P.orange, P.orange],
+        checkComplete: () => false },
     { key: 'header', label: 'Basic', icon: UserIcon, color: P.orange, gradient: [P.orange, P.orange],
         checkComplete: (d) => !!(d.fullName && d.location && d.artistType) },
     { key: 'about', label: 'Bio', icon: FileText, color: P.orange, gradient: [P.orange, P.orange],
@@ -78,7 +84,7 @@ const TABS: TabDef[] = [
 ];
 
 const SECTION_TO_TAB: Record<string, TabKey> = {
-    header: 'header', basic: 'about', about: 'about', identity: 'identity',
+    verify: 'verify', header: 'header', basic: 'about', about: 'about', identity: 'identity',
     experience: 'experience', media: 'media', socials: 'socials',
     organization: 'organization', contact: 'organization',
 };
@@ -301,6 +307,13 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         next.add(tab);
         return next;
     });
+
+    // ── Verify tab state (email add → 6-digit code → verified) ──
+    const [verifyEmail, setVerifyEmail] = useState('');
+    const [verifyStage, setVerifyStage] = useState<'idle' | 'code'>('idle');
+    const [verifyCode, setVerifyCode] = useState('');
+    const [verifyBusy, setVerifyBusy] = useState(false);
+    const emailVerified = !!(user as any)?.emailVerifiedAt;
 
     const visibleTabs = TABS;
 
@@ -535,6 +548,79 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     // ══════════════════════════════════
     //  SECTION RENDERERS (Variant H — each visually distinct)
     // ══════════════════════════════════
+
+    // ── TAB 0: VERIFY — email add → 6-digit code → verified ──
+    // Phone rung is read-only (no CTA — OTP already verified it at signup).
+    // Email is a strengthener only; success copy stays plain, no "KYC"/"Level".
+    const renderVerify = () => {
+        const phone = (user as any)?.phoneNumber || '';
+        const onSend = async () => {
+            if (verifyBusy) return; setVerifyBusy(true);
+            try { await authService.sendEmailCode(verifyEmail.trim().toLowerCase()); setVerifyStage('code'); }
+            catch (e: any) { Alert.alert('Could not send code', e?.response?.data?.meta?.message || 'Try again.'); }
+            finally { setVerifyBusy(false); }
+        };
+        const onVerify = async () => {
+            if (verifyBusy) return; setVerifyBusy(true);
+            try {
+                const updated = await authService.verifyEmailCode(verifyEmail.trim().toLowerCase(), verifyCode.trim());
+                setAuth({ user: { ...(user as any), ...updated }, accessToken: accessToken || '' });
+                setVerifyStage('idle'); setVerifyCode('');
+            } catch (e: any) { Alert.alert('Verification failed', e?.response?.data?.meta?.message || 'Check the code and try again.'); }
+            finally { setVerifyBusy(false); }
+        };
+        return (
+            <>
+                {/* Ladder card */}
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: P.border, borderRadius: 16, padding: 16, marginBottom: 22 }}>
+                    {/* Rung 1 — phone, read-only */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: emailVerified ? 14 : 16 }}>
+                        <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: P.green, alignItems: 'center', justifyContent: 'center' }}><Check size={14} color={P.green} /></View>
+                        <View style={{ flex: 1 }}><Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 15, color: P.textPrimary }}>Phone secured</Text><Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textMuted }}>{phone}</Text></View>
+                        <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 10, color: P.green, letterSpacing: 1 }}>SECURED</Text>
+                    </View>
+                    {/* Rung 2 — email */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: emailVerified ? P.green : P.orange, borderStyle: emailVerified ? 'solid' : 'dashed', alignItems: 'center', justifyContent: 'center' }}>{emailVerified ? <Check size={14} color={P.green} /> : null}</View>
+                        <View style={{ flex: 1 }}><Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 15, color: P.textPrimary }}>{emailVerified ? 'Email secured' : 'Add a backup email'}</Text><Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textMuted }}>{emailVerified ? (user as any)?.email : 'So you never lose access to your account'}</Text></View>
+                        {emailVerified ? <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 10, color: P.green, letterSpacing: 1 }}>SECURED</Text> : null}
+                    </View>
+                </View>
+
+                {!emailVerified && verifyStage === 'idle' && (
+                    <>
+                        <Field label="Backup email"><Input value={verifyEmail} onChangeText={setVerifyEmail} placeholder="name@email.com" keyboardType="email-address" autoCapitalize="none" /></Field>
+                        <Pressable onPress={onSend} disabled={verifyBusy} style={{ opacity: verifyBusy ? 0.6 : 1 }}>
+                            <View style={{ paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: P.orange }}>
+                                {verifyBusy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>Send code</Text>}
+                            </View>
+                        </Pressable>
+                        <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginTop: 10 }}>Used only for receipts, alerts, and account recovery. Never shown publicly.</Text>
+                    </>
+                )}
+
+                {!emailVerified && verifyStage === 'code' && (
+                    <>
+                        <Field label="Enter the code">
+                            <Input value={verifyCode} onChangeText={setVerifyCode} placeholder="6-digit code" keyboardType="number-pad" />
+                        </Field>
+                        <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textSecondary, marginBottom: 14 }}>Sent to {verifyEmail} · <Text style={{ color: P.orange }} onPress={() => setVerifyStage('idle')}>Change</Text></Text>
+                        <Pressable onPress={onVerify} disabled={verifyBusy} style={{ opacity: verifyBusy ? 0.6 : 1 }}>
+                            <View style={{ paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: P.orange }}>
+                                {verifyBusy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>Verify</Text>}
+                            </View>
+                        </Pressable>
+                    </>
+                )}
+
+                {emailVerified && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <ShieldCheck size={15} color={P.green} /><Text style={{ fontFamily: 'Outfit-Medium', fontSize: 13, color: P.green }}>Your account is protected.</Text>
+                    </View>
+                )}
+            </>
+        );
+    };
 
     // ── TAB 1: BASIC (v1 Editorial) — "Who you are" ──
     // Underline-only fields on the page (no cards): name, headline, type +
@@ -977,6 +1063,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
 
     // Ordered list of every section — all rendered, stacked, in one scroll.
     const SECTION_RENDERERS: { key: TabKey; render: () => React.ReactNode }[] = [
+        { key: 'verify', render: renderVerify },
         { key: 'header', render: renderHeader },
         { key: 'about', render: renderAbout },
         { key: 'identity', render: renderIdentity },
@@ -993,6 +1080,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
 
     // Editorial (v1) section headlines — pair with the folio numeral + kicker.
     const EDITORIAL_HEADLINES: Record<TabKey, string> = {
+        verify: 'Secure your account',
         header: 'Who you are', about: 'Your story', identity: 'The craft',
         experience: 'Selected work', media: 'The gallery', socials: 'Elsewhere',
         organization: 'The organisation', billing: 'Billing details',
@@ -1031,7 +1119,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                     label: t.label,
                                     icon: t.icon,
                                     optional: t.optional,
-                                    isComplete: t.checkComplete(profileData),
+                                    isComplete: t.key === 'verify' ? emailVerified : t.checkComplete(profileData),
                                     isDirty: dirtyTabs.has(t.key),
                                 }))}
                                 active={activeTab}

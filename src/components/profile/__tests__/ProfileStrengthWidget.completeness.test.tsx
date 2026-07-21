@@ -39,7 +39,10 @@ describe('ProfileStrengthWidget — video-reel completeness reads videoReels, no
     });
 
     it('computeOverallScore: reaches 100 with ready videoReels and empty videoUrls (not stuck missing 15%)', () => {
-        const score = computeOverallScore({ ...baseCompleteUser, videoReels: [READY_REEL] });
+        // Task 9 added a small-weight "verify" section (email verification) to
+        // computeOverallScore's SECTIONS table — emailVerifiedAt must be set for
+        // this otherwise-complete fixture to still reach 100.
+        const score = computeOverallScore({ ...baseCompleteUser, videoReels: [READY_REEL], emailVerifiedAt: '2026-01-01' });
         expect(score).toBe(100);
     });
 

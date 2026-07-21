@@ -122,6 +122,20 @@ const authService = {
     }
   },
 
+  sendEmailCode: async (email: string): Promise<any> => {
+    // POST /auth/send-email-code — email verification (strengthener only,
+    // never gates apply). Spec: DOCS/08-planning/specs/2026-07-21-email-verification-design.md
+    const res = await API.post('/auth/send-email-code', { email });
+    return res.data;
+  },
+
+  verifyEmailCode: async (email: string, code: string): Promise<User> => {
+    // POST /auth/verify-email-code — envelope is { meta, data, errors };
+    // the updated user document is in `data`.
+    const res = await API.post('/auth/verify-email-code', { email, code });
+    return res.data.data as User;
+  },
+
   getMe: async (): Promise<User> => {
     // GET /auth/me
     console.log("AUTH SERVICE: Getting user...")

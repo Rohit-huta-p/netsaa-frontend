@@ -14,6 +14,10 @@ const COMPLETE_USER = {
   videoReels: [{ status: 'ready', playbackId: 'p1' }],
   experience: [{ role: 'Lead', date: '2024' }],
   profileImageUrl: 'https://img/x.jpg',
+  // Task 9 added a small-weight "verify" section (email verification) to
+  // computeOverallScore/computeMissing — required for this fixture to be
+  // "fully complete" (score 100, no missing fields) below.
+  emailVerifiedAt: '2026-01-01',
 };
 
 describe('selectCompletion', () => {

@@ -264,6 +264,12 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                         <Text style={s.name}>{displayName}</Text>
                         {kycStatus === 'verified' && <BadgeCheck size={20} color="#EAB308" fill="#EAB308" style={{ marginLeft: 6 }} />}
+                        {emailVerified && phoneVerified && (
+                            <View style={s.verifiedChip}>
+                                <BadgeCheck size={11} color="#EAB308" fill="#EAB308" />
+                                <Text style={s.verifiedChipText}>Verified</Text>
+                            </View>
+                        )}
                     </View>
                     {artistTypeStr ? <Text style={s.artistType}>{artistTypeStr}</Text>
                         : isOwner ? <Pressable onPress={() => openSheet('header')}><Text style={s.placeholderTap}>Add your artist type</Text></Pressable> : null}
@@ -284,7 +290,17 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                         {phoneVerified ? <View style={s.verifyPill}><Check size={9} color="#6B6878" strokeWidth={3} /><Text style={s.verifyText}>Phone</Text></View>
                             : isOwner ? <View style={s.verifyPillDim}><Check size={9} color="#3A3746" strokeWidth={3} /><Text style={s.verifyTextDim}>Phone</Text></View> : null}
                         {emailVerified ? <View style={s.verifyPill}><Check size={9} color="#6B6878" strokeWidth={3} /><Text style={s.verifyText}>Email</Text></View>
-                            : isOwner ? <View style={s.verifyPillDim}><Check size={9} color="#3A3746" strokeWidth={3} /><Text style={s.verifyTextDim}>Email</Text></View> : null}
+                            : isOwner ? (
+                                <Pressable
+                                    onPress={() => openSheet('verify')}
+                                    style={({ pressed }) => [s.verifyPillDim, pressed && { opacity: 0.6 }]}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Add email"
+                                >
+                                    <Check size={9} color="#3A3746" strokeWidth={3} />
+                                    <Text style={s.verifyTextDim}>Add email</Text>
+                                </Pressable>
+                            ) : null}
                         {kycStatus === 'verified' ? <View style={s.verifyPill}><ShieldCheck size={10} color="#6B6878" /><Text style={s.verifyText}>KYC</Text></View>
                             : kycStatus === 'pending' ? <View style={s.verifyPillDim}><ShieldCheck size={10} color="#4A4656" /><Text style={s.verifyTextDim}>KYC Pending</Text></View>
                             : isOwner ? <View style={s.verifyPillDim}><ShieldCheck size={10} color="#3A3746" /><Text style={s.verifyTextDim}>KYC</Text></View> : null}
@@ -1043,6 +1059,8 @@ const s = StyleSheet.create({
     // ── 3. Identity ──
     identity: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 14 },
     name: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 30, color: '#F0ECE6', letterSpacing: -0.5, textAlign: 'center' },
+    verifiedChip: { flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 6, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100, backgroundColor: 'rgba(234,179,8,0.08)', borderWidth: 1, borderColor: 'rgba(234,179,8,0.22)' },
+    verifiedChipText: { fontFamily: 'Outfit-Bold', fontSize: 10, color: '#EAB308', textTransform: 'uppercase', letterSpacing: 0.6 },
     artistType: { fontFamily: 'Outfit-Regular', fontSize: 13, color: '#6B6878', marginTop: 4, textAlign: 'center' },
     locRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
     locText: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#4A4656' },

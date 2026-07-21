@@ -65,6 +65,10 @@ export type User = {
   roles?: string[];
   accountStatus?: 'active' | 'deactivated' | 'scheduled_for_deletion';
   phoneNumber?: string;
+  // Verification
+  emailVerifiedAt?: string | null;
+  phoneVerifiedAt?: string | null;
+  kycLevel?: number;
   profileImageUrl?: string;
   // Registration personalization
   intent?: 'find_gigs' | 'hire_artists' | 'learn_workshops' | 'host_events';

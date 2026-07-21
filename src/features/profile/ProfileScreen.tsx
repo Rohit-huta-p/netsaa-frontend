@@ -298,7 +298,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                                     accessibilityLabel="Add email"
                                 >
                                     <Check size={9} color="#3A3746" strokeWidth={3} />
-                                    <Text style={s.verifyTextDim}>Add email</Text>
+                                    <Text style={s.verifyTextDim}>Add a backup email</Text>
                                 </Pressable>
                             ) : null}
                         {kycStatus === 'verified' ? <View style={s.verifyPill}><ShieldCheck size={10} color="#6B6878" /><Text style={s.verifyText}>KYC</Text></View>

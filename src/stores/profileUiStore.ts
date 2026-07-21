@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 
 export type SectionId =
+    | 'verify'       // email verification (account security)
     | 'header'       // fullName, artistType, location (ProfileHeader)
     | 'basic'        // age, height, skinTone
     | 'identity'     // artistType, skills

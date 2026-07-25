@@ -7,9 +7,10 @@ import {
     Image,
     TouchableOpacity,
     useWindowDimensions,
+    ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, MapPin, Calendar, Users, Plus } from 'lucide-react-native';
+import { Search, MapPin, Calendar, Users, Plus, SlidersHorizontal } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 import { useEventsList } from '@/hooks/useEvents';
@@ -17,21 +18,18 @@ import { useUiStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
 import { usePlatform } from '@/utils/platform';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import AppScrollView from '@/components/AppScrollView';
-import { EventRemote } from '@/components/events/discovery/EventRemote';
-import { EventFacetRail } from '@/components/events/discovery/EventFacetRail';
+import { EventFilterModal } from '@/components/events/EventFilterModal';
 import {
     ACTIVE_BG,
     ACTIVE_BORDER,
     ACTIVE_FG,
-    SORT_OPTIONS,
-    sortValue,
-    setSort,
-    describeFilters,
+    CRAFT_OPTIONS,
+    craftValue,
+    setCraft,
 } from '@/components/events/discovery/eventFilterOptions';
-import { INITIAL_EVENT_FILTERS } from '@/lib/constants/eventFilters';
+import { INITIAL_EVENT_FILTERS, countActiveEventFilters } from '@/lib/constants/eventFilters';
 import { EventFilterState } from '@/types/eventFilters';
 import type { EventDoc } from '@/services/eventService';
 
@@ -45,10 +43,6 @@ const NETSA_FALLBACK = require('@/../assets/netsa-logo-fallback.png');
 /**
  * Translate a "When" chip into an ISO [startsAfter, startsBefore] window over
  * the event's startsAt. Returns both undefined for 'any'/undefined.
- *   today        → start-of-today … end-of-today
- *   this_weekend → upcoming Sat 00:00 … that Sun 23:59:59
- *   next_7       → now … now + 7 days
- *   this_month   → now … last day of current month 23:59:59
  */
 function timeFrameWindow(
     tf?: 'today' | 'this_weekend' | 'next_7' | 'this_month',
@@ -66,11 +60,9 @@ function timeFrameWindow(
             return { startsAfter: startOfToday.toISOString(), startsBefore: endOfToday.toISOString() };
 
         case 'this_weekend': {
-            // Upcoming Saturday (if today is Sat/Sun, use the current weekend).
             const day = now.getDay(); // 0=Sun … 6=Sat
             const sat = new Date(startOfToday);
             if (day === 0) {
-                // Sunday → weekend started yesterday; anchor Saturday to -1 day.
                 sat.setDate(sat.getDate() - 1);
             } else {
                 sat.setDate(sat.getDate() + ((6 - day + 7) % 7));
@@ -111,11 +103,7 @@ const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => v
 
     const startDate = event.startsAt ? new Date(event.startsAt) : null;
     const dateDisplay = startDate
-        ? startDate.toLocaleDateString('en-IN', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-        })
+        ? startDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })
         : 'TBA';
 
     const locationDisplay =
@@ -141,13 +129,8 @@ const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => v
             {/* Image Section */}
             <View className="relative w-full aspect-[4/3] overflow-hidden">
                 {imageUri ? (
-                    <Image
-                        source={{ uri: imageUri }}
-                        className="w-full h-full opacity-90"
-                        resizeMode="cover"
-                    />
+                    <Image source={{ uri: imageUri }} className="w-full h-full opacity-90" resizeMode="cover" />
                 ) : (
-                    // No image → centered NETSA logo, a bit blurred, on a dark panel.
                     <View className="w-full h-full items-center justify-center bg-black">
                         <Image
                             source={NETSA_FALLBACK}
@@ -158,16 +141,12 @@ const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => v
                     </View>
                 )}
 
-                {/* Category Badge (Top Left) */}
                 <View className="absolute top-4 left-4">
                     <View className="bg-black/60 px-3 py-1 rounded-full border border-white/20">
-                        <Text className="text-white text-[10px] uppercase font-black tracking-widest">
-                            {category}
-                        </Text>
+                        <Text className="text-white text-[10px] uppercase font-black tracking-widest">{category}</Text>
                     </View>
                 </View>
 
-                {/* Price Badge (Bottom Right) */}
                 <View className="absolute bottom-4 right-4">
                     <View className="bg-white px-3 py-1 rounded-full">
                         <Text className="text-black text-xs font-black">{priceDisplay}</Text>
@@ -178,10 +157,7 @@ const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => v
             {/* Content Section */}
             <View className="p-5 flex-1">
                 <View className="flex-row justify-between items-start mb-2">
-                    <Text
-                        numberOfLines={2}
-                        className="text-lg font-bold text-white leading-tight flex-1 mr-2"
-                    >
+                    <Text numberOfLines={2} className="text-lg font-bold text-white leading-tight flex-1 mr-2">
                         {event.title}
                     </Text>
                 </View>
@@ -191,16 +167,11 @@ const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => v
                 <View className="mt-auto space-y-3 gap-2">
                     <View className="flex-row items-center gap-2">
                         <Calendar size={14} color="#f43f5e" />
-                        <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-tighter">
-                            {dateDisplay}
-                        </Text>
+                        <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-tighter">{dateDisplay}</Text>
                     </View>
                     <View className="flex-row items-center gap-2">
                         <MapPin size={14} color="#f43f5e" />
-                        <Text
-                            numberOfLines={1}
-                            className="text-zinc-400 text-[10px] font-bold uppercase tracking-tighter flex-1"
-                        >
+                        <Text numberOfLines={1} className="text-zinc-400 text-[10px] font-bold uppercase tracking-tighter flex-1">
                             {locationDisplay}
                         </Text>
                     </View>
@@ -218,8 +189,8 @@ const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => v
 };
 
 /* ------------------------------------------------------------------ */
-/* Main Events page — Ask bar (universal) + Remote (mobile) / Rail     */
-/* (desktop). One EventFilterState drives all surfaces + the server.   */
+/* Main Events page — search + category tabs + Filters button (opens a */
+/* bottom sheet holding all filters + sort). One EventFilterState.      */
 /* ------------------------------------------------------------------ */
 
 export default function EventsPage() {
@@ -227,19 +198,13 @@ export default function EventsPage() {
     const router = useRouter();
     const { width } = useWindowDimensions();
     const userId = useAuthStore((s) => s.user?._id);
-    const tabBarHeight = useMobileTabBarHeight();
 
-    // Cross-platform breakpoint off measured width (works on web AND native —
-    // NativeWind `md:` only fires on web). < 768 → Ask bar + Remote (mobile,
-    // has the tab bar). ≥ 768 → Ask bar + Facet Rail (tablet/desktop, no tab bar).
+    // Cross-platform breakpoint off measured width. sm < 768. Columns 2 → 3 → 4.
     const isSm = width < 768;
-    const isWide = !isSm;
-    // Card columns step 2 → 3 → 4 with width (native gets the same progression).
     const cols = width >= 1440 ? 4 : width >= 1024 ? 3 : 2;
 
     const { setSelectedEventId } = useUiStore();
 
-    // Unified search state
     const [searchState, setSearchState] = useState<{
         q: string;
         filters: EventFilterState | null;
@@ -253,14 +218,12 @@ export default function EventsPage() {
     const debouncedQuery = useDebounce(searchState.q, 500);
 
     /**
-     * Map the EventFilterState onto the /v1/events list params.
-     * Backend supports: category (csv, any-of), city, format (location.kind),
-     * mode (registrationMode), startsAfter/startsBefore (windows startsAt),
-     * sort. price_low/popular stay client-side (see sortedEvents below).
+     * Map EventFilterState onto the /v1/events list params: category (csv,
+     * any-of), city, format (location.kind), mode (registrationMode),
+     * startsAfter/startsBefore, sort. price_low/popular stay client-side.
      */
     const listParams = useMemo(() => {
-        const f = searchState.filters;
-        const adv = f?.advanced;
+        const adv = searchState.filters?.advanced;
 
         const category =
             adv?.category?.categories && adv.category.categories.length > 0
@@ -282,7 +245,6 @@ export default function EventsPage() {
                     : undefined;
 
         const { startsAfter, startsBefore } = timeFrameWindow(adv?.timing?.timeFrame);
-
         const sort = adv?.sorting?.sortBy === 'soonest' ? ('soonest' as const) : undefined;
 
         return {
@@ -302,9 +264,7 @@ export default function EventsPage() {
     const { data, isLoading: listLoading, error: listError } = useEventsList(listParams);
     const eventsList: EventDoc[] = data?.events ?? [];
 
-    // Client-side sort of the current page. `soonest` is already applied
-    // server-side via listParams.sort, so it (and `relevance`) returns as-is;
-    // only price_low / popular reorder here.
+    // Client-side sort of the current page (soonest is applied server-side).
     const sortedEvents = useMemo(() => {
         const sortBy = searchState.filters?.advanced?.sorting?.sortBy;
         const arr = [...eventsList];
@@ -323,23 +283,20 @@ export default function EventsPage() {
     }, [eventsList, searchState.filters]);
 
     const filtersState = searchState.filters ?? INITIAL_EVENT_FILTERS;
+    const [showFilterModal, setShowFilterModal] = useState(false);
+    const activeFilterCount = countActiveEventFilters(filtersState);
+    const activeCraft = craftValue(filtersState); // 'any' when no craft chosen
 
     const handleEventPress = (id: string) => {
-        if (isWeb) {
-            setSelectedEventId(id);
-            router.push(`/events/${id}`);
-        } else {
-            router.push(`/events/${id}`);
-        }
+        if (isWeb) setSelectedEventId(id);
+        router.push(`/events/${id}`);
     };
 
-    // Every surface (Remote · Rail · sort lenses) writes back through here.
     const updateFilters = (next: EventFilterState) =>
         setSearchState((prev) => ({ ...prev, filters: next, page: 1 }));
 
-    // Desktop readout — the "one state" connective tissue under the Ask bar.
-    const readoutParts = describeFilters(filtersState);
-    const sortLabel = SORT_OPTIONS.find((s) => s.value === sortValue(filtersState))?.label ?? 'Relevant';
+    const handleApplyFilters = (next: EventFilterState | null) =>
+        setSearchState((prev) => ({ ...prev, filters: next ?? INITIAL_EVENT_FILTERS, page: 1 }));
 
     /* ------------------------------ grid ------------------------------ */
     const renderGrid = () => {
@@ -371,9 +328,6 @@ export default function EventsPage() {
             );
         }
         return (
-            // Flex grid that works on web AND native. Each card sits in a width-%
-            // cell (50% → 2/row, 33.3% → 3/row); the -6 / +6 gutter keeps even
-            // spacing and left-aligns an incomplete last row.
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, marginBottom: 16 }}>
                 {sortedEvents.map((event) => (
                     <View key={event._id} style={{ width: `${100 / cols}%`, paddingHorizontal: 6 }}>
@@ -384,138 +338,142 @@ export default function EventsPage() {
         );
     };
 
-    /* ------------------------------ main column ------------------------------ */
-    const renderMain = () => (
-        <View
-            className="pt-10 pb-8"
-            style={{ width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: isSm ? 20 : 32 }}
-        >
-            {/* Hero Typography */}
-            <View className="mb-10">
-                <View className="flex-row items-center justify-between mb-8">
-                    <View className="self-start bg-white/5 border border-white/10 px-4 py-1.5 rounded-full">
-                        <Text className="text-zinc-400 text-[10px] uppercase tracking-[0.3em] font-bold">
-                            The Event Discovery
-                        </Text>
-                    </View>
-                    {userId ? (
-                        <TouchableOpacity
-                            onPress={() => router.push('/events/compose')}
-                            hitSlop={10}
-                            className="flex-row items-center gap-1.5 px-4 py-2 rounded-full bg-rose-500"
-                        >
-                            <Plus size={14} color="#fff" />
-                            <Text className="text-white text-xs font-black uppercase tracking-widest">Host</Text>
-                        </TouchableOpacity>
-                    ) : null}
-                </View>
-                <Text className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-[0.9] mb-4">
-                    EXPERIENCE THE
-                </Text>
-                <Text className="text-5xl md:text-7xl font-black text-rose-400 tracking-tighter leading-[0.9] mb-6">
-                    MAGIC LIVE.
-                </Text>
-                <Text className="text-lg md:text-xl text-zinc-400 font-light italic max-w-2xl">
-                    From underground jazz clubs to national stadiums. Discover and book tickets to the most
-                    exclusive artistic events across India.
-                </Text>
-            </View>
-
-            {/* Ask bar — the dominant, universal search */}
-            <View style={{ marginBottom: isWide ? 32 : 14 }}>
-                <View className="h-12 bg-zinc-900/50 border border-white/10 rounded-2xl flex-row items-center px-4">
-                    <Search size={20} color="#71717a" />
-                    <TextInput
-                        placeholder="Search events, cities..."
-                        placeholderTextColor="#71717a"
-                        className="flex-1 ml-3 text-white text-base font-light h-full"
-                        value={searchState.q}
-                        onChangeText={(text) => setSearchState((prev) => ({ ...prev, q: text, page: 1 }))}
-                    />
-                </View>
-
-                {/* Desktop: readout + sort lenses. Mobile: sort lives in the Remote. */}
-                {isWide && (
-                    <View className="flex-row items-center justify-between mt-5" style={{ gap: 12 }}>
-                        <Text className="text-zinc-500 text-xs flex-1" numberOfLines={1}>
-                            Showing {readoutParts.length ? readoutParts.join('  ·  ') : 'all events'}
-                            {'  ·  '}
-                            <Text style={{ color: ACTIVE_FG }}>{sortLabel.toLowerCase()}</Text>
-                        </Text>
-                        <View className="flex-row" style={{ gap: 6 }}>
-                            {SORT_OPTIONS.map((o) => {
-                                const active = sortValue(filtersState) === o.value;
-                                return (
-                                    <TouchableOpacity
-                                        key={o.value}
-                                        onPress={() => updateFilters(setSort(filtersState, o.value))}
-                                        className="h-8 px-3 rounded-lg items-center justify-center border"
-                                        style={
-                                            active
-                                                ? { backgroundColor: ACTIVE_BG, borderColor: ACTIVE_BORDER }
-                                                : { borderColor: 'rgba(255,255,255,0.08)' }
-                                        }
-                                    >
-                                        <Text
-                                            className="text-[11px] font-bold uppercase tracking-wider"
-                                            style={{ color: active ? ACTIVE_FG : '#71717a' }}
-                                        >
-                                            {o.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-                    </View>
-                )}
-            </View>
-
-            {/* Mobile: the Remote sits between the search and the grid, as a DIRECT
-                sibling of the grid — so its own zIndex + elevation (set while open)
-                lift the open overlay above the grid on iOS, Android, and web. */}
-            {!isWide && <EventRemote filters={filtersState} onChange={updateFilters} />}
-
-            {/* Events Grid — pinned explicitly below the Remote overlay (both
-                siblings need a zIndex for iOS/web ordering to be reliable). */}
-            <View style={{ zIndex: 0 }}>{renderGrid()}</View>
-        </View>
-    );
-
     return (
         <View className="flex-1 bg-black overflow-hidden">
-            {/* Background ambient effects — clipped by the root's overflow-hidden so
-                the off-screen blobs don't extend the page (web: no horizontal
-                overflow → no zoom-out / white margin). */}
+            {/* Ambient effects — clipped by overflow-hidden so off-screen blobs
+                don't cause horizontal overflow / zoom-out on web. */}
             <View className="absolute top-[10%] -left-[10%] w-[600px] h-[600px] bg-rose-900/20 rounded-full opacity-50 blur-3xl pointer-events-none" />
             <View className="absolute bottom-[10%] -right-[10%] w-[500px] h-[500px] bg-orange-900/10 rounded-full opacity-30 blur-3xl pointer-events-none" />
 
             <SafeAreaView className="flex-1" edges={['top']}>
-                {isWide ? (
-                    // Desktop / tablet — persistent Facet Rail + scrolling grid.
-                    <View style={{ flex: 1, flexDirection: 'row' }}>
-                        <EventFacetRail
-                            filters={filtersState}
-                            onChange={updateFilters}
-                            resultCount={data?.total}
-                        />
-                        <AppScrollView
-                            className="flex-1"
-                            contentContainerStyle={{ paddingBottom: 100 }}
-                            showsVerticalScrollIndicator={false}
-                        >
-                            {renderMain()}
-                        </AppScrollView>
-                    </View>
-                ) : (
-                    // Mobile — Ask bar + inline Remote (right-aligned under search).
-                    <AppScrollView
-                        className="flex-1"
-                        contentContainerStyle={{ paddingBottom: tabBarHeight + 24 }}
-                        showsVerticalScrollIndicator={false}
+                <AppScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+                    <View
+                        className="pt-10 pb-8"
+                        style={{ width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: isSm ? 20 : 32 }}
                     >
-                        {renderMain()}
-                    </AppScrollView>
-                )}
+                        {/* Hero */}
+                        <View className="mb-8">
+                            <View className="flex-row items-center justify-between mb-8">
+                                <View className="self-start bg-white/5 border border-white/10 px-4 py-1.5 rounded-full">
+                                    <Text className="text-zinc-400 text-[10px] uppercase tracking-[0.3em] font-bold">
+                                        The Event Discovery
+                                    </Text>
+                                </View>
+                                {userId ? (
+                                    <TouchableOpacity
+                                        onPress={() => router.push('/events/compose')}
+                                        hitSlop={10}
+                                        className="flex-row items-center gap-1.5 px-4 py-2 rounded-full bg-rose-500"
+                                    >
+                                        <Plus size={14} color="#fff" />
+                                        <Text className="text-white text-xs font-black uppercase tracking-widest">Host</Text>
+                                    </TouchableOpacity>
+                                ) : null}
+                            </View>
+                            <Text className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-[0.9] mb-4">
+                                EXPERIENCE THE
+                            </Text>
+                            <Text className="text-5xl md:text-7xl font-black text-rose-400 tracking-tighter leading-[0.9] mb-6">
+                                MAGIC LIVE.
+                            </Text>
+                            <Text className="text-lg md:text-xl text-zinc-400 font-light italic max-w-2xl">
+                                From underground jazz clubs to national stadiums. Discover and book tickets to the most
+                                exclusive artistic events across India.
+                            </Text>
+                        </View>
+
+                        {/* Toolbar — search (dominant) + single Filters button (opens sheet) */}
+                        <View className="flex-row items-center gap-3 mb-4">
+                            <View className="h-11 flex-1 bg-zinc-900/50 border border-white/10 rounded-2xl flex-row items-center px-4">
+                                <Search size={20} color="#71717a" />
+                                <TextInput
+                                    placeholder="Search events, cities..."
+                                    placeholderTextColor="#71717a"
+                                    className="flex-1 ml-3 text-white text-base font-light h-full"
+                                    value={searchState.q}
+                                    onChangeText={(text) => setSearchState((prev) => ({ ...prev, q: text, page: 1 }))}
+                                />
+                            </View>
+
+                            <TouchableOpacity
+                                onPress={() => setShowFilterModal(true)}
+                                className={`h-11 rounded-2xl flex-row items-center justify-center gap-2 border ${isSm ? 'px-3' : 'px-4'} ${activeFilterCount > 0 ? '' : 'bg-zinc-900/50 border-white/10'
+                                    }`}
+                                style={
+                                    activeFilterCount > 0
+                                        ? { backgroundColor: ACTIVE_BG, borderColor: ACTIVE_BORDER }
+                                        : undefined
+                                }
+                            >
+                                <SlidersHorizontal size={18} color={activeFilterCount > 0 ? ACTIVE_FG : '#fff'} />
+                                {!isSm && (
+                                    <Text
+                                        className="text-xs font-black uppercase tracking-widest"
+                                        style={{ color: activeFilterCount > 0 ? ACTIVE_FG : '#fff' }}
+                                    >
+                                        Filters
+                                    </Text>
+                                )}
+                                {activeFilterCount > 0 && (
+                                    <View
+                                        className="rounded-full w-5 h-5 items-center justify-center"
+                                        style={{ backgroundColor: ACTIVE_FG }}
+                                    >
+                                        <Text className="text-[10px] font-black" style={{ color: '#0a0a0a' }}>
+                                            {activeFilterCount}
+                                        </Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Category tabs */}
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            className="flex-grow-0 mb-6"
+                            contentContainerStyle={{ gap: 8 }}
+                        >
+                            {CRAFT_OPTIONS.map((o) => {
+                                const isActive = activeCraft === o.value;
+                                const label = o.value === 'any' ? 'All' : o.label;
+                                return (
+                                    <TouchableOpacity
+                                        key={o.value}
+                                        onPress={() => updateFilters(setCraft(filtersState, o.value))}
+                                        className={`h-8 px-3 rounded-xl items-center justify-center border ${isActive ? '' : 'bg-transparent border-white/10'
+                                            }`}
+                                        style={
+                                            isActive
+                                                ? { backgroundColor: ACTIVE_BG, borderColor: ACTIVE_BORDER }
+                                                : undefined
+                                        }
+                                    >
+                                        <Text
+                                            className={`text-[10px] font-black uppercase tracking-widest ${isActive ? '' : 'text-zinc-500'
+                                                }`}
+                                            style={isActive ? { color: ACTIVE_FG } : undefined}
+                                        >
+                                            {label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+
+                        {/* Grid */}
+                        {renderGrid()}
+                    </View>
+                </AppScrollView>
+
+                {/* Filters bottom sheet (holds all filters + sort) */}
+                <EventFilterModal
+                    visible={showFilterModal}
+                    onClose={() => setShowFilterModal(false)}
+                    filters={filtersState}
+                    onApplyFilters={handleApplyFilters}
+                    activeFilterCount={activeFilterCount}
+                />
             </SafeAreaView>
         </View>
     );

@@ -1,15 +1,53 @@
-
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
     TouchableOpacity,
     ScrollView,
     Modal,
+    Pressable,
     useWindowDimensions,
+    StyleSheet,
 } from 'react-native';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withTiming,
+    runOnJS,
+    interpolate,
+    Easing,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
+
 import { EventFilterState } from '@/types/eventFilters';
+import { INITIAL_EVENT_FILTERS, countActiveEventFilters } from '@/lib/constants/eventFilters';
+import {
+    ACTIVE_BG,
+    ACTIVE_BORDER,
+    ACTIVE_FG,
+    CRAFT_OPTIONS,
+    CITY_OPTIONS,
+    FORMAT_OPTIONS,
+    WHEN_OPTIONS,
+    PRICE_OPTIONS,
+    SORT_OPTIONS,
+    FilterOption,
+    craftValue,
+    cityValue,
+    formatValue,
+    whenValue,
+    priceValue,
+    sortValue,
+    setCraft,
+    setCity,
+    setFormat,
+    setWhen,
+    setPrice,
+    setSort,
+} from './discovery/eventFilterOptions';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface EventFilterModalProps {
     visible: boolean;
@@ -18,53 +56,6 @@ interface EventFilterModalProps {
     onApplyFilters: (filters: EventFilterState | null) => void;
     activeFilterCount: number;
 }
-
-/* ----------------------------- option data ----------------------------- */
-
-const CATEGORIES = [
-    { value: 'dance', label: 'Dance' },
-    { value: 'music', label: 'Music' },
-    { value: 'theatre', label: 'Theatre' },
-    { value: 'comedy', label: 'Comedy' },
-    { value: 'film', label: 'Film' },
-];
-
-const CITIES = [
-    { value: 'any', label: 'Any' },
-    { value: 'pune', label: 'Pune' },
-    { value: 'mumbai', label: 'Mumbai' },
-    { value: 'delhi', label: 'Delhi' },
-    { value: 'bangalore', label: 'Bangalore' },
-];
-
-const FORMATS = [
-    { value: 'any', label: 'Any' },
-    { value: 'in_person', label: 'In-person' },
-    { value: 'online', label: 'Online' },
-];
-
-const WHEN_OPTIONS = [
-    { value: 'any', label: 'Any' },
-    { value: 'today', label: 'Today' },
-    { value: 'this_weekend', label: 'This weekend' },
-    { value: 'next_7', label: 'Next 7 days' },
-    { value: 'this_month', label: 'This month' },
-];
-
-const PRICE_OPTIONS = [
-    { value: 'any', label: 'Any' },
-    { value: 'free', label: 'Free' },
-    { value: 'paid', label: 'Paid' },
-];
-
-const SORT_OPTIONS = [
-    { value: 'relevance', label: 'Relevant' },
-    { value: 'soonest', label: 'Soonest' },
-    { value: 'price_low', label: 'Price ↑' },
-    { value: 'popular', label: 'Popular' },
-];
-
-/* ----------------------------- primitives ----------------------------- */
 
 const Chip = ({
     label,
@@ -75,241 +66,213 @@ const Chip = ({
     active: boolean;
     onPress: () => void;
 }) => (
-    <TouchableOpacity
-        onPress={onPress}
-        className={`rounded-full border px-4 py-2.5 ${active ? 'bg-white border-white' : 'bg-white/5 border-white/10'
-            }`}
-    >
-        <Text className={`text-[13px] ${active ? 'text-black font-semibold' : 'text-zinc-300 font-medium'}`}>
-            {label}
-        </Text>
+    <TouchableOpacity onPress={onPress} style={[styles.chip, active && styles.chipOn]}>
+        <Text style={[styles.chipText, active && styles.chipTextOn]}>{label}</Text>
     </TouchableOpacity>
 );
 
-const Group = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <View className="mb-7">
-        <Text className="text-zinc-500 text-[11px] font-semibold uppercase tracking-widest mb-3">
-            {label}
-        </Text>
-        {children}
-    </View>
-);
-
-const Segmented = ({
+const Group = ({
+    label,
     options,
     value,
-    onChange,
+    onSelect,
 }: {
-    options: { value: string; label: string }[];
+    label: string;
+    options: FilterOption[];
     value: string;
-    onChange: (v: string) => void;
+    onSelect: (v: string) => void;
 }) => (
-    <View className="flex-row bg-white/5 rounded-xl p-1 gap-1">
-        {options.map((opt) => {
-            const active = value === opt.value;
-            return (
-                <TouchableOpacity
-                    key={opt.value}
-                    onPress={() => onChange(opt.value)}
-                    className={`flex-1 items-center py-2.5 rounded-lg ${active ? 'bg-white' : ''}`}
-                >
-                    <Text className={`text-xs ${active ? 'text-black font-semibold' : 'text-zinc-400 font-medium'}`}>
-                        {opt.label}
-                    </Text>
-                </TouchableOpacity>
-            );
-        })}
+    <View style={styles.group}>
+        <Text style={styles.gLabel}>{label}</Text>
+        <View style={styles.chips}>
+            {options.map((o) => (
+                <Chip key={o.value} label={o.label} active={value === o.value} onPress={() => onSelect(o.value)} />
+            ))}
+        </View>
     </View>
 );
 
-/* ------------------------------- modal -------------------------------- */
-
+/**
+ * EventFilterModal — a bottom sheet that slides up from the bottom (rests ~30%
+ * from the top / ≈72% tall) over a dimmed scrim. Sort lives inside (combined).
+ * Draft-then-apply: edits a local copy, commits on "Apply filters".
+ */
 export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     visible,
     onClose,
     filters,
     onApplyFilters,
-    activeFilterCount,
 }) => {
-    const { width } = useWindowDimensions();
-    const isDesktop = width >= 1024;
-    const isTablet = width >= 768 && width < 1024;
+    const { height } = useWindowDimensions();
+    const insets = useSafeAreaInsets();
+    const SHEET_H = Math.round(height * 0.72);
 
-    const [localFilters, setLocalFilters] = useState<EventFilterState>(filters);
+    const [rendered, setRendered] = useState(visible);
+    const [draft, setDraft] = useState<EventFilterState>(filters);
+    const progress = useSharedValue(0);
 
-    // Resync local state with the applied filters each time the drawer opens.
-    React.useEffect(() => {
-        if (visible) setLocalFilters(filters);
+    useEffect(() => {
+        if (visible) {
+            setDraft(filters); // resync the draft each time the sheet opens
+            setRendered(true);
+            progress.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
+        } else if (rendered) {
+            progress.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.cubic) }, (fin) => {
+                if (fin) runOnJS(setRendered)(false);
+            });
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visible]);
 
-    const adv = localFilters.advanced;
+    const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+    const sheetStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: interpolate(progress.value, [0, 1], [SHEET_H, 0]) }],
+    }));
 
-    const patch = (section: keyof EventFilterState['advanced'], updates: Record<string, any>) =>
-        setLocalFilters((prev) => ({
-            ...prev,
-            advanced: {
-                ...prev.advanced,
-                [section]: { ...prev.advanced[section], ...updates },
-            },
-        }));
-
-    const toggleInArray = (arr: string[] = [], v: string) =>
-        arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
-
-    const handleClearAll = () => {
-        onApplyFilters(null);
+    const draftCount = countActiveEventFilters(draft);
+    const apply = () => {
+        onApplyFilters(draft);
         onClose();
     };
-
-    const handleApply = () => {
-        onApplyFilters(localFilters);
-        onClose();
-    };
-
-    const modalWidth = isDesktop ? 480 : isTablet ? '60%' : '100%';
-
-    // Current selections
-    const selectedCategories = adv.category.categories || [];
-    const selectedCity = adv.location.city || 'any';
-    const selectedFormat = adv.location.format || 'any';
-    const selectedWhen = adv.timing.timeFrame || 'any';
-    const selectedPrice = adv.pricing.mode || 'any';
-    const selectedSort = adv.sorting.sortBy || 'relevance';
+    const clearAll = () => setDraft(INITIAL_EVENT_FILTERS);
 
     return (
-        <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-            <View className="flex-1 bg-black/60">
-                {/* Backdrop */}
-                <TouchableOpacity className="flex-1" activeOpacity={1} onPress={onClose} />
+        <Modal visible={rendered} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+            <View style={{ flex: 1 }}>
+                <AnimatedPressable style={[styles.backdrop, backdropStyle]} onPress={onClose} />
 
-                {/* Filter Panel */}
-                <View
-                    className="bg-zinc-950 border-l border-white/10"
-                    style={{ width: modalWidth, height: '100%', position: 'absolute', right: 0, top: 0 }}
-                >
-                    {/* Header */}
-                    <View className="border-b border-white/5 px-6 pt-14 pb-5 flex-row items-start justify-between">
-                        <View>
-                            <Text className="text-white text-2xl font-bold tracking-tight">Filters</Text>
-                            {activeFilterCount > 0 && (
-                                <Text className="text-zinc-500 text-xs mt-1">{activeFilterCount} active</Text>
-                            )}
-                        </View>
-                        <TouchableOpacity
-                            onPress={onClose}
-                            className="w-9 h-9 rounded-full bg-white/5 items-center justify-center"
-                        >
+                <Animated.View style={[styles.sheet, { height: SHEET_H }, sheetStyle]}>
+                    <View style={styles.grabber} />
+
+                    <View style={styles.head}>
+                        <Text style={styles.headTitle}>
+                            Filters{draftCount > 0 ? `   ·   ${draftCount} active` : ''}
+                        </Text>
+                        <TouchableOpacity onPress={onClose} style={styles.x}>
                             <X size={18} color="#a1a1aa" />
                         </TouchableOpacity>
                     </View>
 
-                    {/* Body */}
                     <ScrollView
-                        className="flex-1 px-6"
+                        style={styles.body}
+                        contentContainerStyle={{ paddingBottom: 24 }}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingTop: 24, paddingBottom: 40 }}
                     >
-                        <Group label="Craft">
-                            <View className="flex-row flex-wrap gap-2">
-                                {CATEGORIES.map((o) => (
-                                    <Chip
-                                        key={o.value}
-                                        label={o.label}
-                                        active={selectedCategories.includes(o.value)}
-                                        onPress={() =>
-                                            patch('category', {
-                                                categories: toggleInArray(selectedCategories, o.value),
-                                            })
-                                        }
-                                    />
-                                ))}
-                            </View>
-                        </Group>
-
-                        <Group label="City">
-                            <View className="flex-row flex-wrap gap-2">
-                                {CITIES.map((o) => (
-                                    <Chip
-                                        key={o.value}
-                                        label={o.label}
-                                        active={selectedCity === o.value}
-                                        onPress={() =>
-                                            patch('location', {
-                                                city: o.value === 'any' ? undefined : o.value,
-                                            })
-                                        }
-                                    />
-                                ))}
-                            </View>
-                        </Group>
-
-                        <Group label="Format">
-                            <Segmented
-                                options={FORMATS}
-                                value={selectedFormat}
-                                onChange={(v) => patch('location', { format: v })}
-                            />
-                        </Group>
-
-                        <Group label="When">
-                            <View className="flex-row flex-wrap gap-2">
-                                {WHEN_OPTIONS.map((o) => (
-                                    <Chip
-                                        key={o.value}
-                                        label={o.label}
-                                        active={selectedWhen === o.value}
-                                        onPress={() =>
-                                            patch('timing', {
-                                                timeFrame: o.value === 'any' ? undefined : o.value,
-                                            })
-                                        }
-                                    />
-                                ))}
-                            </View>
-                        </Group>
-
-                        <Group label="Price">
-                            <View className="flex-row flex-wrap gap-2">
-                                {PRICE_OPTIONS.map((o) => (
-                                    <Chip
-                                        key={o.value}
-                                        label={o.label}
-                                        active={selectedPrice === o.value}
-                                        onPress={() => patch('pricing', { mode: o.value })}
-                                    />
-                                ))}
-                            </View>
-                        </Group>
-
-                        <Group label="Sort by">
-                            <Segmented
-                                options={SORT_OPTIONS}
-                                value={selectedSort}
-                                onChange={(v) => patch('sorting', { sortBy: v })}
-                            />
-                        </Group>
+                        <Group label="Craft" options={CRAFT_OPTIONS} value={craftValue(draft)} onSelect={(v) => setDraft(setCraft(draft, v))} />
+                        <Group label="City" options={CITY_OPTIONS} value={cityValue(draft)} onSelect={(v) => setDraft(setCity(draft, v))} />
+                        <Group label="Format" options={FORMAT_OPTIONS} value={formatValue(draft)} onSelect={(v) => setDraft(setFormat(draft, v))} />
+                        <Group label="When" options={WHEN_OPTIONS} value={whenValue(draft)} onSelect={(v) => setDraft(setWhen(draft, v))} />
+                        <Group label="Price" options={PRICE_OPTIONS} value={priceValue(draft)} onSelect={(v) => setDraft(setPrice(draft, v))} />
+                        <Group label="Sort by" options={SORT_OPTIONS} value={sortValue(draft)} onSelect={(v) => setDraft(setSort(draft, v))} />
                     </ScrollView>
 
-                    {/* Footer */}
-                    <View className="border-t border-white/5 px-6 py-4 bg-zinc-950">
-                        <View className="flex-row gap-3">
-                            <TouchableOpacity
-                                onPress={handleClearAll}
-                                className="flex-1 h-14 rounded-2xl border border-white/10 items-center justify-center"
-                            >
-                                <Text className="text-zinc-400 font-semibold text-sm">Clear all</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={handleApply}
-                                className="flex-[2] h-14 rounded-2xl bg-white items-center justify-center"
-                            >
-                                <Text className="text-black font-bold text-sm">Apply filters</Text>
-                            </TouchableOpacity>
-                        </View>
+                    <View style={[styles.foot, { paddingBottom: 14 + insets.bottom }]}>
+                        <TouchableOpacity onPress={clearAll} style={styles.clear}>
+                            <Text style={styles.clearText}>Clear all</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={apply} style={styles.apply}>
+                            <Text style={styles.applyText}>Apply filters</Text>
+                        </TouchableOpacity>
                     </View>
-                </View>
+                </Animated.View>
             </View>
         </Modal>
     );
 };
+
+const styles = StyleSheet.create({
+    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.62)' },
+    sheet: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#0d0a0d',
+        borderTopLeftRadius: 22,
+        borderTopRightRadius: 22,
+        borderTopWidth: 1,
+        borderColor: 'rgba(255,255,255,0.10)',
+    },
+    grabber: {
+        width: 38,
+        height: 4,
+        borderRadius: 99,
+        backgroundColor: 'rgba(255,255,255,0.18)',
+        alignSelf: 'center',
+        marginTop: 10,
+        marginBottom: 4,
+    },
+    head: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 18,
+        paddingTop: 8,
+        paddingBottom: 14,
+        borderBottomWidth: 1,
+        borderColor: 'rgba(255,255,255,0.06)',
+    },
+    headTitle: { color: '#fafafa', fontSize: 19, fontWeight: '800', letterSpacing: -0.2 },
+    x: {
+        width: 32,
+        height: 32,
+        borderRadius: 99,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.10)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    body: { flex: 1, paddingHorizontal: 18, paddingTop: 18 },
+    group: { marginBottom: 22 },
+    gLabel: {
+        color: '#52525b',
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 1.5,
+        textTransform: 'uppercase',
+        marginBottom: 11,
+    },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chip: {
+        height: 36,
+        paddingHorizontal: 15,
+        borderRadius: 11,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.10)',
+        backgroundColor: 'rgba(255,255,255,0.02)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    chipOn: { backgroundColor: ACTIVE_BG, borderColor: ACTIVE_BORDER },
+    chipText: { fontSize: 13, fontWeight: '600', color: '#a1a1aa' },
+    chipTextOn: { color: ACTIVE_FG },
+    foot: {
+        flexDirection: 'row',
+        gap: 12,
+        paddingHorizontal: 18,
+        paddingTop: 14,
+        borderTopWidth: 1,
+        borderColor: 'rgba(255,255,255,0.06)',
+        backgroundColor: '#0d0a0d',
+    },
+    clear: {
+        flex: 1,
+        height: 50,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.10)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    clearText: { color: '#a1a1aa', fontSize: 13, fontWeight: '700' },
+    apply: {
+        flex: 2,
+        height: 50,
+        borderRadius: 14,
+        backgroundColor: '#fafafa',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    applyText: { color: '#0a0a0a', fontSize: 13, fontWeight: '800' },
+});

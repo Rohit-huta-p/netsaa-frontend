@@ -25,6 +25,7 @@ import { Field, Input, MiniField, P } from './edit/EditModalPrimitives';
 import { EditModalToast, type ToastState } from './edit/EditModalToast';
 import { EditModalTabBar } from './edit/EditModalTabBar';
 import { BioComposer } from './edit/BioComposer';
+import { AccountVerificationBody } from './verify/AccountVerificationBody';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -308,11 +309,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         return next;
     });
 
-    // ── Verify tab state (email add → 6-digit code → verified) ──
-    const [verifyEmail, setVerifyEmail] = useState('');
-    const [verifyStage, setVerifyStage] = useState<'idle' | 'code'>('idle');
-    const [verifyCode, setVerifyCode] = useState('');
-    const [verifyBusy, setVerifyBusy] = useState(false);
+    // Verify tab: the add-email → code → verified flow now lives in the shared
+    // <AccountVerificationBody/> (also used by the profile status-pill sheet).
     const emailVerified = !!(user as any)?.emailVerifiedAt;
 
     const visibleTabs = TABS;
@@ -552,75 +550,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     // ── TAB 0: VERIFY — email add → 6-digit code → verified ──
     // Phone rung is read-only (no CTA — OTP already verified it at signup).
     // Email is a strengthener only; success copy stays plain, no "KYC"/"Level".
-    const renderVerify = () => {
-        const phone = (user as any)?.phoneNumber || '';
-        const onSend = async () => {
-            if (verifyBusy) return; setVerifyBusy(true);
-            try { await authService.sendEmailCode(verifyEmail.trim().toLowerCase()); setVerifyStage('code'); }
-            catch (e: any) { Alert.alert('Could not send code', e?.response?.data?.meta?.message || 'Try again.'); }
-            finally { setVerifyBusy(false); }
-        };
-        const onVerify = async () => {
-            if (verifyBusy) return; setVerifyBusy(true);
-            try {
-                const updated = await authService.verifyEmailCode(verifyEmail.trim().toLowerCase(), verifyCode.trim());
-                setAuth({ user: { ...(user as any), ...updated }, accessToken: accessToken || '' });
-                setVerifyStage('idle'); setVerifyCode('');
-            } catch (e: any) { Alert.alert('Verification failed', e?.response?.data?.meta?.message || 'Check the code and try again.'); }
-            finally { setVerifyBusy(false); }
-        };
-        return (
-            <>
-                {/* Ladder card */}
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: P.border, borderRadius: 16, padding: 16, marginBottom: 22 }}>
-                    {/* Rung 1 — phone, read-only */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: emailVerified ? 14 : 16 }}>
-                        <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: P.green, alignItems: 'center', justifyContent: 'center' }}><Check size={14} color={P.green} /></View>
-                        <View style={{ flex: 1 }}><Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 15, color: P.textPrimary }}>Phone secured</Text><Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textMuted }}>{phone}</Text></View>
-                        <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 10, color: P.green, letterSpacing: 1 }}>SECURED</Text>
-                    </View>
-                    {/* Rung 2 — email */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: emailVerified ? P.green : P.orange, borderStyle: emailVerified ? 'solid' : 'dashed', alignItems: 'center', justifyContent: 'center' }}>{emailVerified ? <Check size={14} color={P.green} /> : null}</View>
-                        <View style={{ flex: 1 }}><Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 15, color: P.textPrimary }}>{emailVerified ? 'Email secured' : 'Add a backup email'}</Text><Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textMuted }}>{emailVerified ? (user as any)?.email : 'So you never lose access to your account'}</Text></View>
-                        {emailVerified ? <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 10, color: P.green, letterSpacing: 1 }}>SECURED</Text> : null}
-                    </View>
-                </View>
-
-                {!emailVerified && verifyStage === 'idle' && (
-                    <>
-                        <Field label="Backup email"><Input value={verifyEmail} onChangeText={setVerifyEmail} placeholder="name@email.com" keyboardType="email-address" autoCapitalize="none" /></Field>
-                        <Pressable onPress={onSend} disabled={verifyBusy} style={{ opacity: verifyBusy ? 0.6 : 1 }}>
-                            <View style={{ paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: P.orange }}>
-                                {verifyBusy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>Send code</Text>}
-                            </View>
-                        </Pressable>
-                        <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11, color: P.textMuted, fontStyle: 'italic', marginTop: 10 }}>Used only for receipts, alerts, and account recovery. Never shown publicly.</Text>
-                    </>
-                )}
-
-                {!emailVerified && verifyStage === 'code' && (
-                    <>
-                        <Field label="Enter the code">
-                            <Input value={verifyCode} onChangeText={setVerifyCode} placeholder="6-digit code" keyboardType="number-pad" />
-                        </Field>
-                        <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textSecondary, marginBottom: 14 }}>Sent to {verifyEmail} · <Text style={{ color: P.orange }} onPress={() => setVerifyStage('idle')}>Change</Text></Text>
-                        <Pressable onPress={onVerify} disabled={verifyBusy} style={{ opacity: verifyBusy ? 0.6 : 1 }}>
-                            <View style={{ paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: P.orange }}>
-                                {verifyBusy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>Verify</Text>}
-                            </View>
-                        </Pressable>
-                    </>
-                )}
-
-                {emailVerified && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <ShieldCheck size={15} color={P.green} /><Text style={{ fontFamily: 'Outfit-Medium', fontSize: 13, color: P.green }}>Your account is protected.</Text>
-                    </View>
-                )}
-            </>
-        );
-    };
+    const renderVerify = () => <AccountVerificationBody />;
 
     // ── TAB 1: BASIC (v1 Editorial) — "Who you are" ──
     // Underline-only fields on the page (no cards): name, headline, type +

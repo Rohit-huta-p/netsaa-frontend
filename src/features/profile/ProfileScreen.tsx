@@ -23,6 +23,7 @@ import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatu
 import { useProfileUiStore } from '@/stores/profileUiStore';
 import { computeOverallScore } from '@/components/profile/ProfileStrengthWidget';
 import { ProfileEditModal } from '@/features/profile/components/ProfileEditModal';
+import { AccountVerificationSheet } from '@/features/profile/components/verify/AccountVerificationSheet';
 import { ProfileData, ProfileVideoReel } from '@/components/profile/types';
 import NetsaVideoPlayer from '@/components/media/NetsaVideoPlayer';
 import type { ConnectionContext } from '@/types/connection';
@@ -66,6 +67,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
         showActionMenu, setShowActionMenu,
     } = useConnectionStatus(isOwner ? undefined : userId, isOwner);
     const { openSheet } = useProfileUiStore();
+    const [showVerify, setShowVerify] = useState(false);
     const [activeContext, setActiveContext] = useState<'artist' | 'hirer'>('artist');
     const [mediaViewerIndex, setMediaViewerIndex] = useState<number | null>(null);
     const [confirmAction, setConfirmAction] = useState<null | 'remove' | 'withdraw' | 'block' | 'block_report'>(null);
@@ -285,26 +287,20 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                         </Pressable>
                     ) : null}
 
-                    {/* Verification pills — always show for owner */}
-                    <View style={s.verifyRow}>
-                        {phoneVerified ? <View style={s.verifyPill}><Check size={9} color="#6B6878" strokeWidth={3} /><Text style={s.verifyText}>Phone</Text></View>
-                            : isOwner ? <View style={s.verifyPillDim}><Check size={9} color="#3A3746" strokeWidth={3} /><Text style={s.verifyTextDim}>Phone</Text></View> : null}
-                        {emailVerified ? <View style={s.verifyPill}><Check size={9} color="#6B6878" strokeWidth={3} /><Text style={s.verifyText}>Email</Text></View>
-                            : isOwner ? (
-                                <Pressable
-                                    onPress={() => openSheet('verify')}
-                                    style={({ pressed }) => [s.verifyPillDim, pressed && { opacity: 0.6 }]}
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Add email"
-                                >
-                                    <Check size={9} color="#3A3746" strokeWidth={3} />
-                                    <Text style={s.verifyTextDim}>Add a backup email</Text>
-                                </Pressable>
-                            ) : null}
-                        {kycStatus === 'verified' ? <View style={s.verifyPill}><ShieldCheck size={10} color="#6B6878" /><Text style={s.verifyText}>KYC</Text></View>
-                            : kycStatus === 'pending' ? <View style={s.verifyPillDim}><ShieldCheck size={10} color="#4A4656" /><Text style={s.verifyTextDim}>KYC Pending</Text></View>
-                            : isOwner ? <View style={s.verifyPillDim}><ShieldCheck size={10} color="#3A3746" /><Text style={s.verifyTextDim}>KYC</Text></View> : null}
-                    </View>
+                    {/* Account verification — a single green status pill that opens the verification sheet */}
+                    {isOwner && (
+                        <View style={s.verifyRow}>
+                            <Pressable
+                                onPress={() => setShowVerify(true)}
+                                style={({ pressed }) => [s.verifyStatusPill, pressed && { opacity: 0.7 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel={emailVerified && phoneVerified ? 'Account verified — view details' : 'Verify your account'}
+                            >
+                                <ShieldCheck size={11} color="#34D399" />
+                                <Text style={s.verifyStatusText}>{emailVerified && phoneVerified ? 'Verified' : 'Verify account'}</Text>
+                            </Pressable>
+                        </View>
+                    )}
 
                     {/* Connection degree + Worked Together */}
                     {!isOwner && (connectionDegree || workedTogether) && (
@@ -672,6 +668,9 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
 
             {/* ═══ 17. PROFILE EDIT MODAL ═══ */}
             {isOwner && <ProfileEditModal profileData={profileData} />}
+
+            {/* Account verification sheet — opened by the profile status pill */}
+            {isOwner && <AccountVerificationSheet visible={showVerify} onClose={() => setShowVerify(false)} />}
 
             {/* ═══ CONNECTION REQUEST SHEET ═══ */}
             {!isOwner && showRequestSheet && (
@@ -1065,6 +1064,8 @@ const s = StyleSheet.create({
     locRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
     locText: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#4A4656' },
     verifyRow: { flexDirection: 'row', gap: 6, marginTop: 10 },
+    verifyStatusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 5, paddingHorizontal: 12, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(52,211,153,0.28)', backgroundColor: 'rgba(52,211,153,0.10)' },
+    verifyStatusText: { fontFamily: 'Outfit-SemiBold', fontSize: 11, color: '#34D399', letterSpacing: 0.2 },
     verifyPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.03)' },
     verifyText: { fontFamily: 'Outfit-Medium', fontSize: 10, color: '#6B6878' },
     connRow: { flexDirection: 'row', gap: 8, marginTop: 10 },

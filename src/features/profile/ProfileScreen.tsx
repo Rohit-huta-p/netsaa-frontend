@@ -1001,8 +1001,8 @@ const s = StyleSheet.create({
     // ── 2. Avatar ──
     avatarZone: { alignItems: 'center', marginTop: -70, zIndex: 5 },
     ringWrap: { position: 'relative' },
-    ring: { width: 122, height: 122, borderRadius: 61, padding: 4, alignItems: 'center', justifyContent: 'center' },
-    avatarImg: { width: 110, height: 110, borderRadius: 55, borderWidth: 1.5, borderColor: '#0A0A10' },
+    ring: { width: 116, height: 116, borderRadius: 58, padding: 2, alignItems: 'center', justifyContent: 'center' },
+    avatarImg: { width: 110, height: 110, borderRadius: 55, borderWidth: 1, borderColor: '#0A0A10' },
     avatarInitials: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: '#0A0A10', backgroundColor: '#1A1824', alignItems: 'center', justifyContent: 'center' },
     initialsText: { fontFamily: 'Outfit-Black', fontSize: 36, color: 'rgba(255,255,255,0.12)' },
     trustBadge: { position: 'absolute', bottom: 2, right: -4, width: 28, height: 28, borderRadius: 14, borderWidth: 3, borderColor: '#0A0A10', alignItems: 'center', justifyContent: 'center' },

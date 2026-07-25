@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
     MapPin, Edit3, Settings, Share2, UserPlus, Check,
-    Star, Briefcase, Award, ChevronRight, ChevronLeft,
+    Briefcase, Award, ChevronRight, ChevronLeft,
     MessageCircle, Clock, Camera, ShieldCheck,
     Globe, Zap, DollarSign, GraduationCap,
     Users, ThumbsUp, MapPinned, BadgeCheck, Handshake,
@@ -68,7 +68,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     } = useConnectionStatus(isOwner ? undefined : userId, isOwner);
     const { openSheet } = useProfileUiStore();
     const [showVerify, setShowVerify] = useState(false);
-    const [activeContext, setActiveContext] = useState<'artist' | 'hirer'>('artist');
+    const [activeContext] = useState<'artist' | 'hirer'>('artist');
     const [mediaViewerIndex, setMediaViewerIndex] = useState<number | null>(null);
     const [confirmAction, setConfirmAction] = useState<null | 'remove' | 'withdraw' | 'block' | 'block_report'>(null);
 
@@ -266,11 +266,9 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                         <Text style={s.name}>{displayName}</Text>
                         {kycStatus === 'verified' && <BadgeCheck size={20} color="#EAB308" fill="#EAB308" style={{ marginLeft: 6 }} />}
+                        {/* Both phone + email verified → blue verified tick */}
                         {emailVerified && phoneVerified && (
-                            <View style={s.verifiedChip}>
-                                <BadgeCheck size={11} color="#EAB308" fill="#EAB308" />
-                                <Text style={s.verifiedChipText}>Verified</Text>
-                            </View>
+                            <BadgeCheck size={20} color="#fff" fill="#3B82F6" style={{ marginLeft: 6 }} />
                         )}
                     </View>
                     {artistTypeStr ? <Text style={s.artistType}>{artistTypeStr}</Text>
@@ -371,18 +369,6 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                             </Pressable>
                         </>
                     )}
-                </View>
-
-                {/* ═══ 6. CONTEXT TABS ═══ */}
-                <View style={s.ctxTabs}>
-                    <Pressable onPress={() => setActiveContext('artist')} style={[s.ctxTab, activeContext === 'artist' && s.ctxActive]}>
-                        <Star size={12} color={activeContext === 'artist' ? '#F0ECE6' : '#4A4656'} />
-                        <Text style={[s.ctxText, activeContext === 'artist' && s.ctxTextActive]}>Artist</Text>
-                    </Pressable>
-                    <Pressable onPress={() => setActiveContext('hirer')} style={[s.ctxTab, activeContext === 'hirer' && s.ctxActive]}>
-                        <Briefcase size={12} color={activeContext === 'hirer' ? '#F0ECE6' : '#4A4656'} />
-                        <Text style={[s.ctxText, activeContext === 'hirer' && s.ctxTextActive]}>Lead</Text>
-                    </Pressable>
                 </View>
 
                 {/* ═══ HIRER PERSPECTIVE (non-owner + hirer tab) ═══ */}
@@ -604,36 +590,6 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                             ) : null}
                             <View style={s.socialCircle}><Globe size={20} color="#6B6878" /></View>
                         </View>
-                    </View>
-                )}
-
-                {/* ═══ 14. REVIEWS — Testimonial Style ═══ */}
-                {(reviews.length > 0 || totalReviews > 0 || isOwner) && (
-                    <View style={s.reviewsSection}>
-                        <Text style={s.sectionLabel}>Reviews ({totalReviews || reviews.length})</Text>
-                        {reviews.length === 0 && isOwner ? (
-                            <View style={s.placeholderCard}>
-                                <Star size={20} color="#4A4656" />
-                                <Text style={s.placeholderTitle}>No reviews yet</Text>
-                                <Text style={s.placeholderDesc}>Complete your first gig to receive reviews from hirers</Text>
-                            </View>
-                        ) : null}
-                        {reviews.slice(0, 3).map((rev: any, i: number) => (
-                            <View key={i} style={s.testimonialCard}>
-                                <Text style={s.testimonialQuote}>&ldquo;</Text>
-                                <View style={s.starsRow}>
-                                    {[1, 2, 3, 4, 5].map(n => <Star key={n} size={12} color={n <= (rev.rating || 5) ? '#EAB308' : '#2A2735'} fill={n <= (rev.rating || 5) ? '#EAB308' : 'transparent'} />)}
-                                </View>
-                                <Text style={s.testimonialText}>{rev.text || rev.comment || rev.review}</Text>
-                                <View style={s.testimonialFooter}>
-                                    <Text style={s.testimonialAuthor}>&mdash; {rev.reviewerName || rev.author || 'Anonymous'}</Text>
-                                    {rev.context && <View style={s.revCtxBadge}><Text style={s.revCtxText}>{rev.context}</Text></View>}
-                                </View>
-                            </View>
-                        ))}
-                        {(totalReviews || reviews.length) > 3 && (
-                            <Pressable style={s.seeAll}><Text style={s.seeAllText}>See all {totalReviews || reviews.length} reviews</Text><ChevronRight size={14} color="#F97316" /></Pressable>
-                        )}
                     </View>
                 )}
 
@@ -1046,7 +1002,7 @@ const s = StyleSheet.create({
     avatarZone: { alignItems: 'center', marginTop: -70, zIndex: 5 },
     ringWrap: { position: 'relative' },
     ring: { width: 122, height: 122, borderRadius: 61, padding: 4, alignItems: 'center', justifyContent: 'center' },
-    avatarImg: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: '#0A0A10' },
+    avatarImg: { width: 110, height: 110, borderRadius: 55, borderWidth: 1.5, borderColor: '#0A0A10' },
     avatarInitials: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: '#0A0A10', backgroundColor: '#1A1824', alignItems: 'center', justifyContent: 'center' },
     initialsText: { fontFamily: 'Outfit-Black', fontSize: 36, color: 'rgba(255,255,255,0.12)' },
     trustBadge: { position: 'absolute', bottom: 2, right: -4, width: 28, height: 28, borderRadius: 14, borderWidth: 3, borderColor: '#0A0A10', alignItems: 'center', justifyContent: 'center' },

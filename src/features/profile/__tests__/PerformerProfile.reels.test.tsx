@@ -67,6 +67,12 @@ jest.mock('@/components/media/NetsaVideoPlayer', () => ({
         const { View } = require('react-native');
         return <View testID="netsa-video-player" />;
     },
+    // PerformerProfile imports this named helper to decide the rotate-fullscreen cue.
+    parseAspectRatio: (a?: string) => {
+        if (!a) return undefined;
+        if (a.includes(':')) { const [w, h] = a.split(':').map(Number); return w > 0 && h > 0 ? w / h : undefined; }
+        const n = Number(a); return n > 0 ? n : undefined;
+    },
 }));
 
 import { PerformerProfile } from '../PerformerProfile';

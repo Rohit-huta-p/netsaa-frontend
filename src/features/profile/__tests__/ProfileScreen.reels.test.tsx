@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { Image } from 'react-native';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 
 // ── expo-router + expo-linear-gradient are mocked globally in jest-setup.ts ──
 
@@ -90,6 +90,12 @@ jest.mock('@/components/media/NetsaVideoPlayer', () => ({
         const { View } = require('react-native');
         return <View testID="netsa-video-player" />;
     },
+    // ProfileScreen imports this named helper to decide the rotate-fullscreen cue.
+    parseAspectRatio: (a?: string) => {
+        if (!a) return undefined;
+        if (a.includes(':')) { const [w, h] = a.split(':').map(Number); return w > 0 && h > 0 ? w / h : undefined; }
+        const n = Number(a); return n > 0 ? n : undefined;
+    },
 }));
 
 import { ProfileScreen } from '../ProfileScreen';
@@ -150,6 +156,26 @@ describe('ProfileScreen — self-view converges to videoReels + NetsaVideoPlayer
         );
         // The old fake "Video" play-badge text must be gone from the viewer.
         expect(utils.queryByText('Video')).toBeNull();
+    });
+
+    it('hides the nav pill while a video is in fullscreen, and restores it on exit', () => {
+        setAuthUser({ galleryUrls: ['https://img.example/photo1.jpg'], videoReels: [READY_REEL] });
+
+        const utils = render(<ProfileScreen userId="u1" isOwner={true} />);
+        pressBentoPosterByUri(utils, READY_REEL.thumbnailUrl);
+
+        // Viewer open, not fullscreen: the counter pill is present (2 items).
+        expect(utils.queryByText('2')).toBeTruthy();
+
+        // Drive the player's fullscreen-enter callback (what VideoView fires).
+        const onFullscreenChange = mockNetsaVideoPlayerSpy.mock.calls.at(-1)?.[0]?.onFullscreenChange;
+        expect(typeof onFullscreenChange).toBe('function');
+
+        act(() => onFullscreenChange(true));
+        expect(utils.queryByText('2')).toBeNull();
+
+        act(() => onFullscreenChange(false));
+        expect(utils.queryByText('2')).toBeTruthy();
     });
 
     it('excludes non-ready reels (processing/errored) from the viewable media', () => {

@@ -1,8 +1,9 @@
 // src/features/profile/__tests__/ProfileScreen.masthead.test.tsx
 //
-// Covers the left-masthead identity block: the craft kicker's "cap at two + N"
-// rule, the "+N" popover that reveals the hidden crafts, and the labelled
-// action pills ("Share profile", not a bare "Share").
+// Covers the centred identity block: the craft kicker's "cap at three + N" rule,
+// the city on its own line, the single green verification pill that replaced the
+// Phone/Email/KYC chips, the "+N" popover, and the labelled action pills
+// ("Share profile", not a bare "Share").
 //
 // Scoped to the owner/self-view render path, matching ProfileScreen.reels.test.
 
@@ -68,23 +69,50 @@ function setUser(overrides: Record<string, any>) {
     (global as any).__mockUser = { ...mockUser, ...overrides };
 }
 
-describe('ProfileScreen — left masthead', () => {
-    it('shows every craft when there are two or fewer (no "+N")', () => {
-        setUser({ artistType: ['Dancer', 'Actor'], location: 'Pune' });
+describe('ProfileScreen — identity masthead', () => {
+    it('shows every craft when there are three or fewer (no "+N")', () => {
+        setUser({ artistType: ['Dancer', 'Actor', 'Choreographer'], location: 'Pune' });
         const { getByText, queryByText } = render(<ProfileScreen userId="u1" isOwner />);
 
-        // Kicker is a single Text: "DANCER · ACTOR · PUNE"
-        expect(getByText(/DANCER · ACTOR/)).toBeTruthy();
+        expect(getByText(/DANCER · ACTOR · CHOREOGRAPHER/)).toBeTruthy();
         expect(queryByText(/\+\d/)).toBeNull();
     });
 
-    it('caps the kicker at two crafts and carries the rest as "+N"', () => {
+    it('puts the city on its own line, not in the craft kicker', () => {
+        setUser({ artistType: ['Dancer', 'Actor'], location: 'Pune' });
+        const { getByText, queryByText } = render(<ProfileScreen userId="u1" isOwner />);
+
+        // City is its own element...
+        expect(getByText('PUNE')).toBeTruthy();
+        // ...and is NOT appended to the craft line.
+        expect(queryByText(/ACTOR · PUNE/)).toBeNull();
+    });
+
+    it('caps the kicker at three crafts and carries the rest as "+N"', () => {
         setUser({ artistType: ['Dancer', 'Actor', 'Choreographer', 'Model'], location: 'Pune' });
         const { getByText, queryByText } = render(<ProfileScreen userId="u1" isOwner />);
 
-        expect(getByText(' +2')).toBeTruthy();
-        // The capped-away crafts must NOT be in the kicker line.
-        expect(queryByText(/CHOREOGRAPHER/)).toBeNull();
+        expect(getByText(' +1')).toBeTruthy();
+        // The capped-away craft must NOT be in the kicker line.
+        expect(queryByText(/MODEL/)).toBeNull();
+    });
+
+    it('shows a single green verification pill instead of the Phone/Email/KYC chips', () => {
+        setUser({ artistType: ['Dancer'], location: 'Pune' });
+        const { getByText, queryByText } = render(<ProfileScreen userId="u1" isOwner />);
+
+        expect(getByText('Verify account')).toBeTruthy();
+        expect(queryByText('Phone')).toBeNull();
+        expect(queryByText('Email')).toBeNull();
+        expect(queryByText('KYC')).toBeNull();
+    });
+
+    it('reads "Verified" once phone and email are both confirmed', () => {
+        setUser({ artistType: ['Dancer'], location: 'Pune', phoneVerifiedAt: '2026-01-01', emailVerifiedAt: '2026-01-02' });
+        const { getByText, queryByText } = render(<ProfileScreen userId="u1" isOwner />);
+
+        expect(getByText('Verified')).toBeTruthy();
+        expect(queryByText('Verify account')).toBeNull();
     });
 
     it('reveals only the hidden crafts when "+N" is tapped, and hides them again', () => {
@@ -93,19 +121,19 @@ describe('ProfileScreen — left masthead', () => {
 
         expect(utils.queryByTestId('craft-popover')).toBeNull();
 
-        fireEvent.press(utils.getByText(' +2'));
+        fireEvent.press(utils.getByText(' +1'));
 
         // Scope to the popover: the crafts also appear as chips in the Skills
         // section further down the profile, so a global query would be ambiguous.
         const pop = within(utils.getByTestId('craft-popover'));
         expect(pop.getByText('Also works as')).toBeTruthy();
-        expect(pop.getByText('Choreographer')).toBeTruthy();
         expect(pop.getByText('Model')).toBeTruthy();
-        // The two already shown in the kicker are not repeated in the card.
+        // The three already shown in the kicker are not repeated in the card.
         expect(pop.queryByText('Dancer')).toBeNull();
         expect(pop.queryByText('Actor')).toBeNull();
+        expect(pop.queryByText('Choreographer')).toBeNull();
 
-        fireEvent.press(utils.getByText(' +2'));
+        fireEvent.press(utils.getByText(' +1'));
         expect(utils.queryByTestId('craft-popover')).toBeNull();
     });
 

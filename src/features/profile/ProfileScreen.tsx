@@ -69,8 +69,9 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const { openSheet } = useProfileUiStore();
     // Context is fixed to 'artist' now that the Artist/Lead tabs are gone.
     const [activeContext] = useState<'artist' | 'hirer'>('artist');
-    // "+N" crafts popover in the masthead kicker (see craftsHidden below).
+    // "+N" crafts popover. It opens upward, so we need its measured height to offset it.
     const [showCrafts, setShowCrafts] = useState(false);
+    const [craftPopH, setCraftPopH] = useState(0);
     const [mediaViewerIndex, setMediaViewerIndex] = useState<number | null>(null);
     // Live index inside the fullscreen viewer — drives the nav pill counter and
     // arrow enabled/disabled state. Synced to the tapped slot on open, then to
@@ -118,14 +119,16 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const displayName = u.displayName || u.firstName || 'Artist';
     const artistTypes = u.artistType || u.artistTypes || [];
     const artistTypeStr = Array.isArray(artistTypes) ? artistTypes.join(' \u00b7 ') : artistTypes;
-    // Masthead kicker is uppercase + letter-spaced (the widest way to set text), so
-    // cap the crafts at two and carry the rest as "+N". Keeps the line to ONE row at
-    // any craft count and stops the city being pushed out of sight. The full list
-    // stays available via the +N popover (and in Skills further down).
+    // The kicker is uppercase + letter-spaced (the widest way to set text), so cap the
+    // crafts and carry the rest as "+N" — this keeps it to ONE row at any craft count.
+    // Cap is 3 because the city sits on its own line below rather than sharing this one:
+    // measured, 3 crafts = 246px against 335px available on a 375px screen (and it still
+    // fits 320px); 4 = 311px, which wraps on a small phone. numberOfLines={1} is the
+    // backstop for long craft NAMES, which the cap can't protect against.
     const craftList: string[] = Array.isArray(artistTypes)
         ? artistTypes.filter(Boolean).map(String)
         : artistTypes ? [String(artistTypes)] : [];
-    const CRAFT_CAP = 2;
+    const CRAFT_CAP = 3;
     const craftsShown = craftList.slice(0, CRAFT_CAP);
     const craftsHidden = craftList.slice(CRAFT_CAP);
     const location = u.location || u.cached?.primaryCity || '';
@@ -265,61 +268,82 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
 
                 {/* ═══ 3. IDENTITY (left masthead) ═══ */}
                 <View style={s.identity}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                         <Text style={s.name}>{displayName}</Text>
                         {kycStatus === 'verified' && <BadgeCheck size={20} color="#EAB308" fill="#EAB308" style={{ marginLeft: 6 }} />}
                     </View>
 
-                    {/* Kicker: CRAFT · CRAFT +N · CITY — one line at any craft count. */}
-                    {(craftList.length > 0 || location) ? (
-                        <Text style={s.kicker} numberOfLines={1}>
-                            {craftsShown.map((c) => c.toUpperCase()).join(' · ')}
-                            {craftsHidden.length > 0 && (
-                                <Text
-                                    style={s.kickerMore}
-                                    onPress={() => setShowCrafts((v) => !v)}
-                                    suppressHighlighting
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`Also works as ${craftsHidden.join(', ')}`}
+                    {/* Kicker: CRAFT · CRAFT · CRAFT +N. City sits on its own line below,
+                        which is what lets the cap be 3 rather than 2. */}
+                    {craftList.length > 0 ? (
+                        <View style={s.kickerWrap}>
+                            <Text style={s.kicker} numberOfLines={1}>
+                                {craftsShown.map((c) => c.toUpperCase()).join(' · ')}
+                                {craftsHidden.length > 0 && (
+                                    <Text
+                                        style={s.kickerMore}
+                                        onPress={() => setShowCrafts((v) => !v)}
+                                        suppressHighlighting
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Also works as ${craftsHidden.join(', ')}`}
+                                    >
+                                        {` +${craftsHidden.length}`}
+                                    </Text>
+                                )}
+                            </Text>
+
+                            {/* "+N" popover — opens UPWARD over the name. Downward it would
+                                land on the verify pill and the connection count, i.e. the only
+                                two tappable things nearby. Offset by its measured height so it
+                                never overlaps the kicker it belongs to. */}
+                            {showCrafts && craftsHidden.length > 0 && (
+                                <View
+                                    style={[s.craftPop, { top: -(craftPopH + 7), opacity: craftPopH ? 1 : 0 }]}
+                                    onLayout={(e) => setCraftPopH(e.nativeEvent.layout.height)}
+                                    testID="craft-popover"
                                 >
-                                    {` +${craftsHidden.length}`}
-                                </Text>
+                                    <Text style={s.craftPopHead}>Also works as</Text>
+                                    {craftsHidden.map((c, i) => (
+                                        <View key={`${c}-${i}`} style={s.craftPopItem}>
+                                            <View style={s.craftPopDot} />
+                                            <Text style={s.craftPopText}>{c}</Text>
+                                        </View>
+                                    ))}
+                                </View>
                             )}
-                            {location ? (
-                                <Text style={s.kickerCity}>
-                                    {`${craftsShown.length > 0 ? ' · ' : ''}${location.toUpperCase()}`}
-                                </Text>
-                            ) : null}
-                        </Text>
+                        </View>
                     ) : isOwner ? (
-                        <Pressable onPress={() => openSheet('header')}><Text style={s.placeholderTap}>Add your craft and city</Text></Pressable>
+                        <Pressable onPress={() => openSheet('header')}><Text style={s.placeholderTap}>Add your craft</Text></Pressable>
                     ) : null}
 
-                    {/* "+N" popover — the hidden crafts only; the visible two are right above. */}
-                    {showCrafts && craftsHidden.length > 0 && (
-                        <View style={s.craftPop} testID="craft-popover">
-                            <Text style={s.craftPopHead}>Also works as</Text>
-                            {craftsHidden.map((c, i) => (
-                                <View key={`${c}-${i}`} style={s.craftPopItem}>
-                                    <View style={s.craftPopDot} />
-                                    <Text style={s.craftPopText}>{c}</Text>
-                                </View>
-                            ))}
-                        </View>
+                    {/* City — its own line under the crafts */}
+                    {location ? (
+                        <Text style={s.cityLine} numberOfLines={1}>{location.toUpperCase()}</Text>
+                    ) : isOwner ? (
+                        <Pressable onPress={() => openSheet('header')}><Text style={s.placeholderTap}>Add your location</Text></Pressable>
+                    ) : null}
+
+                    {/* Account verification — one green status pill replacing the three
+                        Phone/Email/KYC chips. Owner-only: verifying is an action only they
+                        can take. Points at settings/security, which is where account
+                        security lives today. */}
+                    {isOwner && (
+                        <Pressable
+                            onPress={() => router.push('/(app)/settings/security' as any)}
+                            style={({ pressed }) => [s.verifyStatusPill, pressed && { opacity: 0.7 }]}
+                            accessibilityRole="button"
+                            accessibilityLabel={phoneVerified && emailVerified ? 'Account verified' : 'Verify your account'}
+                        >
+                            <ShieldCheck size={11} color="#34D399" />
+                            <Text style={s.verifyStatusText}>
+                                {phoneVerified && emailVerified ? 'Verified' : 'Verify account'}
+                            </Text>
+                        </Pressable>
                     )}
 
-                    {/* Verification pills + connection count share one wrapping row */}
+                    {/* Connections — §2D entry point #2, styled as a real link (orange count
+                        + chevron) so it reads tappable rather than as another line of text. */}
                     <View style={s.verifyRow}>
-                        {phoneVerified ? <View style={s.verifyPill}><Check size={9} color="#6B6878" strokeWidth={3} /><Text style={s.verifyText}>Phone</Text></View>
-                            : isOwner ? <View style={s.verifyPillDim}><Check size={9} color="#3A3746" strokeWidth={3} /><Text style={s.verifyTextDim}>Phone</Text></View> : null}
-                        {emailVerified ? <View style={s.verifyPill}><Check size={9} color="#6B6878" strokeWidth={3} /><Text style={s.verifyText}>Email</Text></View>
-                            : isOwner ? <View style={s.verifyPillDim}><Check size={9} color="#3A3746" strokeWidth={3} /><Text style={s.verifyTextDim}>Email</Text></View> : null}
-                        {kycStatus === 'verified' ? <View style={s.verifyPill}><ShieldCheck size={10} color="#6B6878" /><Text style={s.verifyText}>KYC</Text></View>
-                            : kycStatus === 'pending' ? <View style={s.verifyPillDim}><ShieldCheck size={10} color="#4A4656" /><Text style={s.verifyTextDim}>KYC Pending</Text></View>
-                            : isOwner ? <View style={s.verifyPillDim}><ShieldCheck size={10} color="#3A3746" /><Text style={s.verifyTextDim}>KYC</Text></View> : null}
-
-                        {/* Connections — §2D entry point #2. Lives inline here now, styled as a
-                            real link (orange count + chevron) so it reads tappable. */}
                         {(connections > 0 || isOwner) && (
                             <Pressable
                                 onPress={() => router.push('/network' as any)}
@@ -1074,8 +1098,7 @@ const s = StyleSheet.create({
     backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' },
 
     // ── 2. Avatar ──
-    // Left masthead: avatar aligns with the name/kicker below it, not centred.
-    avatarZone: { alignItems: 'flex-start', paddingLeft: 20, marginTop: -70, zIndex: 5 },
+    avatarZone: { alignItems: 'center', marginTop: -70, zIndex: 5 },
     ringWrap: { position: 'relative' },
     ring: { width: 116, height: 116, borderRadius: 58, padding: 2, alignItems: 'center', justifyContent: 'center' },
     avatarImg: { width: 110, height: 110, borderRadius: 55, borderWidth: 1, borderColor: '#0A0A10' },
@@ -1087,22 +1110,24 @@ const s = StyleSheet.create({
     scorePill: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 10 },
     scoreText: { fontFamily: 'Outfit-Black', fontSize: 11, color: '#fff' },
 
-    // ── 3. Identity (left masthead) ──
-    identity: { alignItems: 'flex-start', paddingHorizontal: 20, paddingTop: 14, position: 'relative' },
-    name: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 30, color: '#F0ECE6', letterSpacing: -0.5 },
+    // ── 3. Identity (centred) ──
+    identity: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, position: 'relative' },
+    name: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 30, color: '#F0ECE6', letterSpacing: -0.5, textAlign: 'center' },
+    // Anchors the upward popover to the kicker rather than the whole card.
+    kickerWrap: { alignItems: 'center', position: 'relative' },
     // Kicker sets the craft + city as a Space Mono rubric under the name.
-    kicker: { fontFamily: 'SpaceMono-Regular', fontSize: 10.5, letterSpacing: 1.6, color: '#6B6878', marginTop: 7 },
+    kicker: { fontFamily: 'SpaceMono-Regular', fontSize: 10.5, letterSpacing: 1.6, color: '#6B6878', marginTop: 7, textAlign: 'center' },
     kickerMore: { color: '#FF6B35' },
-    kickerCity: { color: '#4A4656' },
+    cityLine: { fontFamily: 'SpaceMono-Regular', fontSize: 10.5, letterSpacing: 1.6, color: '#4A4656', marginTop: 5, textAlign: 'center' },
     // "+N" popover — floats, so the masthead never changes height.
-    craftPop: { position: 'absolute', left: 20, top: 78, zIndex: 30, minWidth: 150, paddingVertical: 9, paddingHorizontal: 4, borderRadius: 12, backgroundColor: 'rgba(18,16,24,0.97)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.13)', shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.55, shadowRadius: 20, elevation: 12 },
+    craftPop: { position: 'absolute', zIndex: 30, minWidth: 150, paddingVertical: 9, paddingHorizontal: 4, borderRadius: 12, backgroundColor: 'rgba(18,16,24,0.97)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.13)', shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.55, shadowRadius: 20, elevation: 12 },
     craftPopHead: { fontFamily: 'SpaceMono-Regular', fontSize: 8, letterSpacing: 1.4, textTransform: 'uppercase', color: '#4A4656', paddingHorizontal: 10, paddingBottom: 6 },
     craftPopItem: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 5, paddingHorizontal: 10 },
     craftPopDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#FF6B35' },
     craftPopText: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#D6D1DE' },
-    verifyRow: { flexDirection: 'row', gap: 6, marginTop: 10, alignItems: 'center', flexWrap: 'wrap' },
-    verifyPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.03)' },
-    verifyText: { fontFamily: 'Outfit-Medium', fontSize: 10, color: '#6B6878' },
+    verifyStatusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 5, paddingHorizontal: 12, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(52,211,153,0.28)', backgroundColor: 'rgba(52,211,153,0.10)', marginTop: 9 },
+    verifyStatusText: { fontFamily: 'Outfit-Medium', fontSize: 11.5, color: '#34D399' },
+    verifyRow: { flexDirection: 'row', gap: 6, marginTop: 10, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' },
     connRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
     connPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.03)' },
     connPillText: { fontFamily: 'Outfit-Bold', fontSize: 11, color: '#F0ECE6' },
@@ -1114,7 +1139,7 @@ const s = StyleSheet.create({
     connectionsLabel: { fontFamily: 'Outfit-Regular', fontSize: 11.5, color: '#9A94A6' },
 
     // ── 5. Action pills (labelled, left-aligned under the masthead) ──
-    ctaRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 20, marginTop: 16 },
+    ctaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 20, marginTop: 16 },
     ctaPillWrap: { borderRadius: 100, overflow: 'hidden' },
     ctaPillSolid: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 100 },
     ctaPillSolidText: { fontFamily: 'Outfit-SemiBold', fontSize: 12.5, color: '#fff' },
@@ -1218,8 +1243,6 @@ const s = StyleSheet.create({
     placeholderDesc: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#3A3746', marginTop: 4, textAlign: 'center', lineHeight: 18 },
 
     // ── Verify pill dim (unverified owner) ──
-    verifyPillDim: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)', backgroundColor: 'rgba(255,255,255,0.01)' },
-    verifyTextDim: { fontFamily: 'Outfit-Medium', fontSize: 10, color: '#3A3746' },
 
     // ── Bento placeholder ──
     bentoPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },

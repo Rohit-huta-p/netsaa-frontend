@@ -57,6 +57,10 @@ jest.mock('@/stores/notificationsStore', () => ({
 jest.mock('@/components/profile/ProfileStrengthWidget', () => ({ computeOverallScore: () => 100 }));
 jest.mock('@/components/profile/SimilarRail', () => ({ SimilarRail: () => null }));
 jest.mock('@/features/profile/components/ProfileEditModal', () => ({ ProfileEditModal: () => null }));
+jest.mock('@/services/authService', () => ({
+    __esModule: true,
+    default: { sendEmailCode: jest.fn(), verifyEmailCode: jest.fn() },
+}));
 jest.mock('@/components/media/NetsaVideoPlayer', () => ({
     __esModule: true,
     default: () => null,
@@ -113,6 +117,17 @@ describe('ProfileScreen — identity masthead', () => {
 
         expect(getByText('Verified')).toBeTruthy();
         expect(queryByText('Verify account')).toBeNull();
+    });
+
+    it('opens the account-verification sheet when the green pill is tapped', () => {
+        setUser({ artistType: ['Dancer'], location: 'Pune' });
+        const utils = render(<ProfileScreen userId="u1" isOwner />);
+
+        // Sheet is closed until asked for.
+        expect(utils.queryByText('Secure your account')).toBeNull();
+
+        fireEvent.press(utils.getByLabelText('Verify your account'));
+        expect(utils.getByText('Secure your account')).toBeTruthy();
     });
 
     it('reveals only the hidden crafts when "+N" is tapped, and hides them again', () => {

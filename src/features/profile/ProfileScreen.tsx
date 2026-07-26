@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
-    Edit3, Settings, Share2, UserPlus, Check,
+    MapPin, Edit3, Settings, Share2, UserPlus, Check,
     Briefcase, Award, ChevronRight, ChevronLeft,
     MessageCircle, Clock, Camera, ShieldCheck,
     Globe, Zap, DollarSign, GraduationCap,
@@ -22,6 +22,7 @@ import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatu
 import { useProfileUiStore } from '@/stores/profileUiStore';
 import { computeOverallScore } from '@/components/profile/ProfileStrengthWidget';
 import { ProfileEditModal } from '@/features/profile/components/ProfileEditModal';
+import { AccountVerificationSheet } from '@/features/profile/components/verify/AccountVerificationSheet';
 import { ProfileData, ProfileVideoReel } from '@/components/profile/types';
 import NetsaVideoPlayer, { parseAspectRatio } from '@/components/media/NetsaVideoPlayer';
 import type { ConnectionContext } from '@/types/connection';
@@ -72,6 +73,8 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     // "+N" crafts popover. It opens upward, so we need its measured height to offset it.
     const [showCrafts, setShowCrafts] = useState(false);
     const [craftPopH, setCraftPopH] = useState(0);
+    // Account-verification sheet, opened from the green status pill.
+    const [showVerify, setShowVerify] = useState(false);
     const [mediaViewerIndex, setMediaViewerIndex] = useState<number | null>(null);
     // Live index inside the fullscreen viewer — drives the nav pill counter and
     // arrow enabled/disabled state. Synced to the tapped slot on open, then to
@@ -318,21 +321,23 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
 
                     {/* City — its own line under the crafts */}
                     {location ? (
-                        <Text style={s.cityLine} numberOfLines={1}>{location.toUpperCase()}</Text>
+                        <View style={s.cityRow}>
+                            <MapPin size={11} color="#8B8598" />
+                            <Text style={s.cityLine} numberOfLines={1}>{location.toUpperCase()}</Text>
+                        </View>
                     ) : isOwner ? (
                         <Pressable onPress={() => openSheet('header')}><Text style={s.placeholderTap}>Add your location</Text></Pressable>
                     ) : null}
 
                     {/* Account verification — one green status pill replacing the three
                         Phone/Email/KYC chips. Owner-only: verifying is an action only they
-                        can take. Points at settings/security, which is where account
-                        security lives today. */}
+                        can take. Opens the account-verification sheet. */}
                     {isOwner && (
                         <Pressable
-                            onPress={() => router.push('/(app)/settings/security' as any)}
+                            onPress={() => setShowVerify(true)}
                             style={({ pressed }) => [s.verifyStatusPill, pressed && { opacity: 0.7 }]}
                             accessibilityRole="button"
-                            accessibilityLabel={phoneVerified && emailVerified ? 'Account verified' : 'Verify your account'}
+                            accessibilityLabel={phoneVerified && emailVerified ? 'Account verified — view details' : 'Verify your account'}
                         >
                             <ShieldCheck size={11} color="#34D399" />
                             <Text style={s.verifyStatusText}>
@@ -728,6 +733,9 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
             {/* ═══ 17. PROFILE EDIT MODAL ═══ */}
             {isOwner && <ProfileEditModal profileData={profileData} />}
 
+            {/* Account verification — opened by the green status pill above */}
+            {isOwner && <AccountVerificationSheet visible={showVerify} onClose={() => setShowVerify(false)} />}
+
             {/* ═══ CONNECTION REQUEST SHEET ═══ */}
             {!isOwner && showRequestSheet && (
                 <ConnectionRequestSheet
@@ -1118,7 +1126,11 @@ const s = StyleSheet.create({
     // Kicker sets the craft + city as a Space Mono rubric under the name.
     kicker: { fontFamily: 'SpaceMono-Regular', fontSize: 10.5, letterSpacing: 1.6, color: '#6B6878', marginTop: 7, textAlign: 'center' },
     kickerMore: { color: '#FF6B35' },
-    cityLine: { fontFamily: 'SpaceMono-Regular', fontSize: 10.5, letterSpacing: 1.6, color: '#4A4656', marginTop: 5, textAlign: 'center' },
+    // City sits under the crafts with a pin so it reads as a PLACE at a glance,
+    // not a fainter copy of the kicker. #4A4656 measured 2.16:1 against the
+    // background — below every WCAG threshold; #8B8598 is 5.55:1.
+    cityRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
+    cityLine: { fontFamily: 'SpaceMono-Regular', fontSize: 10.5, letterSpacing: 1.6, color: '#8B8598', textAlign: 'center' },
     // "+N" popover — floats, so the masthead never changes height.
     craftPop: { position: 'absolute', zIndex: 30, minWidth: 150, paddingVertical: 9, paddingHorizontal: 4, borderRadius: 12, backgroundColor: 'rgba(18,16,24,0.97)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.13)', shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.55, shadowRadius: 20, elevation: 12 },
     craftPopHead: { fontFamily: 'SpaceMono-Regular', fontSize: 8, letterSpacing: 1.4, textTransform: 'uppercase', color: '#4A4656', paddingHorizontal: 10, paddingBottom: 6 },

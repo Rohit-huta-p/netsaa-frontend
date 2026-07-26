@@ -24,8 +24,13 @@ jest.mock('@/stores/authStore', () => {
     return { __esModule: true, useAuthStore };
 });
 
+// Owner tests read the auth store; the visitor test reads this instead.
 jest.mock('@/hooks/useUser', () => ({
-    useUser: () => ({ data: undefined, isLoading: false, error: null }),
+    useUser: (id?: string) => ({
+        data: id ? { _id: id, displayName: 'Meera Nair', artistType: ['Dancer'], location: 'Pune' } : undefined,
+        isLoading: false,
+        error: null,
+    }),
 }));
 
 jest.mock('@/features/profile/hooks/useConnectionStatus', () => ({
@@ -57,6 +62,10 @@ jest.mock('@/stores/notificationsStore', () => ({
 jest.mock('@/components/profile/ProfileStrengthWidget', () => ({ computeOverallScore: () => 100 }));
 jest.mock('@/components/profile/SimilarRail', () => ({ SimilarRail: () => null }));
 jest.mock('@/features/profile/components/ProfileEditModal', () => ({ ProfileEditModal: () => null }));
+jest.mock('@/services/conversationService', () => ({
+    __esModule: true,
+    default: { createConversation: jest.fn().mockResolvedValue({ _id: 'c1' }) },
+}));
 jest.mock('@/services/authService', () => ({
     __esModule: true,
     default: { sendEmailCode: jest.fn(), verifyEmailCode: jest.fn() },
@@ -169,5 +178,15 @@ describe('ProfileScreen — identity masthead', () => {
 
         expect(getByLabelText('Open network')).toBeTruthy();
         expect(getByText('128')).toBeTruthy();
+    });
+
+    // ── visitor view: one primary pill, no standalone Message ──
+    it('a visitor who is NOT connected sees Connect and no Message pill', () => {
+        setUser({ artistType: ['Dancer'], location: 'Pune' });
+        const { getByText, queryByText } = render(<ProfileScreen userId="u2" isOwner={false} />);
+
+        expect(getByText('Connect')).toBeTruthy();
+        // The standalone Message pill is gone — Message only appears once connected.
+        expect(queryByText('Message')).toBeNull();
     });
 });

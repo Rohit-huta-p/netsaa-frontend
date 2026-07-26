@@ -11,12 +11,13 @@ import {
     Briefcase, Award, ChevronRight, ChevronLeft,
     MessageCircle, Clock, Camera, ShieldCheck,
     Globe, Zap, DollarSign, GraduationCap,
-    Users, ThumbsUp, MapPinned, BadgeCheck, Handshake,
+    Users, ThumbsUp, MapPinned, BadgeCheck, Handshake, MoreHorizontal,
     TrendingUp, Eye, Instagram, Youtube, Play, X,
     Image as LucideImage, Trash2, Ban, Flag, UserMinus, AlertTriangle,
 } from 'lucide-react-native';
 
 import { useAuthStore } from '@/stores/authStore';
+import conversationService from '@/services/conversationService';
 import { useUser } from '@/hooks/useUser';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
 import { useProfileUiStore } from '@/stores/profileUiStore';
@@ -73,6 +74,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     // "+N" crafts popover. It opens upward, so we need its measured height to offset it.
     const [showCrafts, setShowCrafts] = useState(false);
     const [craftPopH, setCraftPopH] = useState(0);
+    const [msgBusy, setMsgBusy] = useState(false);
     // Account-verification sheet, opened from the green status pill.
     const [showVerify, setShowVerify] = useState(false);
     const [mediaViewerIndex, setMediaViewerIndex] = useState<number | null>(null);
@@ -89,6 +91,21 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     // paged items, pinning the video top-left).
     const { width: winW, height: winH } = useWindowDimensions();
     const [confirmAction, setConfirmAction] = useState<null | 'remove' | 'withdraw' | 'block' | 'block_report'>(null);
+
+    // Opens (or creates) the conversation with this person. Same flow PerformerProfile
+    // uses. Only reachable once connected, where it replaces the Connect pill.
+    const openMessage = async () => {
+        if (msgBusy || !userId) return;
+        setMsgBusy(true);
+        try {
+            const conv = await conversationService.createConversation(userId);
+            router.push((conv?._id ? `/(app)/messages?c=${conv._id}` : '/(app)/messages') as any);
+        } catch {
+            // stay quiet — the user can tap again
+        } finally {
+            setMsgBusy(false);
+        }
+    };
 
     useEffect(() => {
         if (mediaViewerIndex !== null) setActiveMedia(mediaViewerIndex);
@@ -401,22 +418,39 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                         </>
                     ) : (
                         <>
-                            <Pressable onPress={handleConnect} disabled={isConnectionLoading} style={({ pressed }) => [s.ctaPillWrap, pressed && { opacity: 0.85 }]}>
+                            {/* One primary pill. Once connected it becomes Message — the only
+                                thing left to do here — while keeping each state's own colour:
+                                green connected, grey pending, pink→orange not-yet-connected. */}
+                            <Pressable
+                                onPress={connectionStatus === 'connected' ? openMessage : handleConnect}
+                                disabled={isConnectionLoading || msgBusy}
+                                style={({ pressed }) => [s.ctaPillWrap, pressed && { opacity: 0.85 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel={connectionStatus === 'connected' ? 'Message' : connectionStatus === 'pending' ? 'Request pending' : 'Connect'}
+                            >
                                 <LinearGradient
                                     colors={connectionStatus === 'connected' ? ['#34D399', '#059669'] : connectionStatus === 'pending' ? ['#6B6878', '#4A4656'] : ['#EC4899', '#F97316']}
                                     start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaPillSolid}
                                 >
-                                    {isConnectionLoading ? <ActivityIndicator size="small" color="#fff" /> :
-                                        connectionStatus === 'connected' ? <Check size={14} color="#fff" /> :
+                                    {(isConnectionLoading || msgBusy) ? <ActivityIndicator size="small" color="#fff" /> :
+                                        connectionStatus === 'connected' ? <MessageCircle size={14} color="#fff" /> :
                                         connectionStatus === 'pending' ? <Clock size={14} color="#fff" /> :
                                         <UserPlus size={14} color="#fff" />}
-                                    <Text style={s.ctaPillSolidText}>{connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'pending' ? 'Pending' : 'Connect'}</Text>
+                                    <Text style={s.ctaPillSolidText}>{connectionStatus === 'connected' ? 'Message' : connectionStatus === 'pending' ? 'Pending' : 'Connect'}</Text>
                                 </LinearGradient>
                             </Pressable>
-                            <Pressable style={({ pressed }) => [s.ctaPillOutline, pressed && { opacity: 0.7 }]}>
-                                <MessageCircle size={14} color="#D6D1DE" />
-                                <Text style={s.ctaPillText}>Message</Text>
-                            </Pressable>
+                            {/* Manage-connection menu used to live behind the connected pill;
+                                that slot is now Message, so it moves here. */}
+                            {connectionStatus !== 'none' && (
+                                <Pressable
+                                    onPress={handleConnect}
+                                    style={({ pressed }) => [s.ctaPillIcon, pressed && { opacity: 0.7 }]}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Manage connection"
+                                >
+                                    <MoreHorizontal size={15} color="#9A94A6" />
+                                </Pressable>
+                            )}
                             <Pressable
                                 style={({ pressed }) => [s.ctaPillIcon, pressed && { opacity: 0.7 }]}
                                 accessibilityRole="button"

@@ -79,7 +79,6 @@ export const LookingForSection: React.FC<LookingForSectionProps> = ({
     ageRange,
     heightRequirements,
     requiredSkills,
-    slots,
 }) => {
     const hasType = Array.isArray(artistTypes) && artistTypes.length > 0;
     const hasExp = !!experienceLevel;
@@ -92,21 +91,16 @@ export const LookingForSection: React.FC<LookingForSectionProps> = ({
         return null;
     }
 
-    const slotsAside =
-        typeof slots === 'number' && slots > 0
-            ? `${String(slots).padStart(2, '0')} slots`
-            : undefined;
-
     const showGenderBesideType =
         genderPreference && genderPreference !== 'any';
 
     return (
         <View className="mb-7" testID="looking-for-section">
-            <SectionHeading aside={slotsAside}>
+            <SectionHeading>
                 Who we're looking for
             </SectionHeading>
 
-            <View className="gap-2.5">
+            <View className="gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4">
                 {hasType ? (
                     <Row
                         label="Type"
@@ -156,9 +150,9 @@ export const LookingForSection: React.FC<LookingForSectionProps> = ({
                         {requiredSkills!.map((skill, idx) => (
                             <View
                                 key={`${skill}-${idx}`}
-                                className="px-2.5 py-1 rounded-md border border-blue-500/20 bg-blue-500/10"
+                                className="px-2.5 py-1 rounded-md border border-white/10 bg-white/5"
                             >
-                                <Text className="text-[11px] font-medium text-blue-300">
+                                <Text className="text-[11px] font-medium text-zinc-300">
                                     {skill}
                                 </Text>
                             </View>

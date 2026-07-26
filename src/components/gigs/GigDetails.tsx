@@ -24,12 +24,10 @@ import { GigHeroSection } from './GigHeroSection';
 import { OrganizerInfoCard } from './OrganizerInfoCard';
 import { QuickMetaRow } from './QuickMetaRow';
 import { CompensationSidebar } from './CompensationSidebar';
-import { MobileApplyFooter } from './MobileApplyFooter';
+import { ApplyButton } from './ApplyButton';
 // Plan 5 — gig detail v2 mockup wiring.
 import { StatusPillRow } from './StatusPillRow';
-import { PayHero } from './PayHero';
 import { GigTagline } from './GigTagline';
-import { TrustStripInline } from './TrustStripInline';
 import { AboutSection } from './sections/AboutSection';
 import { WhatYoullDoSection } from './sections/WhatYoullDoSection';
 import { LookingForSection } from './sections/LookingForSection';
@@ -172,7 +170,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{
                     paddingBottom: tabBarHeight > 0
-                        ? tabBarHeight + (isMobileWidth && !isOrganizer ? 150 : 100)
+                        ? tabBarHeight + (isMobileWidth && !isOrganizer ? 40 : 100)
                         : 140,
                     marginTop: 20,
                 }}
@@ -232,31 +230,10 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                                         rating={gig.organizerSnapshot?.rating}
                                         gigsHosted={gig.organizerSnapshot?.gigsHosted}
                                         avgReplyMinutes={gig.organizerSnapshot?.avgReplyMinutes}
-                                    />
-                                )}
-
-                                {/* Plan 5 v2 — standalone "Verified producer"
-                                    pill below the producer card. */}
-                                {!isOrganizer && (
-                                    <TrustStripInline
                                         isVerified={!!gig.organizerSnapshot?.isVerified}
                                     />
                                 )}
                             </View>
-
-                            {/* Plan 5 — v2 pay hero. Big orange amount,
-                                aux line ("per artist · negotiable"), no card.
-                                Renders on mobile only — desktop uses the
-                                CompensationSidebar (right column) below. */}
-                            {isMobileWidth && !isOrganizer ? (
-                                <PayHero
-                                    amount={gig.compensation?.amount}
-                                    minAmount={gig.compensation?.minAmount}
-                                    maxAmount={gig.compensation?.maxAmount}
-                                    currency={gig.compensation?.currency}
-                                    negotiable={gig.compensation?.negotiable}
-                                />
-                            ) : null}
 
                             {/* Quick Meta — Plan 5 v2: 3-col editorial stat
                                 line (When · Where · Slots) with hairline
@@ -309,6 +286,20 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                                             </Text>
                                         </View>
                                     ) : null}
+
+                                    {/* V4 — inline Apply CTA (mobile). Replaces the old
+                                        sticky MobileApplyFooter; desktop uses the
+                                        CompensationSidebar's button instead. */}
+                                    {isMobileWidth ? (
+                                        <View className="mt-2 mb-6">
+                                            <ApplyButton
+                                                hasApplied={hasApplied}
+                                                onApply={handleApply}
+                                                variant="desktop"
+                                                deadlinePassed={isDeadlinePassed}
+                                            />
+                                        </View>
+                                    ) : null}
                                 </>
                             )}
 
@@ -328,11 +319,27 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                         <CompensationSidebar gig={gig} hasApplied={hasApplied} onApply={handleApply} />
                     </View>
 
-                    {/* TABS — Plan 5 v2: no card. Tab row + content sit
-                        flat on the page background. Single hairline below
-                        the row separates nav from thread, brand-orange
-                        underline marks the active tab. */}
-                    <View className="w-full mt-6">
+                    {/* TABS — V4: the Discussion (+ Applications for organizers)
+                        lives in a translucent "glass" card so it lifts off the
+                        canvas instead of camouflaging (P9). Orange underline
+                        marks the active tab. */}
+                    <View
+                        className="w-full mt-6"
+                        style={{
+                            backgroundColor: 'rgba(255,255,255,0.06)',
+                            borderWidth: 1,
+                            borderColor: 'rgba(255,255,255,0.15)',
+                            borderRadius: 16,
+                            paddingHorizontal: 16,
+                            paddingTop: 16,
+                            paddingBottom: 18,
+                            shadowColor: '#000',
+                            shadowOpacity: 0.4,
+                            shadowRadius: 24,
+                            shadowOffset: { width: 0, height: 12 },
+                            elevation: 8,
+                        }}
+                    >
                         {/* Tab Headers */}
                         <View
                             style={{
@@ -402,21 +409,12 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                                 type="gig"
                                 ownerId={typeof gig.organizerId === 'object' ? gig.organizerId?._id : gig.organizerId}
                                 inline
+                                variant="glass"
                             />
                         )}
                     </View>
                 </View>
             </ScrollView>
-
-            {/* MOBILE APPLY FOOTER */}
-            {isMobileWidth && !isOrganizer && (
-                <MobileApplyFooter
-                    hasApplied={hasApplied}
-                    onApply={handleApply}
-                    applicationDeadline={gig.applicationDeadline}
-                    isDeadlinePassed={isDeadlinePassed}
-                />
-            )}
 
             {/* MODALS */}
             <GigApplyModal

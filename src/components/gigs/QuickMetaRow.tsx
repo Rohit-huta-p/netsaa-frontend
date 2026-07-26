@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { describeDistance, type Coords } from '@/utils/distance';
 
 interface QuickMetaRowProps {
@@ -94,81 +94,74 @@ export const QuickMetaRow: React.FC<QuickMetaRowProps> = ({
             ? `${slots} ${slots === 1 ? 'artist' : 'artists'}`
             : null;
 
+    const whenSub = [time, duration].filter(Boolean).join('  ·  ');
+    const whereSubText = distance ? `${whereSub}${distance}` : cityLine;
+
+    // Editorial accent-rail: When · Where · Slots stacked vertically (one below
+    // the other) on every width — the old 3-column strip was cramped on mobile.
     return (
-        <View
-            className="flex-row mb-6 border-y border-white/10 py-3"
-            testID="quick-meta-row"
-        >
-            {/* WHEN */}
-            <View className="flex-1 pr-3 border-r border-white/5">
-                <Text className="text-[9px] font-bold uppercase tracking-[0.20em] text-zinc-500 mb-1">
-                    When
-                </Text>
-                <Text className="text-[14px] font-semibold text-white tracking-tight">
-                    {dateLabel}
-                </Text>
-                <Text className="text-[10px] text-zinc-500 mt-0.5">
-                    {time ? (
-                        <>
-                            {time}
-                            {duration ? (
-                                <>
-                                    {' · '}
-                                    <Text className="text-zinc-300 font-semibold">
-                                        {duration}
-                                    </Text>
-                                </>
-                            ) : null}
-                        </>
-                    ) : duration ? (
-                        <Text className="text-zinc-300 font-semibold">
-                            {duration}
-                        </Text>
-                    ) : null}
-                </Text>
-            </View>
+        <View className="mb-6" testID="quick-meta-row">
+            <View style={styles.rail}>
+                {/* WHEN */}
+                <View style={styles.row}>
+                    <Text style={styles.label}>When</Text>
+                    <Text style={styles.value}>
+                        {dateLabel}
+                        {whenSub ? <Text style={styles.sub}>{`  ·  ${whenSub}`}</Text> : null}
+                    </Text>
+                </View>
 
-            {/* WHERE */}
-            <View className="flex-1 px-3 border-r border-white/5">
-                <Text className="text-[9px] font-bold uppercase tracking-[0.20em] text-zinc-500 mb-1">
-                    Where
-                </Text>
-                <Text
-                    className="text-[14px] font-semibold text-white tracking-tight"
-                    numberOfLines={1}
-                >
-                    {venueName}
-                </Text>
-                <Text
-                    className="text-[10px] text-zinc-500 mt-0.5"
-                    testID="quickmeta-location-sub"
-                    numberOfLines={1}
-                >
-                    {distance ? (
-                        <>
-                            {whereSub}
-                            <Text className="text-emerald-400 font-semibold">
-                                {distance}
+                {/* WHERE */}
+                <View style={styles.row}>
+                    <Text style={styles.label}>Where</Text>
+                    <Text style={styles.value} numberOfLines={1}>
+                        {venueName}
+                        {whereSubText ? (
+                            <Text style={styles.sub}>
+                                {'  ·  '}
+                                <Text testID="quickmeta-location-sub">{whereSubText}</Text>
                             </Text>
-                        </>
-                    ) : (
-                        cityLine
-                    )}
-                </Text>
-            </View>
+                        ) : null}
+                    </Text>
+                </View>
 
-            {/* SLOTS */}
-            <View className="flex-1 pl-3">
-                <Text className="text-[9px] font-bold uppercase tracking-[0.20em] text-zinc-500 mb-1">
-                    Slots
-                </Text>
-                <Text className="text-[14px] font-semibold text-white tracking-tight">
-                    {slotsValue || 'Open'}
-                </Text>
-                <Text className="text-[10px] text-zinc-500 mt-0.5">
-                    per artist
-                </Text>
+                {/* SLOTS */}
+                <View style={styles.row}>
+                    <Text style={styles.label}>Slots</Text>
+                    <Text style={styles.value}>
+                        {slotsValue || 'Open'}
+                        <Text style={styles.sub}>{'  ·  per artist'}</Text>
+                    </Text>
+                </View>
             </View>
         </View>
     );
 };
+
+const styles = StyleSheet.create({
+    rail: {
+        borderLeftWidth: 2,
+        borderLeftColor: 'rgba(255,107,53,0.4)',
+        paddingLeft: 16,
+    },
+    row: { paddingVertical: 11 },
+    label: {
+        fontFamily: 'SpaceMono-Bold',
+        fontSize: 9,
+        letterSpacing: 1.2,
+        textTransform: 'uppercase',
+        color: '#8C857B',
+        marginBottom: 4,
+    },
+    value: {
+        fontFamily: 'DMSerifDisplay_400Regular',
+        fontSize: 19,
+        lineHeight: 22,
+        color: '#F0ECE6',
+    },
+    sub: {
+        fontFamily: 'Outfit-Regular',
+        fontSize: 12,
+        color: '#8C857B',
+    },
+});

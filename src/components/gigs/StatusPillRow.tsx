@@ -53,10 +53,10 @@ export const StatusPillRow: React.FC<StatusPillRowProps> = ({
         >
             {showType ? (
                 <View
-                    className="px-2.5 py-1 rounded-md border border-orange-500/30 bg-orange-500/10"
+                    className="px-2.5 py-1 rounded-md border border-white/10 bg-white/[0.04]"
                     testID="status-pill-type"
                 >
-                    <Text className="text-[10px] font-bold uppercase tracking-[0.16em] text-orange-400">
+                    <Text className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-300">
                         {typeLabel}
                     </Text>
                 </View>

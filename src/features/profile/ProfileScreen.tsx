@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
-    MapPin, Edit3, Settings, Share2, UserPlus, Check,
+    Edit3, Settings, Share2, UserPlus, Check,
     Briefcase, Award, ChevronRight, ChevronLeft,
     MessageCircle, Clock, Camera, ShieldCheck,
     Globe, Zap, DollarSign, GraduationCap,
@@ -69,6 +69,8 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const { openSheet } = useProfileUiStore();
     // Context is fixed to 'artist' now that the Artist/Lead tabs are gone.
     const [activeContext] = useState<'artist' | 'hirer'>('artist');
+    // "+N" crafts popover in the masthead kicker (see craftsHidden below).
+    const [showCrafts, setShowCrafts] = useState(false);
     const [mediaViewerIndex, setMediaViewerIndex] = useState<number | null>(null);
     // Live index inside the fullscreen viewer — drives the nav pill counter and
     // arrow enabled/disabled state. Synced to the tapped slot on open, then to
@@ -116,6 +118,16 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const displayName = u.displayName || u.firstName || 'Artist';
     const artistTypes = u.artistType || u.artistTypes || [];
     const artistTypeStr = Array.isArray(artistTypes) ? artistTypes.join(' \u00b7 ') : artistTypes;
+    // Masthead kicker is uppercase + letter-spaced (the widest way to set text), so
+    // cap the crafts at two and carry the rest as "+N". Keeps the line to ONE row at
+    // any craft count and stops the city being pushed out of sight. The full list
+    // stays available via the +N popover (and in Skills further down).
+    const craftList: string[] = Array.isArray(artistTypes)
+        ? artistTypes.filter(Boolean).map(String)
+        : artistTypes ? [String(artistTypes)] : [];
+    const CRAFT_CAP = 2;
+    const craftsShown = craftList.slice(0, CRAFT_CAP);
+    const craftsHidden = craftList.slice(CRAFT_CAP);
     const location = u.location || u.cached?.primaryCity || '';
     const bio = u.bio || u.headline || '';
     const skills: string[] = u.skills || [];
@@ -251,27 +263,52 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                     )}
                 </View>
 
-                {/* ═══ 3. IDENTITY (centered) ═══ */}
+                {/* ═══ 3. IDENTITY (left masthead) ═══ */}
                 <View style={s.identity}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <Text style={s.name}>{displayName}</Text>
                         {kycStatus === 'verified' && <BadgeCheck size={20} color="#EAB308" fill="#EAB308" style={{ marginLeft: 6 }} />}
                     </View>
-                    {artistTypeStr ? <Text style={s.artistType}>{artistTypeStr}</Text>
-                        : isOwner ? <Pressable onPress={() => openSheet('header')}><Text style={s.placeholderTap}>Add your artist type</Text></Pressable> : null}
-                    {location ? (
-                        <View style={s.locRow}>
-                            <MapPin size={12} color="#4A4656" />
-                            <Text style={s.locText}>{location}</Text>
-                        </View>
+
+                    {/* Kicker: CRAFT · CRAFT +N · CITY — one line at any craft count. */}
+                    {(craftList.length > 0 || location) ? (
+                        <Text style={s.kicker} numberOfLines={1}>
+                            {craftsShown.map((c) => c.toUpperCase()).join(' · ')}
+                            {craftsHidden.length > 0 && (
+                                <Text
+                                    style={s.kickerMore}
+                                    onPress={() => setShowCrafts((v) => !v)}
+                                    suppressHighlighting
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Also works as ${craftsHidden.join(', ')}`}
+                                >
+                                    {` +${craftsHidden.length}`}
+                                </Text>
+                            )}
+                            {location ? (
+                                <Text style={s.kickerCity}>
+                                    {`${craftsShown.length > 0 ? ' · ' : ''}${location.toUpperCase()}`}
+                                </Text>
+                            ) : null}
+                        </Text>
                     ) : isOwner ? (
-                        <Pressable onPress={() => openSheet('header')} style={s.locRow}>
-                            <MapPin size={12} color="#3A3746" />
-                            <Text style={s.placeholderTap}>Add your location</Text>
-                        </Pressable>
+                        <Pressable onPress={() => openSheet('header')}><Text style={s.placeholderTap}>Add your craft and city</Text></Pressable>
                     ) : null}
 
-                    {/* Verification pills — always show for owner */}
+                    {/* "+N" popover — the hidden crafts only; the visible two are right above. */}
+                    {showCrafts && craftsHidden.length > 0 && (
+                        <View style={s.craftPop} testID="craft-popover">
+                            <Text style={s.craftPopHead}>Also works as</Text>
+                            {craftsHidden.map((c, i) => (
+                                <View key={`${c}-${i}`} style={s.craftPopItem}>
+                                    <View style={s.craftPopDot} />
+                                    <Text style={s.craftPopText}>{c}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+
+                    {/* Verification pills + connection count share one wrapping row */}
                     <View style={s.verifyRow}>
                         {phoneVerified ? <View style={s.verifyPill}><Check size={9} color="#6B6878" strokeWidth={3} /><Text style={s.verifyText}>Phone</Text></View>
                             : isOwner ? <View style={s.verifyPillDim}><Check size={9} color="#3A3746" strokeWidth={3} /><Text style={s.verifyTextDim}>Phone</Text></View> : null}
@@ -280,6 +317,24 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                         {kycStatus === 'verified' ? <View style={s.verifyPill}><ShieldCheck size={10} color="#6B6878" /><Text style={s.verifyText}>KYC</Text></View>
                             : kycStatus === 'pending' ? <View style={s.verifyPillDim}><ShieldCheck size={10} color="#4A4656" /><Text style={s.verifyTextDim}>KYC Pending</Text></View>
                             : isOwner ? <View style={s.verifyPillDim}><ShieldCheck size={10} color="#3A3746" /><Text style={s.verifyTextDim}>KYC</Text></View> : null}
+
+                        {/* Connections — §2D entry point #2. Lives inline here now, styled as a
+                            real link (orange count + chevron) so it reads tappable. */}
+                        {(connections > 0 || isOwner) && (
+                            <Pressable
+                                onPress={() => router.push('/network' as any)}
+                                style={({ pressed }) => [s.connectionsLink, pressed && { opacity: 0.6 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel="Open network"
+                            >
+                                <Text style={s.connectionsCount}>{connections}</Text>
+                                <Text style={s.connectionsLabel}>
+                                    {connections === 1 ? 'connection' : 'connections'}
+                                    {mutualConnections > 0 ? ` · ${mutualConnections} mutual` : ''}
+                                </Text>
+                                <ChevronRight size={11} color="#FF6B35" />
+                            </Pressable>
+                        )}
                     </View>
 
                     {/* Connection degree + Worked Together */}
@@ -291,63 +346,54 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                     )}
                 </View>
 
-                {/* ═══ 4. CONNECTIONS COUNT — tappable → /network (checkpoint §2D entry point #2) ═══ */}
-                {(connections > 0 || isOwner) && (
-                    <Pressable
-                        onPress={() => router.push('/network' as any)}
-                        style={({ pressed }) => [s.connectionsRow, pressed && { opacity: 0.6 }]}
-                        accessibilityRole="button"
-                        accessibilityLabel="Open network"
-                    >
-                        <Text style={s.connectionsCount}>{connections}</Text>
-                        <Text style={s.connectionsLabel}>{connections === 1 ? 'connection' : 'connections'}</Text>
-                        {mutualConnections > 0 && <>
-                            <View style={s.dot} />
-                            <Text style={s.mutualText}>{mutualConnections} mutual</Text>
-                        </>}
-                    </Pressable>
-                )}
-
                 {/* ═══ 5. COMPACT ACTION CIRCLES ═══ */}
                 <View style={s.ctaRow}>
                     {isOwner ? (
                         <>
-                            <Pressable onPress={() => openSheet('header')} style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
-                                <LinearGradient colors={['#EC4899', '#F97316']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaIconGrad}>
-                                    <Edit3 size={18} color="#fff" />
+                            <Pressable onPress={() => openSheet('header')} style={({ pressed }) => [s.ctaPillWrap, pressed && { opacity: 0.85 }]}>
+                                <LinearGradient colors={['#EC4899', '#F97316']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaPillSolid}>
+                                    <Edit3 size={14} color="#fff" />
+                                    <Text style={s.ctaPillSolidText}>Edit profile</Text>
                                 </LinearGradient>
-                                <Text style={s.ctaLabel}>Edit</Text>
                             </Pressable>
-                            <Pressable onPress={() => router.push('/settings')} style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
-                                <View style={s.ctaIconOutline}><Settings size={18} color="#6B6878" /></View>
-                                <Text style={s.ctaLabel}>Settings</Text>
+                            <Pressable style={({ pressed }) => [s.ctaPillOutline, pressed && { opacity: 0.7 }]}>
+                                <Share2 size={14} color="#D6D1DE" />
+                                <Text style={s.ctaPillText}>Share profile</Text>
                             </Pressable>
-                            <Pressable style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
-                                <View style={s.ctaIconOutline}><Share2 size={18} color="#6B6878" /></View>
-                                <Text style={s.ctaLabel}>Share</Text>
+                            {/* Settings navigates away from the profile — icon-only, not a peer of Edit. */}
+                            <Pressable
+                                onPress={() => router.push('/settings')}
+                                style={({ pressed }) => [s.ctaPillIcon, pressed && { opacity: 0.7 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel="Settings"
+                            >
+                                <Settings size={15} color="#9A94A6" />
                             </Pressable>
                         </>
                     ) : (
                         <>
-                            <Pressable onPress={handleConnect} disabled={isConnectionLoading} style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
+                            <Pressable onPress={handleConnect} disabled={isConnectionLoading} style={({ pressed }) => [s.ctaPillWrap, pressed && { opacity: 0.85 }]}>
                                 <LinearGradient
                                     colors={connectionStatus === 'connected' ? ['#34D399', '#059669'] : connectionStatus === 'pending' ? ['#6B6878', '#4A4656'] : ['#EC4899', '#F97316']}
-                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaIconGrad}
+                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaPillSolid}
                                 >
                                     {isConnectionLoading ? <ActivityIndicator size="small" color="#fff" /> :
-                                        connectionStatus === 'connected' ? <Check size={18} color="#fff" /> :
-                                        connectionStatus === 'pending' ? <Clock size={18} color="#fff" /> :
-                                        <UserPlus size={18} color="#fff" />}
+                                        connectionStatus === 'connected' ? <Check size={14} color="#fff" /> :
+                                        connectionStatus === 'pending' ? <Clock size={14} color="#fff" /> :
+                                        <UserPlus size={14} color="#fff" />}
+                                    <Text style={s.ctaPillSolidText}>{connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'pending' ? 'Pending' : 'Connect'}</Text>
                                 </LinearGradient>
-                                <Text style={s.ctaLabel}>{connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'pending' ? 'Pending' : 'Connect'}</Text>
                             </Pressable>
-                            <Pressable style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
-                                <View style={s.ctaIconOutline}><MessageCircle size={18} color="#6B6878" /></View>
-                                <Text style={s.ctaLabel}>Message</Text>
+                            <Pressable style={({ pressed }) => [s.ctaPillOutline, pressed && { opacity: 0.7 }]}>
+                                <MessageCircle size={14} color="#D6D1DE" />
+                                <Text style={s.ctaPillText}>Message</Text>
                             </Pressable>
-                            <Pressable style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
-                                <View style={s.ctaIconOutline}><Share2 size={18} color="#6B6878" /></View>
-                                <Text style={s.ctaLabel}>Share</Text>
+                            <Pressable
+                                style={({ pressed }) => [s.ctaPillIcon, pressed && { opacity: 0.7 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel="Share profile"
+                            >
+                                <Share2 size={15} color="#9A94A6" />
                             </Pressable>
                         </>
                     )}
@@ -642,6 +688,18 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
 
                 <View style={{ height: 110 }} />
             </ScrollView>
+
+            {/* Tap anywhere to dismiss the "+N" crafts popover. Sits above the scroll
+                view so any tap closes it; the card itself is informational, nothing
+                inside it needs to stay tappable. */}
+            {showCrafts && (
+                <Pressable
+                    style={StyleSheet.absoluteFill}
+                    onPress={() => setShowCrafts(false)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Dismiss"
+                />
+            )}
 
             {/* ═══ 17. PROFILE EDIT MODAL ═══ */}
             {isOwner && <ProfileEditModal profileData={profileData} />}
@@ -1016,7 +1074,8 @@ const s = StyleSheet.create({
     backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' },
 
     // ── 2. Avatar ──
-    avatarZone: { alignItems: 'center', marginTop: -70, zIndex: 5 },
+    // Left masthead: avatar aligns with the name/kicker below it, not centred.
+    avatarZone: { alignItems: 'flex-start', paddingLeft: 20, marginTop: -70, zIndex: 5 },
     ringWrap: { position: 'relative' },
     ring: { width: 116, height: 116, borderRadius: 58, padding: 2, alignItems: 'center', justifyContent: 'center' },
     avatarImg: { width: 110, height: 110, borderRadius: 55, borderWidth: 1, borderColor: '#0A0A10' },
@@ -1028,13 +1087,20 @@ const s = StyleSheet.create({
     scorePill: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 10 },
     scoreText: { fontFamily: 'Outfit-Black', fontSize: 11, color: '#fff' },
 
-    // ── 3. Identity ──
-    identity: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 14 },
-    name: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 30, color: '#F0ECE6', letterSpacing: -0.5, textAlign: 'center' },
-    artistType: { fontFamily: 'Outfit-Regular', fontSize: 13, color: '#6B6878', marginTop: 4, textAlign: 'center' },
-    locRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
-    locText: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#4A4656' },
-    verifyRow: { flexDirection: 'row', gap: 6, marginTop: 10 },
+    // ── 3. Identity (left masthead) ──
+    identity: { alignItems: 'flex-start', paddingHorizontal: 20, paddingTop: 14, position: 'relative' },
+    name: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 30, color: '#F0ECE6', letterSpacing: -0.5 },
+    // Kicker sets the craft + city as a Space Mono rubric under the name.
+    kicker: { fontFamily: 'SpaceMono-Regular', fontSize: 10.5, letterSpacing: 1.6, color: '#6B6878', marginTop: 7 },
+    kickerMore: { color: '#FF6B35' },
+    kickerCity: { color: '#4A4656' },
+    // "+N" popover — floats, so the masthead never changes height.
+    craftPop: { position: 'absolute', left: 20, top: 78, zIndex: 30, minWidth: 150, paddingVertical: 9, paddingHorizontal: 4, borderRadius: 12, backgroundColor: 'rgba(18,16,24,0.97)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.13)', shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.55, shadowRadius: 20, elevation: 12 },
+    craftPopHead: { fontFamily: 'SpaceMono-Regular', fontSize: 8, letterSpacing: 1.4, textTransform: 'uppercase', color: '#4A4656', paddingHorizontal: 10, paddingBottom: 6 },
+    craftPopItem: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 5, paddingHorizontal: 10 },
+    craftPopDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#FF6B35' },
+    craftPopText: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#D6D1DE' },
+    verifyRow: { flexDirection: 'row', gap: 6, marginTop: 10, alignItems: 'center', flexWrap: 'wrap' },
     verifyPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.03)' },
     verifyText: { fontFamily: 'Outfit-Medium', fontSize: 10, color: '#6B6878' },
     connRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
@@ -1042,18 +1108,19 @@ const s = StyleSheet.create({
     connPillText: { fontFamily: 'Outfit-Bold', fontSize: 11, color: '#F0ECE6' },
 
     // ── 4. Connections ──
-    connectionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14 },
-    connectionsCount: { fontFamily: 'Outfit-Black', fontSize: 15, color: '#F0ECE6' },
-    connectionsLabel: { fontFamily: 'Outfit-Regular', fontSize: 13, color: '#6B6878' },
-    dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#4A4656' },
-    mutualText: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#4A4656' },
+    // Inline link in the verify row — orange count + chevron so it reads tappable.
+    connectionsLink: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 },
+    connectionsCount: { fontFamily: 'Outfit-Bold', fontSize: 12.5, color: '#FF6B35' },
+    connectionsLabel: { fontFamily: 'Outfit-Regular', fontSize: 11.5, color: '#9A94A6' },
 
-    // ── 5. Compact Action Circles ──
-    ctaRow: { flexDirection: 'row', justifyContent: 'center', gap: 28, paddingHorizontal: 20, marginTop: 16 },
-    ctaAction: { alignItems: 'center', gap: 6 },
-    ctaIconGrad: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', shadowColor: '#EC4899', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 4 },
-    ctaIconOutline: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    ctaLabel: { fontFamily: 'Outfit-SemiBold', fontSize: 10, color: '#6B6878', textTransform: 'uppercase', letterSpacing: 1 },
+    // ── 5. Action pills (labelled, left-aligned under the masthead) ──
+    ctaRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 20, marginTop: 16 },
+    ctaPillWrap: { borderRadius: 100, overflow: 'hidden' },
+    ctaPillSolid: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 100 },
+    ctaPillSolidText: { fontFamily: 'Outfit-SemiBold', fontSize: 12.5, color: '#fff' },
+    ctaPillOutline: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
+    ctaPillText: { fontFamily: 'Outfit-Medium', fontSize: 12.5, color: '#D6D1DE' },
+    ctaPillIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
 
     // ── 6. Context tabs ──
 

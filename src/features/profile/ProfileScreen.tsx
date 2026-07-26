@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
     MapPin, Edit3, Settings, Share2, UserPlus, Check,
-    Star, Briefcase, Award, ChevronRight, ChevronLeft,
+    Briefcase, Award, ChevronRight, ChevronLeft,
     MessageCircle, Clock, Camera, ShieldCheck,
     Globe, Zap, DollarSign, GraduationCap,
     Users, ThumbsUp, MapPinned, BadgeCheck, Handshake,
@@ -25,7 +25,6 @@ import { ProfileEditModal } from '@/features/profile/components/ProfileEditModal
 import { ProfileData, ProfileVideoReel } from '@/components/profile/types';
 import NetsaVideoPlayer from '@/components/media/NetsaVideoPlayer';
 import type { ConnectionContext } from '@/types/connection';
-import { NotificationsBell } from '@/components/notifications/NotificationsBell';
 import { useMutualConnections, useConnectionDegree, useMyConnectionsCount } from '@/hooks/useConnectionMeta';
 import { SimilarRail } from '@/components/profile/SimilarRail';
 import { useSimilarRail } from '@/hooks/useSimilar';
@@ -65,7 +64,8 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
         showActionMenu, setShowActionMenu,
     } = useConnectionStatus(isOwner ? undefined : userId, isOwner);
     const { openSheet } = useProfileUiStore();
-    const [activeContext, setActiveContext] = useState<'artist' | 'hirer'>('artist');
+    // Context is fixed to 'artist' now that the Artist/Lead tabs are gone.
+    const [activeContext] = useState<'artist' | 'hirer'>('artist');
     const [mediaViewerIndex, setMediaViewerIndex] = useState<number | null>(null);
     const [confirmAction, setConfirmAction] = useState<null | 'remove' | 'withdraw' | 'block' | 'block_report'>(null);
 
@@ -108,11 +108,9 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const tierColor = TRUST_COLORS[tier] || '#6B6878';
     const score = u.trustScore || trustScore || 0;
     const rating = u.cached?.averageRating || u.rating || 0;
-    const totalReviews = u.cached?.totalReviews || 0;
     const instagram = u.instagramHandle;
     const youtube = u.youtubeUrl;
     const languages: string[] = u.languages || u.artistDetails?.languages || [];
-    const reviews: any[] = u.reviews || u.cached?.recentReviews || [];
     const gigsCompleted = u.stats?.gigsCompleted || u.gigsCompleted || 0;
     const eventsAttended = u.stats?.eventsAttended || u.eventsAttended || 0;
     const yearsExperience = u.yearsOfExperience || u.experience?.length || 0;
@@ -191,27 +189,9 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
 
                     {/* Top bar */}
                     <SafeAreaView edges={['top']} style={s.topBar}>
-                        <Pressable onPress={() => router.back()} style={s.topBtn} hitSlop={12}>
-                            <ChevronLeft size={20} color="rgba(255,255,255,0.7)" />
+                        <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
+                            <ChevronLeft size={22} color="#fff" />
                         </Pressable>
-                        <View style={s.topActions}>
-                            {/* Universal entry: NotificationsBell on every main screen (checkpoint §Phase 2 #7) */}
-                            <NotificationsBell size={16} />
-                            {isOwner ? (
-                                <>
-                                    <Pressable onPress={() => openSheet('header')} style={s.topBtn}>
-                                        <Edit3 size={15} color="rgba(255,255,255,0.7)" />
-                                    </Pressable>
-                                    <Pressable onPress={() => router.push('/settings')} style={s.topBtn}>
-                                        <Settings size={15} color="rgba(255,255,255,0.7)" />
-                                    </Pressable>
-                                </>
-                            ) : (
-                                <Pressable style={s.topBtn}>
-                                    <Share2 size={15} color="rgba(255,255,255,0.7)" />
-                                </Pressable>
-                            )}
-                        </View>
                     </SafeAreaView>
                 </View>
 
@@ -351,18 +331,6 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                             </Pressable>
                         </>
                     )}
-                </View>
-
-                {/* ═══ 6. CONTEXT TABS ═══ */}
-                <View style={s.ctxTabs}>
-                    <Pressable onPress={() => setActiveContext('artist')} style={[s.ctxTab, activeContext === 'artist' && s.ctxActive]}>
-                        <Star size={12} color={activeContext === 'artist' ? '#F0ECE6' : '#4A4656'} />
-                        <Text style={[s.ctxText, activeContext === 'artist' && s.ctxTextActive]}>Artist</Text>
-                    </Pressable>
-                    <Pressable onPress={() => setActiveContext('hirer')} style={[s.ctxTab, activeContext === 'hirer' && s.ctxActive]}>
-                        <Briefcase size={12} color={activeContext === 'hirer' ? '#F0ECE6' : '#4A4656'} />
-                        <Text style={[s.ctxText, activeContext === 'hirer' && s.ctxTextActive]}>Lead</Text>
-                    </Pressable>
                 </View>
 
                 {/* ═══ HIRER PERSPECTIVE (non-owner + hirer tab) ═══ */}
@@ -584,36 +552,6 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                             ) : null}
                             <View style={s.socialCircle}><Globe size={20} color="#6B6878" /></View>
                         </View>
-                    </View>
-                )}
-
-                {/* ═══ 14. REVIEWS — Testimonial Style ═══ */}
-                {(reviews.length > 0 || totalReviews > 0 || isOwner) && (
-                    <View style={s.reviewsSection}>
-                        <Text style={s.sectionLabel}>Reviews ({totalReviews || reviews.length})</Text>
-                        {reviews.length === 0 && isOwner ? (
-                            <View style={s.placeholderCard}>
-                                <Star size={20} color="#4A4656" />
-                                <Text style={s.placeholderTitle}>No reviews yet</Text>
-                                <Text style={s.placeholderDesc}>Complete your first gig to receive reviews from hirers</Text>
-                            </View>
-                        ) : null}
-                        {reviews.slice(0, 3).map((rev: any, i: number) => (
-                            <View key={i} style={s.testimonialCard}>
-                                <Text style={s.testimonialQuote}>&ldquo;</Text>
-                                <View style={s.starsRow}>
-                                    {[1, 2, 3, 4, 5].map(n => <Star key={n} size={12} color={n <= (rev.rating || 5) ? '#EAB308' : '#2A2735'} fill={n <= (rev.rating || 5) ? '#EAB308' : 'transparent'} />)}
-                                </View>
-                                <Text style={s.testimonialText}>{rev.text || rev.comment || rev.review}</Text>
-                                <View style={s.testimonialFooter}>
-                                    <Text style={s.testimonialAuthor}>&mdash; {rev.reviewerName || rev.author || 'Anonymous'}</Text>
-                                    {rev.context && <View style={s.revCtxBadge}><Text style={s.revCtxText}>{rev.context}</Text></View>}
-                                </View>
-                            </View>
-                        ))}
-                        {(totalReviews || reviews.length) > 3 && (
-                            <Pressable style={s.seeAll}><Text style={s.seeAllText}>See all {totalReviews || reviews.length} reviews</Text><ChevronRight size={14} color="#F97316" /></Pressable>
-                        )}
                     </View>
                 )}
 
@@ -1016,14 +954,13 @@ const s = StyleSheet.create({
     coverDarken: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
     coverFade: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 160 },
     topBar: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 8 },
-    topActions: { flexDirection: 'row', gap: 8 },
-    topBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.4)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+    backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' },
 
     // ── 2. Avatar ──
     avatarZone: { alignItems: 'center', marginTop: -70, zIndex: 5 },
     ringWrap: { position: 'relative' },
-    ring: { width: 122, height: 122, borderRadius: 61, padding: 4, alignItems: 'center', justifyContent: 'center' },
-    avatarImg: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: '#0A0A10' },
+    ring: { width: 116, height: 116, borderRadius: 58, padding: 2, alignItems: 'center', justifyContent: 'center' },
+    avatarImg: { width: 110, height: 110, borderRadius: 55, borderWidth: 1, borderColor: '#0A0A10' },
     avatarInitials: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: '#0A0A10', backgroundColor: '#1A1824', alignItems: 'center', justifyContent: 'center' },
     initialsText: { fontFamily: 'Outfit-Black', fontSize: 36, color: 'rgba(255,255,255,0.12)' },
     trustBadge: { position: 'absolute', bottom: 2, right: -4, width: 28, height: 28, borderRadius: 14, borderWidth: 3, borderColor: '#0A0A10', alignItems: 'center', justifyContent: 'center' },
@@ -1060,11 +997,6 @@ const s = StyleSheet.create({
     ctaLabel: { fontFamily: 'Outfit-SemiBold', fontSize: 10, color: '#6B6878', textTransform: 'uppercase', letterSpacing: 1 },
 
     // ── 6. Context tabs ──
-    ctxTabs: { flexDirection: 'row', marginHorizontal: 14, marginTop: 18, padding: 4, borderRadius: 18, backgroundColor: 'rgba(18,16,24,0.9)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
-    ctxTab: { flex: 1, paddingVertical: 10, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-    ctxActive: { backgroundColor: 'rgba(255,255,255,0.07)' },
-    ctxText: { fontFamily: 'Outfit-SemiBold', fontSize: 13, color: '#4A4656' },
-    ctxTextActive: { color: '#F0ECE6' },
 
     // ── Trust strip ──
     trustStrip: { flexDirection: 'row', marginHorizontal: 14, marginTop: 14, borderRadius: 16, backgroundColor: 'rgba(18,16,24,0.9)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3, overflow: 'hidden' },
@@ -1142,17 +1074,6 @@ const s = StyleSheet.create({
     socialCircleGhost: { width: 50, height: 50, borderRadius: 25, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
 
     // ── 14. Reviews — Testimonial Style ──
-    reviewsSection: { paddingHorizontal: 20, paddingTop: 24 },
-    testimonialCard: { position: 'relative', paddingVertical: 18, paddingHorizontal: 18, paddingLeft: 22, marginBottom: 12, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
-    testimonialQuote: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 48, lineHeight: 48, color: 'rgba(249,115,22,0.1)', position: 'absolute', top: 8, left: 14 },
-    starsRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: 8, marginLeft: 2 },
-    testimonialText: { fontFamily: 'Outfit-Regular', fontSize: 14, color: '#F0ECE6', lineHeight: 22, fontStyle: 'italic', marginBottom: 8, paddingLeft: 2 },
-    testimonialFooter: { flexDirection: 'row', alignItems: 'center', paddingLeft: 2 },
-    testimonialAuthor: { fontFamily: 'Outfit-Medium', fontSize: 12, color: '#6B6878' },
-    revCtxBadge: { marginLeft: 6, backgroundColor: 'rgba(249,115,22,0.06)', paddingVertical: 1, paddingHorizontal: 6, borderRadius: 4 },
-    revCtxText: { fontFamily: 'Outfit-SemiBold', fontSize: 10, color: '#F97316', textTransform: 'uppercase', letterSpacing: 0.3 },
-    seeAll: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 12, marginTop: 4 },
-    seeAllText: { fontFamily: 'Outfit-SemiBold', fontSize: 13, color: '#F97316' },
 
     // ── Empty state ──
     emptyCard: { backgroundColor: '#121018', borderRadius: 24, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginHorizontal: 14, marginTop: 12 },

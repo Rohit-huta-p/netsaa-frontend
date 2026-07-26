@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, Image, ScrollView, Pressable, StyleSheet,
-    ActivityIndicator, Dimensions, Modal, FlatList, TextInput, Alert,
+    ActivityIndicator, Dimensions, Modal, FlatList, TextInput, Alert, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,12 +23,15 @@ import { useProfileUiStore } from '@/stores/profileUiStore';
 import { computeOverallScore } from '@/components/profile/ProfileStrengthWidget';
 import { ProfileEditModal } from '@/features/profile/components/ProfileEditModal';
 import { ProfileData, ProfileVideoReel } from '@/components/profile/types';
-import NetsaVideoPlayer from '@/components/media/NetsaVideoPlayer';
+import NetsaVideoPlayer, { parseAspectRatio } from '@/components/media/NetsaVideoPlayer';
 import type { ConnectionContext } from '@/types/connection';
 import { useMutualConnections, useConnectionDegree, useMyConnectionsCount } from '@/hooks/useConnectionMeta';
 import { SimilarRail } from '@/components/profile/SimilarRail';
 import { useSimilarRail } from '@/hooks/useSimilar';
 
+// NOTE: module-load snapshot — fine for the bento grid math below, but the
+// fullscreen viewer must use the REACTIVE useWindowDimensions() hook instead
+// (this static value is stale/0 on web and pins the video top-left). See winW/winH.
 const { width: SCREEN_W } = Dimensions.get('window');
 
 // ── Bento grid math ──
@@ -67,7 +70,24 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     // Context is fixed to 'artist' now that the Artist/Lead tabs are gone.
     const [activeContext] = useState<'artist' | 'hirer'>('artist');
     const [mediaViewerIndex, setMediaViewerIndex] = useState<number | null>(null);
+    // Live index inside the fullscreen viewer — drives the nav pill counter and
+    // arrow enabled/disabled state. Synced to the tapped slot on open, then to
+    // whichever page settles after a swipe (onMomentumScrollEnd).
+    const [activeMedia, setActiveMedia] = useState(0);
+    // True while a video owns the screen in native fullscreen — the viewer hides
+    // its own chrome (nav pill) so it doesn't float over the expanded video.
+    const [videoFullscreen, setVideoFullscreen] = useState(false);
+    const mediaListRef = React.useRef<FlatList>(null);
+    // Reactive viewport size for the fullscreen viewer — correct on web (the
+    // module-level SCREEN_W/SCREEN_H snapshot is stale/0 there and mis-sizes the
+    // paged items, pinning the video top-left).
+    const { width: winW, height: winH } = useWindowDimensions();
     const [confirmAction, setConfirmAction] = useState<null | 'remove' | 'withdraw' | 'block' | 'block_report'>(null);
+
+    useEffect(() => {
+        if (mediaViewerIndex !== null) setActiveMedia(mediaViewerIndex);
+        else setVideoFullscreen(false); // never leave the pill hidden after close
+    }, [mediaViewerIndex]);
 
     // ── ALL hooks must run before any early return below. The first render
     // bails out at `isLoading && !isOwner` while data fetches; the second
@@ -144,9 +164,9 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     // thumbnail is used as the bento/viewer poster `url`.
     const readyReels = videoReels.filter((r) => r.status === 'ready');
     const readyReelsCount = readyReels.length;
-    const allMedia: { url: string; type: 'image' | 'video'; muxPlaybackId?: string }[] = [
+    const allMedia: { url: string; type: 'image' | 'video'; muxPlaybackId?: string; aspectRatio?: string }[] = [
         ...galleryUrls.map((url: string) => ({ url, type: 'image' as const })),
-        ...readyReels.map((r) => ({ url: r.thumbnailUrl || '', type: 'video' as const, muxPlaybackId: r.muxPlaybackId })),
+        ...readyReels.map((r) => ({ url: r.thumbnailUrl || '', type: 'video' as const, muxPlaybackId: r.muxPlaybackId, aspectRatio: r.aspectRatio })),
     ];
 
     // ── ProfileData for edit modal ──
@@ -456,28 +476,67 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                 {mediaViewerIndex !== null && allMedia.length > 0 && (
                     <Modal visible transparent animationType="fade" onRequestClose={() => setMediaViewerIndex(null)}>
                         <View style={s.viewerBg}>
-                            <Pressable onPress={() => setMediaViewerIndex(null)} style={s.viewerClose}>
-                                <X size={20} color="#fff" />
-                            </Pressable>
+                            <SafeAreaView edges={['top']} pointerEvents="box-none" style={s.viewerTopSafe}>
+                                <Pressable onPress={() => setMediaViewerIndex(null)} style={s.viewerClose} hitSlop={10}>
+                                    <X size={20} color="#fff" />
+                                </Pressable>
+                            </SafeAreaView>
                             <FlatList
+                                ref={mediaListRef}
                                 data={allMedia}
                                 horizontal
                                 pagingEnabled
-                                initialScrollIndex={mediaViewerIndex}
-                                getItemLayout={(_, index) => ({ length: SCREEN_W, offset: SCREEN_W * index, index })}
+                                initialScrollIndex={mediaViewerIndex ?? 0}
+                                getItemLayout={(_, index) => ({ length: winW, offset: winW * index, index })}
+                                onMomentumScrollEnd={(e) => setActiveMedia(Math.round(e.nativeEvent.contentOffset.x / winW))}
                                 showsHorizontalScrollIndicator={false}
-                                keyExtractor={(_, i) => `media-${i}`}
+                                keyExtractor={(item, i) => item.muxPlaybackId || item.url || `media-${i}`}
                                 renderItem={({ item }) => (
-                                    <View style={{ width: SCREEN_W, justifyContent: 'center', alignItems: 'center' }}>
+                                    <View style={{ width: winW, height: winH, justifyContent: 'center', alignItems: 'center' }}>
                                         {item.type === 'video' && item.muxPlaybackId ? (
-                                            <NetsaVideoPlayer playbackId={item.muxPlaybackId} poster={item.url || undefined} style={s.viewerImg} />
+                                            <NetsaVideoPlayer playbackId={item.muxPlaybackId} poster={item.url || undefined} fill contentFit="contain" showRotateCue={(parseAspectRatio(item.aspectRatio) ?? 0) >= 1.2} onFullscreenChange={setVideoFullscreen} style={[s.viewerVideo, { width: winW, height: winH }]} />
                                         ) : (
-                                            <Image source={{ uri: item.url }} style={s.viewerImg} resizeMode="contain" />
+                                            <Image source={{ uri: item.url }} style={{ width: winW, height: winH }} resizeMode="contain" />
                                         )}
                                     </View>
                                 )}
                             />
-                            <Text style={s.viewerCounter}>{(mediaViewerIndex || 0) + 1} / {allMedia.length}</Text>
+                            {/* Nav pill — prev · counter · next (V2 design). Thumb-height;
+                                arrows dim at the first/last frame. box-none so the full-width
+                                safe wrapper never intercepts photo swipes. Hidden while a video
+                                is in fullscreen — swiping doesn't apply there and it would
+                                float over the expanded video. */}
+                            {!videoFullscreen && (
+                            <SafeAreaView edges={['bottom']} pointerEvents="box-none" style={s.viewerBottomSafe}>
+                                <View style={s.viewerPill}>
+                                    <Pressable
+                                        disabled={activeMedia === 0}
+                                        hitSlop={8}
+                                        onPress={() => {
+                                            const n = Math.max(0, activeMedia - 1);
+                                            setActiveMedia(n);
+                                            mediaListRef.current?.scrollToIndex({ index: n, animated: true });
+                                        }}
+                                        style={[s.viewerPillBtn, activeMedia === 0 && s.viewerPillBtnOff]}>
+                                        <ChevronLeft size={20} color="#fff" />
+                                    </Pressable>
+                                    <Text style={s.viewerPillCount}>
+                                        <Text style={{ color: '#FF6B35' }}>{activeMedia + 1}</Text> / {allMedia.length}
+                                    </Text>
+                                    <Pressable
+                                        disabled={activeMedia === allMedia.length - 1}
+                                        hitSlop={8}
+                                        onPress={() => {
+                                            const n = Math.min(allMedia.length - 1, activeMedia + 1);
+                                            setActiveMedia(n);
+                                            mediaListRef.current?.scrollToIndex({ index: n, animated: true });
+                                        }}
+                                        style={[s.viewerPillBtn, activeMedia === allMedia.length - 1 && s.viewerPillBtnOff]}>
+                                        <ChevronRight size={20} color="#fff" />
+                                    </Pressable>
+                                </View>
+                            </SafeAreaView>
+                            )}
                         </View>
                     </Modal>
                 )}
@@ -1100,9 +1159,18 @@ const s = StyleSheet.create({
 
     // ── Media viewer ──
     viewerBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center' },
-    viewerClose: { position: 'absolute', top: 56, right: 20, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-    viewerImg: { width: SCREEN_W - 20, height: SCREEN_W - 20 },
+    viewerTopSafe: { position: 'absolute', top: 0, right: 0, left: 0, zIndex: 20, alignItems: 'flex-end' },
+    viewerClose: { margin: 12, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.4)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+    // Fullscreen video: no card chrome — letterbox falls back to the viewer's own
+    // black. Size (winW/winH) is applied inline from useWindowDimensions, not here,
+    // because a static snapshot mis-sizes it on web. (NetsaVideoPlayer contain-fits.)
+    viewerVideo: { borderRadius: 0, borderWidth: 0, backgroundColor: 'transparent' },
     viewerPlayBadge: { position: 'absolute', alignItems: 'center', gap: 4 },
     viewerPlayText: { fontFamily: 'Outfit-Bold', fontSize: 12, color: 'rgba(255,255,255,0.6)' },
-    viewerCounter: { position: 'absolute', bottom: 40, alignSelf: 'center', fontFamily: 'Outfit-Bold', fontSize: 13, color: 'rgba(255,255,255,0.5)' },
+    // Nav pill (V2): floating glass cluster — prev · counter · next.
+    viewerBottomSafe: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20, alignItems: 'center', paddingBottom: 24 },
+    viewerPill: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 6, borderRadius: 999, backgroundColor: 'rgba(10,9,14,0.72)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+    viewerPillBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+    viewerPillBtnOff: { opacity: 0.28 },
+    viewerPillCount: { fontFamily: 'Outfit-Bold', fontSize: 13, letterSpacing: 1, color: '#fff', paddingHorizontal: 12, minWidth: 58, textAlign: 'center' },
 });

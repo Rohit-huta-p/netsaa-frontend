@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
-import { CheckCircle2, Star } from 'lucide-react-native';
+import { Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 interface OrganizerInfoCardProps {
@@ -20,51 +20,37 @@ interface OrganizerInfoCardProps {
      * as "Replies in <Xm" or "<Xh". Hidden when undefined or > 24h.
      */
     avgReplyMinutes?: number;
+    /** When true, a blue verified tick renders beside the poster's name. */
+    isVerified?: boolean;
 }
 
 /**
- * Shorten a minutes value to a human-friendly reply-speed badge.
- * Returns null for empty / unreasonable inputs (negative, > 24h) so
- * the caller can omit the cell entirely.
- */
-function formatReplySpeed(mins: number | undefined): string | null {
-    if (typeof mins !== 'number' || !isFinite(mins) || mins < 0) return null;
-    if (mins > 24 * 60) return null; // stale signal — don't surface
-    if (mins < 60) return `Replies in <${Math.max(1, Math.round(mins))}m`;
-    const hrs = mins / 60;
-    if (hrs < 10) return `Replies in <${hrs.toFixed(1)}h`;
-    return `Replies in <${Math.round(hrs)}h`;
-}
-
-/**
- * Organizer avatar + name + star rating + verified badge.
- * Shared component — usable in GigDetails, GigCard, and other contexts.
+ * Organizer avatar + name + blue verified tick + a single dynamic
+ * "N gigs hosted" line. Shared — usable in GigDetails, GigCard, etc.
  */
 export const OrganizerInfoCard: React.FC<OrganizerInfoCardProps> = ({
     organizerId,
     displayName,
     profileImageUrl,
-    rating,
     gigsHosted,
-    avgReplyMinutes,
+    isVerified,
 }) => {
     const router = useRouter();
 
     const showGigsHosted = typeof gigsHosted === 'number' && gigsHosted > 0;
-    const replySpeed = formatReplySpeed(avgReplyMinutes);
 
     return (
         <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => router.push(`/profile/${organizerId}`)}
-            className="flex-row items-center gap-4 mb-5 bg-white/10 py-5 px-1 rounded-2xl"
+            className="flex-row items-center gap-3 mb-5 py-3 border-y border-white/5"
             accessibilityRole="button"
             accessibilityLabel={`Organizer ${displayName || ''}${
                 showGigsHosted ? `, ${gigsHosted} gigs hosted` : ''
             }`}
         >
             <View className="relative">
-                <View className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/10">
+                <View className="w-10 h-10 rounded-full overflow-hidden border border-white/10">
                     {profileImageUrl ? (
                         <Image
                             source={{ uri: profileImageUrl }}
@@ -79,49 +65,29 @@ export const OrganizerInfoCard: React.FC<OrganizerInfoCardProps> = ({
                         </View>
                     )}
                 </View>
-                <View className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-600 rounded-full items-center justify-center border-2 border-black">
-                    <CheckCircle2 size={12} color="white" />
-                </View>
             </View>
             <View className="flex-1">
-                <Text className="text-md font-black text-white mb-1">
-                    {displayName || 'Organizer'}
-                </Text>
-                <View className="flex-row items-center flex-wrap gap-3">
-                    <View className="flex-row items-center gap-1">
-                        {[1, 2, 3, 4].map((i) => (
-                            <Star key={i} size={10} color="#EAB308" fill="#EAB308" />
-                        ))}
-                        <Star size={8} color="#3F3F46" fill="#3F3F46" />
-                        <Text className="text-[10px] font-bold text-zinc-400 ml-1">
-                            {rating || '4.9'}
-                        </Text>
-                    </View>
-
-                    {showGigsHosted ? (
-                        <Text
-                            className="text-[10px] font-semibold text-zinc-400"
-                            testID="organizer-gigs-hosted"
+                <View className="flex-row items-center gap-1.5 mb-1">
+                    <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 13.5, color: '#F0ECE6' }}>
+                        {displayName || 'Organizer'}
+                    </Text>
+                    {isVerified ? (
+                        <View
+                            className="w-4 h-4 rounded-full bg-blue-500 items-center justify-center"
+                            testID="organizer-verified-tick"
                         >
-                            {gigsHosted} {gigsHosted === 1 ? 'gig' : 'gigs'} hosted
-                        </Text>
+                            <Check size={9} color="#FFFFFF" strokeWidth={3.5} />
+                        </View>
                     ) : null}
-
-                    {replySpeed ? (
-                        <Text
-                            className="text-[10px] font-semibold text-emerald-400"
-                            testID="organizer-reply-speed"
-                        >
-                            {replySpeed}
-                        </Text>
-                    ) : null}
-
-                    <View className="bg-emerald-500/10 px-2 py-1 rounded">
-                        <Text className="text-emerald-500 text-[6px] font-black uppercase tracking-widest">
-                            VERIFIED
-                        </Text>
-                    </View>
                 </View>
+                {showGigsHosted ? (
+                    <Text
+                        style={{ fontFamily: 'Outfit-Light', fontSize: 11, color: '#8C857B', marginTop: 1 }}
+                        testID="organizer-gigs-hosted"
+                    >
+                        {gigsHosted} {gigsHosted === 1 ? 'gig' : 'gigs'} hosted
+                    </Text>
+                ) : null}
             </View>
         </TouchableOpacity>
     );

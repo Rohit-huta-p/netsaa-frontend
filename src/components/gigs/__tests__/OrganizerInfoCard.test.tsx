@@ -1,7 +1,7 @@
 // src/components/gigs/__tests__/OrganizerInfoCard.test.tsx
 //
-// Plan 5 — gig detail redesign. Renders the producer card with the new
-// gigsHosted + avgReplyMinutes fields surfaced alongside the rating row.
+// Gig detail — producer card. V4 redesign: name + blue verified tick + a
+// single dynamic "N gigs hosted" line (star rating + reply-speed removed).
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
@@ -48,44 +48,19 @@ describe('OrganizerInfoCard — Plan 5 trust signals', () => {
         expect(queryByTestId('organizer-gigs-hosted')).toBeNull();
     });
 
-    it('renders reply speed in minutes when < 60m', () => {
-        const { getByTestId } = render(
-            <OrganizerInfoCard organizerId="org-1" avgReplyMinutes={45} />
+    it('renders a blue verified tick only when isVerified', () => {
+        const { getByTestId, queryByTestId, rerender } = render(
+            <OrganizerInfoCard organizerId="org-1" isVerified />
         );
-        expect(getByTestId('organizer-reply-speed').props.children).toBe('Replies in <45m');
+        expect(getByTestId('organizer-verified-tick')).toBeTruthy();
+        rerender(<OrganizerInfoCard organizerId="org-1" />);
+        expect(queryByTestId('organizer-verified-tick')).toBeNull();
     });
 
-    it('renders reply speed in hours with 1 decimal when 1-9.9h', () => {
-        const { getByTestId } = render(
-            <OrganizerInfoCard organizerId="org-1" avgReplyMinutes={150} />
-        );
-        // 150min / 60 = 2.5h → "Replies in <2.5h"
-        expect(getByTestId('organizer-reply-speed').props.children).toBe('Replies in <2.5h');
-    });
-
-    it('hides reply speed when > 24h (stale signal)', () => {
+    it('no longer renders a reply-speed line', () => {
         const { queryByTestId } = render(
-            <OrganizerInfoCard organizerId="org-1" avgReplyMinutes={25 * 60} />
+            <OrganizerInfoCard organizerId="org-1" avgReplyMinutes={30} />
         );
         expect(queryByTestId('organizer-reply-speed')).toBeNull();
-    });
-
-    it('hides reply speed when undefined', () => {
-        const { queryByTestId } = render(
-            <OrganizerInfoCard organizerId="org-1" />
-        );
-        expect(queryByTestId('organizer-reply-speed')).toBeNull();
-    });
-
-    it('renders both gigsHosted and reply speed together when both set', () => {
-        const { getByTestId } = render(
-            <OrganizerInfoCard
-                organizerId="org-1"
-                gigsHosted={12}
-                avgReplyMinutes={30}
-            />
-        );
-        expect(getByTestId('organizer-gigs-hosted')).toBeTruthy();
-        expect(getByTestId('organizer-reply-speed')).toBeTruthy();
     });
 });

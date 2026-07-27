@@ -7,7 +7,7 @@ import { render } from '@testing-library/react-native';
 import { LookingForSection } from '../LookingForSection';
 
 describe('LookingForSection', () => {
-    it('renders type + experience + age + height + skills + slots aside', () => {
+    it('renders type + experience + age + height + skills (slots aside removed)', () => {
         const { getByTestId, getByText, queryByText } = render(
             <LookingForSection
                 artistTypes={['Dancer']}
@@ -39,8 +39,8 @@ describe('LookingForSection', () => {
         expect(getByText('Kathak')).toBeTruthy();
         expect(getByText('Abhinaya')).toBeTruthy();
 
-        // Slots aside (zero-padded "06 slots")
-        expect(getByText(/06 slots/)).toBeTruthy();
+        // Slots aside removed (#4) — slots now live in the When/Where/Slots meta stack.
+        expect(queryByText(/06 slots/)).toBeNull();
     });
 
     it('hides empty rows and section when nothing to render', () => {

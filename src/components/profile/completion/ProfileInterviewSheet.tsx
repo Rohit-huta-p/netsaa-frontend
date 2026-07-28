@@ -5,6 +5,7 @@ import { X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import authService from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
+import { useProfileUiStore } from '@/stores/profileUiStore';
 import { uploadMediaFlow, validateMediaFile } from '@/utils/upload';
 import type { InterviewField } from './interviewFieldMeta';
 
@@ -41,6 +42,8 @@ const ProfileInterviewSheet: React.FC<ProfileInterviewSheetProps> = ({ visible, 
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [uploadPct, setUploadPct] = useState(0);
 
+  const field = fields[idx];
+
   useEffect(() => {
     if (visible) {
       setIdx(0);
@@ -52,9 +55,18 @@ const ProfileInterviewSheet: React.FC<ProfileInterviewSheetProps> = ({ visible, 
     }
   }, [visible]);
 
+  // A 'verify' field (email verification) has no in-sheet input — it's
+  // account security, not profile content. Hand off to the edit-modal's
+  // Verify section instead of trying to collect it here.
+  useEffect(() => {
+    if (!visible || !field || field.inputType !== 'verify') return;
+    onClose();
+    useProfileUiStore.getState().openSheet(field.section);
+  }, [visible, field?.inputType, field?.section, onClose]);
+
   if (!visible) return null;
-  const field = fields[idx];
   if (!field) return null;
+  if (field.inputType === 'verify') return null; // handoff happens in the effect above
 
   const advance = (savedId?: string) => {
     const nextSaved = savedId ? [...savedIds, savedId] : savedIds;

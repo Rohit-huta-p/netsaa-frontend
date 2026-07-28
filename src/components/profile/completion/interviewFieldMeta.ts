@@ -9,7 +9,7 @@ export interface InterviewField {
   chipLabel: string;
   section: SectionId;
   question: string;
-  inputType: 'text' | 'chips' | 'multiselect' | 'media';
+  inputType: 'text' | 'chips' | 'multiselect' | 'media' | 'verify';
   chips?: string[];
   playbillSlot: PlaybillSlot;
 }
@@ -34,6 +34,10 @@ const RULES: Rule[] = [
   { test: /video reel|reel|video/i, build: (label) => ({ id: 'videoReel', label, chipLabel: 'Video reel', section: 'media', question: 'Add one short performance clip.', inputType: 'media', playbillSlot: 'none' }) },
   { test: /experience|past performance/i, build: (label) => ({ id: 'experience', label, chipLabel: 'Past performance', section: 'about', question: "Add one past show you're proud of.", inputType: 'text', playbillSlot: 'signature' }) },
   { test: /location|city/i, build: (label) => ({ id: 'location', label, chipLabel: 'City', section: 'header', question: 'Which city are you based in?', inputType: 'text', playbillSlot: 'none' }) },
+  // Account security, not profile content — never collected inline in the
+  // Interview. ProfileInterviewSheet special-cases inputType 'verify' and
+  // hands off to the edit-modal's 'verify' section instead.
+  { test: /verified email|verify.*email|backup email/i, build: (label) => ({ id: 'email', label, chipLabel: 'Verify email', section: 'verify', question: 'Add a backup email so you never lose access to your account.', inputType: 'verify', playbillSlot: 'none' }) },
 ];
 
 // Order matters: 'photo' before 'gallery/photos', 'video reel' before 'video'.

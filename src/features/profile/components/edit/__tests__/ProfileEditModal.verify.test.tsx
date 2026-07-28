@@ -85,10 +85,13 @@ const baseProfile = {
 
 describe('ProfileEditModal — Verify section (email add -> 6-digit code -> verified)', () => {
     it('shows the phone-secured (read-only) rung and a backup-email field', () => {
-        const { getByText, getByPlaceholderText } = render(
+        const { getAllByText, getByText, getByPlaceholderText } = render(
             <ProfileEditModal profileData={baseProfile} />
         );
-        expect(getByText('Secure your account')).toBeTruthy();
+        // This modal titles each section with its tab label (the "Secure your
+        // account" headline belongs to the editorial redesign, which isn't here).
+        // It appears twice: once in the tab bar, once as the section heading.
+        expect(getAllByText('Verify').length).toBeGreaterThan(0);
         expect(getByText(/Phone secured/i)).toBeTruthy();
         expect(getByPlaceholderText(/name@email/i)).toBeTruthy();
     });

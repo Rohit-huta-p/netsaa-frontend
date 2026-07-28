@@ -122,6 +122,20 @@ const authService = {
     }
   },
 
+  sendEmailCode: async (email: string): Promise<any> => {
+    // POST /auth/send-email-code — email verification (strengthener only,
+    // never gates apply). Spec: DOCS/08-planning/specs/2026-07-21-email-verification-design.md
+    const res = await API.post('/auth/send-email-code', { email });
+    return res.data;
+  },
+
+  verifyEmailCode: async (email: string, code: string): Promise<User> => {
+    // POST /auth/verify-email-code — envelope is { meta, data, errors };
+    // the updated user document is in `data`.
+    const res = await API.post('/auth/verify-email-code', { email, code });
+    return res.data.data as User;
+  },
+
   getMe: async (): Promise<User> => {
     // GET /auth/me
     console.log("AUTH SERVICE: Getting user...")
@@ -206,6 +220,24 @@ const authService = {
     console.log("AUTH SERVICE: Resetting password...");
     const res = await API.post('/auth/reset-password', payload);
     return res.data;
+  },
+
+  recordProfileView: async (id: string): Promise<void> => {
+    // Fire-and-forget: a failed view record must never disrupt the profile view.
+    // Skip without a session: the endpoint requires auth, so an unauthenticated
+    // call is a guaranteed 401 that only trips the response interceptor's
+    // clearAuth() for no benefit (view screens are only reachable when logged in).
+    if (!useAuthStore.getState().accessToken) return;
+    try {
+      await API.post(`/users/${id}/view`);
+    } catch {
+      /* ignore */
+    }
+  },
+
+  getMyProfileViews: async (): Promise<{ total: number; last7: number }> => {
+    const res = await API.get('/users/me/profile-views');
+    return res.data?.data ?? { total: 0, last7: 0 };
   },
 };
 

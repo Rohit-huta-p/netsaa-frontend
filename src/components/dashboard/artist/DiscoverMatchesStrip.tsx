@@ -1,55 +1,37 @@
 /**
- * DiscoverMatchesStrip — wider horizontal carousel of gigs + events that
- * fit the artist's type and skills.
+ * DiscoverMatchesStrip — horizontal carousel of gigs + events that fit the
+ * artist's type and skills.
  *
- * Per DOCS/04-design/mockups/artist-home-v1.html §6 (pivot 2026-05-18 from Hirers,
- * then again to horizontal big cards). Differentiated from the "For you"
- * carousel above:
+ * Design System v3 (DOCS/04-design/mockups/artist-home-redesign.html): an
+ * eyebrow-labelled section over calm surface cards — no gradient header bands,
+ * no dark-on-dark camouflage. Each card:
  *
- *   - For you   → 240px cards, glance-mode, top match%
- *   - Discover  → 300px BIG cards with gradient header band + "why" reason,
- *                 deeper browse, vertical card layout
+ *   ┌────────────────────────────────┐
+ *   │ GIG                 92% MATCH  │  ← kind (mono) · why (orange mono)
+ *   │ Title in DM Serif              │
+ *   │ city · date                    │
+ *   │ ────────────────────────────── │
+ *   │ ₹18,000              VIEW →    │  ← pay (cream) · orange link
+ *   └────────────────────────────────┘
  *
- * Each card:
- *   ┌────────────────────────────────────────┐
- *   │ ████ gradient header w/ pill + reason  │  ← 76px
- *   │                                        │
- *   │ Title in DM Serif                      │
- *   │ city · date                            │
- *   │                                        │
- *   │ ₹18,000              VIEW →            │
- *   └────────────────────────────────────────┘
- *
- * Data: useDiscoverMatches (stub; backend follow-up tracked in hook).
+ * Color = signal (v3): orange is the one accent; reach/visibility stays purple
+ * elsewhere. Data: useDiscoverMatches (stub; backend follow-up tracked in hook).
  */
 import React from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import useDiscoverMatches, {
-    DiscoverMatchItem,
     DiscoverItemKind,
 } from '@/hooks/useDiscoverMatches';
 
-const PURPLE = '#8B5CF6';
-const PAPER = '#F3EFE8';
-const MUTED = '#6B6878';
-const PAPER_DIM = '#B8B1A6';
+const PAPER = '#F0ECE6';
+const MUTED = '#8C857B';
+const PAPER_DIM = '#C8C0B5';
 const ORANGE = '#FF6B35';
-const PINK = '#EC4899';
 const GREEN = '#22C55E';
-const GOLD = '#F59E0B';
-const BG_TILE = '#0D0B12';
+const T3 = '#57524C';
 
-const CARD_WIDTH = 300;
-const HEADER_HEIGHT = 76;
-
-const THEME_COLORS: Record<DiscoverMatchItem['theme'], [string, string]> = {
-    orange: ['#FF6B35', '#F59E0B'],
-    purple: ['#8B5CF6', '#EC4899'],
-    green:  ['#22C55E', '#34D399'],
-    pink:   ['#EC4899', '#FB7185'],
-};
+const CARD_WIDTH = 232;
 
 const KIND_LABEL: Record<DiscoverItemKind, string> = {
     gig:      'GIG',
@@ -75,15 +57,8 @@ export default function DiscoverMatchesStrip() {
     return (
         <View style={styles.root}>
             <View style={styles.header}>
-                <View style={styles.stampRow}>
-                    <View style={styles.stampLine} />
-                    <Text style={styles.stampText}>DISCOVER</Text>
-                    <View style={styles.stampLine} />
-                </View>
-                <Text style={styles.title}>Gigs and events that fit.</Text>
-                <Text style={styles.subtitle}>
-                    Matched by your artist type and skills.
-                </Text>
+                <Text style={styles.eyebrow}>DISCOVER</Text>
+                <Text style={styles.aside}>gigs + events · near you</Text>
             </View>
 
             <ScrollView
@@ -92,7 +67,7 @@ export default function DiscoverMatchesStrip() {
                 contentContainerStyle={styles.scrollContent}
                 snapToAlignment="start"
                 decelerationRate="fast"
-                snapToInterval={CARD_WIDTH + 12}
+                snapToInterval={CARD_WIDTH + 10}
             >
                 {items.map((it) => {
                     const pay = formatPay(it.payRupees);
@@ -102,43 +77,27 @@ export default function DiscoverMatchesStrip() {
                             onPress={() => router.push(it.href as any)}
                             style={styles.card}
                         >
-                            <LinearGradient
-                                colors={THEME_COLORS[it.theme]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.cardHeader}
-                            >
-                                <View style={styles.pill}>
-                                    <Text style={styles.pillText}>
-                                        {KIND_LABEL[it.kind]}
-                                    </Text>
-                                </View>
-                                <Text style={styles.reason} numberOfLines={1}>
+                            <View style={styles.cardTop}>
+                                <Text style={styles.kind}>{KIND_LABEL[it.kind]}</Text>
+                                <Text style={styles.why} numberOfLines={1}>
                                     {it.reason}
                                 </Text>
-                            </LinearGradient>
+                            </View>
 
-                            <View style={styles.body}>
-                                <Text style={styles.cardTitle} numberOfLines={2}>
-                                    {it.title}
-                                </Text>
-                                <Text style={styles.meta} numberOfLines={1}>
-                                    {it.meta}
-                                </Text>
+                            <Text style={styles.cardTitle} numberOfLines={2}>
+                                {it.title}
+                            </Text>
+                            <Text style={styles.meta} numberOfLines={1}>
+                                {it.meta}
+                            </Text>
 
-                                <View style={styles.footer}>
-                                    <Text
-                                        style={[
-                                            styles.pay,
-                                            pay.tone === 'free' && styles.payFree,
-                                        ]}
-                                    >
-                                        {pay.value}
-                                    </Text>
-                                    <View style={styles.cta}>
-                                        <Text style={styles.ctaText}>VIEW →</Text>
-                                    </View>
-                                </View>
+                            <View style={styles.footer}>
+                                <Text
+                                    style={[styles.pay, pay.tone === 'free' && styles.payFree]}
+                                >
+                                    {pay.value}
+                                </Text>
+                                <Text style={styles.ctaText}>VIEW →</Text>
                             </View>
                         </Pressable>
                     );
@@ -149,118 +108,104 @@ export default function DiscoverMatchesStrip() {
 }
 
 const styles = StyleSheet.create({
-    root: { marginBottom: 38 },
+    root: {
+        marginTop: 10,
+        marginBottom: 6, // Discover mb 6 + footer pt 30 ≈ 36px, matching the section rhythm
+    },
 
+    // v3 eyebrow header (matches the other home sections).
     header: {
-        paddingHorizontal: 24,
-        marginBottom: 16,
+        paddingHorizontal: 20,
+        marginTop: 26,
+        marginBottom: 12,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
     },
-    stampRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-    stampLine: { width: 14, height: 1, backgroundColor: 'rgba(243,239,232,0.14)' },
-    stampText: { fontFamily: 'SpaceMono-Regular', fontSize: 10, letterSpacing: 1.5, color: MUTED },
-    title: {
-        fontFamily: 'DMSerifDisplay_400Regular',
-        fontSize: 28,
-        letterSpacing: -0.8,
-        color: PAPER,
-        marginBottom: 6,
+    eyebrow: {
+        fontFamily: 'Outfit-Bold',
+        fontSize: 11,
+        letterSpacing: 1.7,
+        textTransform: 'uppercase',
+        color: PAPER_DIM,
     },
-    subtitle: {
-        fontFamily: 'DMSerifDisplay_400Regular',
-        fontStyle: 'italic',
-        fontSize: 12,
-        color: MUTED,
+    aside: {
+        fontFamily: 'SpaceMono-Regular',
+        fontSize: 10,
+        letterSpacing: 0.6,
+        color: T3,
     },
 
     scrollContent: {
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
         paddingBottom: 6,
-        gap: 12,
+        gap: 10,
     },
+
+    // Calm v3 surface card (white-alpha fill + hairline — lifts off the canvas).
     card: {
         width: CARD_WIDTH,
-        backgroundColor: BG_TILE,
-        borderColor: 'rgba(243,239,232,0.09)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderColor: 'rgba(255,255,255,0.10)',
         borderWidth: 1,
-        borderRadius: 18,
-        overflow: 'hidden',
+        borderRadius: 14,
+        padding: 14,
     },
-
-    // Gradient header band
-    cardHeader: {
-        height: HEADER_HEIGHT,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
+    cardTop: {
+        flexDirection: 'row',
         justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 11,
     },
-    pill: {
-        alignSelf: 'flex-start',
-        paddingHorizontal: 9,
-        paddingVertical: 3,
-        borderRadius: 999,
-        backgroundColor: 'rgba(11,10,15,0.30)',
+    kind: {
+        fontFamily: 'SpaceMono-Regular',
+        fontSize: 8.5,
+        letterSpacing: 1,
+        color: T3,
     },
-    pillText: {
-        fontFamily: 'Outfit-Bold',
-        fontSize: 9,
-        letterSpacing: 1.2,
-        color: PAPER,
-    },
-    reason: {
-        fontFamily: 'DMSerifDisplay_400Regular',
-        fontStyle: 'italic',
-        fontSize: 12,
-        color: '#0A0A0F',
-    },
-
-    // Body
-    body: {
-        padding: 16,
-        paddingTop: 14,
-        gap: 6,
-        flex: 1,
+    why: {
+        fontFamily: 'SpaceMono-Regular',
+        fontSize: 8.5,
+        letterSpacing: 0.4,
+        color: ORANGE,
+        flexShrink: 1,
+        marginLeft: 8,
+        textAlign: 'right',
     },
     cardTitle: {
         fontFamily: 'DMSerifDisplay_400Regular',
-        fontSize: 19,
-        lineHeight: 22,
+        fontSize: 18,
+        lineHeight: 21,
         letterSpacing: -0.4,
         color: PAPER,
-        minHeight: 44,
+        minHeight: 42,
     },
     meta: {
         fontFamily: 'Outfit-Regular',
         fontSize: 12,
         color: MUTED,
-        marginBottom: 10,
+        marginTop: 6,
     },
 
     footer: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        marginTop: 'auto',
+        justifyContent: 'space-between',
+        marginTop: 12,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.07)',
     },
     pay: {
-        fontFamily: 'DMSerifDisplay_400Regular',
-        fontSize: 20,
+        fontFamily: 'Outfit-Bold',
+        fontSize: 13,
         color: PAPER,
-        letterSpacing: -0.3,
-        marginRight: 'auto',
     },
-    payFree: { color: GREEN, fontSize: 14 },
-    cta: {
-        paddingHorizontal: 12,
-        paddingVertical: 7,
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: 'rgba(139,92,246,0.40)',
-        backgroundColor: 'rgba(139,92,246,0.08)',
-    },
+    payFree: { color: GREEN },
     ctaText: {
         fontFamily: 'SpaceMono-Regular',
-        fontSize: 10,
-        letterSpacing: 1.5,
-        color: PURPLE,
+        fontSize: 9,
+        letterSpacing: 1,
+        color: ORANGE,
     },
 });

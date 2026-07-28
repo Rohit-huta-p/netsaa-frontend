@@ -1,29 +1,26 @@
 /**
- * ByTheNumbersArtist — 5-tile KPI grid on artist home.
+ * ByTheNumbersArtist — Earnings + Profile Views as a v3 gridlined stat grid.
  *
- * Layout per locked mockup (DOCS/04-design/mockups/artist-home-v1.html):
- *   Row 1: [ EARNED THIS MONTH · span-2 + sparkline ]  [ PROFILE VIEWS ]
- *   Row 2: [ APPLICATIONS ]  [ DELIVERED ]  [ RATING ]
+ * Redesign per DOCS/04-design/mockups/artist-home-redesign.html (Column A),
+ * on Design System v3 §8 "gridlined stat grid": a bordered rounded frame whose
+ * background (rgba(243,239,232,0.10)) shows through 1px gaps as hairline
+ * gridlines between dark #11111A tiles — a dashboard, not a pair of cards.
  *
- * Editorial typography: SpaceMono labels, DM Serif Display values,
- * Outfit sub-text. Earnings tile uses purple accent (matches artist
- * mode color).
+ * Color = signal (v3 §2.4): money reads orange #FF6B35 (the one accent); reach
+ * reads purple #8B5CF6 (the visibility semantic). Warm cream ink, mono labels,
+ * DM-Serif values. Empty states render "—" (honest data, v3 P8).
  *
- * Empty-state behavior — when all numbers are 0, we still render the grid
- * with "—" placeholders. Day-1 artists see scaffolding instead of a
- * disappearing section.
- *
- * Data: useArtistNumbers. Sparkline degrades gracefully when no
- * earnings data exists yet.
+ * Data: useArtistNumbers (earnedThisMonth, sparkline, pendingPayouts,
+ * profileViews, profileViewsDelta).
  */
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import useArtistNumbers from '@/hooks/useArtistNumbers';
 
+const ORANGE = '#FF6B35';
 const PURPLE = '#8B5CF6';
-const PAPER = '#F3EFE8';
-const PAPER_DIM = '#B8B1A6';
-const MUTED = '#6B6878';
+const T2 = '#8C857B';
+const T3 = '#57524C';
 
 function formatIN(n: number): string {
     return n.toLocaleString('en-IN');
@@ -40,80 +37,51 @@ export default function ByTheNumbersArtist() {
     const { data, isLoading } = useArtistNumbers();
 
     if (isLoading) {
-        return <View style={styles.skeleton} accessibilityElementsHidden />;
+        return <ByTheNumbersSkeleton />;
     }
 
+    const hasEarnings = data.earnedThisMonth > 0;
     const earnedDisplay = formatRupeesCompact(data.earnedThisMonth);
-    const profileDelta =
-        data.profileViewsDelta > 0
-            ? `+${data.profileViewsDelta} this week`
-            : data.profileViews > 0
-                ? 'all-time'
-                : 'no views yet';
-    const earnedSub =
-        data.delivered > 0
-            ? `${data.delivered} gigs delivered${data.pendingPayouts > 0 ? ` · ${data.pendingPayouts} pending payout` : ''}`
-            : 'No gigs delivered yet';
-    const applicationsSub =
-        data.applicationsActive > 0
-            ? `${data.applicationsActive} active`
-            : data.applicationsTotal > 0
-                ? 'all-time'
-                : 'none yet';
-    const ratingSub =
-        data.reviewCount > 0
-            ? `${data.reviewCount} review${data.reviewCount === 1 ? '' : 's'}`
-            : 'no reviews yet';
+    const earnFoot =
+        data.pendingPayouts > 0
+            ? `${data.pendingPayouts} PENDING PAYOUT${data.pendingPayouts === 1 ? '' : 'S'}`
+            : hasEarnings
+                ? 'ALL SETTLED'
+                : 'NO EARNINGS YET';
+
+    const hasViews = data.profileViews > 0;
+    const viewsDisplay = hasViews ? formatIN(data.profileViews) : '—';
+    const hasDelta = data.profileViewsDelta > 0;
 
     return (
         <View style={styles.root}>
-            {/* Stamp header */}
-            <View style={styles.stampRow}>
-                <View style={styles.stampLine} />
-                <Text style={styles.stampText}>BY THE NUMBERS</Text>
-                <View style={styles.stampLine} />
-            </View>
-
-            {/* Row 1 */}
-            <View style={styles.row}>
-                <View style={[styles.tile, styles.tileSpan2, styles.tileAccent]}>
-                    <Text style={styles.label}>EARNED THIS MONTH</Text>
-                    <Text style={styles.valueAccent}>
-                        <Text style={styles.currency}>₹</Text>{earnedDisplay}
+            <View style={styles.grid}>
+                {/* ── Earnings ── */}
+                <View style={styles.tile}>
+                    <Text style={styles.label}>EARNED · THIS MONTH</Text>
+                    <Text style={[styles.value, styles.money]} numberOfLines={1} adjustsFontSizeToFit>
+                        {hasEarnings ? <Text style={styles.currency}>₹</Text> : null}
+                        {earnedDisplay}
                     </Text>
-                    <Text style={styles.sub}>{earnedSub}</Text>
                     <Sparkline data={data.sparkline} />
+                    <Text style={styles.foot}>{earnFoot}</Text>
                 </View>
 
+                {/* ── Profile views ── */}
                 <View style={styles.tile}>
                     <Text style={styles.label}>PROFILE VIEWS</Text>
-                    <Text style={styles.value}>
-                        {data.profileViews > 0 ? formatIN(data.profileViews) : '—'}
+                    <Text style={[styles.value, styles.views]} numberOfLines={1} adjustsFontSizeToFit>
+                        {viewsDisplay}
                     </Text>
-                    <Text style={styles.sub}>{profileDelta}</Text>
-                </View>
-            </View>
-
-            {/* Row 2 */}
-            <View style={styles.row}>
-                <View style={styles.tile}>
-                    <Text style={styles.label}>APPLICATIONS</Text>
-                    <Text style={styles.value}>
-                        {data.applicationsTotal > 0 ? data.applicationsTotal : '—'}
-                    </Text>
-                    <Text style={styles.sub}>{applicationsSub}</Text>
-                </View>
-
-                <View style={styles.tile}>
-                    <Text style={styles.label}>DELIVERED</Text>
-                    <Text style={styles.value}>{data.delivered > 0 ? data.delivered : '—'}</Text>
-                    <Text style={styles.sub}>{data.delivered > 0 ? 'all-time' : 'none yet'}</Text>
-                </View>
-
-                <View style={styles.tile}>
-                    <Text style={styles.label}>RATING</Text>
-                    <Text style={styles.value}>{data.rating > 0 ? data.rating.toFixed(1) : '—'}</Text>
-                    <Text style={styles.sub}>{ratingSub}</Text>
+                    <View style={styles.viewsFoot}>
+                        {hasDelta ? (
+                            <View style={styles.deltaPill}>
+                                <Text style={styles.deltaText}>▲ {data.profileViewsDelta} this week</Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.foot}>{hasViews ? 'ALL-TIME' : 'NO VIEWS YET'}</Text>
+                        )}
+                    </View>
                 </View>
             </View>
         </View>
@@ -128,113 +96,179 @@ function Sparkline({ data }: { data: number[] }) {
             {data.map((v, i) => (
                 <View
                     key={i}
-                    style={[
-                        styles.sparkBar,
-                        { height: `${Math.max(6, (v / max) * 100)}%` },
-                    ]}
+                    style={[styles.sparkBar, { height: `${Math.max(6, (v / max) * 100)}%` }]}
                 />
             ))}
         </View>
     );
 }
 
+/**
+ * ByTheNumbersSkeleton — loading placeholder that mirrors the stat grid tile-for-
+ * tile (same frame, gridlines, positions) so there's zero layout shift on load.
+ * The static labels (EARNED · THIS MONTH, PROFILE VIEWS) render for real — only
+ * the data-dependent slots (value, sparkline, foot) pulse. Blocks breathe on a
+ * single shared opacity loop; each value slot carries a faint accent tint so the
+ * tile's identity — orange money · purple reach — is already legible before the
+ * numbers arrive. Calm pulse, not a shimmer sweep: on-brand.
+ */
+const SPARK_STUB = [0.4, 0.68, 0.5, 0.92, 0.58, 0.8, 0.54];
+
+function ByTheNumbersSkeleton() {
+    const pulse = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulse, {
+                    toValue: 1,
+                    duration: 850,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+                Animated.timing(pulse, {
+                    toValue: 0,
+                    duration: 850,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+            ]),
+        );
+        loop.start();
+        return () => loop.stop();
+    }, [pulse]);
+
+    const opacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.85] });
+
+    return (
+        <View
+            style={styles.root}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+        >
+            <View style={styles.grid}>
+                {/* Earnings */}
+                <View style={styles.tile}>
+                    <Text style={styles.label}>EARNED · THIS MONTH</Text>
+                    <Animated.View style={[styles.skBlock, styles.skValue, styles.skValueMoney, { opacity }]} />
+                    <View style={styles.sparkline}>
+                        {SPARK_STUB.map((h, i) => (
+                            <Animated.View
+                                key={i}
+                                style={[styles.skSpark, { opacity, height: `${h * 100}%` }]}
+                            />
+                        ))}
+                    </View>
+                    <View style={styles.skFootRow}>
+                        <Animated.View style={[styles.skBlock, styles.skFoot, { opacity }]} />
+                    </View>
+                </View>
+
+                {/* Profile views */}
+                <View style={styles.tile}>
+                    <Text style={styles.label}>PROFILE VIEWS</Text>
+                    <Animated.View style={[styles.skBlock, styles.skValue, styles.skValueViews, { opacity }]} />
+                    <View style={styles.viewsFoot}>
+                        <Animated.View style={[styles.skBlock, styles.skPill, { opacity }]} />
+                    </View>
+                </View>
+            </View>
+        </View>
+    );
+}
+
 const styles = StyleSheet.create({
     root: {
-        paddingHorizontal: 24,
-        marginBottom: 38,
+        paddingHorizontal: 20,
+        marginTop: 4,
+        marginBottom: 6,
     },
-    stampRow: {
+    // Gridlined stat grid (v3 §8): frame bg shows through 1px gaps as gridlines.
+    grid: {
         flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 14,
-    },
-    stampLine: {
-        flex: 0,
-        width: 14,
-        height: 1,
-        backgroundColor: 'rgba(243,239,232,0.14)',
-    },
-    stampText: {
-        fontFamily: 'SpaceMono-Regular',
-        fontSize: 10,
-        letterSpacing: 1.5,
-        color: MUTED,
-    },
-
-    row: {
-        flexDirection: 'row',
-        gap: 8,
-        marginBottom: 8,
+        gap: 1,
+        backgroundColor: 'rgba(243,239,232,0.10)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.10)',
+        borderRadius: 14,
+        overflow: 'hidden',
     },
     tile: {
         flex: 1,
+        minHeight: 132,
         backgroundColor: '#11111A',
-        borderColor: 'rgba(243,239,232,0.09)',
-        borderWidth: 1,
-        borderRadius: 14,
-        padding: 14,
-        gap: 4,
+        paddingVertical: 15,
+        paddingHorizontal: 14,
     },
-    tileSpan2: {
-        flex: 2,
-    },
-    tileAccent: {
-        backgroundColor: '#11111A',
-        borderColor: 'rgba(139,92,246,0.20)',
-        // Light tint overlay achieved via the value color; the tile itself
-        // keeps the same dark fill so the grid stays visually consistent.
-    },
-
     label: {
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'SpaceMono-Bold',
         fontSize: 9,
-        letterSpacing: 1.5,
-        color: MUTED,
+        letterSpacing: 1.6,
+        textTransform: 'uppercase',
+        color: T3,
     },
     value: {
         fontFamily: 'DMSerifDisplay_400Regular',
-        fontSize: 26,
-        letterSpacing: -0.8,
-        color: PAPER,
-        lineHeight: 28,
+        fontSize: 32,
+        letterSpacing: -1,
+        lineHeight: 34,
+        marginTop: 11,
     },
-    valueAccent: {
-        fontFamily: 'DMSerifDisplay_400Regular',
-        fontSize: 26,
-        letterSpacing: -0.8,
-        color: PURPLE,
-        lineHeight: 28,
-    },
-    currency: {
-        fontSize: 14,
-        color: PAPER_DIM,
-    },
-    sub: {
-        fontSize: 10,
-        fontFamily: 'Outfit-Regular',
-        color: MUTED,
-    },
+    money: { color: ORANGE },
+    views: { color: PURPLE },
+    currency: { fontSize: 17, color: T2 },
 
     sparkline: {
-        marginTop: 6,
-        height: 18,
+        marginTop: 12,
+        height: 22,
         flexDirection: 'row',
         alignItems: 'flex-end',
-        gap: 2,
+        gap: 3,
     },
     sparkBar: {
         flex: 1,
-        backgroundColor: PURPLE,
-        opacity: 0.6,
-        borderRadius: 1,
+        backgroundColor: ORANGE,
+        opacity: 0.8,
+        borderRadius: 2,
     },
 
-    skeleton: {
-        height: 220,
-        marginHorizontal: 24,
-        marginBottom: 38,
-        borderRadius: 16,
-        backgroundColor: 'rgba(243,239,232,0.04)',
+    foot: {
+        marginTop: 'auto',
+        paddingTop: 11,
+        fontFamily: 'SpaceMono-Regular',
+        fontSize: 9,
+        letterSpacing: 0.4,
+        color: T3,
     },
+    viewsFoot: { marginTop: 'auto', paddingTop: 11, flexDirection: 'row' },
+    deltaPill: {
+        backgroundColor: 'rgba(139,92,246,0.11)',
+        borderWidth: 1,
+        borderColor: 'rgba(139,92,246,0.22)',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 999,
+    },
+    deltaText: {
+        fontFamily: 'SpaceMono-Regular',
+        fontSize: 9.5,
+        color: PURPLE,
+    },
+
+    // ── Skeleton (mirrors the tiles above; blocks share one breathing opacity) ──
+    skBlock: {
+        backgroundColor: 'rgba(240,236,230,0.09)',
+        borderRadius: 6,
+    },
+    skValue: { height: 30, borderRadius: 7, marginTop: 11 },
+    skValueMoney: { width: 104, backgroundColor: 'rgba(255,107,53,0.16)' },
+    skValueViews: { width: 68, backgroundColor: 'rgba(139,92,246,0.16)' },
+    skSpark: {
+        flex: 1,
+        backgroundColor: 'rgba(255,107,53,0.22)',
+        borderRadius: 2,
+    },
+    skFootRow: { marginTop: 'auto' },
+    skFoot: { width: 82, height: 9, borderRadius: 3, marginTop: 11 },
+    skPill: { width: 116, height: 20, borderRadius: 999, marginTop: 11 },
 });

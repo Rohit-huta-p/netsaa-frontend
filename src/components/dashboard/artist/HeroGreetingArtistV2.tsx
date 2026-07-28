@@ -31,22 +31,6 @@ function greetingFor(d: Date): string {
     return 'Tonight';
 }
 
-type TierKey = 'new' | 'rising' | 'trusted' | 'verified';
-const TIER_LABEL: Record<TierKey, string> = {
-    new: 'NEW',
-    rising: 'RISING',
-    trusted: 'TRUSTED',
-    verified: 'VERIFIED',
-};
-
-function tierKey(raw?: string): TierKey {
-    const t = (raw ?? '').toLowerCase();
-    if (t === 'verified') return 'verified';
-    if (t === 'trusted') return 'trusted';
-    if (t === 'rising') return 'rising';
-    return 'new';
-}
-
 export default function HeroGreetingArtistV2() {
     const { data: user, isLoading } = useHeroData();
     const greeting = useMemo(() => greetingFor(new Date()), []);
@@ -58,14 +42,6 @@ export default function HeroGreetingArtistV2() {
     const displayName = (user as any).displayName ?? 'Artist';
     const firstName = displayName.split(' ')[0] ?? displayName;
     const initial = (firstName[0] ?? 'A').toUpperCase();
-
-    const tier = tierKey((user as any).trustTier);
-    const trustScoreRaw = (user as any).trustScore;
-    const trustScore =
-        typeof trustScoreRaw === 'number' ? trustScoreRaw.toFixed(1) : null;
-    const tierText = trustScore
-        ? `${TIER_LABEL[tier]} · TRUST ${trustScore}`
-        : TIER_LABEL[tier];
 
     return (
         <View style={styles.root}>
@@ -83,10 +59,6 @@ export default function HeroGreetingArtistV2() {
                 <Text style={styles.name} numberOfLines={1}>
                     {firstName}
                 </Text>
-            </View>
-
-            <View style={styles.tierPill}>
-                <Text style={styles.tierText}>{tierText}</Text>
             </View>
         </View>
     );
@@ -130,18 +102,6 @@ const styles = StyleSheet.create({
         fontSize: 18,
         color: '#F3EFE8',
         letterSpacing: -0.3,
-    },
-    tierPill: {
-        paddingHorizontal: 9,
-        paddingVertical: 3,
-        borderRadius: 999,
-        backgroundColor: 'rgba(139,92,246,0.12)',
-    },
-    tierText: {
-        fontFamily: 'Outfit-Bold',
-        fontSize: 9,
-        letterSpacing: 1,
-        color: '#8B5CF6',
     },
     skeleton: {
         height: 92,

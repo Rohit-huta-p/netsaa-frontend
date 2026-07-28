@@ -10,18 +10,13 @@ jest.mock('@/hooks/useArtistNumbers', () => ({
 import useArtistNumbers from '@/hooks/useArtistNumbers';
 const mockedHook = useArtistNumbers as jest.MockedFunction<typeof useArtistNumbers>;
 
-describe('ByTheNumbersArtist (smoke)', () => {
-  it('renders five KPI labels in the grid', () => {
+describe('ByTheNumbersArtist (Diptych)', () => {
+  it('renders the two KPI tiles with their values and delta', () => {
     mockedHook.mockReturnValue({
       data: {
-        earnedThisMonth: 42500,
-        profileViews: 184,
+        earnedThisMonth: 84200,
+        profileViews: 1284,
         profileViewsDelta: 38,
-        applicationsTotal: 23,
-        applicationsActive: 12,
-        delivered: 7,
-        rating: 4.8,
-        reviewCount: 12,
         pendingPayouts: 1,
         sparkline: [3, 5, 4, 7, 6, 9, 8],
       },
@@ -29,36 +24,29 @@ describe('ByTheNumbersArtist (smoke)', () => {
     });
 
     const { getByText } = render(<ByTheNumbersArtist />);
-    expect(getByText('EARNED THIS MONTH')).toBeTruthy();
+    expect(getByText('EARNED · THIS MONTH')).toBeTruthy();
     expect(getByText('PROFILE VIEWS')).toBeTruthy();
-    expect(getByText('APPLICATIONS')).toBeTruthy();
-    expect(getByText('DELIVERED')).toBeTruthy();
-    expect(getByText('RATING')).toBeTruthy();
-    expect(getByText(/42[,.]?500/)).toBeTruthy();
-    expect(getByText('184')).toBeTruthy();
-    expect(getByText('4.8')).toBeTruthy();
+    expect(getByText(/84[,.]?200/)).toBeTruthy();
+    expect(getByText('1,284')).toBeTruthy();
+    expect(getByText('▲ 38 this week')).toBeTruthy();
   });
 
-  it('shows em-dash placeholders for zero metrics', () => {
+  it('shows em-dash placeholders and honest sub-text for zero metrics', () => {
     mockedHook.mockReturnValue({
       data: {
         earnedThisMonth: 0,
         profileViews: 0,
         profileViewsDelta: 0,
-        applicationsTotal: 0,
-        applicationsActive: 0,
-        delivered: 0,
-        rating: 0,
-        reviewCount: 0,
         pendingPayouts: 0,
         sparkline: [],
       },
       isLoading: false,
     });
 
-    const { getAllByText } = render(<ByTheNumbersArtist />);
-    // Standalone "—" placeholders: profile views + applications + delivered + rating = 4.
-    // (The earnings tile renders "₹—" as one node, so it isn't matched here.)
-    expect(getAllByText('—').length).toBeGreaterThanOrEqual(4);
+    const { getAllByText, getByText } = render(<ByTheNumbersArtist />);
+    // Standalone "—": earnings (no ₹ prefix when zero) + profile views = 2.
+    expect(getAllByText('—').length).toBeGreaterThanOrEqual(2);
+    expect(getByText('NO EARNINGS YET')).toBeTruthy();
+    expect(getByText('NO VIEWS YET')).toBeTruthy();
   });
 });

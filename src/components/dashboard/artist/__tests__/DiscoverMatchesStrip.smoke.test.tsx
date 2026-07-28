@@ -22,8 +22,6 @@ describe('DiscoverMatchesStrip (smoke)', () => {
 
     const { getByText } = render(<DiscoverMatchesStrip />);
     expect(getByText('DISCOVER')).toBeTruthy();
-    expect(getByText('Gigs and events that fit.')).toBeTruthy();
-    expect(getByText('Matched by your artist type and skills.')).toBeTruthy();
     expect(getByText('Kathak solo — wedding showcase')).toBeTruthy();
     expect(getByText('Kathak rhythm intensives')).toBeTruthy();
     expect(getByText('GIG')).toBeTruthy();

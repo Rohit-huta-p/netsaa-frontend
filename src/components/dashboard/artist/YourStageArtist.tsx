@@ -36,14 +36,15 @@ import useApplications from '@/hooks/useApplications';
 import { useSavedItems } from '@/hooks/useSavedItems';
 
 type Stage = 'gigs' | 'events' | 'all';
-type GigSub = 'upcoming' | 'active' | 'saved';
-type EventSub = 'upcoming' | 'saved' | 'past';
+type GigSub = 'booked' | 'applied' | 'saved';
+type EventSub = 'registered' | 'saved' | 'past';
 type AllSub = 'upcoming' | 'saved';
 
 const PURPLE = '#8B5CF6';
-const PAPER = '#F3EFE8';
-const MUTED = '#6B6878';
-const PAPER_DIM = '#B8B1A6';
+const ORANGE = '#FF6B35';
+const PAPER = '#F0ECE6';
+const MUTED = '#8C857B';
+const PAPER_DIM = '#C8C0B5';
 
 const ACTIVE_APP_STATUSES = new Set([
     'applied',
@@ -129,8 +130,8 @@ function fmtRupees(n?: number | null): string {
 export default function YourStageArtist() {
     const router = useRouter();
     const [stage, setStage] = useState<Stage>('gigs');
-    const [gigSub, setGigSub] = useState<GigSub>('upcoming');
-    const [eventSub, setEventSub] = useState<EventSub>('upcoming');
+    const [gigSub, setGigSub] = useState<GigSub>('booked');
+    const [eventSub, setEventSub] = useState<EventSub>('registered');
     const [allSub, setAllSub] = useState<AllSub>('upcoming');
 
     const upcomingQ = useUpcoming();
@@ -188,12 +189,8 @@ export default function YourStageArtist() {
 
     return (
         <View style={styles.root}>
-            {/* Stamp + title */}
-            <View style={styles.stampRow}>
-                <View style={styles.stampLine} />
-                <Text style={styles.stampText}>YOUR STAGE</Text>
-                <View style={styles.stampLine} />
-            </View>
+            {/* Eyebrow + title */}
+            <Text style={styles.eyebrow}>YOUR STAGE</Text>
             <Text style={styles.title}>What you're in.</Text>
 
             {/* Primary toggle */}
@@ -331,14 +328,14 @@ function GigsPanel({
     return (
         <View>
             <View style={styles.subTabs}>
-                <SubTab label="UPCOMING" count={upcoming.length} active={sub === 'upcoming'} onPress={() => setSub('upcoming')} />
-                <SubTab label="ACTIVE" count={active.length} active={sub === 'active'} onPress={() => setSub('active')} />
+                <SubTab label="BOOKED" count={upcoming.length} active={sub === 'booked'} onPress={() => setSub('booked')} />
+                <SubTab label="APPLIED" count={active.length} active={sub === 'applied'} onPress={() => setSub('applied')} />
                 <SubTab label="SAVED" count={saved.length} active={sub === 'saved'} onPress={() => setSub('saved')} />
             </View>
 
-            {sub === 'upcoming' ? (
+            {sub === 'booked' ? (
                 <UpcomingList items={upcoming} kind="gig" onViewAll={onViewAll} />
-            ) : sub === 'active' ? (
+            ) : sub === 'applied' ? (
                 <ActiveAppsList items={active} onViewAll={onViewAll} />
             ) : (
                 <SavedList items={saved} kind="gig" onViewAll={onViewAll} />
@@ -365,12 +362,12 @@ function EventsPanel({
     return (
         <View>
             <View style={styles.subTabs}>
-                <SubTab label="UPCOMING" count={upcoming.length} active={sub === 'upcoming'} onPress={() => setSub('upcoming')} />
+                <SubTab label="REGISTERED" count={upcoming.length} active={sub === 'registered'} onPress={() => setSub('registered')} />
                 <SubTab label="SAVED" count={saved.length} active={sub === 'saved'} onPress={() => setSub('saved')} />
                 <SubTab label="PAST" count={past.length} active={sub === 'past'} onPress={() => setSub('past')} />
             </View>
 
-            {sub === 'upcoming' ? (
+            {sub === 'registered' ? (
                 <UpcomingList items={upcoming} kind="event" onViewAll={onViewAll} />
             ) : sub === 'saved' ? (
                 <SavedList items={saved} kind="event" onViewAll={onViewAll} />
@@ -719,7 +716,7 @@ function ItemRow({
     onPress?: () => void;
 }) {
     const thumbInitial = (title?.[0] ?? '?').toUpperCase();
-    const dotColor = pill ? PILL_STYLES[pill.tone].color : PURPLE;
+    const dotColor = pill ? PILL_STYLES[pill.tone].color : ORANGE;
     return (
         <Pressable onPress={onPress} style={styles.itemCard}>
             <View
@@ -775,7 +772,7 @@ function ItemRow({
                                     styles.dot,
                                     i < dotsFilled
                                         ? { backgroundColor: dotColor, opacity: 1 }
-                                        : { backgroundColor: 'rgba(243,239,232,0.10)' },
+                                        : { backgroundColor: 'rgba(255,255,255,0.10)' },
                                     i < 3 ? styles.dotConnector : null,
                                 ]}
                             />
@@ -835,11 +832,16 @@ function EmptySlot({
 const styles = StyleSheet.create({
     root: {
         paddingHorizontal: 24,
-        marginBottom: 38,
+        marginTop: 30, // consistent ~36px section rhythm (grid mb 6 + this)
     },
-    stampRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-    stampLine: { width: 14, height: 1, backgroundColor: 'rgba(243,239,232,0.14)' },
-    stampText: { fontFamily: 'SpaceMono-Regular', fontSize: 10, letterSpacing: 1.5, color: MUTED },
+    eyebrow: {
+        fontFamily: 'Outfit-Bold',
+        fontSize: 11,
+        letterSpacing: 1.7,
+        textTransform: 'uppercase',
+        color: '#C8C0B5',
+        marginBottom: 8,
+    },
     title: {
         fontFamily: 'DMSerifDisplay_400Regular',
         fontSize: 28,
@@ -848,27 +850,29 @@ const styles = StyleSheet.create({
         marginBottom: 14,
     },
 
-    // Stage tabs (primary)
+    // Stage tabs (primary) — v3 white-fill active signature
     stageTabs: {
         flexDirection: 'row',
-        gap: 4,
+        gap: 7,
         marginBottom: 16,
-        padding: 4,
-        backgroundColor: '#0D0B12',
-        borderColor: 'rgba(243,239,232,0.09)',
-        borderWidth: 1,
-        borderRadius: 12,
         alignSelf: 'flex-start',
     },
-    stageTab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8 },
-    stageTabActive: { backgroundColor: PURPLE },
+    stageTab: {
+        paddingHorizontal: 14,
+        paddingVertical: 7,
+        borderRadius: 8,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.10)',
+    },
+    stageTabActive: { backgroundColor: PAPER, borderColor: PAPER },
     stageTabText: {
         fontFamily: 'SpaceMono-Regular',
         fontSize: 10,
         letterSpacing: 1.5,
         color: MUTED,
     },
-    stageTabTextActive: { color: '#0A0A0F', fontFamily: 'Outfit-Bold' },
+    stageTabTextActive: { color: '#1A0D06', fontFamily: 'Outfit-SemiBold' },
 
     // Sub-tabs (secondary)
     subTabs: {
@@ -876,7 +880,7 @@ const styles = StyleSheet.create({
         gap: 22,
         marginBottom: 16,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(243,239,232,0.09)',
+        borderBottomColor: 'rgba(255,255,255,0.06)',
     },
     subTab: {
         flexDirection: 'row',
@@ -899,22 +903,22 @@ const styles = StyleSheet.create({
         borderRadius: 999,
         backgroundColor: 'rgba(255,255,255,0.05)',
     },
-    subCountActive: { backgroundColor: 'rgba(139,92,246,0.18)' },
+    subCountActive: { backgroundColor: 'rgba(255,107,53,0.18)' },
     subCountText: { fontSize: 9, color: PAPER_DIM, fontFamily: 'Outfit-Regular' },
-    subCountTextActive: { color: PURPLE, fontFamily: 'Outfit-Bold' },
+    subCountTextActive: { color: ORANGE, fontFamily: 'Outfit-Bold' },
     subTabUnderline: {
         position: 'absolute',
         left: 0,
         right: 0,
         bottom: -1,
         height: 1.5,
-        backgroundColor: PURPLE,
+        backgroundColor: ORANGE,
     },
 
     // Hero card
     heroCard: {
         backgroundColor: '#14111B',
-        borderColor: 'rgba(139,92,246,0.20)',
+        borderColor: 'rgba(255,107,53,0.20)',
         borderWidth: 1,
         borderRadius: 22,
         padding: 22,
@@ -925,7 +929,7 @@ const styles = StyleSheet.create({
         fontFamily: 'SpaceMono-Regular',
         fontSize: 9,
         letterSpacing: 1.8,
-        color: PURPLE,
+        color: ORANGE,
         marginBottom: 8,
     },
     heroTitle: {
@@ -955,7 +959,7 @@ const styles = StyleSheet.create({
         fontSize: 15,
     },
     heroCta: {
-        backgroundColor: PURPLE,
+        backgroundColor: ORANGE,
         paddingHorizontal: 14,
         paddingVertical: 9,
         borderRadius: 999,
@@ -964,7 +968,7 @@ const styles = StyleSheet.create({
         fontFamily: 'Outfit-Bold',
         fontSize: 10,
         letterSpacing: 1.5,
-        color: '#0A0A0F',
+        color: '#1A0D06',
     },
 
     // Item cards
@@ -972,8 +976,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        backgroundColor: '#0D0B12',
-        borderColor: 'rgba(243,239,232,0.05)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderColor: 'rgba(255,255,255,0.10)',
         borderWidth: 1,
         borderRadius: 14,
         padding: 14,
@@ -983,14 +987,14 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 8,
-        backgroundColor: 'rgba(139,92,246,0.15)',
+        backgroundColor: 'rgba(255,107,53,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     itemThumbText: {
         fontFamily: 'DMSerifDisplay_400Regular',
         fontSize: 18,
-        color: PURPLE,
+        color: ORANGE,
     },
     itemBody: { flex: 1, minWidth: 0 },
     itemTitle: {
@@ -1081,7 +1085,7 @@ const styles = StyleSheet.create({
         padding: 12,
         borderWidth: 1,
         borderStyle: 'dashed',
-        borderColor: 'rgba(243,239,232,0.09)',
+        borderColor: 'rgba(255,255,255,0.09)',
         borderRadius: 14,
         alignItems: 'center',
     },
@@ -1089,16 +1093,13 @@ const styles = StyleSheet.create({
         fontFamily: 'SpaceMono-Regular',
         fontSize: 10,
         letterSpacing: 1.5,
-        color: PURPLE,
+        color: ORANGE,
     },
 
-    // Empty slot
+    // Empty slot — no card; just the text + a plain link (per "keep the text").
     empty: {
-        padding: 22,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: 'rgba(243,239,232,0.05)',
-        backgroundColor: '#0D0B12',
+        paddingVertical: 22,
+        paddingHorizontal: 8,
         alignItems: 'center',
         marginBottom: 8,
     },
@@ -1107,20 +1108,16 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: PAPER_DIM,
         textAlign: 'center',
-        marginBottom: 12,
+        marginBottom: 10,
         lineHeight: 18,
     },
     emptyCta: {
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: 'rgba(139,92,246,0.30)',
+        marginTop: 2,
     },
     emptyCtaText: {
         fontFamily: 'SpaceMono-Regular',
         fontSize: 10,
         letterSpacing: 1.5,
-        color: PURPLE,
+        color: ORANGE,
     },
 });

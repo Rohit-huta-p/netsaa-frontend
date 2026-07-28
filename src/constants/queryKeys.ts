@@ -50,6 +50,8 @@ export const queryKeys = {
     drafts: () => ['artist', 'drafts'] as const,
     contracts: () => ['artist', 'contracts'] as const,
     conversations: () => ['artist', 'conversations'] as const,
+    earnings: () => ['artist', 'earnings'] as const,
+    profileViews: () => ['artist', 'profileViews'] as const,
   },
   hirer: {
     hero: () => ['hirer', 'hero'] as const,

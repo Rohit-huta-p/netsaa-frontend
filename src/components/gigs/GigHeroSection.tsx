@@ -48,17 +48,12 @@ export const GigHeroSection: React.FC<GigHeroSectionProps> = ({
                 <View className="flex-1 justify-end">
                     <View className="flex-row gap-2">
                         {gig.isUrgent && (
-                            <View className="bg-orange-600 rounded-full px-3 py-1">
-                                <Text className="text-white font-black text-[8px] uppercase tracking-[0.2em]">
-                                    URGENT
+                            <View className="rounded-md px-2.5 py-1 border border-red-500/30 bg-red-500/10">
+                                <Text className="text-red-400 font-bold text-[9px] uppercase tracking-[0.18em]">
+                                    Urgent
                                 </Text>
                             </View>
                         )}
-                        <View className="bg-blue-600 rounded-full px-4 py-1">
-                            <Text className="text-white font-black text-[8px] uppercase tracking-[0.2em]">
-                                {gig.artistTypes?.[0] || 'MUSIC'}
-                            </Text>
-                        </View>
                     </View>
                 </View>
 

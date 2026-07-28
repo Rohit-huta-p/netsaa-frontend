@@ -42,6 +42,7 @@ import Footer from "../src/components/Footer";
 import MobileTabBar from "../src/components/MobileTabBar";
 
 import useAuthStore from "@/stores/authStore";
+import useNotificationsStore, { normalizeSocketNotification } from "@/stores/notificationsStore";
 import { socketService } from "../src/services/socketService";
 import { deepLinkService } from "../src/services/deepLinkService";
 import { notificationService } from "../src/services/notificationService";
@@ -98,11 +99,19 @@ export default function RootLayout() {
     }, [fontsLoaded, fontError, isHydrated]);
 
     useEffect(() => {
-        if (accessToken) {
-            socketService.connect(accessToken);
-        } else {
+        if (!accessToken) {
             socketService.disconnect();
+            return;
         }
+        socketService.connect(accessToken);
+
+        // Real-time notifications: the users-service emits `notification:new`
+        // to this user's room. Prepend into the store so the bell badge +
+        // notifications screen update live (deduped by _id in the store).
+        const unsubscribe = socketService.onNotificationNew((payload) => {
+            useNotificationsStore.getState().incrementUnread(normalizeSocketNotification(payload));
+        });
+        return unsubscribe;
     }, [accessToken]);
 
     // Initialize deep link and notification services

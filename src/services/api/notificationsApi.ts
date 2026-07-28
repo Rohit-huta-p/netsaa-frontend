@@ -73,7 +73,9 @@ const notificationsApi = {
     getNotifications: async (params: GetNotificationsParams = {}): Promise<GetNotificationsResponse> => {
         const { page = 1, limit = 20 } = params;
         console.log("NOTIFICATIONS API: Fetching notifications...");
-        const res = await API.get(`/notifications?page=${page}&limit=${limit}`);
+        // Backend reads `pageSize` (controller), so send that; keep `limit` too for
+        // any consumer/environment that expects the older name.
+        const res = await API.get(`/notifications?page=${page}&limit=${limit}&pageSize=${limit}`);
         const raw = res.data;
         const notifications = (raw.data || raw.notifications || []).map(mapNotification);
         const pagination = raw.pagination || {};

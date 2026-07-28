@@ -16,3 +16,14 @@ input:-webkit-autofill:active {
     transition: background-color 5000s ease-in-out 0s !important;
     -webkit-text-fill-color: white !important;
 }
+
+/*
+ * Chat message input (ChatWindow, web): the browser's default ::selection
+ * was rendering highlighted text black-on-dark and invisible. Force a
+ * visible light text color on a warm highlight.
+ */
+#chatMsgInput::selection {
+    color: #F5F0EB;
+    -webkit-text-fill-color: #F5F0EB;
+    background: rgba(255, 107, 53, 0.55);
+}

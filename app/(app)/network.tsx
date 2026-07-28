@@ -8,8 +8,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
     ChevronLeft, ChevronRight, Search, Check, X, Users, Sparkles,
-    MessageCircle, ArrowUpDown, CheckCheck,
-    UserPlus,
+    MessageCircle,
+    UserPlus, Send,
 } from 'lucide-react-native';
 
 import AppScrollView from '@/components/AppScrollView';
@@ -280,36 +280,6 @@ const PymkCard = ({ suggestion, busy, onConnect, onDismiss, onOpenProfile }: {
     );
 };
 
-const SentItem = ({ item, currentUserId, onWithdraw, onPressUser, busy }: {
-    item: Connection;
-    currentUserId?: string;
-    onWithdraw: (id: string) => void;
-    onPressUser: (id: string) => void;
-    busy: boolean;
-}) => {
-    const other = item.requesterId._id === currentUserId ? item.recipientId : item.requesterId;
-    return (
-        <View style={[s.connRow, { paddingHorizontal: 4 }]}>
-            <Pressable onPress={() => onPressUser(other._id)}>
-                <Avatar uri={other.profileImageUrl} name={other.displayName || other.firstName} size={40} />
-            </Pressable>
-            <Pressable style={s.connInfo} onPress={() => onPressUser(other._id)}>
-                <Text style={s.connName} numberOfLines={1}>{other.displayName || other.firstName}</Text>
-                <Text style={s.connMeta} numberOfLines={1}>
-                    {roleLabel(other)} · Sent {timeAgo(item.createdAt)}
-                </Text>
-            </Pressable>
-            <Pressable
-                onPress={() => onWithdraw(item._id)}
-                disabled={busy}
-                style={({ pressed }) => [s.withdrawBtn, pressed && { opacity: 0.5 }]}
-            >
-                <Text style={s.withdrawBtnText}>Withdraw</Text>
-            </Pressable>
-        </View>
-    );
-};
-
 // ──────────────────────────────────────────────────────────────
 //  Main screen
 // ──────────────────────────────────────────────────────────────
@@ -329,7 +299,6 @@ export default function NetworkPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchOpen, setSearchOpen] = useState(false);
     const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
-    const [sentOpen, setSentOpen] = useState(false);
 
     // PYMK v2 — artist-search-v2 carousel (new pymkService)
     const { data: pymkV2Data } = usePymk(1, 10);
@@ -471,13 +440,13 @@ export default function NetworkPage() {
             const convo = await conversationService.createConversation(other._id);
             const convoId = (convo as any)?._id;
             if (convoId) {
-                router.push(`/(app)/messages?c=${convoId}` as any);
+                router.push(`/(app)/inbox?c=${convoId}` as any);
             } else {
-                router.push('/(app)/messages' as any);
+                router.push('/(app)/inbox' as any);
             }
         } catch (e) {
             console.error('[network] openMessage failed', e);
-            router.push('/(app)/messages' as any);
+            router.push('/(app)/inbox' as any);
         }
     };
 
@@ -536,12 +505,7 @@ export default function NetworkPage() {
                         <ChevronLeft size={18} color={C.text2} strokeWidth={2} />
                     </Pressable>
                     <Text style={s.topTitle}>Network</Text>
-                    <View style={{ flexDirection: 'row', gap: 4 }}>
-                        <Pressable onPress={() => setSearchOpen(v => !v)} style={s.iconBtn} hitSlop={8}>
-                            <Search size={18} color={searchOpen ? C.orange : C.text2} strokeWidth={2} />
-                        </Pressable>
-                        <NotificationsBell size={18} color={C.text2} />
-                    </View>
+                    <NotificationsBell size={18} color={C.text2} />
                 </View>
 
                 {loading ? (
@@ -551,7 +515,7 @@ export default function NetworkPage() {
                     </View>
                 ) : (
                     <AppScrollView
-                        contentContainerStyle={{ paddingBottom: 40 }}
+                        contentContainerStyle={{ paddingBottom: 120, flexGrow: 1 }}
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.text2} />}
                         showsVerticalScrollIndicator={false}
                     >
@@ -587,49 +551,35 @@ export default function NetworkPage() {
                             </View>
                         )}
 
-                        {/* Invitations link — opens /network/invitations (Received / Sent tabs) */}
-                        {(inviteCount > 0 || sentCount > 0) && (
-                            <Pressable
-                                onPress={() => router.push('/(app)/network/invitations' as any)}
-                                style={({ pressed }) => [s.invitesLink, pressed && { opacity: 0.85 }]}
-                            >
-                                <View style={s.invitesLinkLeft}>
-                                    {inviteCount > 0 ? <PulseDot /> : null}
-                                    <Text style={s.invitesLinkTitle}>Invitations</Text>
-                                    {inviteCount > 0 ? (
-                                        <LinearGradient
-                                            colors={[C.pink, C.orange]}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 1 }}
-                                            style={s.invitesLinkBadge}
-                                        >
-                                            <Text style={s.invitesLinkBadgeText}>{inviteCount}</Text>
-                                        </LinearGradient>
-                                    ) : null}
-                                </View>
-                                <View style={s.invitesLinkRight}>
-                                    <Text style={s.invitesLinkMeta}>
-                                        {inviteCount > 0 ? `${inviteCount} received` : ''}
-                                        {inviteCount > 0 && sentCount > 0 ? '  ·  ' : ''}
-                                        {sentCount > 0 ? `${sentCount} sent` : ''}
-                                    </Text>
-                                    <ChevronRight size={16} color={C.text3} strokeWidth={2} />
-                                </View>
-                            </Pressable>
-                        )}
-
-                        {/* Inbox zero — have connections but no invites */}
-                        {hasAny && inviteCount === 0 && (
-                            <View style={s.inboxZeroCard}>
-                                <View style={s.inboxZeroIcon}>
-                                    <CheckCheck size={16} color={C.green} strokeWidth={2.5} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={s.inboxZeroTitle}>All caught up</Text>
-                                    <Text style={s.inboxZeroDesc}>No pending invitations right now.</Text>
-                                </View>
+                        {/* Invitations link — always visible; opens /network/invitations (Received / Sent tabs) */}
+                        <Pressable
+                            onPress={() => router.push('/(app)/network/invitations' as any)}
+                            style={({ pressed }) => [s.invitesLink, pressed && { opacity: 0.85 }]}
+                        >
+                            <View style={s.invitesLinkLeft}>
+                                {inviteCount > 0 ? <PulseDot /> : null}
+                                <Text style={s.invitesLinkTitle}>Invitations</Text>
+                                {inviteCount > 0 ? (
+                                    <LinearGradient
+                                        colors={[C.pink, C.orange]}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={s.invitesLinkBadge}
+                                    >
+                                        <Text style={s.invitesLinkBadgeText}>{inviteCount}</Text>
+                                    </LinearGradient>
+                                ) : null}
                             </View>
-                        )}
+                            <View style={s.invitesLinkRight}>
+                                <View style={s.invitesSentPill}>
+                                    <Send size={12} color={sentCount > 0 ? C.text2 : C.text3} strokeWidth={2} />
+                                    <Text style={[s.invitesSentPillText, sentCount === 0 && { color: C.text3 }]}>
+                                        {sentCount} sent
+                                    </Text>
+                                </View>
+                                <ChevronRight size={16} color={C.text3} strokeWidth={2} />
+                            </View>
+                        </Pressable>
 
                         {/* Stats strip */}
                         {hasAny && (
@@ -682,8 +632,53 @@ export default function NetworkPage() {
                             </>
                         )}
 
-                        {/* Search bar (toggle) */}
-                        {hasAny && searchOpen && (
+                        {/* Section header */}
+                        {connCount > 0 && (
+                            <View style={s.sectionHead}>
+                                <Text style={s.sectionTitle}>Connections</Text>
+                                <Text style={s.sectionMeta}>
+                                    {filteredConnections.length} of {connCount}
+                                </Text>
+                            </View>
+                        )}
+
+                        {/* Filter tabs + search — one horizontal row above the list */}
+                        {connCount > 0 && (
+                            <View style={s.filterRow}>
+                                {(['all', 'artists', 'hirers'] as FilterKey[]).map(key => {
+                                    const active = activeFilter === key;
+                                    return (
+                                        <Pressable
+                                            key={key}
+                                            onPress={() => setActiveFilter(key)}
+                                            style={s.filterTab}
+                                        >
+                                            <Text style={[s.filterTabText, active && s.filterTabTextActive]}>
+                                                {key === 'all' ? 'All' : key === 'artists' ? 'Artists' : 'Leads'}
+                                            </Text>
+                                            {active && (
+                                                <LinearGradient
+                                                    colors={[C.pink, C.orange]}
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 0 }}
+                                                    style={s.filterTabUnderline}
+                                                />
+                                            )}
+                                        </Pressable>
+                                    );
+                                })}
+                                <Pressable
+                                    onPress={() => setSearchOpen(v => !v)}
+                                    style={s.filterSearchBtn}
+                                    hitSlop={8}
+                                >
+                                    <Search size={16} color={searchOpen ? C.orange : C.text2} strokeWidth={2} />
+                                </Pressable>
+                            </View>
+                        )}
+
+                        {/* Search input (toggle) — below the filter row */}
+                        {connCount > 0 && searchOpen && (
                             <View style={s.searchWrap}>
                                 <Search size={16} color={C.text3} strokeWidth={2} />
                                 <TextInput
@@ -699,40 +694,6 @@ export default function NetworkPage() {
                                         <X size={14} color={C.text3} strokeWidth={2} />
                                     </Pressable>
                                 )}
-                            </View>
-                        )}
-
-                        {/* Filter chips + sort */}
-                        {connCount > 0 && (
-                            <View style={s.filterRow}>
-                                {(['all', 'artists', 'hirers', 'recent'] as FilterKey[]).map(key => {
-                                    const active = activeFilter === key;
-                                    return (
-                                        <Pressable
-                                            key={key}
-                                            onPress={() => setActiveFilter(key)}
-                                            style={[s.filterChip, active && s.filterChipActive]}
-                                        >
-                                            <Text style={[s.filterChipText, active && s.filterChipTextActive]}>
-                                                {key === 'all' ? 'All' : key === 'artists' ? 'Artists' : key === 'hirers' ? 'Leads' : 'Recent'}
-                                            </Text>
-                                        </Pressable>
-                                    );
-                                })}
-                                <View style={s.sortBtn}>
-                                    <ArrowUpDown size={11} color={C.text2} strokeWidth={2} />
-                                    <Text style={s.sortBtnText}>Recent</Text>
-                                </View>
-                            </View>
-                        )}
-
-                        {/* Section header */}
-                        {connCount > 0 && (
-                            <View style={s.sectionHead}>
-                                <Text style={s.sectionTitle}>Connections</Text>
-                                <Text style={s.sectionMeta}>
-                                    {filteredConnections.length} of {connCount}
-                                </Text>
                             </View>
                         )}
 
@@ -827,7 +788,13 @@ const s = StyleSheet.create({
         paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, minWidth: 22, alignItems: 'center',
     },
     invitesLinkBadgeText: { color: '#fff', fontSize: 11, fontFamily: 'Outfit-ExtraBold' },
-    invitesLinkMeta: { color: C.text3, fontSize: 11, fontFamily: 'Outfit-Regular' },
+    invitesSentPill: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        paddingHorizontal: 11, paddingVertical: 4, borderRadius: 999,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    },
+    invitesSentPillText: { color: '#C9C2CC', fontSize: 12, fontFamily: 'Outfit-SemiBold' },
 
     // Invites hero (kept for any legacy refs)
     invitesHero: {
@@ -877,22 +844,6 @@ const s = StyleSheet.create({
         textTransform: 'uppercase', letterSpacing: 1.5,
         fontFamily: 'Outfit-Bold',
     },
-
-    // Inbox zero card
-    inboxZeroCard: {
-        marginHorizontal: 14, marginTop: 8,
-        padding: 14, borderRadius: 14,
-        backgroundColor: 'rgba(52,211,153,0.06)',
-        borderWidth: 1, borderColor: 'rgba(52,211,153,0.18)',
-        flexDirection: 'row', alignItems: 'center', gap: 12,
-    },
-    inboxZeroIcon: {
-        width: 32, height: 32, borderRadius: 10,
-        backgroundColor: 'rgba(52,211,153,0.12)',
-        alignItems: 'center', justifyContent: 'center',
-    },
-    inboxZeroTitle: { fontSize: 13, fontWeight: '700', color: C.text, fontFamily: 'Outfit-Bold' },
-    inboxZeroDesc: { fontSize: 11, color: C.text3, marginTop: 1, fontFamily: 'Outfit-Regular' },
 
     // Stats strip
     statsStrip: {
@@ -1014,29 +965,19 @@ const s = StyleSheet.create({
         fontFamily: 'Outfit-Regular',
     },
 
-    // Filter chips
+    // Filter tabs + search (one horizontal row above the list)
     filterRow: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        paddingHorizontal: 14, paddingTop: 12,
+        flexDirection: 'row', alignItems: 'flex-end', gap: 22,
+        paddingHorizontal: 20, marginTop: 8,
+        borderBottomWidth: 1, borderBottomColor: C.border,
     },
-    filterChip: {
-        paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100,
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderWidth: 1, borderColor: C.border,
+    filterTab: { paddingBottom: 10, position: 'relative' },
+    filterTabText: { fontSize: 14, color: C.text3, letterSpacing: 0.3, fontFamily: 'Outfit-Regular' },
+    filterTabTextActive: { color: C.text, fontFamily: 'Outfit-SemiBold' },
+    filterTabUnderline: {
+        position: 'absolute', left: 0, right: 0, bottom: -1, height: 2, borderRadius: 2,
     },
-    filterChipActive: {
-        backgroundColor: 'rgba(249,115,22,0.1)',
-        borderColor: 'rgba(249,115,22,0.3)',
-    },
-    filterChipText: { fontSize: 11, color: C.text2, fontFamily: 'Outfit-Regular' },
-    filterChipTextActive: { color: C.orange, fontWeight: '700', fontFamily: 'Outfit-Bold' },
-    sortBtn: {
-        marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4,
-        paddingHorizontal: 10, paddingVertical: 6, borderRadius: 100,
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderWidth: 1, borderColor: C.border,
-    },
-    sortBtnText: { fontSize: 11, color: C.text2, fontFamily: 'Outfit-Regular' },
+    filterSearchBtn: { marginLeft: 'auto', paddingBottom: 9 },
 
     // Section header
     sectionHead: {
@@ -1069,35 +1010,6 @@ const s = StyleSheet.create({
     // No results
     noResults: { paddingVertical: 40, alignItems: 'center' },
     noResultsText: { color: C.text3, fontSize: 13, fontFamily: 'Outfit-Regular' },
-
-    // Collapse
-    collapse: {
-        marginHorizontal: 14, marginTop: 14,
-        paddingHorizontal: 16, paddingVertical: 14,
-        backgroundColor: 'rgba(255,255,255,0.02)',
-        borderRadius: 14, borderWidth: 1, borderColor: C.border,
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    },
-    collapseLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-    collapseIcon: {
-        width: 28, height: 28, borderRadius: 8,
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        alignItems: 'center', justifyContent: 'center',
-    },
-    collapseTitle: { fontSize: 13, fontWeight: '600', color: C.text, fontFamily: 'Outfit-SemiBold' },
-    collapseCount: { fontSize: 12, color: C.text3, fontFamily: 'Outfit-Regular' },
-    sentList: { marginHorizontal: 14, marginTop: 8, paddingHorizontal: 12, paddingVertical: 4 },
-
-    withdrawBtn: {
-        paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        borderWidth: 1, borderColor: C.border,
-    },
-    withdrawBtnText: {
-        fontSize: 11, fontWeight: '700', color: C.text2,
-        textTransform: 'uppercase', letterSpacing: 1,
-        fontFamily: 'Outfit-Bold',
-    },
 
     // Empty hero
     emptyHero: {

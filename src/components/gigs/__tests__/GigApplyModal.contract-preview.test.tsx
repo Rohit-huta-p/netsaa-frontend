@@ -17,6 +17,7 @@ jest.mock('@/services/draftService', () => ({
 }));
 jest.mock('expo-router', () => ({
     useRouter: () => ({ push: jest.fn(), back: jest.fn() }),
+    useLocalSearchParams: () => ({}),
 }));
 jest.mock('@/stores/authStore', () => ({
     __esModule: true,
@@ -35,15 +36,6 @@ jest.mock('expo-linear-gradient', () => {
     const { View } = require('react-native');
     return { LinearGradient: View };
 });
-// ProfileCompletionModal pulls in expo-blur + react-native-svg which aren't
-// in the jest transformIgnorePatterns. Stub the whole component.
-jest.mock('@/components/common/ProfileCompletionModal', () => ({
-    ProfileCompletionModal: () => null,
-}));
-jest.mock('../../common/ProfileCompletionModal', () => ({
-    ProfileCompletionModal: () => null,
-}));
-
 import { GigApplyModal } from '../GigApplyModal';
 
 const sampleGig = {

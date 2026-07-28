@@ -57,3 +57,15 @@ jest.mock('expo-linear-gradient', () => ({
   __esModule: true,
   LinearGradient: 'LinearGradient',
 }));
+
+// Mock expo-image-picker — native module, ships untranspiled ESM that jest's
+// transformIgnorePatterns doesn't cover. ProfileInterviewSheet's inline media
+// picker (profile completion / gig-apply gate flow) imports it, and that
+// component is reachable unmocked from several suites (GigApplyModal.*,
+// ProfilePlaybillCard). Default resolves "cancelled" so any transitive,
+// non-picker-focused render is a safe no-op; tests exercising the real pick
+// flow override launchImageLibraryAsync locally via their own jest.mock.
+jest.mock('expo-image-picker', () => ({
+  MediaTypeOptions: { Images: 'Images', Videos: 'Videos' },
+  launchImageLibraryAsync: jest.fn(() => Promise.resolve({ canceled: true })),
+}));

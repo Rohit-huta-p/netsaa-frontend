@@ -129,6 +129,38 @@ describe('ProfileEditModal — discard prompt', () => {
         expect(queryByText(/unsaved changes/i)).toBeTruthy();
     });
 
+    it('centres the prompt over the sheet rather than pinning it to the bottom', () => {
+        const utils = render(<ProfileEditModal profileData={baseProfile} />);
+        fireEvent.changeText(utils.getByPlaceholderText('Your name'), 'Pending');
+        fireEvent.press(utils.getByLabelText('Close edit modal'));
+
+        // Walk up from the heading to the full-screen overlay that positions it.
+        let node: any = utils.getByText(/unsaved changes/i);
+        let overlay: any = null;
+        while (node) {
+            const st = Array.isArray(node.props?.style) ? Object.assign({}, ...node.props.style.filter(Boolean)) : node.props?.style;
+            if (st && st.position === 'absolute' && st.justifyContent === 'center' && st.alignItems === 'center') { overlay = st; break; }
+            node = node.parent;
+        }
+        expect(overlay).toBeTruthy();          // it is centred...
+        expect(overlay.top).toBe(0);           // ...across the whole sheet,
+        expect(overlay.bottom).toBe(0);        // not anchored to the bottom edge only
+    });
+
+    it('backdrop tap keeps editing — never discards', () => {
+        const utils = render(<ProfileEditModal profileData={baseProfile} />);
+        fireEvent.changeText(utils.getByPlaceholderText('Your name'), 'Pending');
+        fireEvent.press(utils.getByLabelText('Close edit modal'));
+
+        let node: any = utils.getByText(/unsaved changes/i);
+        while (node && !(node.props?.onPress && node.props?.style?.backgroundColor?.toString().startsWith('rgba(0,0,0'))) node = node.parent;
+        expect(node).toBeTruthy();
+        fireEvent.press(node);
+        // Prompt closes and the edit survives — the safe outcome.
+        expect(utils.queryByText(/unsaved changes/i)).toBeNull();
+        expect(utils.getByPlaceholderText('Your name').props.value).toBe('Pending');
+    });
+
     it('Keep editing dismisses the discard sheet, modal stays', () => {
         const { getByPlaceholderText, getByLabelText, getByText, queryByText } = render(
             <ProfileEditModal profileData={baseProfile} />

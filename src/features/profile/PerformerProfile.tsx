@@ -4,7 +4,7 @@
 // useConnectionStatus as ProfileScreen, so reviews/media/tier are real. The
 // shared ProfileScreen is left untouched for artist self-view / gig-hiring.
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, ScrollView, Image, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, Pressable, ScrollView, Image, ActivityIndicator, Modal, useWindowDimensions } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { ChevronLeft, Star, MessageCircle, Check, Clock, UserPlus, Play, X } from 'lucide-react-native';
 import { useUser } from '@/hooks/useUser';
@@ -13,9 +13,9 @@ import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import conversationService from '@/services/conversationService';
 import authService from '@/services/authService';
 import type { ProfileVideoReel } from '@/components/profile/types';
-import NetsaVideoPlayer from '@/components/media/NetsaVideoPlayer';
+import NetsaVideoPlayer, { parseAspectRatio } from '@/components/media/NetsaVideoPlayer';
 
-type ShowcaseItem = { url: string; type: 'image' | 'video'; muxPlaybackId?: string };
+type ShowcaseItem = { url: string; type: 'image' | 'video'; muxPlaybackId?: string; aspectRatio?: string };
 
 const TIER: Record<string, { c: string; label: string }> = {
     new: { c: '#6B7280', label: 'New' },
@@ -45,6 +45,9 @@ export function PerformerProfile({ userId }: { userId: string }) {
     // into `media` opens a full-screen viewer; a video item mounts
     // NetsaVideoPlayer, a photo renders a plain <Image>.
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+    // Reactive viewport size for the fullscreen viewer (a module-load Dimensions
+    // snapshot is stale/0 on web and mis-sizes the video). Mirrors ProfileScreen.
+    const { width: winW, height: winH } = useWindowDimensions();
 
     // Record a profile view. This screen only renders for a client viewing
     // another person's performer profile, so it is always a non-owner view.
@@ -89,6 +92,7 @@ export function PerformerProfile({ userId }: { userId: string }) {
                 url: r.thumbnailUrl || '',
                 type: 'video' as const,
                 muxPlaybackId: r.muxPlaybackId,
+                aspectRatio: r.aspectRatio,
             })),
     ];
 
@@ -286,21 +290,29 @@ export function PerformerProfile({ userId }: { userId: string }) {
                         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.94)', alignItems: 'center', justifyContent: 'center' }}>
                             <Pressable
                                 onPress={() => setViewerIndex(null)}
-                                style={{ position: 'absolute', top: 54, right: 20, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
+                                style={{ position: 'absolute', top: 54, right: 20, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}
                                 accessibilityRole="button"
                                 accessibilityLabel="Close"
                             >
                                 <X size={18} color="#fff" />
                             </Pressable>
-                            {media[viewerIndex].type === 'video' && media[viewerIndex].muxPlaybackId ? (
-                                <NetsaVideoPlayer
-                                    playbackId={media[viewerIndex].muxPlaybackId!}
-                                    poster={media[viewerIndex].url || undefined}
-                                    style={{ width: '92%', aspectRatio: 9 / 16, maxHeight: '80%' }}
-                                />
-                            ) : (
-                                <Image source={{ uri: media[viewerIndex].url }} style={{ width: '92%', height: '70%' }} resizeMode="contain" />
-                            )}
+                            {/* Fills the screen and contains any aspect ratio (portrait/landscape),
+                                centered — sized from reactive winW/winH. Wide clips get the
+                                rotate-to-fullscreen cue. Mirrors ProfileScreen's viewer. */}
+                            <View style={{ width: winW, height: winH, justifyContent: 'center', alignItems: 'center' }}>
+                                {media[viewerIndex].type === 'video' && media[viewerIndex].muxPlaybackId ? (
+                                    <NetsaVideoPlayer
+                                        playbackId={media[viewerIndex].muxPlaybackId!}
+                                        poster={media[viewerIndex].url || undefined}
+                                        fill
+                                        contentFit="contain"
+                                        showRotateCue={(parseAspectRatio(media[viewerIndex].aspectRatio) ?? 0) >= 1.2}
+                                        style={{ width: winW, height: winH, borderRadius: 0, borderWidth: 0, backgroundColor: 'transparent' }}
+                                    />
+                                ) : (
+                                    <Image source={{ uri: media[viewerIndex].url }} style={{ width: winW, height: winH }} resizeMode="contain" />
+                                )}
+                            </View>
                         </View>
                     </Modal>
                 )}

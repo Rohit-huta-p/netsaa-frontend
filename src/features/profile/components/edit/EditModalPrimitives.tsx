@@ -15,7 +15,7 @@ export const P = {
     cyan: '#06B6D4', green: '#34D399',
     bg: '#0A0A10', surface: '#121018', surfaceLight: '#1A1824',
     border: 'rgba(255,255,255,0.06)', borderActive: 'rgba(249,115,22,0.5)',
-    textPrimary: '#F0ECE6', textSecondary: '#6B6878', textMuted: '#4A4656',
+    textPrimary: '#F0ECE6', textInput: '#CECBC6', textSecondary: '#6B6878', textMuted: '#4A4656',
     danger: '#EF4444',
 };
 
@@ -90,7 +90,7 @@ export function Input({
                 borderBottomColor: focused ? P.orange : P.border,
                 paddingHorizontal: 0,
                 paddingVertical: 10,
-                color: P.textPrimary,
+                color: P.textInput,
                 fontFamily: 'Outfit-Regular',
                 fontSize: 16,
                 minHeight: multiline ? 120 : undefined,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, Image, ScrollView, Pressable, StyleSheet,
-    ActivityIndicator, Dimensions, Modal, FlatList, TextInput, Alert,
+    ActivityIndicator, Dimensions, Modal, FlatList, TextInput, Alert, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,12 +11,13 @@ import {
     Briefcase, Award, ChevronRight, ChevronLeft,
     MessageCircle, Clock, Camera, ShieldCheck,
     Globe, Zap, DollarSign, GraduationCap,
-    Users, ThumbsUp, MapPinned, BadgeCheck, Handshake,
+    Users, ThumbsUp, MapPinned, BadgeCheck, Handshake, MoreHorizontal,
     TrendingUp, Eye, Instagram, Youtube, Play, X,
     Image as LucideImage, Trash2, Ban, Flag, UserMinus, AlertTriangle,
 } from 'lucide-react-native';
 
 import { useAuthStore } from '@/stores/authStore';
+import conversationService from '@/services/conversationService';
 import authService from '@/services/authService';
 import { useUser } from '@/hooks/useUser';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
@@ -25,13 +26,15 @@ import { computeOverallScore } from '@/components/profile/ProfileStrengthWidget'
 import { ProfileEditModal } from '@/features/profile/components/ProfileEditModal';
 import { AccountVerificationSheet } from '@/features/profile/components/verify/AccountVerificationSheet';
 import { ProfileData, ProfileVideoReel } from '@/components/profile/types';
-import NetsaVideoPlayer from '@/components/media/NetsaVideoPlayer';
+import NetsaVideoPlayer, { parseAspectRatio } from '@/components/media/NetsaVideoPlayer';
 import type { ConnectionContext } from '@/types/connection';
-import { NotificationsBell } from '@/components/notifications/NotificationsBell';
 import { useMutualConnections, useConnectionDegree, useMyConnectionsCount } from '@/hooks/useConnectionMeta';
 import { SimilarRail } from '@/components/profile/SimilarRail';
 import { useSimilarRail } from '@/hooks/useSimilar';
 
+// NOTE: module-load snapshot — fine for the bento grid math below, but the
+// fullscreen viewer must use the REACTIVE useWindowDimensions() hook instead
+// (this static value is stale/0 on web and pins the video top-left). See winW/winH.
 const { width: SCREEN_W } = Dimensions.get('window');
 
 // ── Bento grid math ──
@@ -69,8 +72,44 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const { openSheet } = useProfileUiStore();
     const [showVerify, setShowVerify] = useState(false);
     const [activeContext] = useState<'artist' | 'hirer'>('artist');
+    // "+N" crafts popover. It opens upward, so we need its measured height to offset it.
+    const [showCrafts, setShowCrafts] = useState(false);
+    const [craftPopH, setCraftPopH] = useState(0);
+    const [msgBusy, setMsgBusy] = useState(false);
     const [mediaViewerIndex, setMediaViewerIndex] = useState<number | null>(null);
+    // Live index inside the fullscreen viewer — drives the nav pill counter and
+    // arrow enabled/disabled state. Synced to the tapped slot on open, then to
+    // whichever page settles after a swipe (onMomentumScrollEnd).
+    const [activeMedia, setActiveMedia] = useState(0);
+    // True while a video owns the screen in native fullscreen — the viewer hides
+    // its own chrome (nav pill) so it doesn't float over the expanded video.
+    const [videoFullscreen, setVideoFullscreen] = useState(false);
+    const mediaListRef = React.useRef<FlatList>(null);
+    // Reactive viewport size for the fullscreen viewer — correct on web (the
+    // module-level SCREEN_W/SCREEN_H snapshot is stale/0 there and mis-sizes the
+    // paged items, pinning the video top-left).
+    const { width: winW, height: winH } = useWindowDimensions();
     const [confirmAction, setConfirmAction] = useState<null | 'remove' | 'withdraw' | 'block' | 'block_report'>(null);
+
+    // Opens (or creates) the conversation with this person. This branch routes chat
+    // through /inbox (main still uses /messages). Only reachable once connected.
+    const openMessage = async () => {
+        if (msgBusy || !userId) return;
+        setMsgBusy(true);
+        try {
+            const conv = await conversationService.createConversation(userId);
+            router.push((conv?._id ? `/(app)/inbox?c=${conv._id}` : '/(app)/inbox') as any);
+        } catch {
+            // stay quiet — the user can tap again
+        } finally {
+            setMsgBusy(false);
+        }
+    };
+
+    useEffect(() => {
+        if (mediaViewerIndex !== null) setActiveMedia(mediaViewerIndex);
+        else setVideoFullscreen(false); // never leave the pill hidden after close
+    }, [mediaViewerIndex]);
 
     // ── ALL hooks must run before any early return below. The first render
     // bails out at `isLoading && !isOwner` while data fetches; the second
@@ -106,6 +145,18 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const displayName = u.displayName || u.firstName || 'Artist';
     const artistTypes = u.artistType || u.artistTypes || [];
     const artistTypeStr = Array.isArray(artistTypes) ? artistTypes.join(' \u00b7 ') : artistTypes;
+    // The kicker is uppercase + letter-spaced (the widest way to set text), so cap the
+    // crafts and carry the rest as "+N" — this keeps it to ONE row at any craft count.
+    // Cap is 3 because the city sits on its own line below rather than sharing this one:
+    // measured, 3 crafts = 246px against 335px available on a 375px screen (and it still
+    // fits 320px); 4 = 311px, which wraps on a small phone. numberOfLines={1} is the
+    // backstop for long craft NAMES, which the cap can't protect against.
+    const craftList: string[] = Array.isArray(artistTypes)
+        ? artistTypes.filter(Boolean).map(String)
+        : artistTypes ? [String(artistTypes)] : [];
+    const CRAFT_CAP = 3;
+    const craftsShown = craftList.slice(0, CRAFT_CAP);
+    const craftsHidden = craftList.slice(CRAFT_CAP);
     const location = u.location || u.cached?.primaryCity || '';
     const bio = u.bio || u.headline || '';
     const skills: string[] = u.skills || [];
@@ -156,9 +207,9 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     // thumbnail is used as the bento/viewer poster `url`.
     const readyReels = videoReels.filter((r) => r.status === 'ready');
     const readyReelsCount = readyReels.length;
-    const allMedia: { url: string; type: 'image' | 'video'; muxPlaybackId?: string }[] = [
+    const allMedia: { url: string; type: 'image' | 'video'; muxPlaybackId?: string; aspectRatio?: string }[] = [
         ...galleryUrls.map((url: string) => ({ url, type: 'image' as const })),
-        ...readyReels.map((r) => ({ url: r.thumbnailUrl || '', type: 'video' as const, muxPlaybackId: r.muxPlaybackId })),
+        ...readyReels.map((r) => ({ url: r.thumbnailUrl || '', type: 'video' as const, muxPlaybackId: r.muxPlaybackId, aspectRatio: r.aspectRatio })),
     ];
 
     // ── ProfileData for edit modal ──
@@ -201,27 +252,9 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
 
                     {/* Top bar */}
                     <SafeAreaView edges={['top']} style={s.topBar}>
-                        <Pressable onPress={() => router.back()} style={s.topBtn} hitSlop={12}>
-                            <ChevronLeft size={20} color="rgba(255,255,255,0.7)" />
+                        <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
+                            <ChevronLeft size={22} color="#fff" />
                         </Pressable>
-                        <View style={s.topActions}>
-                            {/* Universal entry: NotificationsBell on every main screen (checkpoint §Phase 2 #7) */}
-                            <NotificationsBell size={16} />
-                            {isOwner ? (
-                                <>
-                                    <Pressable onPress={() => openSheet('header')} style={s.topBtn}>
-                                        <Edit3 size={15} color="rgba(255,255,255,0.7)" />
-                                    </Pressable>
-                                    <Pressable onPress={() => router.push('/settings')} style={s.topBtn}>
-                                        <Settings size={15} color="rgba(255,255,255,0.7)" />
-                                    </Pressable>
-                                </>
-                            ) : (
-                                <Pressable style={s.topBtn}>
-                                    <Share2 size={15} color="rgba(255,255,255,0.7)" />
-                                </Pressable>
-                            )}
-                        </View>
                     </SafeAreaView>
                 </View>
 
@@ -261,7 +294,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                     )}
                 </View>
 
-                {/* ═══ 3. IDENTITY (centered) ═══ */}
+                {/* ═══ 3. IDENTITY (left masthead) ═══ */}
                 <View style={s.identity}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                         <Text style={s.name}>{displayName}</Text>
@@ -271,34 +304,96 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                             <BadgeCheck size={20} color="#fff" fill="#3B82F6" style={{ marginLeft: 6 }} />
                         )}
                     </View>
-                    {artistTypeStr ? <Text style={s.artistType}>{artistTypeStr}</Text>
-                        : isOwner ? <Pressable onPress={() => openSheet('header')}><Text style={s.placeholderTap}>Add your artist type</Text></Pressable> : null}
-                    {location ? (
-                        <View style={s.locRow}>
-                            <MapPin size={12} color="#4A4656" />
-                            <Text style={s.locText}>{location}</Text>
+
+                    {/* Kicker: CRAFT · CRAFT · CRAFT +N. City sits on its own line below,
+                        which is what lets the cap be 3 rather than 2. */}
+                    {craftList.length > 0 ? (
+                        <View style={s.kickerWrap}>
+                            <Text style={s.kicker} numberOfLines={1}>
+                                {craftsShown.map((c) => c.toUpperCase()).join(' · ')}
+                                {craftsHidden.length > 0 && (
+                                    <Text
+                                        style={s.kickerMore}
+                                        onPress={() => setShowCrafts((v) => !v)}
+                                        suppressHighlighting
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Also works as ${craftsHidden.join(', ')}`}
+                                    >
+                                        {` +${craftsHidden.length}`}
+                                    </Text>
+                                )}
+                            </Text>
+
+                            {/* "+N" popover — opens UPWARD over the name. Downward it would
+                                land on the verify pill and the connection count, i.e. the only
+                                two tappable things nearby. Offset by its measured height so it
+                                never overlaps the kicker it belongs to. */}
+                            {showCrafts && craftsHidden.length > 0 && (
+                                <View
+                                    style={[s.craftPop, { top: -(craftPopH + 7), opacity: craftPopH ? 1 : 0 }]}
+                                    onLayout={(e) => setCraftPopH(e.nativeEvent.layout.height)}
+                                    testID="craft-popover"
+                                >
+                                    <Text style={s.craftPopHead}>Also works as</Text>
+                                    {craftsHidden.map((c, i) => (
+                                        <View key={`${c}-${i}`} style={s.craftPopItem}>
+                                            <View style={s.craftPopDot} />
+                                            <Text style={s.craftPopText}>{c}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
                         </View>
                     ) : isOwner ? (
-                        <Pressable onPress={() => openSheet('header')} style={s.locRow}>
-                            <MapPin size={12} color="#3A3746" />
-                            <Text style={s.placeholderTap}>Add your location</Text>
-                        </Pressable>
+                        <Pressable onPress={() => openSheet('header')}><Text style={s.placeholderTap}>Add your craft</Text></Pressable>
                     ) : null}
 
-                    {/* Account verification — a single green status pill that opens the verification sheet */}
-                    {isOwner && (
-                        <View style={s.verifyRow}>
-                            <Pressable
-                                onPress={() => setShowVerify(true)}
-                                style={({ pressed }) => [s.verifyStatusPill, pressed && { opacity: 0.7 }]}
-                                accessibilityRole="button"
-                                accessibilityLabel={emailVerified && phoneVerified ? 'Account verified — view details' : 'Verify your account'}
-                            >
-                                <ShieldCheck size={11} color="#34D399" />
-                                <Text style={s.verifyStatusText}>{emailVerified && phoneVerified ? 'Verified' : 'Verify account'}</Text>
-                            </Pressable>
+                    {/* City — its own line under the crafts */}
+                    {location ? (
+                        <View style={s.cityRow}>
+                            <MapPin size={11} color="#8B8598" />
+                            <Text style={s.cityLine} numberOfLines={1}>{location.toUpperCase()}</Text>
                         </View>
+                    ) : isOwner ? (
+                        <Pressable onPress={() => openSheet('header')}><Text style={s.placeholderTap}>Add your location</Text></Pressable>
+                    ) : null}
+
+                    {/* Account verification — one green status pill replacing the three
+                        Phone/Email/KYC chips. Owner-only: verifying is an action only they
+                        can take. Opens the account-verification sheet. */}
+                    {isOwner && (
+                        <Pressable
+                            onPress={() => setShowVerify(true)}
+                            style={({ pressed }) => [s.verifyStatusPill, pressed && { opacity: 0.7 }]}
+                            accessibilityRole="button"
+                            accessibilityLabel={phoneVerified && emailVerified ? 'Account verified — view details' : 'Verify your account'}
+                        >
+                            <ShieldCheck size={11} color="#34D399" />
+                            <Text style={s.verifyStatusText}>
+                                {phoneVerified && emailVerified ? 'Verified' : 'Verify account'}
+                            </Text>
+                        </Pressable>
                     )}
+
+                    {/* Connections — §2D entry point #2, styled as a real link (orange count
+                        + chevron) so it reads tappable rather than as another line of text. */}
+                    <View style={s.verifyRow}>
+                        {(connections > 0 || isOwner) && (
+                            <Pressable
+                                onPress={() => router.push('/network' as any)}
+                                style={({ pressed }) => [s.connectionsLink, pressed && { opacity: 0.6 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel="Open network"
+                            >
+                                <Text style={s.connectionsCount}>{connections}</Text>
+                                <Text style={s.connectionsLabel}>
+                                    {connections === 1 ? 'connection' : 'connections'}
+                                    {mutualConnections > 0 ? ` · ${mutualConnections} mutual` : ''}
+                                </Text>
+                                <ChevronRight size={11} color="#FF6B35" />
+                            </Pressable>
+                        )}
+                    </View>
 
                     {/* Connection degree + Worked Together */}
                     {!isOwner && (connectionDegree || workedTogether) && (
@@ -309,63 +404,71 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                     )}
                 </View>
 
-                {/* ═══ 4. CONNECTIONS COUNT — tappable → /network (checkpoint §2D entry point #2) ═══ */}
-                {(connections > 0 || isOwner) && (
-                    <Pressable
-                        onPress={() => router.push('/network' as any)}
-                        style={({ pressed }) => [s.connectionsRow, pressed && { opacity: 0.6 }]}
-                        accessibilityRole="button"
-                        accessibilityLabel="Open network"
-                    >
-                        <Text style={s.connectionsCount}>{connections}</Text>
-                        <Text style={s.connectionsLabel}>{connections === 1 ? 'connection' : 'connections'}</Text>
-                        {mutualConnections > 0 && <>
-                            <View style={s.dot} />
-                            <Text style={s.mutualText}>{mutualConnections} mutual</Text>
-                        </>}
-                    </Pressable>
-                )}
-
                 {/* ═══ 5. COMPACT ACTION CIRCLES ═══ */}
                 <View style={s.ctaRow}>
                     {isOwner ? (
                         <>
-                            <Pressable onPress={() => openSheet('header')} style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
-                                <LinearGradient colors={['#EC4899', '#F97316']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaIconGrad}>
-                                    <Edit3 size={18} color="#fff" />
+                            <Pressable onPress={() => openSheet('header')} style={({ pressed }) => [s.ctaPillWrap, pressed && { opacity: 0.85 }]}>
+                                <LinearGradient colors={['#EC4899', '#F97316']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaPillSolid}>
+                                    <Edit3 size={14} color="#fff" />
+                                    <Text style={s.ctaPillSolidText}>Edit profile</Text>
                                 </LinearGradient>
-                                <Text style={s.ctaLabel}>Edit</Text>
                             </Pressable>
-                            <Pressable onPress={() => router.push('/settings')} style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
-                                <View style={s.ctaIconOutline}><Settings size={18} color="#6B6878" /></View>
-                                <Text style={s.ctaLabel}>Settings</Text>
+                            <Pressable style={({ pressed }) => [s.ctaPillOutline, pressed && { opacity: 0.7 }]}>
+                                <Share2 size={14} color="#D6D1DE" />
+                                <Text style={s.ctaPillText}>Share profile</Text>
                             </Pressable>
-                            <Pressable style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
-                                <View style={s.ctaIconOutline}><Share2 size={18} color="#6B6878" /></View>
-                                <Text style={s.ctaLabel}>Share</Text>
+                            {/* Settings navigates away from the profile — icon-only, not a peer of Edit. */}
+                            <Pressable
+                                onPress={() => router.push('/settings')}
+                                style={({ pressed }) => [s.ctaPillIcon, pressed && { opacity: 0.7 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel="Settings"
+                            >
+                                <Settings size={15} color="#9A94A6" />
                             </Pressable>
                         </>
                     ) : (
                         <>
-                            <Pressable onPress={handleConnect} disabled={isConnectionLoading} style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
+                            {/* One primary pill. Once connected it becomes Message — the only
+                                thing left to do here — while keeping each state's own colour:
+                                green connected, grey pending, pink→orange not-yet-connected. */}
+                            <Pressable
+                                onPress={connectionStatus === 'connected' ? openMessage : handleConnect}
+                                disabled={isConnectionLoading || msgBusy}
+                                style={({ pressed }) => [s.ctaPillWrap, pressed && { opacity: 0.85 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel={connectionStatus === 'connected' ? 'Message' : connectionStatus === 'pending' ? 'Request pending' : 'Connect'}
+                            >
                                 <LinearGradient
                                     colors={connectionStatus === 'connected' ? ['#34D399', '#059669'] : connectionStatus === 'pending' ? ['#6B6878', '#4A4656'] : ['#EC4899', '#F97316']}
-                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaIconGrad}
+                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaPillSolid}
                                 >
-                                    {isConnectionLoading ? <ActivityIndicator size="small" color="#fff" /> :
-                                        connectionStatus === 'connected' ? <Check size={18} color="#fff" /> :
-                                        connectionStatus === 'pending' ? <Clock size={18} color="#fff" /> :
-                                        <UserPlus size={18} color="#fff" />}
+                                    {(isConnectionLoading || msgBusy) ? <ActivityIndicator size="small" color="#fff" /> :
+                                        connectionStatus === 'connected' ? <MessageCircle size={14} color="#fff" /> :
+                                        connectionStatus === 'pending' ? <Clock size={14} color="#fff" /> :
+                                        <UserPlus size={14} color="#fff" />}
+                                    <Text style={s.ctaPillSolidText}>{connectionStatus === 'connected' ? 'Message' : connectionStatus === 'pending' ? 'Pending' : 'Connect'}</Text>
                                 </LinearGradient>
-                                <Text style={s.ctaLabel}>{connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'pending' ? 'Pending' : 'Connect'}</Text>
                             </Pressable>
-                            <Pressable style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
-                                <View style={s.ctaIconOutline}><MessageCircle size={18} color="#6B6878" /></View>
-                                <Text style={s.ctaLabel}>Message</Text>
-                            </Pressable>
-                            <Pressable style={({ pressed }) => [s.ctaAction, pressed && { opacity: 0.8 }]}>
-                                <View style={s.ctaIconOutline}><Share2 size={18} color="#6B6878" /></View>
-                                <Text style={s.ctaLabel}>Share</Text>
+                            {/* Manage-connection menu used to live behind the connected pill;
+                                that slot is now Message, so it moves here. */}
+                            {connectionStatus !== 'none' && (
+                                <Pressable
+                                    onPress={handleConnect}
+                                    style={({ pressed }) => [s.ctaPillIcon, pressed && { opacity: 0.7 }]}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Manage connection"
+                                >
+                                    <MoreHorizontal size={15} color="#9A94A6" />
+                                </Pressable>
+                            )}
+                            <Pressable
+                                style={({ pressed }) => [s.ctaPillIcon, pressed && { opacity: 0.7 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel="Share profile"
+                            >
+                                <Share2 size={15} color="#9A94A6" />
                             </Pressable>
                         </>
                     )}
@@ -494,28 +597,67 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                 {mediaViewerIndex !== null && allMedia.length > 0 && (
                     <Modal visible transparent animationType="fade" onRequestClose={() => setMediaViewerIndex(null)}>
                         <View style={s.viewerBg}>
-                            <Pressable onPress={() => setMediaViewerIndex(null)} style={s.viewerClose}>
-                                <X size={20} color="#fff" />
-                            </Pressable>
+                            <SafeAreaView edges={['top']} pointerEvents="box-none" style={s.viewerTopSafe}>
+                                <Pressable onPress={() => setMediaViewerIndex(null)} style={s.viewerClose} hitSlop={10}>
+                                    <X size={20} color="#fff" />
+                                </Pressable>
+                            </SafeAreaView>
                             <FlatList
+                                ref={mediaListRef}
                                 data={allMedia}
                                 horizontal
                                 pagingEnabled
-                                initialScrollIndex={mediaViewerIndex}
-                                getItemLayout={(_, index) => ({ length: SCREEN_W, offset: SCREEN_W * index, index })}
+                                initialScrollIndex={mediaViewerIndex ?? 0}
+                                getItemLayout={(_, index) => ({ length: winW, offset: winW * index, index })}
+                                onMomentumScrollEnd={(e) => setActiveMedia(Math.round(e.nativeEvent.contentOffset.x / winW))}
                                 showsHorizontalScrollIndicator={false}
-                                keyExtractor={(_, i) => `media-${i}`}
+                                keyExtractor={(item, i) => item.muxPlaybackId || item.url || `media-${i}`}
                                 renderItem={({ item }) => (
-                                    <View style={{ width: SCREEN_W, justifyContent: 'center', alignItems: 'center' }}>
+                                    <View style={{ width: winW, height: winH, justifyContent: 'center', alignItems: 'center' }}>
                                         {item.type === 'video' && item.muxPlaybackId ? (
-                                            <NetsaVideoPlayer playbackId={item.muxPlaybackId} poster={item.url || undefined} style={s.viewerImg} />
+                                            <NetsaVideoPlayer playbackId={item.muxPlaybackId} poster={item.url || undefined} fill contentFit="contain" showRotateCue={(parseAspectRatio(item.aspectRatio) ?? 0) >= 1.2} onFullscreenChange={setVideoFullscreen} style={[s.viewerVideo, { width: winW, height: winH }]} />
                                         ) : (
-                                            <Image source={{ uri: item.url }} style={s.viewerImg} resizeMode="contain" />
+                                            <Image source={{ uri: item.url }} style={{ width: winW, height: winH }} resizeMode="contain" />
                                         )}
                                     </View>
                                 )}
                             />
-                            <Text style={s.viewerCounter}>{(mediaViewerIndex || 0) + 1} / {allMedia.length}</Text>
+                            {/* Nav pill — prev · counter · next (V2 design). Thumb-height;
+                                arrows dim at the first/last frame. box-none so the full-width
+                                safe wrapper never intercepts photo swipes. Hidden while a video
+                                is in fullscreen — swiping doesn't apply there and it would
+                                float over the expanded video. */}
+                            {!videoFullscreen && (
+                            <SafeAreaView edges={['bottom']} pointerEvents="box-none" style={s.viewerBottomSafe}>
+                                <View style={s.viewerPill}>
+                                    <Pressable
+                                        disabled={activeMedia === 0}
+                                        hitSlop={8}
+                                        onPress={() => {
+                                            const n = Math.max(0, activeMedia - 1);
+                                            setActiveMedia(n);
+                                            mediaListRef.current?.scrollToIndex({ index: n, animated: true });
+                                        }}
+                                        style={[s.viewerPillBtn, activeMedia === 0 && s.viewerPillBtnOff]}>
+                                        <ChevronLeft size={20} color="#fff" />
+                                    </Pressable>
+                                    <Text style={s.viewerPillCount}>
+                                        <Text style={{ color: '#FF6B35' }}>{activeMedia + 1}</Text> / {allMedia.length}
+                                    </Text>
+                                    <Pressable
+                                        disabled={activeMedia === allMedia.length - 1}
+                                        hitSlop={8}
+                                        onPress={() => {
+                                            const n = Math.min(allMedia.length - 1, activeMedia + 1);
+                                            setActiveMedia(n);
+                                            mediaListRef.current?.scrollToIndex({ index: n, animated: true });
+                                        }}
+                                        style={[s.viewerPillBtn, activeMedia === allMedia.length - 1 && s.viewerPillBtnOff]}>
+                                        <ChevronRight size={20} color="#fff" />
+                                    </Pressable>
+                                </View>
+                            </SafeAreaView>
+                            )}
                         </View>
                     </Modal>
                 )}
@@ -622,10 +764,22 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                 <View style={{ height: 110 }} />
             </ScrollView>
 
+            {/* Tap anywhere to dismiss the "+N" crafts popover. Sits above the scroll
+                view so any tap closes it; the card itself is informational, nothing
+                inside it needs to stay tappable. */}
+            {showCrafts && (
+                <Pressable
+                    style={StyleSheet.absoluteFill}
+                    onPress={() => setShowCrafts(false)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Dismiss"
+                />
+            )}
+
             {/* ═══ 17. PROFILE EDIT MODAL ═══ */}
             {isOwner && <ProfileEditModal profileData={profileData} />}
 
-            {/* Account verification sheet — opened by the profile status pill */}
+            {/* Account verification — opened by the green status pill above */}
             {isOwner && <AccountVerificationSheet visible={showVerify} onClose={() => setShowVerify(false)} />}
 
             {/* ═══ CONNECTION REQUEST SHEET ═══ */}
@@ -995,8 +1149,7 @@ const s = StyleSheet.create({
     coverDarken: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
     coverFade: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 160 },
     topBar: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 8 },
-    topActions: { flexDirection: 'row', gap: 8 },
-    topBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.4)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+    backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' },
 
     // ── 2. Avatar ──
     avatarZone: { alignItems: 'center', marginTop: -70, zIndex: 5 },
@@ -1011,36 +1164,46 @@ const s = StyleSheet.create({
     scorePill: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 10 },
     scoreText: { fontFamily: 'Outfit-Black', fontSize: 11, color: '#fff' },
 
-    // ── 3. Identity ──
-    identity: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 14 },
+    // ── 3. Identity (centred) ──
+    identity: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, position: 'relative' },
     name: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 30, color: '#F0ECE6', letterSpacing: -0.5, textAlign: 'center' },
-    verifiedChip: { flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 6, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100, backgroundColor: 'rgba(234,179,8,0.08)', borderWidth: 1, borderColor: 'rgba(234,179,8,0.22)' },
-    verifiedChipText: { fontFamily: 'Outfit-Bold', fontSize: 10, color: '#EAB308', textTransform: 'uppercase', letterSpacing: 0.6 },
-    artistType: { fontFamily: 'Outfit-Regular', fontSize: 13, color: '#6B6878', marginTop: 4, textAlign: 'center' },
-    locRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
-    locText: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#4A4656' },
-    verifyRow: { flexDirection: 'row', gap: 6, marginTop: 10 },
-    verifyStatusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 5, paddingHorizontal: 12, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(52,211,153,0.28)', backgroundColor: 'rgba(52,211,153,0.10)' },
-    verifyStatusText: { fontFamily: 'Outfit-SemiBold', fontSize: 11, color: '#34D399', letterSpacing: 0.2 },
-    verifyPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.03)' },
-    verifyText: { fontFamily: 'Outfit-Medium', fontSize: 10, color: '#6B6878' },
+    // Anchors the upward popover to the kicker rather than the whole card.
+    kickerWrap: { alignItems: 'center', position: 'relative' },
+    // Kicker sets the craft + city as a Space Mono rubric under the name.
+    kicker: { fontFamily: 'SpaceMono-Regular', fontSize: 10.5, letterSpacing: 1.6, color: '#6B6878', marginTop: 7, textAlign: 'center' },
+    kickerMore: { color: '#FF6B35' },
+    // City sits under the crafts with a pin so it reads as a PLACE at a glance,
+    // not a fainter copy of the kicker. #4A4656 measured 2.16:1 against the
+    // background — below every WCAG threshold; #8B8598 is 5.55:1.
+    cityRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
+    cityLine: { fontFamily: 'SpaceMono-Regular', fontSize: 10.5, letterSpacing: 1.6, color: '#8B8598', textAlign: 'center' },
+    // "+N" popover — floats, so the masthead never changes height.
+    craftPop: { position: 'absolute', zIndex: 30, minWidth: 150, paddingVertical: 9, paddingHorizontal: 4, borderRadius: 12, backgroundColor: 'rgba(18,16,24,0.97)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.13)', shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.55, shadowRadius: 20, elevation: 12 },
+    craftPopHead: { fontFamily: 'SpaceMono-Regular', fontSize: 8, letterSpacing: 1.4, textTransform: 'uppercase', color: '#4A4656', paddingHorizontal: 10, paddingBottom: 6 },
+    craftPopItem: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 5, paddingHorizontal: 10 },
+    craftPopDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#FF6B35' },
+    craftPopText: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#D6D1DE' },
+    verifyStatusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 5, paddingHorizontal: 12, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(52,211,153,0.28)', backgroundColor: 'rgba(52,211,153,0.10)', marginTop: 9 },
+    verifyStatusText: { fontFamily: 'Outfit-Medium', fontSize: 11.5, color: '#34D399' },
+    verifyRow: { flexDirection: 'row', gap: 6, marginTop: 10, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' },
     connRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
     connPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.03)' },
     connPillText: { fontFamily: 'Outfit-Bold', fontSize: 11, color: '#F0ECE6' },
 
     // ── 4. Connections ──
-    connectionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14 },
-    connectionsCount: { fontFamily: 'Outfit-Black', fontSize: 15, color: '#F0ECE6' },
-    connectionsLabel: { fontFamily: 'Outfit-Regular', fontSize: 13, color: '#6B6878' },
-    dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#4A4656' },
-    mutualText: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#4A4656' },
+    // Inline link in the verify row — orange count + chevron so it reads tappable.
+    connectionsLink: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 },
+    connectionsCount: { fontFamily: 'Outfit-Bold', fontSize: 12.5, color: '#FF6B35' },
+    connectionsLabel: { fontFamily: 'Outfit-Regular', fontSize: 11.5, color: '#9A94A6' },
 
-    // ── 5. Compact Action Circles ──
-    ctaRow: { flexDirection: 'row', justifyContent: 'center', gap: 28, paddingHorizontal: 20, marginTop: 16 },
-    ctaAction: { alignItems: 'center', gap: 6 },
-    ctaIconGrad: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', shadowColor: '#EC4899', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 4 },
-    ctaIconOutline: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    ctaLabel: { fontFamily: 'Outfit-SemiBold', fontSize: 10, color: '#6B6878', textTransform: 'uppercase', letterSpacing: 1 },
+    // ── 5. Action pills (labelled, left-aligned under the masthead) ──
+    ctaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 20, marginTop: 16 },
+    ctaPillWrap: { borderRadius: 100, overflow: 'hidden' },
+    ctaPillSolid: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 100 },
+    ctaPillSolidText: { fontFamily: 'Outfit-SemiBold', fontSize: 12.5, color: '#fff' },
+    ctaPillOutline: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
+    ctaPillText: { fontFamily: 'Outfit-Medium', fontSize: 12.5, color: '#D6D1DE' },
+    ctaPillIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
 
     // ── 6. Context tabs ──
     ctxTabs: { flexDirection: 'row', marginHorizontal: 14, marginTop: 18, padding: 4, borderRadius: 18, backgroundColor: 'rgba(18,16,24,0.9)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
@@ -1154,17 +1317,24 @@ const s = StyleSheet.create({
     placeholderDesc: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#3A3746', marginTop: 4, textAlign: 'center', lineHeight: 18 },
 
     // ── Verify pill dim (unverified owner) ──
-    verifyPillDim: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)', backgroundColor: 'rgba(255,255,255,0.01)' },
-    verifyTextDim: { fontFamily: 'Outfit-Medium', fontSize: 10, color: '#3A3746' },
 
     // ── Bento placeholder ──
     bentoPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
     // ── Media viewer ──
     viewerBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center' },
-    viewerClose: { position: 'absolute', top: 56, right: 20, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-    viewerImg: { width: SCREEN_W - 20, height: SCREEN_W - 20 },
+    viewerTopSafe: { position: 'absolute', top: 0, right: 0, left: 0, zIndex: 20, alignItems: 'flex-end' },
+    viewerClose: { margin: 12, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.4)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+    // Fullscreen video: no card chrome — letterbox falls back to the viewer's own
+    // black. Size (winW/winH) is applied inline from useWindowDimensions, not here,
+    // because a static snapshot mis-sizes it on web. (NetsaVideoPlayer contain-fits.)
+    viewerVideo: { borderRadius: 0, borderWidth: 0, backgroundColor: 'transparent' },
     viewerPlayBadge: { position: 'absolute', alignItems: 'center', gap: 4 },
     viewerPlayText: { fontFamily: 'Outfit-Bold', fontSize: 12, color: 'rgba(255,255,255,0.6)' },
-    viewerCounter: { position: 'absolute', bottom: 40, alignSelf: 'center', fontFamily: 'Outfit-Bold', fontSize: 13, color: 'rgba(255,255,255,0.5)' },
+    // Nav pill (V2): floating glass cluster — prev · counter · next.
+    viewerBottomSafe: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20, alignItems: 'center', paddingBottom: 24 },
+    viewerPill: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 6, borderRadius: 999, backgroundColor: 'rgba(10,9,14,0.72)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+    viewerPillBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+    viewerPillBtnOff: { opacity: 0.28 },
+    viewerPillCount: { fontFamily: 'Outfit-Bold', fontSize: 13, letterSpacing: 1, color: '#fff', paddingHorizontal: 12, minWidth: 58, textAlign: 'center' },
 });

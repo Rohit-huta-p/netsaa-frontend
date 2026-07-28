@@ -14,6 +14,21 @@ const T0 = '#F3EFE8', T2 = '#71717a', ORANGE = '#FF6B35';
 export const muxHls = (id: string) => `https://stream.mux.com/${id}.m3u8`;
 export const muxPoster = (id: string) => `https://image.mux.com/${id}/thumbnail.jpg?time=1`;
 
+/**
+ * Parse Mux's `aspect_ratio` — a "W:H" string like "16:9" / "9:16" (or a bare
+ * decimal string) — to a number (w/h). Returns undefined when absent/unparseable
+ * so callers can fall back rather than fabricate a ratio.
+ */
+export function parseAspectRatio(a?: string): number | undefined {
+  if (!a) return undefined;
+  if (a.includes(':')) {
+    const [w, h] = a.split(':').map(Number);
+    return w > 0 && h > 0 ? w / h : undefined;
+  }
+  const n = Number(a);
+  return n > 0 ? n : undefined;
+}
+
 function fmt(t: number): string {
   const s = Math.max(0, Math.floor(t || 0));
   const m = Math.floor(s / 60);
@@ -22,8 +37,22 @@ function fmt(t: number): string {
 }
 
 export default function NetsaVideoPlayer({
-  playbackId, poster, aspectRatio = 16 / 9, style,
-}: { playbackId: string; poster?: string; aspectRatio?: number; style?: StyleProp<ViewStyle> }) {
+  playbackId, poster, aspectRatio = 16 / 9, style, contentFit = 'cover', fill = false, showRotateCue = false,
+  onFullscreenChange,
+}: {
+  playbackId: string; poster?: string; aspectRatio?: number; style?: StyleProp<ViewStyle>;
+  // `cover` (default) fills+crops for cards; `contain` shows the whole frame for
+  // fullscreen viewers. `fill` drops the aspect-ratio box so the player fills the
+  // parent exactly (use for a fullscreen lightbox where the parent is fixed-size).
+  contentFit?: 'cover' | 'contain'; fill?: boolean;
+  // Fullscreen viewers pass this for WIDE/landscape clips: contain leaves them a
+  // small centered strip, so surface a one-tap rotate-to-fullscreen cue (the only
+  // thing that makes a landscape clip big on a portrait screen). Idle state only.
+  showRotateCue?: boolean;
+  // Fires on native fullscreen enter/exit so a host viewer can hide its own
+  // chrome (nav pill, close button) while the video owns the screen.
+  onFullscreenChange?: (isFullscreen: boolean) => void;
+}) {
   const viewRef = useRef<VideoView>(null);
   const player = useVideoPlayer(muxHls(playbackId), (p) => { p.timeUpdateEventInterval = 0.25; p.muted = true; });
   const focused = useIsFocused();
@@ -66,11 +95,20 @@ export default function NetsaVideoPlayer({
   }, [visible, rm, barOpacity]);
 
   return (
-    <View style={[styles.frame, { aspectRatio }, style]}>
-      <VideoView ref={viewRef} player={player} nativeControls={false} contentFit="cover" allowsFullscreen style={StyleSheet.absoluteFill} />
+    <View style={fill ? [styles.frame, styles.fill, style] : [styles.frame, { aspectRatio }, style]}>
+      <VideoView
+        ref={viewRef}
+        player={player}
+        nativeControls={false}
+        contentFit={contentFit}
+        allowsFullscreen
+        onFullscreenEnter={() => onFullscreenChange?.(true)}
+        onFullscreenExit={() => onFullscreenChange?.(false)}
+        style={styles.media}
+      />
 
       {uiState === 'idle' && (
-        <Image source={{ uri: poster ?? muxPoster(playbackId) }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <Image source={{ uri: poster ?? muxPoster(playbackId) }} style={styles.media} resizeMode={contentFit} />
       )}
 
       {(uiState === 'playing' || uiState === 'paused') && (
@@ -83,6 +121,12 @@ export default function NetsaVideoPlayer({
           <Pressable onPress={start} style={styles.glass} accessibilityRole="button" accessibilityLabel="Play">
             <Play size={23} color={T0} style={{ marginLeft: 3 }} />
           </Pressable>
+          {showRotateCue && (
+            <Pressable onPress={() => { start(); onFullscreen(); }} style={styles.rotateCue} accessibilityRole="button" accessibilityLabel="Rotate for fullscreen">
+              <RotateCcw size={13} color="#FFD9C7" />
+              <Text style={styles.rotateCueText}>Rotate for fullscreen</Text>
+            </Pressable>
+          )}
         </View>
       )}
       {uiState === 'buffering' && (<View style={styles.center} pointerEvents="none"><ActivityIndicator color={ORANGE} /></View>)}
@@ -129,9 +173,22 @@ export default function NetsaVideoPlayer({
 
 const styles = StyleSheet.create({
   frame: { borderRadius: 14, overflow: 'hidden', backgroundColor: '#0E0C12', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  // fill mode: fill the parent exactly, no aspect-ratio box (fullscreen lightbox).
+  fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  /**
+   * The media layer (VideoView / poster). MUST carry explicit width+height, not
+   * just absoluteFill's insets: on web expo-video renders a raw <video>, and a
+   * replaced element with `width:auto` + left/right:0 resolves to its INTRINSIC
+   * size (a 1080x1920 clip renders 1080x1920, cornered top-left) instead of
+   * stretching. Explicit 100% sizes the box so objectFit can letterbox inside it.
+   */
+  media: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' },
   center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 10 },
   radial: { position: 'absolute', width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(0,0,0,0.28)' },
   glass: { width: 54, height: 54, borderRadius: 27, backgroundColor: 'rgba(0,0,0,0.38)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  // Rotate-to-fullscreen cue for wide clips (idle state) — warm accent pill.
+  rotateCue: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, backgroundColor: 'rgba(255,107,53,0.16)', borderWidth: 1, borderColor: 'rgba(255,107,53,0.45)' },
+  rotateCueText: { fontFamily: 'Outfit-Medium', fontSize: 12, color: '#FFD9C7' },
   pill: { position: 'absolute', top: 12, right: 12, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 7, backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   pillText: { fontFamily: 'SpaceMono-Regular', fontSize: 11, color: T0 },
   barWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 40 },

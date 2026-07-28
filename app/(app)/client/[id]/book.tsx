@@ -144,7 +144,7 @@ export default function BookProposal() {
 
                     <View style={{ flexDirection: 'row', gap: 10, marginTop: 30 }}>
                         <Pressable
-                            onPress={() => router.replace((convId ? `/(app)/messages?c=${convId}` : '/(app)/messages') as any)}
+                            onPress={() => router.replace((convId ? `/(app)/inbox?c=${convId}` : '/(app)/inbox') as any)}
                             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14, paddingVertical: 15 }}
                         >
                             <MessageCircle size={17} color="#f4f4f5" />

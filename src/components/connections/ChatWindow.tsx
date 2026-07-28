@@ -16,20 +16,17 @@ import {
     X,
     Send,
     AlertCircle,
-    Paperclip,
+    ChevronLeft,
     FileText,
     CheckCircle,
 } from "lucide-react-native";
-import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from "@/stores/authStore";
-import noAvatar from '@/assets/no-avatar.jpg';
 
 import messageService from "@/services/messageService";
 import { socketService } from "@/services/socketService";
 import { requirementService } from "@/services/requirementService";
-import { uploadMediaFlow } from "@/utils/upload";
 import { Message } from "@/types/chat";
 import { generateId } from "@/utils/idGenerator";
 
@@ -58,6 +55,10 @@ const composeName = (u?: { displayName?: string; firstName?: string; lastName?: 
     if (u.username) return u.username;
     return 'Loading...';
 };
+
+// Initials fallback for users without a photo — mirrors the inbox launcher's avatar chip.
+const initialsOf = (n?: string) =>
+    (n || '?').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 
 interface ChatWindowProps {
     conversationId: string;
@@ -166,10 +167,6 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
     const [remoteIsTyping, setRemoteIsTyping] = useState(false);
     const [isOnline, setIsOnline] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    // Attachment state
-    const [attachmentUploading, setAttachmentUploading] = useState(false);
-    const [pendingAttachments, setPendingAttachments] = useState<{ type: string; url: string; size?: number }[]>([]);
 
     // Mark-as-booked state
     const [bookState, setBookState] = useState<BookState>('idle');
@@ -409,42 +406,26 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
         }
     };
 
-    // ── Photo attachment picker ──
-    const handlePickAttachment = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            quality: 0.85,
-        });
-        if (result.canceled) return;
-        const asset = result.assets[0];
+    // Open the other participant's profile from the chat header.
+    const goToProfile = () => {
+        if (recipient?._id) router.push(`/(app)/profile/${recipient._id}` as any);
+    };
 
-        setAttachmentUploading(true);
-        try {
-            const uploaded = await uploadMediaFlow({
-                asset,
-                entityType: 'user',
-                entityId: currentUserId,
-                purpose: 'gallery',
-            });
-            if (!uploaded.success || !uploaded.url) {
-                throw new Error(uploaded.error ?? 'Upload returned no URL');
-            }
-            setPendingAttachments(prev => [...prev, {
-                type: 'image',
-                url: uploaded.url!,
-                size: asset.fileSize,
-            }]);
-        } catch (e) {
-            console.error('[ChatWindow] attachment upload failed', e);
-        } finally {
-            setAttachmentUploading(false);
+    // Web: Enter sends, Shift+Enter inserts a newline. (Native uses onSubmitEditing.)
+    const handleInputKeyPress = (e: any) => {
+        if (Platform.OS !== 'web') return;
+        const ne = e?.nativeEvent ?? e;
+        const isEnter = ne?.key === 'Enter' || e?.key === 'Enter';
+        const withShift = e?.shiftKey ?? ne?.shiftKey ?? false;
+        if (isEnter && !withShift) {
+            e?.preventDefault?.();
+            handleSend();
         }
     };
 
     const handleSend = async () => {
         const hasText = msgText.trim().length > 0;
-        const hasAttachments = pendingAttachments.length > 0;
-        if (!hasText && !hasAttachments) return;
+        if (!hasText) return;
         if (!conversationId) return;
 
         const socket = socketService.getSocket();
@@ -456,7 +437,6 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
 
         const clientMessageId = generateId();
         const tempId = generateId();
-        const attachmentsToSend = [...pendingAttachments];
 
         const optimisticMessage: Message = {
             _id: tempId,
@@ -467,19 +447,16 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
             createdAt: new Date().toISOString(),
             clientMessageId,
             optimistic: true,
-            attachments: attachmentsToSend.length > 0 ? attachmentsToSend : undefined,
         };
 
         setMessages(prev => [...prev, optimisticMessage]);
         setMsgText("");
-        setPendingAttachments([]);
 
         try {
             const serverMessage = await messageService.sendMessage(
                 conversationId,
                 optimisticMessage.text,
                 clientMessageId,
-                attachmentsToSend.length > 0 ? attachmentsToSend : undefined,
             );
             reconcileMessage(clientMessageId, serverMessage);
         } catch (err) {
@@ -578,25 +555,48 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
             {/* Chat Header */}
             <View style={{ flexShrink: 0 }} className="border-b border-white/10 bg-white/5">
                 <View className="px-4 py-3 flex-row items-center justify-between">
-                    <View className="flex-row items-center">
-                        <View className="relative w-10 h-10 mr-3">
-                            <Image
-                                source={avatarUri ? { uri: avatarUri } : noAvatar}
-                                className="w-10 h-10 rounded-full bg-gray-800"
-                            />
-                            {isOnline && (
-                                <View
-                                    className="absolute w-3 h-3 bg-green-500 rounded-full border-2 border-[#09090b]"
-                                    style={{ bottom: 0, right: 0 }}
-                                />
-                            )}
-                        </View>
-                        <View>
-                            <Text className="text-white font-bold">{displayName}</Text>
-                            {isOnline ? (
-                                <Text className="text-green-400 text-[11px]">Active now</Text>
-                            ) : null}
-                        </View>
+                    <View className="flex-row items-center" style={{ flex: 1, minWidth: 0 }}>
+                        {!hideClose ? (
+                            <TouchableOpacity
+                                onPress={onClose}
+                                accessibilityLabel="Back"
+                                className="mr-1 p-1.5 rounded-full"
+                                style={{ marginLeft: -6 }}
+                            >
+                                <ChevronLeft size={24} color="white" />
+                            </TouchableOpacity>
+                        ) : null}
+                        <TouchableOpacity
+                            onPress={goToProfile}
+                            disabled={!recipient?._id}
+                            className="flex-row items-center"
+                            style={{ flex: 1, minWidth: 0 }}
+                        >
+                            <View className="relative w-10 h-10 mr-3">
+                                {avatarUri ? (
+                                    <Image
+                                        source={{ uri: avatarUri }}
+                                        className="w-10 h-10 rounded-full bg-gray-800"
+                                    />
+                                ) : (
+                                    <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,107,53,0.15)' }}>
+                                        <Text style={{ fontFamily: 'Outfit-SemiBold', color: '#FF6B35', fontSize: 14 }}>{initialsOf(displayName)}</Text>
+                                    </View>
+                                )}
+                                {isOnline && (
+                                    <View
+                                        className="absolute w-3 h-3 bg-green-500 rounded-full border-2 border-[#09090b]"
+                                        style={{ bottom: 0, right: 0 }}
+                                    />
+                                )}
+                            </View>
+                            <View style={{ flexShrink: 1 }}>
+                                <Text className="text-white" style={{ fontFamily: 'Outfit-SemiBold' }} numberOfLines={1}>{displayName}</Text>
+                                {isOnline ? (
+                                    <Text className="text-green-400 text-[11px]">Active now</Text>
+                                ) : null}
+                            </View>
+                        </TouchableOpacity>
                     </View>
                     <View className="flex-row items-center gap-3">
                         {/* Mark as booked — client only, booking thread only, not already booked */}
@@ -651,12 +651,6 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                                     </Text>
                                 </TouchableOpacity>
                             )
-                        ) : null}
-
-                        {!hideClose ? (
-                            <TouchableOpacity onPress={onClose} className="bg-white/10 p-1.5 rounded-full">
-                                <X size={20} color="white" />
-                            </TouchableOpacity>
                         ) : null}
                     </View>
                 </View>
@@ -758,7 +752,7 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                             {/* Message text (only if non-empty) */}
                             {item.text ? (
                                 <View style={{ paddingHorizontal: 12, paddingTop: item.attachments?.length ? 2 : 12, paddingBottom: 8 }}>
-                                    <Text className={`text-base ${isMe ? 'text-[#1A0D06]' : 'text-[#e8e4ea]'}`}>{item.text}</Text>
+                                    <Text style={{ fontFamily: 'Outfit-Regular' }} className={`text-base ${isMe ? 'text-[#1A0D06]' : 'text-[#e8e4ea]'}`}>{item.text}</Text>
                                 </View>
                             ) : null}
 
@@ -791,48 +785,6 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                     </Text>
                 </View>
             )}
-
-            {/* Pending attachments preview */}
-            {pendingAttachments.length > 0 ? (
-                <View
-                    style={{
-                        flexShrink: 0,
-                        flexDirection: 'row',
-                        gap: 8,
-                        paddingHorizontal: 14,
-                        paddingTop: 8,
-                        backgroundColor: '#09090b',
-                    }}
-                >
-                    {pendingAttachments.map((att, idx) => (
-                        <View key={idx} style={{ position: 'relative' }}>
-                            {att.type === 'image' ? (
-                                <Image
-                                    source={{ uri: att.url }}
-                                    style={{ width: 56, height: 56, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.05)' }}
-                                    resizeMode="cover"
-                                />
-                            ) : null}
-                            <TouchableOpacity
-                                onPress={() => setPendingAttachments(prev => prev.filter((_, i) => i !== idx))}
-                                style={{
-                                    position: 'absolute',
-                                    top: -4,
-                                    right: -4,
-                                    backgroundColor: '#ef4444',
-                                    borderRadius: 8,
-                                    width: 16,
-                                    height: 16,
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                <X size={10} color="white" />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
-                </View>
-            ) : null}
 
             {/* Booking footer */}
             {isBookingThread ? (
@@ -877,37 +829,25 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
             {/* Input Area */}
             {Platform.OS === 'web' ? (
                 <View style={{ flexShrink: 0 }} className="p-4 border-t border-white/10 bg-[#09090b] flex-row items-center gap-3">
-                    {/* Paperclip / image attach button */}
-                    <TouchableOpacity
-                        onPress={handlePickAttachment}
-                        disabled={attachmentUploading}
-                        style={{
-                            padding: 8,
-                            borderRadius: 20,
-                            backgroundColor: 'rgba(255,255,255,0.06)',
-                            opacity: attachmentUploading ? 0.5 : 1,
-                        }}
-                    >
-                        {attachmentUploading
-                            ? <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
-                            : <Paperclip size={18} color="rgba(255,255,255,0.5)" />
-                        }
-                    </TouchableOpacity>
                     <TextInput
+                        nativeID="chatMsgInput"
                         value={msgText}
                         onChangeText={handleTextChange}
                         onBlur={handleBlur}
+                        onKeyPress={handleInputKeyPress}
                         onSubmitEditing={handleSend}
                         placeholder="Write a message..."
                         placeholderTextColor="#6b7280"
-                        className="flex-1 bg-white/10 text-white rounded-full px-4 py-3 max-h-24"
+                        selectionColor="#FF6B35"
+                        className="flex-1 bg-white/10 text-white rounded-full px-4 max-h-24"
                         multiline
-                        style={{ outlineStyle: 'none' } as any}
+                        numberOfLines={1}
+                        style={{ outlineStyle: 'none', paddingTop: 10, paddingBottom: 10, textAlignVertical: 'center', fontFamily: 'Outfit-Regular' } as any}
                     />
                     <TouchableOpacity
                         onPress={handleSend}
-                        disabled={!msgText.trim() && pendingAttachments.length === 0}
-                        className={`p-3 rounded-full ${(!msgText.trim() && pendingAttachments.length === 0) ? 'bg-white/10' : 'bg-[#FF6B35]'}`}
+                        disabled={!msgText.trim()}
+                        className={`p-3 rounded-full ${!msgText.trim() ? 'bg-white/10' : 'bg-[#FF6B35]'}`}
                     >
                         <Send size={20} color="#1A0D06" />
                     </TouchableOpacity>
@@ -915,34 +855,24 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
             ) : (
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flexShrink: 0 }}>
                     <View className="p-4 border-t border-white/10 bg-[#09090b] flex-row items-center gap-3">
-                        <TouchableOpacity
-                            onPress={handlePickAttachment}
-                            disabled={attachmentUploading}
-                            style={{
-                                padding: 8,
-                                borderRadius: 20,
-                                backgroundColor: 'rgba(255,255,255,0.06)',
-                                opacity: attachmentUploading ? 0.5 : 1,
-                            }}
-                        >
-                            {attachmentUploading
-                                ? <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
-                                : <Paperclip size={18} color="rgba(255,255,255,0.5)" />
-                            }
-                        </TouchableOpacity>
                         <TextInput
                             value={msgText}
                             onChangeText={handleTextChange}
                             onBlur={handleBlur}
+                            onSubmitEditing={handleSend}
+                            blurOnSubmit={false}
                             placeholder="Write a message..."
                             placeholderTextColor="#6b7280"
-                            className="flex-1 bg-white/10 text-white rounded-full px-4 py-3 max-h-24"
+                            selectionColor="#FF6B35"
+                            className="flex-1 bg-white/10 text-white rounded-full px-4 max-h-24"
                             multiline
+                            numberOfLines={1}
+                            style={{ paddingTop: 10, paddingBottom: 10, textAlignVertical: 'center', fontFamily: 'Outfit-Regular' }}
                         />
                         <TouchableOpacity
                             onPress={handleSend}
-                            disabled={!msgText.trim() && pendingAttachments.length === 0}
-                            className={`p-3 rounded-full ${(!msgText.trim() && pendingAttachments.length === 0) ? 'bg-white/10' : 'bg-[#FF6B35]'}`}
+                            disabled={!msgText.trim()}
+                            className={`p-3 rounded-full ${!msgText.trim() ? 'bg-white/10' : 'bg-[#FF6B35]'}`}
                         >
                             <Send size={20} color="#1A0D06" />
                         </TouchableOpacity>

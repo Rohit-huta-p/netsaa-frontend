@@ -11,6 +11,7 @@ export interface ConnectionRequest {
     };
     message?: string;
     mutuals?: number;
+    createdAt?: string;
 }
 
 import { Conversation } from "./chat";

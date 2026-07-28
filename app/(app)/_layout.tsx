@@ -1,4 +1,4 @@
-import { Stack, useRouter, usePathname } from "expo-router";
+import { Stack, useRouter, usePathname, useGlobalSearchParams } from "expo-router";
 import { View } from "react-native";
 import useAuthStore from "@/stores/authStore";
 import { ProfilePlaybillCard } from "@/components/profile/completion";
@@ -18,8 +18,12 @@ export default function AppLayout() {
     const { isHydrated, isAuthLoading, user, accessToken } = useAuthStore();
     const router = useRouter();
     // Must be called unconditionally, before any early return, to satisfy the
-    // Rules of Hooks. Used below to hide BottomNav on /messages.
+    // Rules of Hooks. Used below to hide BottomNav on the /inbox chat view.
     const pathname = usePathname();
+    // Global (not local) params: this layout is the parent of /inbox, so the
+    // conversation id lives in the global search params, not the local ones.
+    const { c: openConversationId } = useGlobalSearchParams<{ c?: string }>();
+    const [showProfileModal, setShowProfileModal] = useState(false);
     const [showDeletionModal, setShowDeletionModal] = useState(false);
 
     // Redirect unauthenticated users to login page
@@ -81,9 +85,10 @@ export default function AppLayout() {
         return null;
     }
 
-    // Hide the global BottomNav on routes where it gets in the way of bottom
-    // affordances (e.g. /messages compose box, full-screen chat).
-    const hideBottomNav = pathname?.startsWith('/messages') ?? false;
+    // Hide the global BottomNav where it gets in the way of bottom affordances.
+    // The /inbox launcher keeps the nav; only an open conversation (?c=<id>,
+    // i.e. the full-screen chat on mobile) hides it.
+    const hideBottomNav = (pathname?.startsWith('/inbox') ?? false) && !!openConversationId;
 
     return (
         <View className="flex-1">

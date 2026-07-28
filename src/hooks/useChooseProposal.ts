@@ -6,7 +6,7 @@
  *  1. requirementService.patchProposal(proposalId, 'accept')
  *  2. conversationService.createConversation(leadId, context, seedText)
  *  3. queryClient.invalidateQueries(['client','requirements'])
- *  4. router.replace('/(app)/messages?c=<conversationId>')
+ *  4. router.replace('/(app)/inbox?c=<conversationId>')
  *
  * Double-submit guarded via `busy` state.
  * Errors surface as a string (the caller renders inline).
@@ -82,9 +82,9 @@ export function useChooseProposal({
             // Step 4: navigate into the chat thread
             const convId = conv?._id;
             if (convId) {
-                router.replace((`/(app)/messages?c=${convId}`) as any);
+                router.replace((`/(app)/inbox?c=${convId}`) as any);
             } else {
-                router.replace('/(app)/messages' as any);
+                router.replace('/(app)/inbox' as any);
             }
         } catch (e: any) {
             const msg =

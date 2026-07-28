@@ -14,11 +14,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Check, X } from 'lucide-react-native';
+import { ChevronLeft, Check, X, Clock } from 'lucide-react-native';
 import connectionService from '@/services/connectionService';
 import { useAuthStore } from '@/stores/authStore';
 import { interpretConnectionError } from '@/utils/connectionErrors';
 import { Connection, ConnectionRequest } from '@/types/connection';
+import { SentRequestRow } from '@/components/connections/SentRequestRow';
 
 // ── Constants ──
 const C = {
@@ -31,7 +32,6 @@ const C = {
     border: 'rgba(255,255,255,0.06)',
     pink: '#EC4899',
     orange: '#FF6B35',
-    gold: '#D4A155',
 };
 
 type TabKey = 'received' | 'sent';
@@ -187,75 +187,6 @@ const ReceivedRow = ({
     );
 };
 
-// ── Sent row ──
-const SentRow = ({
-    item,
-    currentUserId,
-    onWithdraw,
-    onPressUser,
-    busy,
-}: {
-    item: Connection;
-    currentUserId?: string;
-    onWithdraw: (id: string) => void;
-    onPressUser: (id: string) => void;
-    busy: boolean;
-}) => {
-    const requesterId = (item.requesterId as any)?._id || item.requesterId;
-    const other: any = requesterId === currentUserId ? item.recipientId : item.requesterId;
-    const name = fallbackName(other);
-    return (
-        <View
-            style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingVertical: 14,
-                paddingHorizontal: 4,
-                borderBottomWidth: 1,
-                borderBottomColor: C.border,
-            }}
-        >
-            <Pressable onPress={() => other?._id && onPressUser(other._id)}>
-                <Avatar uri={other?.profileImageUrl} name={name} size={44} />
-            </Pressable>
-            <Pressable
-                style={{ flex: 1, marginLeft: 12, marginRight: 8 }}
-                onPress={() => other?._id && onPressUser(other._id)}
-            >
-                <Text
-                    style={{ color: C.text1, fontFamily: 'Outfit-SemiBold', fontSize: 15 }}
-                    numberOfLines={1}
-                >
-                    {name}
-                </Text>
-                <Text style={{ color: C.text2, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
-                    {roleLabel(other)} · Sent {timeAgo(item.createdAt)}
-                </Text>
-            </Pressable>
-            <Pressable
-                onPress={() => onWithdraw(item._id)}
-                disabled={busy}
-                style={({ pressed }) => ({
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.2)',
-                    opacity: pressed ? 0.5 : 1,
-                })}
-            >
-                {busy ? (
-                    <ActivityIndicator size="small" color={C.text2} />
-                ) : (
-                    <Text style={{ color: C.text2, fontSize: 11, fontFamily: 'Outfit-SemiBold' }}>
-                        Withdraw
-                    </Text>
-                )}
-            </Pressable>
-        </View>
-    );
-};
-
 // ── Page ──
 export default function InvitationsPage() {
     const router = useRouter();
@@ -367,7 +298,7 @@ export default function InvitationsPage() {
                     </Text>
                     <Text
                         style={{
-                            color: active ? C.gold : C.text3,
+                            color: active ? C.orange : C.text3,
                             fontSize: 11,
                             fontFamily: 'SpaceMono',
                             marginLeft: 6,
@@ -425,7 +356,7 @@ export default function InvitationsPage() {
                     <View>
                         <Text
                             style={{
-                                color: C.gold,
+                                color: C.text2,
                                 fontFamily: 'SpaceMono',
                                 fontSize: 10,
                                 letterSpacing: 3,
@@ -468,13 +399,22 @@ export default function InvitationsPage() {
                         <RefreshControl
                             refreshing={refreshing}
                             onRefresh={onRefresh}
-                            tintColor={C.gold}
+                            tintColor={C.text2}
                         />
                     }
                 >
+                    {!loading && tab === 'sent' && sent.length > 0 && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingTop: 2, paddingBottom: 12 }}>
+                            <Clock size={13} color={C.text2} strokeWidth={2} />
+                            <Text style={{ color: C.text2, fontSize: 12, fontFamily: 'Outfit-Regular' }}>
+                                {sent.length} pending — they join your network once accepted.
+                            </Text>
+                        </View>
+                    )}
+
                     {loading ? (
                         <View style={{ marginTop: 80, alignItems: 'center' }}>
-                            <ActivityIndicator size="small" color={C.gold} />
+                            <ActivityIndicator size="small" color={C.orange} />
                         </View>
                     ) : list.length === 0 ? (
                         <View style={{ marginTop: 80, alignItems: 'center' }}>
@@ -507,7 +447,7 @@ export default function InvitationsPage() {
                         ))
                     ) : (
                         sent.map((s) => (
-                            <SentRow
+                            <SentRequestRow
                                 key={s._id}
                                 item={s}
                                 currentUserId={currentUserId}
@@ -516,6 +456,12 @@ export default function InvitationsPage() {
                                 busy={busy.has(s._id)}
                             />
                         ))
+                    )}
+
+                    {!loading && tab === 'sent' && sent.length > 0 && (
+                        <Text style={{ textAlign: 'center', color: C.text3, fontSize: 11, marginTop: 8, fontFamily: 'Outfit-Regular' }}>
+                            Accepted requests move to your connections
+                        </Text>
                     )}
                 </ScrollView>
             </SafeAreaView>

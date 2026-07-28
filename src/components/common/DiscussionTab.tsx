@@ -94,6 +94,13 @@ interface DiscussionTabProps {
      * card look.
      */
     inline?: boolean;
+    /**
+     * Gig-detail "glass" variant: hides the internal "Discussion" header (the
+     * page's tab row provides it), uses an inset compose field + white-fill
+     * send button, and shows a "Host" badge on the gig owner's comments. Only
+     * the artist-side gig detail opts in — Events + Hirer Hub keep the default.
+     */
+    variant?: 'default' | 'glass';
 }
 
 /* ================= HELPERS ================= */
@@ -112,7 +119,8 @@ const deletedLabel = (reason?: 'self' | 'organizer' | 'admin') => {
 
 /* ================= COMPONENT ================= */
 
-export default function DiscussionTab({ id, type, ownerId, inline = false }: DiscussionTabProps) {
+export default function DiscussionTab({ id, type, ownerId, inline = false, variant = 'default' }: DiscussionTabProps) {
+    const glass = variant === 'glass';
     const [messages, setMessages] = useState<DiscussionMessage[]>([]);
     const [inputText, setInputText] = useState("");
     const [loading, setLoading] = useState(true);
@@ -389,16 +397,18 @@ export default function DiscussionTab({ id, type, ownerId, inline = false }: Dis
                 />
             )}
 
-            <Text
-                style={{
-                    color: '#F0ECE6',
-                    fontFamily: 'Outfit-Bold',
-                    fontSize: 16,
-                    marginBottom: 16,
-                }}
-            >
-                Discussion
-            </Text>
+            {!glass && (
+                <Text
+                    style={{
+                        color: '#F0ECE6',
+                        fontFamily: 'Outfit-Bold',
+                        fontSize: 16,
+                        marginBottom: 16,
+                    }}
+                >
+                    Discussion
+                </Text>
+            )}
 
             {loading ? (
                 <ActivityIndicator color="#F0ECE6" />
@@ -531,6 +541,22 @@ export default function DiscussionTab({ id, type, ownerId, inline = false }: Dis
                                                             {msg.isDeleted ? '—' : msg.authorName}
                                                         </Text>
                                                     </TouchableOpacity>
+                                                    {glass && !msg.isDeleted && !!ownerId && String(msg.authorId) === String(ownerId) && (
+                                                        <View
+                                                            style={{
+                                                                backgroundColor: 'rgba(255,107,53,0.10)',
+                                                                borderWidth: 1,
+                                                                borderColor: 'rgba(255,107,53,0.25)',
+                                                                borderRadius: 5,
+                                                                paddingHorizontal: 6,
+                                                                paddingVertical: 2,
+                                                            }}
+                                                        >
+                                                            <Text style={{ color: '#FF6B35', fontFamily: 'SpaceMono-Bold', fontSize: 8, letterSpacing: 0.6, textTransform: 'uppercase' }}>
+                                                                Host
+                                                            </Text>
+                                                        </View>
+                                                    )}
                                                     <Text
                                                         style={{
                                                             color: '#6B6878',
@@ -672,11 +698,11 @@ export default function DiscussionTab({ id, type, ownerId, inline = false }: Dis
                     flexDirection: 'row',
                     gap: 8,
                     alignItems: 'center',
-                    backgroundColor: 'rgba(0,0,0,0.25)',
+                    backgroundColor: glass ? '#0B0A0F' : 'rgba(0,0,0,0.25)',
                     padding: 8,
-                    borderRadius: 12,
+                    borderRadius: glass ? 11 : 12,
                     borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.06)',
+                    borderColor: glass ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)',
                 }}
             >
                 <TextInput
@@ -700,18 +726,18 @@ export default function DiscussionTab({ id, type, ownerId, inline = false }: Dis
                     disabled={!inputText.trim() || sending}
                     style={{
                         padding: 8,
-                        borderRadius: 999,
-                        backgroundColor: !inputText.trim() ? '#2A2730' : '#F97316',
+                        borderRadius: glass ? 10 : 999,
+                        backgroundColor: !inputText.trim() ? '#2A2730' : (glass ? '#F0ECE6' : '#F97316'),
                     }}
                     accessibilityRole="button"
                     accessibilityLabel="Post comment"
                 >
                     {sending ? (
-                        <ActivityIndicator size="small" color="white" />
+                        <ActivityIndicator size="small" color={glass ? '#1A0D06' : 'white'} />
                     ) : (
                         <Send
                             size={18}
-                            color={!inputText.trim() ? '#6B6878' : 'white'}
+                            color={!inputText.trim() ? '#6B6878' : (glass ? '#1A0D06' : 'white')}
                         />
                     )}
                 </TouchableOpacity>

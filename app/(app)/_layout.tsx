@@ -1,9 +1,8 @@
 import { Stack, useRouter, usePathname } from "expo-router";
 import { View } from "react-native";
 import useAuthStore from "@/stores/authStore";
-import ProfileCompletionModal from "@/components/common/ProfileCompletionModal";
+import { ProfilePlaybillCard } from "@/components/profile/completion";
 import AccountDeletionScheduledModal from "@/components/settings/AccountDeletionScheduledModal";
-import { computeOverallScore, computeMissing, computeOrganizerScore, computeOrganizerMissing } from "@/components/profile/ProfileStrengthWidget";
 import BottomNav from "@/components/nav/BottomNav";
 import { useModeStore } from "@/stores/modeStore";
 import { resolveBootstrapMode } from "@/lib/modeInference";
@@ -21,19 +20,7 @@ export default function AppLayout() {
     // Must be called unconditionally, before any early return, to satisfy the
     // Rules of Hooks. Used below to hide BottomNav on /messages.
     const pathname = usePathname();
-    const [showProfileModal, setShowProfileModal] = useState(false);
     const [showDeletionModal, setShowDeletionModal] = useState(false);
-
-    // Two-context model: every user is both artist AND hirer
-    // Context is determined by the page, not a role field
-    const isArtist = true; // Always true in two-context model
-    const isOrganizer = true; // Always true (hirer context)
-
-    // Profile completion uses artist score (primary context for most users)
-    const score = user ? computeOverallScore(user) : 100;
-    const missing = user ? computeMissing(user) : [];
-
-    const userRole: 'artist' | 'organizer' = 'artist'; // Default context for profile completion
 
     // Redirect unauthenticated users to login page
     useEffect(() => {
@@ -47,10 +34,6 @@ export default function AppLayout() {
             // Check for deletion scheduling first
             if (user.accountStatus === 'scheduled_for_deletion') {
                 setShowDeletionModal(true);
-            } else if ((isArtist || isOrganizer) && missing.length > 0 && user.role !== 'client') {
-                // Otherwise check profile completion — clients don't have the
-                // artist/organizer profile this nudges, so never show it for them.
-                setShowProfileModal(true);
             }
         }
     }, [isHydrated, isAuthLoading, user?.accountStatus]);
@@ -108,20 +91,14 @@ export default function AppLayout() {
 
             {!hideBottomNav && <BottomNav />}
 
-            {/* Profile completion modal — artists/organizers with incomplete profiles */}
-            {showProfileModal && (
-                <ProfileCompletionModal
-                    index={true}
-                    visible={true}
-                    score={score}
-                    missing={missing}
-                    role={userRole}
-                    onClose={() => { setShowProfileModal(false); }}
-                    onGoToProfile={() => {
-                        setShowProfileModal(false);
-                        router.push("/(app)/profile?highlight=true");
-                    }}
-                />
+            {/* Profile completion — ambient Playbill nudge, floats above the tab bar
+                on the HOME/dashboard only (not on every route — it'd nag over chat,
+                settings, the profile editor, etc). Self-gating; not for clients, who
+                have no artist profile. box-none lets taps outside the card fall through. */}
+            {user?.role !== 'client' && pathname === '/dashboard' && (
+                <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 64, zIndex: 20 }}>
+                    <ProfilePlaybillCard />
+                </View>
             )}
 
             {/* Deletion scheduled warning modal */}

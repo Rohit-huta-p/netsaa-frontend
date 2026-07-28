@@ -94,12 +94,13 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
 
     // Opens (or creates) the conversation with this person. Same flow PerformerProfile
     // uses. Only reachable once connected, where it replaces the Connect pill.
+    // Routes to /inbox — /messages was removed when messaging was consolidated (#22).
     const openMessage = async () => {
         if (msgBusy || !userId) return;
         setMsgBusy(true);
         try {
             const conv = await conversationService.createConversation(userId);
-            router.push((conv?._id ? `/(app)/messages?c=${conv._id}` : '/(app)/messages') as any);
+            router.push((conv?._id ? `/(app)/inbox?c=${conv._id}` : '/(app)/inbox') as any);
         } catch {
             // stay quiet — the user can tap again
         } finally {

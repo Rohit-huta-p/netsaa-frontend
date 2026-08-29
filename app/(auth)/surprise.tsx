@@ -1,6 +1,6 @@
 import { View, StyleSheet, Platform } from "react-native";
 
-const VIDEO_URI = 'https://drive.google.com/file/d/1PAWv7v8MC-k1r5EGZDDPuAR_NrVpuoAv/view?usp=sharing';
+const VIDEO_URI = 'https://www.youtube.com/shorts/UPbmLrog1eE';
 
 export default function SurpriseScreen() {
     if (Platform.OS === 'web') {

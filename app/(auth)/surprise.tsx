@@ -1,6 +1,6 @@
 import { View, StyleSheet, Platform } from "react-native";
 
-const VIDEO_ID = 'UPbmLrog1eE';
+const VIDEO_ID = 'zyfXRZ6vc7w';
 const VIDEO_URI = `https://www.youtube.com/embed/${VIDEO_ID}`;
 const NATIVE_URI = `https://www.youtube.com/shorts/${VIDEO_ID}`;
 

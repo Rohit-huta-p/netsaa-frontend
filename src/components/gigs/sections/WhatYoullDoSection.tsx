@@ -21,7 +21,7 @@ export const WhatYoullDoSection: React.FC<WhatYoullDoSectionProps> = ({
 
     return (
         <View className="mb-7" testID="what-youll-do-section">
-            <SectionHeading>What you'll do</SectionHeading>
+            <SectionHeading accent="main">What you'll do</SectionHeading>
             <View className="gap-3">
                 {responsibilities.map((item, idx) => (
                     <View

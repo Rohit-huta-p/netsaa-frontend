@@ -47,7 +47,7 @@ export const CompensationPerksSection: React.FC<
 
     return (
         <View className="mb-7" testID="compensation-section">
-            <SectionHeading>Compensation</SectionHeading>
+            <SectionHeading accent="main">Compensation</SectionHeading>
 
             {pay ? (
                 <View className="flex-row items-baseline gap-2 mb-4">

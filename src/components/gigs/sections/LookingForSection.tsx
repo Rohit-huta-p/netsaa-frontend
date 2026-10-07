@@ -96,7 +96,7 @@ export const LookingForSection: React.FC<LookingForSectionProps> = ({
 
     return (
         <View className="mb-7" testID="looking-for-section">
-            <SectionHeading>
+            <SectionHeading accent="main">
                 Who we're looking for
             </SectionHeading>
 

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contractService, transactionService, type ContractPaymentMethod, type SignContractPayload } from '../services/paymentService';
+import { contractsEnabled } from '../utils/flags';
 
 // ── Contract Hooks ──
 
@@ -7,6 +8,8 @@ export function useUserContracts(params?: { status?: string; page?: number }) {
     return useQuery({
         queryKey: ['contracts', 'me', params],
         queryFn: () => contractService.getUserContracts(params),
+        // Contracts are disabled by default — don't call /users/me/contracts.
+        enabled: contractsEnabled(),
     });
 }
 

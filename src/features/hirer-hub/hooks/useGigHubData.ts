@@ -110,7 +110,11 @@ export function useGigHubData(gigId: string) {
         urgentTeamRowCount,
         firstUrgentLabel,
         kpis,
-        isLoading: gigQuery.isLoading || appsQuery.isLoading || contractsQuery.isLoading,
-        error: gigQuery.error || appsQuery.error || contractsQuery.error,
+        isLoading: gigQuery.isLoading || appsQuery.isLoading,
+        // Contracts are optional/disabled — a contracts failure must NOT block
+        // the hub. The page needs the gig + applications; contracts only
+        // decorate the team rows. (Previously an errored contracts call here
+        // surfaced as "Couldn't load gig.")
+        error: gigQuery.error || appsQuery.error,
     };
 }

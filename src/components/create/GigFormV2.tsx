@@ -437,18 +437,17 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
             animated progress fill beneath. */}
         <View style={styles.header}>
           <View style={styles.stepRow}>
-            {page > 1 ? (
-              <TouchableOpacity
-                onPress={handleBack}
-                style={styles.backChip}
-                accessibilityRole="button"
-                accessibilityLabel="Back"
-              >
-                <ChevronLeft size={20} color="#D4D4D8" />
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.backSpacer} />
-            )}
+            {/* Back is always in this row, next to the step title. On step 1 it
+                exits the create flow (leave-confirm); on later steps it goes back
+                a step. */}
+            <TouchableOpacity
+              onPress={handleBack}
+              style={styles.backChip}
+              accessibilityRole="button"
+              accessibilityLabel={page > 1 ? 'Back a step' : 'Exit'}
+            >
+              <ChevronLeft size={20} color="#D4D4D8" />
+            </TouchableOpacity>
             <View style={styles.stepTitleWrap}>
               <Text style={styles.stepTitle} numberOfLines={1}>
                 {STEP_TITLES[page - 1]}
@@ -626,7 +625,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backSpacer: { width: 36, height: 36 },
   stepTitleWrap: { flex: 1 },
   stepTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 20, color: '#FFFFFF', letterSpacing: -0.3 },
   stepMeta: {

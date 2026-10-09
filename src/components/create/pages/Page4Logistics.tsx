@@ -1,12 +1,13 @@
 // netsa-mobile/src/components/create/pages/Page4Logistics.tsx
 //
-// Page 4 of the GigForm v2 flow. 4 submission-media toggles (via ChipPicker
-// multi), a note field, deadline, max applicants, description + perks + T&C
-// (description and T&C each have an AI-rephrase button wired to
-// gigService.rephraseText).
+// Page 5 of the GigForm v2 flow ("Describe & terms"). Reordered so the gig's
+// story reads top-down: Description → Perks → What you'll do → deadline → T&C.
+// Description and T&C each keep an AI-rephrase button wired to
+// gigService.rephraseText (mirrors the legacy GigForm pattern byte-for-byte).
 //
-// The AI-rephrase handler mirrors the legacy GigForm pattern byte-for-byte
-// so the UX stays identical across the migration window.
+// v2 removals: submission-media toggles, notes-for-applicants, and
+// max-applicants are gone (they tested as friction, not signal). "What you'll
+// do" is now a free textarea (newline-separated) instead of a tag input.
 
 import React, { useState } from 'react';
 import {
@@ -17,13 +18,11 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Wand2, Users, Calendar } from 'lucide-react-native';
+import { Wand2 } from 'lucide-react-native';
 import { InputGroup } from '@/components/ui/InputGroup';
 import { TagInput } from '@/components/ui/TagInput';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { TextArea } from '@/components/ui/TextArea';
-import StyledTextInput from '@/components/ui/StyledTextInput';
-import ChipPicker from '@/components/ui/ChipPicker';
 import gigService from '@/services/gigService';
 import dayjs from 'dayjs';
 import { TermsTemplates } from './components/TermsTemplates';
@@ -32,15 +31,7 @@ import { TermsTemplates } from './components/TermsTemplates';
 // import { CustomClausesEditor } from '@/features/booking-terms-editor/components/CustomClausesEditor';
 
 export interface Page4Value {
-  mediaRequirements: {
-    headshots: boolean;
-    fullBody: boolean;
-    videoReel: boolean;
-    audioSample: boolean;
-    notes: string;
-  };
   applicationDeadline?: string;
-  maxApplicants?: string;
   description: string;
   responsibilities?: string[];
   perks?: string[];
@@ -53,15 +44,6 @@ export interface Page4LogisticsProps {
   value: Page4Value;
   onChange: (next: Page4Value) => void;
 }
-
-const SUBMISSION_OPTIONS = [
-  { label: 'Headshots', value: 'headshots' },
-  { label: 'Full body', value: 'fullBody' },
-  { label: 'Video reel', value: 'videoReel' },
-  { label: 'Audio sample', value: 'audioSample' },
-] as const;
-
-type SubmissionKey = 'headshots' | 'fullBody' | 'videoReel' | 'audioSample';
 
 export default function Page4Logistics({ value, onChange }: Page4LogisticsProps) {
   const update = (patch: Partial<Page4Value>) => onChange({ ...value, ...patch });
@@ -89,111 +71,37 @@ export default function Page4Logistics({ value, onChange }: Page4LogisticsProps)
     }
   };
 
-  // Convert boolean flags ↔ string[] so ChipPicker can drive submission toggles.
-  const selectedSubmissions = (Object.keys(value.mediaRequirements) as (keyof Page4Value['mediaRequirements'])[])
-    .filter((k): k is SubmissionKey => k !== 'notes' && value.mediaRequirements[k] === true);
-
-  const handleSubmissionChange = (next: string | string[]) => {
-    const arr = Array.isArray(next) ? next : [next];
-    update({
-      mediaRequirements: {
-        ...value.mediaRequirements,
-        headshots: arr.includes('headshots'),
-        fullBody: arr.includes('fullBody'),
-        videoReel: arr.includes('videoReel'),
-        audioSample: arr.includes('audioSample'),
-      },
-    });
-  };
-
   return (
     <View style={styles.container}>
-      <InputGroup label="Submission requirements" subtitle="What do applicants need to upload?">
-        <ChipPicker
-          mode="multi"
-          options={SUBMISSION_OPTIONS as unknown as { label: string; value: string }[]}
-          value={selectedSubmissions}
-          onChange={handleSubmissionChange}
-          accessibilityLabel="Submission requirements"
-        />
-      </InputGroup>
-
-      <InputGroup label="Notes for applicants (optional)">
-        <TextArea
-          rows={2}
-          value={value.mediaRequirements.notes}
-          onChangeText={(v: string) =>
-            update({ mediaRequirements: { ...value.mediaRequirements, notes: v } })
-          }
-          placeholder="e.g. please include a recent performance video"
-        />
-      </InputGroup>
-
-      <DatePickerInput
-        label="Application deadline (optional)"
-        value={value.applicationDeadline ?? ''}
-        onChange={(d: Date) =>
-          update({ applicationDeadline: dayjs(d).format('YYYY-MM-DD') })
-        }
-        placeholder="Select date"
-        minimumDate={new Date()}
-      />
-
-      <InputGroup label="Max applicants (optional)">
-        <StyledTextInput
-          icon={Users}
-          inputMode="numeric"
-          value={value.maxApplicants ?? ''}
-          onChangeText={(v: string) => update({ maxApplicants: v })}
-          placeholder="e.g. 50"
-        />
-      </InputGroup>
-
       {/* Description with AI rephrase */}
-      <View>
-        <InputGroup label="Description" subtitle="What's this gig about?">
-          <View style={styles.aiButtonRow}>
-            <TouchableOpacity
-              onPress={() => handleRephrase('description')}
-              disabled={!!rephrasingField}
-              style={styles.aiButton}
-              accessibilityLabel="Rephrase description with AI"
-            >
-              {rephrasingField === 'description' ? (
-                <ActivityIndicator size="small" color="#FF6B35" />
-              ) : (
-                <Wand2 size={12} color="#FF6B35" />
-              )}
-              <Text style={styles.aiButtonLabel}>
-                {rephrasingField === 'description' ? 'AI Magic...' : 'Rephrase with AI'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <TextArea
-            rows={5}
-            value={value.description}
-            onChangeText={(v: string) => update({ description: v })}
-            placeholder="Describe the gig, what you're looking for, and any context artists should know."
-          />
-        </InputGroup>
-      </View>
-
-      <InputGroup label="What you'll do (optional)" subtitle="Key responsibilities — comma or enter to add each">
-        <TagInput
-          value={(value.responsibilities ?? []).join(', ')}
-          onChangeTags={(v: string) =>
-            update({
-              responsibilities: v
-                .split(',')
-                .map((s) => s.trim())
-                .filter(Boolean),
-            })
-          }
-          placeholder="e.g. Lead a 3-song set, 2 rehearsals, coordinate sub-artists"
+      <InputGroup label="Description" subtitle="What's this gig about?" required>
+        <View style={styles.aiButtonRow}>
+          <TouchableOpacity
+            onPress={() => handleRephrase('description')}
+            disabled={!!rephrasingField}
+            style={styles.aiButton}
+            accessibilityLabel="Rephrase description with AI"
+          >
+            {rephrasingField === 'description' ? (
+              <ActivityIndicator size="small" color="#FF6B35" />
+            ) : (
+              <Wand2 size={12} color="#FF6B35" />
+            )}
+            <Text style={styles.aiButtonLabel}>
+              {rephrasingField === 'description' ? 'AI Magic...' : 'Rephrase with AI'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <TextArea
+          rows={5}
+          value={value.description}
+          onChangeText={(v: string) => update({ description: v })}
+          placeholder="Describe the gig, what you're looking for, and any context artists should know."
         />
       </InputGroup>
 
-      <InputGroup label="Perks (optional)" subtitle="What else do performers get?">
+      {/* Perks — moved above "What you'll do" per v2 ordering */}
+      <InputGroup label="Perks" subtitle="What else do performers get? (optional)">
         <TagInput
           value={(value.perks ?? []).join(', ')}
           onChangeTags={(v: string) =>
@@ -208,38 +116,66 @@ export default function Page4Logistics({ value, onChange }: Page4LogisticsProps)
         />
       </InputGroup>
 
+      {/* What you'll do — free textarea (newline-separated), was a tag input */}
+      <InputGroup label="What you'll do" subtitle="Key responsibilities, one per line (optional)">
+        <TextArea
+          rows={4}
+          value={(value.responsibilities ?? []).join('\n')}
+          onChangeText={(v: string) =>
+            update({
+              responsibilities: v
+                .split('\n')
+                .map((s) => s.trimStart())
+                .filter((s, i, arr) => s.length > 0 || i < arr.length - 1),
+            })
+          }
+          placeholder={'Lead a 3-song set\n2 rehearsals\nCoordinate sub-artists'}
+        />
+      </InputGroup>
+
+      <InputGroup label="Application deadline" subtitle="Last day to apply (optional)">
+        <DatePickerInput
+          label=""
+          value={value.applicationDeadline ?? ''}
+          onChange={(d: Date) => update({ applicationDeadline: dayjs(d).format('YYYY-MM-DD') })}
+          placeholder="Select date"
+          minimumDate={new Date()}
+        />
+      </InputGroup>
+
       {/* T&C with template chip row + AI rephrase */}
-      <View>
-        <InputGroup label="Terms & conditions" subtitle="Pick a starting template or write your own — artists must agree before applying">
-          <TermsTemplates
-            currentValue={value.termsAndConditions}
-            onSelect={(body) => update({ termsAndConditions: body })}
-          />
-          <View style={styles.aiButtonRow}>
-            <TouchableOpacity
-              onPress={() => handleRephrase('termsAndConditions')}
-              disabled={!!rephrasingField}
-              style={styles.aiButton}
-              accessibilityLabel="Rephrase terms with AI"
-            >
-              {rephrasingField === 'termsAndConditions' ? (
-                <ActivityIndicator size="small" color="#FF6B35" />
-              ) : (
-                <Wand2 size={12} color="#FF6B35" />
-              )}
-              <Text style={styles.aiButtonLabel}>
-                {rephrasingField === 'termsAndConditions' ? 'AI Magic...' : 'Rephrase with AI'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <TextArea
-            rows={6}
-            value={value.termsAndConditions}
-            onChangeText={(v: string) => update({ termsAndConditions: v })}
-            placeholder="Payment terms, cancellation policy, expectations..."
-          />
-        </InputGroup>
-      </View>
+      <InputGroup
+        label="Terms & conditions"
+        subtitle="Pick a starting template or write your own — artists must agree before applying"
+      >
+        <TermsTemplates
+          currentValue={value.termsAndConditions}
+          onSelect={(body) => update({ termsAndConditions: body })}
+        />
+        <View style={styles.aiButtonRow}>
+          <TouchableOpacity
+            onPress={() => handleRephrase('termsAndConditions')}
+            disabled={!!rephrasingField}
+            style={styles.aiButton}
+            accessibilityLabel="Rephrase terms with AI"
+          >
+            {rephrasingField === 'termsAndConditions' ? (
+              <ActivityIndicator size="small" color="#FF6B35" />
+            ) : (
+              <Wand2 size={12} color="#FF6B35" />
+            )}
+            <Text style={styles.aiButtonLabel}>
+              {rephrasingField === 'termsAndConditions' ? 'AI Magic...' : 'Rephrase with AI'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <TextArea
+          rows={6}
+          value={value.termsAndConditions}
+          onChangeText={(v: string) => update({ termsAndConditions: v })}
+          placeholder="Payment terms, cancellation policy, expectations..."
+        />
+      </InputGroup>
 
       {/* CONTRACTS-DISABLED: Phase 4A custom clauses hidden until the
           contract artifact is restored. Block retained below for fast revert. */}

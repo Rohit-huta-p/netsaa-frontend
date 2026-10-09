@@ -54,13 +54,13 @@ jest.mock('@/stores/authStore', () => ({
 import GigFormV2 from '../GigFormV2';
 
 describe('GigFormV2 (orchestrator smoke)', () => {
-  it('mounts on Page 1 with the Identity step + title input visible', () => {
+  it('mounts on Page 1 with the Gig step + title input visible', () => {
     const { getByPlaceholderText, getByLabelText } = render(
       <GigFormV2 onPublish={jest.fn()} onCancel={jest.fn()} />
     );
 
-    // Identity step dot is rendered (accessibility label from step dots row).
-    expect(getByLabelText(/Go to step 1: Identity/i)).toBeTruthy();
+    // First mini-dot is rendered (accessibility label from the step rail).
+    expect(getByLabelText(/Go to step 1: Gig/i)).toBeTruthy();
     // Page1Identity title input placeholder is present → page 1 actually
     // rendered inside the orchestrator's ScrollView.
     expect(getByPlaceholderText(/dancers for sangeet/i)).toBeTruthy();

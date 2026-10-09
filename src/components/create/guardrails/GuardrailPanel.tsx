@@ -1,16 +1,22 @@
 // netsa-mobile/src/components/create/guardrails/GuardrailPanel.tsx
 //
-// Renders the aggregated issue list on Page 5. Groups by severity so
+// Renders the aggregated issue list on the Review step. Groups by severity so
 // hard blocks sit at top (visually prominent) and trust signals sit at
 // the bottom (informational).
+//
+// v2: when `onIssuePress` is supplied, each issue that carries a `field`
+// becomes tappable (with a trailing chevron) so the hirer can jump straight
+// to the step that owns the broken field.
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { AlertTriangle, AlertCircle, Info } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { AlertTriangle, AlertCircle, Info, ChevronRight } from 'lucide-react-native';
 import type { GuardrailIssue } from './checks';
 
 export interface GuardrailPanelProps {
   issues: GuardrailIssue[];
+  /** Jump to the step owning `field`. Only issues with a `field` are tappable. */
+  onIssuePress?: (issue: GuardrailIssue) => void;
 }
 
 const SEVERITY_CONFIG = {
@@ -19,7 +25,7 @@ const SEVERITY_CONFIG = {
   trust: { color: '#A78BFA', bg: '#2A1E3F', label: 'Trust signals', Icon: Info },
 } as const;
 
-export default function GuardrailPanel({ issues }: GuardrailPanelProps) {
+export default function GuardrailPanel({ issues, onIssuePress }: GuardrailPanelProps) {
   if (issues.length === 0) {
     return (
       <View style={[styles.container, styles.emptyContainer]} accessibilityLabel="No safety issues">
@@ -49,11 +55,28 @@ export default function GuardrailPanel({ issues }: GuardrailPanelProps) {
               <Icon size={16} color={cfg.color} />
               <Text style={[styles.label, { color: cfg.color }]}>{cfg.label}</Text>
             </View>
-            {group.map((issue) => (
-              <Text key={issue.id} style={styles.message}>
-                {issue.message}
-              </Text>
-            ))}
+            {group.map((issue) => {
+              const tappable = !!onIssuePress && !!issue.field;
+              if (tappable) {
+                return (
+                  <TouchableOpacity
+                    key={issue.id}
+                    style={styles.issueRow}
+                    onPress={() => onIssuePress!(issue)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Fix: ${issue.message}`}
+                  >
+                    <Text style={[styles.message, styles.messageTappable]}>{issue.message}</Text>
+                    <ChevronRight size={16} color={cfg.color} />
+                  </TouchableOpacity>
+                );
+              }
+              return (
+                <Text key={issue.id} style={styles.message}>
+                  {issue.message}
+                </Text>
+              );
+            })}
           </View>
         );
       })}
@@ -69,4 +92,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   label: { fontFamily: 'Outfit-SemiBold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   message: { fontFamily: 'Outfit-Regular', fontSize: 13, color: '#E5E5E5', lineHeight: 19 },
+  issueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  messageTappable: { flex: 1, textDecorationLine: 'underline' },
 });

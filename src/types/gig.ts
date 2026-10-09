@@ -115,6 +115,8 @@ export interface Gig {
     // fields are optional since any single gig exercises only one or two
     // of these groups.
     eventFunction?: string;
+    /** v2 gig form — how many performers the gig needs. */
+    headcount?: number;
     languagePreferences?: string[];
     musicDetails?: {
         genres?: string[];

@@ -31,7 +31,9 @@ export function useGigActions(gig: any) {
         score: 0,
         missing: [],
     });
-    const [isSaved, setIsSaved] = useState(false);
+    // Hydrate from the server's viewer context so an already-saved gig shows
+    // its bookmark filled on load (previously always started "unsaved").
+    const [isSaved, setIsSaved] = useState<boolean>(!!gig?.viewerContext?.saved);
     // Plan 5 v2 — gig-detail tab nav reduced to Discussion (+ Applications
     // for organizers). Old tab keys ('about' | 'schedule' | 'apply' | 'terms')
     // are kept in the union for backward-compat with deep-link query params

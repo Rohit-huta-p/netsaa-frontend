@@ -102,7 +102,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, prev
                         {activeTab === 'producer' && <ProducerPanel vm={vm} onViewProfile={onViewProfile} />}
                         {activeTab === 'discussion' && (
                             <View style={{ paddingHorizontal: 16 }}>
-                                <DiscussionTab id={gig._id} type="gig" ownerId={organizerId} inline />
+                                <DiscussionTab id={gig._id} type="gig" ownerId={organizerId} inline threaded />
                             </View>
                         )}
                     </>

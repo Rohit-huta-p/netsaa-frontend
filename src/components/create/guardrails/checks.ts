@@ -33,9 +33,9 @@ export interface CheckableFormState {
   };
   title?: string;
   description?: string;
-  schedule?: { startDate?: string };
+  schedule?: { startDate?: string | Date };
   applicationDeadline?: string;
-  location?: { venueName?: string; address?: string };
+  location?: { venueName?: string; address?: string; city?: string };
   modelDetails?: { nudityLevel?: string; shootType?: string };
   musicDetails?: { turnaroundDays?: number | string };
   isUrgent?: boolean;
@@ -54,7 +54,7 @@ function parseNum(v: unknown): number | undefined {
   return undefined;
 }
 
-function isPast(iso: string): boolean {
+function isPast(iso: string | Date): boolean {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return false;
   const today = new Date();
@@ -137,6 +137,27 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
       severity: 'hard',
       message: 'Add a description so artists know what the gig is about.',
       field: 'description',
+    });
+  }
+  // City + date are `required` on the backend Gig model — an empty value is a
+  // silent 400 at publish, so block them here too (nothing else caught these).
+  if (!state.location?.city || String(state.location.city).trim().length === 0) {
+    issues.push({
+      id: 'MISSING_CITY',
+      severity: 'hard',
+      message: 'Add the city where the gig takes place.',
+      field: 'location.city',
+    });
+  }
+  const sd = state.schedule?.startDate;
+  const hasValidDate =
+    sd != null && sd !== '' && !Number.isNaN(new Date(sd as string | Date).getTime());
+  if (!hasValidDate) {
+    issues.push({
+      id: 'MISSING_DATE',
+      severity: 'hard',
+      message: 'Pick the gig date.',
+      field: 'schedule.startDate',
     });
   }
 

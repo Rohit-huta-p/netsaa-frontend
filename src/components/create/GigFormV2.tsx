@@ -31,6 +31,7 @@ import {
   StyleSheet,
   Animated,
   Easing,
+  Alert,
   useWindowDimensions,
 } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -380,6 +381,17 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
         onPublish(payload);
       } catch (err: any) {
         console.error('GigFormV2 submit error', err);
+        // Surface the failure — previously this was swallowed, so a rejected
+        // post (e.g. backend validation) left the user on the review screen
+        // with no feedback. Prefer the backend's message, fall back to axios/
+        // generic copy.
+        const data = err?.response?.data;
+        const msg =
+          data?.errors?.[0]?.message ||
+          data?.message ||
+          err?.message ||
+          'Something went wrong. Please check your connection and try again.';
+        Alert.alert(isDraft ? 'Could not save draft' : 'Could not publish gig', msg);
       }
     };
 

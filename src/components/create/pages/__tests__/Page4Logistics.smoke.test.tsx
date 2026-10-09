@@ -20,23 +20,18 @@ jest.mock('@/components/ui/DatePickerInput', () => ({
 
 describe('Page4Logistics', () => {
   const initial = {
-    mediaRequirements: {
-      headshots: false,
-      fullBody: false,
-      videoReel: false,
-      audioSample: false,
-      notes: '',
-    },
     description: '',
     termsAndConditions: '',
   };
 
-  it('renders submission, description, T&C sections + 2 AI buttons', () => {
+  it('renders description, perks, what-you’ll-do, T&C sections + 2 AI buttons', () => {
     const { getByText, getAllByText } = render(
       <Page4Logistics value={initial} onChange={jest.fn()} />
     );
-    expect(getByText(/Submission requirements/i)).toBeTruthy();
     expect(getByText(/Description/)).toBeTruthy();
+    // v2: submission requirements removed; Perks + "What you'll do" added.
+    expect(getByText(/Perks/i)).toBeTruthy();
+    expect(getByText(/What you'll do/i)).toBeTruthy();
     // "Terms & conditions" label — at least 1 match
     expect(getAllByText(/Terms/i).length).toBeGreaterThanOrEqual(1);
     // At least 2 "Rephrase with AI" buttons (description + T&C)

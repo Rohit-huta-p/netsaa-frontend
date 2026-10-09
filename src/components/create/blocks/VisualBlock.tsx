@@ -7,13 +7,17 @@
 // copy pushing hirers toward inclusive defaults. Per Wave 3 eng-review, the
 // chip rows use the shared ChipPicker primitive; the MultiSlider stays
 // inline because it's a slider, not a chip.
+//
+// v2: required skills gain tap-to-add suggestion chips (added skills render as
+// TagInput pills, same size as the performer-type chips). Minimum experience
+// is now a chip row (No min / 1+ / 2+ / 3+ / 5+ / 10+) instead of a numeric
+// field, so it no longer eats a full row.
 
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ChevronDown, ChevronRight, Users, Clock } from 'lucide-react-native';
+import { ChevronDown, ChevronRight, Users } from 'lucide-react-native';
 import { InputGroup } from '@/components/ui/InputGroup';
 import { TagInput } from '@/components/ui/TagInput';
-import StyledTextInput from '@/components/ui/StyledTextInput';
 import ChipPicker from '@/components/ui/ChipPicker';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 
@@ -26,6 +30,30 @@ const ROLE_TYPES: RoleType[] = ['lead', 'supporting', 'extra', 'background'];
 const EXPERIENCE_LEVELS: ExperienceLevel[] = ['beginner', 'intermediate', 'professional'];
 const GENDER_OPTIONS: GenderPreference[] = ['any', 'male', 'female', 'other'];
 const BODY_TYPES: BodyType[] = ['slim', 'athletic', 'average', 'plus', 'any'];
+
+// Minimum-experience presets. `null` = "No min" (clears the field). Rendered
+// as a compact chip row — no longer a full-width numeric input.
+const MIN_EXP_OPTIONS: { label: string; value: number | null }[] = [
+  { label: 'No min', value: null },
+  { label: '1+', value: 1 },
+  { label: '2+', value: 2 },
+  { label: '3+', value: 3 },
+  { label: '5+', value: 5 },
+  { label: '10+', value: 10 },
+];
+
+// Tap-to-add skill suggestions. Tapping appends to requiredSkills (deduped);
+// the chip then disappears from the suggestion row.
+const SKILL_SUGGESTIONS = [
+  'Classical dance',
+  'Contemporary',
+  'Hip-hop',
+  'Improv',
+  'Stage combat',
+  'Partner work',
+  'Vocals',
+  'Freestyle',
+];
 
 // Role type is a film/casting concept (lead/supporting/extra/background).
 // Wedding/corporate hirers don't think this way. Reveal only when the gig
@@ -70,6 +98,15 @@ export default function VisualBlock({ value, onChange, sliderWidth, eventFunctio
 
   const showRoleType = !!eventFunction && ROLE_TYPE_RELEVANT_FUNCTIONS.has(eventFunction);
 
+  const skills = value.requiredSkills ?? [];
+  const addSkill = (skill: string) => {
+    if (skills.some((s) => s.toLowerCase() === skill.toLowerCase())) return;
+    update({ requiredSkills: [...skills, skill] });
+  };
+  const openSuggestions = SKILL_SUGGESTIONS.filter(
+    (s) => !skills.some((cur) => cur.toLowerCase() === s.toLowerCase())
+  );
+
   return (
     <View style={styles.card} accessibilityLabel="Visual performer details">
       <View style={styles.headerRow}>
@@ -91,12 +128,29 @@ export default function VisualBlock({ value, onChange, sliderWidth, eventFunctio
         </InputGroup>
       )}
 
-      <InputGroup label="Required skills" subtitle="Type comma or enter to add">
+      <InputGroup label="Required skills" subtitle="Type and press enter, or tap a suggestion">
         <TagInput
-          value={(value.requiredSkills ?? []).join(', ')}
-          onChangeTags={(v: string) => update({ requiredSkills: v.split(',').map((s) => s.trim()).filter(Boolean) })}
+          value={skills.join(', ')}
+          onChangeTags={(v: string) =>
+            update({ requiredSkills: v.split(',').map((s) => s.trim()).filter(Boolean) })
+          }
           placeholder="e.g. Classical dance, Improv, Stage combat"
         />
+        {openSuggestions.length > 0 && (
+          <View style={styles.suggestRow}>
+            {openSuggestions.map((skill) => (
+              <TouchableOpacity
+                key={skill}
+                onPress={() => addSkill(skill)}
+                style={styles.suggestChip}
+                accessibilityRole="button"
+                accessibilityLabel={`Add skill ${skill}`}
+              >
+                <Text style={styles.suggestChipText}>+ {skill}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </InputGroup>
 
       <InputGroup label="Experience level">
@@ -111,17 +165,30 @@ export default function VisualBlock({ value, onChange, sliderWidth, eventFunctio
         />
       </InputGroup>
 
-      <InputGroup label="Minimum years of experience (optional)" subtitle="Shows on the gig as e.g. “5+ years”">
-        <StyledTextInput
-          icon={Clock}
-          inputMode="numeric"
-          value={value.minExperienceYears != null ? String(value.minExperienceYears) : ''}
-          onChangeText={(v: string) => {
-            const n = parseInt(v, 10);
-            update({ minExperienceYears: Number.isFinite(n) ? n : undefined });
-          }}
-          placeholder="e.g. 5"
-        />
+      {/* Minimum years — compact chip row (was a full-width numeric field) */}
+      <InputGroup label="Minimum experience" subtitle="Shows on the gig as e.g. “5+ years” (optional)">
+        <View style={styles.expRow}>
+          {MIN_EXP_OPTIONS.map((opt) => {
+            const active =
+              opt.value === null
+                ? value.minExperienceYears == null
+                : value.minExperienceYears === opt.value;
+            return (
+              <TouchableOpacity
+                key={opt.label}
+                onPress={() => update({ minExperienceYears: opt.value ?? undefined })}
+                style={[styles.expChip, active && styles.expChipActive]}
+                accessibilityRole="button"
+                accessibilityLabel={`Minimum experience ${opt.label}`}
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.expChipText, active && styles.expChipTextActive]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </InputGroup>
 
       <TouchableOpacity
@@ -187,6 +254,28 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#0F0F12', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#1F1F23', marginVertical: 8, gap: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerLabel: { fontFamily: 'Outfit-SemiBold', fontSize: 14, color: '#22D3EE', textTransform: 'uppercase', letterSpacing: 0.5 },
+  suggestRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  suggestChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#3A3A47',
+    borderStyle: 'dashed',
+  },
+  suggestChipText: { fontFamily: 'Outfit-Medium', fontSize: 12, color: '#AEAEBA' },
+  expRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  expChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: '#101016',
+    borderWidth: 1,
+    borderColor: '#262630',
+  },
+  expChipActive: { backgroundColor: '#FF6B35', borderColor: '#FF6B35' },
+  expChipText: { fontFamily: 'Outfit-SemiBold', fontSize: 13, color: '#D0D0D9' },
+  expChipTextActive: { color: '#FFFFFF' },
   expandRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
   expandLabel: { fontFamily: 'Outfit-SemiBold', fontSize: 13, color: '#D4D4D8' },
   nudgeText: { fontFamily: 'Outfit-Regular', fontSize: 11, color: '#71717A', marginTop: -8, marginLeft: 22, lineHeight: 16 },

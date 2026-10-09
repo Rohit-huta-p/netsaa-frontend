@@ -19,8 +19,22 @@ import {
   runSoftChecks,
   runTrustSignals,
   type CheckableFormState,
+  type GuardrailIssue,
 } from '../guardrails/checks';
 import { GigDetails } from '@/components/gigs/GigDetails';
+
+// Map a check's `field` dot-path to the 1-indexed step that owns it, so a
+// tapped "Required fix" jumps straight to the right step.
+function fieldToPage(field?: string): number {
+  if (!field) return 1;
+  if (/^(title|artistTypes|eventFunction|headcount)/.test(field)) return 1; // The gig
+  if (/^(schedule|location)/.test(field)) return 2; // When & where
+  if (/^compensation/.test(field)) return 4; // Compensation
+  if (/^(description|applicationDeadline|termsAndConditions|perks|responsibilities)/.test(field)) {
+    return 5; // Describe & terms
+  }
+  return 3; // Who fits (modelDetails, ageRange, heightRequirements, …)
+}
 // CONTRACTS-DISABLED: Phase 4D contract preview imports retained below for fast revert.
 // import { FileText } from 'lucide-react-native';
 // import { useContractPdf } from '@/features/contract-pdf/hooks/useContractPdf';
@@ -38,6 +52,8 @@ export interface Page5Props {
    * sees their own name on the parties block before publishing.
    */
   hirerName?: string;
+  /** Jump to a step (1-indexed) when the hirer taps a required fix. */
+  onNavigateToPage?: (page: number) => void;
 }
 
 export default function Page5SafetyReview({
@@ -47,6 +63,7 @@ export default function Page5SafetyReview({
   onDraft,
   onPublish,
   hirerName,
+  onNavigateToPage,
 }: Page5Props) {
   const { issues, hardCount } = useMemo(() => {
     const all = [
@@ -58,6 +75,10 @@ export default function Page5SafetyReview({
   }, [formState]);
 
   const canPublish = hardCount === 0;
+
+  const handleIssuePress = onNavigateToPage
+    ? (issue: GuardrailIssue) => onNavigateToPage(fieldToPage(issue.field))
+    : undefined;
 
   // CONTRACTS-DISABLED: Phase 4D PDF generation hook + derived values
   // retained below (commented) for fast revert.
@@ -86,7 +107,7 @@ export default function Page5SafetyReview({
   return (
     <View style={styles.container}>
       <Text style={styles.sectionLabel}>Safety checks</Text>
-      <GuardrailPanel issues={issues} />
+      <GuardrailPanel issues={issues} onIssuePress={handleIssuePress} />
 
       {/* CONTRACTS-DISABLED: Phase 4D contract preview hidden until the
           contract artifact is restored. Block + handler retained below
@@ -154,7 +175,7 @@ export default function Page5SafetyReview({
 
       <Text style={styles.sectionLabel}>Preview (artist side)</Text>
       <View style={styles.previewFrame}>
-        <GigDetails gig={previewGig} />
+        <GigDetails gig={previewGig} preview />
       </View>
 
       <View style={styles.actionRow}>

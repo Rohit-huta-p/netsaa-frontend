@@ -99,7 +99,7 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
     issues.push({
       id: 'UNPAID_NUDITY',
       severity: 'hard',
-      message: 'Nudity gigs must specify paid compensation. Update the pay structure on Page 2.',
+      message: 'Nudity gigs must specify paid compensation — set a fixed amount or a range.',
       field: 'compensation.structure',
     });
   }
@@ -111,7 +111,7 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
     issues.push({
       id: 'MISSING_TITLE',
       severity: 'hard',
-      message: 'Title is required. Go back to Page 1 and enter a gig title.',
+      message: 'A gig title is required.',
       field: 'title',
     });
   }
@@ -119,7 +119,7 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
     issues.push({
       id: 'MISSING_PERFORMER_TYPE',
       severity: 'hard',
-      message: 'At least one performer type is required. Go back to Page 1 and select.',
+      message: 'Pick at least one performer type.',
       field: 'artistTypes',
     });
   }
@@ -127,7 +127,7 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
     issues.push({
       id: 'MISSING_EVENT_FUNCTION',
       severity: 'hard',
-      message: 'Event function is required. Go back to Page 1 and pick or type one.',
+      message: 'Add the occasion this gig is for.',
       field: 'eventFunction',
     });
   }
@@ -135,7 +135,7 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
     issues.push({
       id: 'MISSING_DESCRIPTION',
       severity: 'hard',
-      message: 'Description is required. Go back to Page 4 and add a description.',
+      message: 'Add a description so artists know what the gig is about.',
       field: 'description',
     });
   }

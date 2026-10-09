@@ -1,22 +1,26 @@
 // netsa-mobile/src/components/create/GigFormV2.tsx
 //
-// Orchestrator for the new 5-page gig form (Plan 5 Wave 5, Task 16).
-// Coexists with the legacy `GigForm.tsx` behind a feature flag; both expose
-// the same `GigFormHandle` imperative ref (from `./GigFormTypes`) so the
-// parent `create.tsx` route plumbs identically for either.
+// Orchestrator for the 6-step gig form (v2 redesign). Coexists with the
+// legacy `GigForm.tsx` behind a feature flag; both expose the same
+// `GigFormHandle` imperative ref (from `./GigFormTypes`) so the parent
+// `create.tsx` route plumbs identically for either.
+//
+// Steps (v2): 1 The gig · 2 When & where · 3 Who fits · 4 Compensation ·
+// 5 Describe & terms · 6 Review & publish. Compensation was split out of the
+// old "When & where" step into its own step.
 //
 // Scope:
 // - Holds all form state in one `useState<GigFormV2State>` (no Zustand —
 //   ephemeral, no cross-screen reuse).
-// - Renders Page1-Page5 with forward/back navigation and a progress bar.
+// - Renders the 6 steps with forward/back navigation, a compact animated
+//   step header (title + mini dots + progress), and per-step enter motion.
+// - Auto-writes the title from occasion + headcount + performer type + city
+//   until the user edits it by hand (then it stops overwriting).
 // - Submits via `useCreateGig().mutateAsync` (create) or
 //   `useUpdateGig().mutateAsync` (edit when `gigId` prop is set).
-// - Populates from `useGig(gigId)` when editing, following the same
-//   `React.useEffect` pattern as the legacy form.
 //
-// Exports `setByPath` (generic immutable nested-path helper) and
-// `buildBackendPayload` (pure state → backend shape transform) so both can
-// be unit-tested without mounting the component (eng-review P1 #2, #3).
+// Exports `setByPath`, `buildBackendPayload`, and `buildAutoTitle` so they can
+// be unit-tested without mounting the component.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -25,7 +29,8 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Platform,
+  Animated,
+  Easing,
   useWindowDimensions,
 } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -35,13 +40,24 @@ import useAuthStore from '@/stores/authStore';
 import Page1Identity, { type Page1Value } from './pages/Page1Identity';
 import Page2Commitment, { type Page2Value } from './pages/Page2Commitment';
 import Page3Fit, { type Page3Value } from './pages/Page3Fit';
+import PageCompensation from './pages/PageCompensation';
 import Page4Logistics, { type Page4Value } from './pages/Page4Logistics';
 import Page5SafetyReview from './pages/Page5SafetyReview';
 import { LeaveGigModal } from './LeaveGigModal';
 import type { GigFormHandle } from './GigFormTypes';
 
-const TOTAL_PAGES = 5;
-const PAGE_LABELS = ['Identity', 'Commitment', 'Fit', 'Logistics', 'Publish'];
+const TOTAL_PAGES = 6;
+// Short labels for the mini-dot rail.
+const PAGE_LABELS = ['Gig', 'Where', 'Fit', 'Pay', 'Describe', 'Publish'];
+// Full titles shown in the header + the "Next: …" footer hint.
+const STEP_TITLES = [
+  'The gig',
+  'When & where',
+  'Who fits',
+  'Compensation',
+  'Describe & terms',
+  'Review & publish',
+];
 
 export interface GigFormV2State {
   p1: Page1Value;
@@ -49,7 +65,6 @@ export interface GigFormV2State {
   p3: Page3Value;
   p4: Page4Value;
   isUrgent: boolean;
-  isFeatured: boolean;
 }
 
 function initialState(): GigFormV2State {
@@ -58,6 +73,7 @@ function initialState(): GigFormV2State {
     p2: {
       startDate: '',
       city: '',
+      state: 'Maharashtra',
       compensationModel: 'fixed',
       compensationStructure: 'fixed',
       negotiable: false,
@@ -65,13 +81,6 @@ function initialState(): GigFormV2State {
     },
     p3: { music: {}, model: {}, visual: {}, crew: {} },
     p4: {
-      mediaRequirements: {
-        headshots: false,
-        fullBody: false,
-        videoReel: false,
-        audioSample: false,
-        notes: '',
-      },
       description: '',
       responsibilities: [],
       perks: [],
@@ -81,14 +90,34 @@ function initialState(): GigFormV2State {
       customClauses: [],
     },
     isUrgent: false,
-    isFeatured: false,
   };
 }
 
-// ── Nested state update helper (eng-review P1 #3) ──────────────────
+// ── Auto-title ──────────────────────────────────────────────────────
+// "5 dancers for sangeet in Pune" — assembled from headcount + first
+// performer type + occasion + city. Returns '' until there's at least one
+// meaningful input, so the empty-title guardrail can still fire.
+export function buildAutoTitle(p1: Page1Value, city?: string): string {
+  const type = p1.artistTypes?.[0];
+  const count = p1.headcount;
+  const occ = p1.eventFunction?.trim();
+  const where = city?.trim();
+  if (!count && !type && !occ) return '';
+
+  const typeLabel = type
+    ? count && count > 1
+      ? `${type.toLowerCase()}s`
+      : type.toLowerCase()
+    : 'performers';
+  let title = count ? `${count} ${typeLabel}` : typeLabel;
+  if (occ) title += ` for ${occ.toLowerCase()}`;
+  if (where) title += ` in ${where}`;
+  return title.charAt(0).toUpperCase() + title.slice(1);
+}
+
+// ── Nested state update helper ─────────────────────────────────────
 // Writes `value` to the nested path `path` inside an immutable copy of
-// `state`, preserving all unrelated sibling keys. Replaces fragile deep
-// spreads like `{ ...state, p3: { ...state.p3, music: { ...state.p3.music, bpm } } }`.
+// `state`, preserving all unrelated sibling keys.
 //
 // Usage: setState(setByPath(state, 'p3.music.bpm', '120'))
 export function setByPath<T extends Record<string, any>>(
@@ -109,13 +138,9 @@ export function setByPath<T extends Record<string, any>>(
 }
 
 // ── Pure client → backend payload transform ────────────────────────
-// Locks the shape Plan 4's Zod schema expects. If this drifts, `createGig`
-// 400s with a cryptic error. Covered by `buildBackendPayload.test.ts`.
+// Locks the shape Plan 4's Zod schema expects. Covered by
+// `buildBackendPayload.test.ts`.
 
-// Coerce numeric musicDetails fields from string (text-input state) to
-// number (Plan 4 Zod expects z.number()). Undefined / empty values pass
-// through as undefined. Non-numeric strings (e.g., typo) also become
-// undefined — backend refinement catches required-field misses.
 function coerceMusicNumeric(input: unknown): number | undefined {
   if (input === undefined || input === null || input === '') return undefined;
   if (typeof input === 'number') return Number.isFinite(input) ? input : undefined;
@@ -126,10 +151,6 @@ function coerceMusicNumeric(input: unknown): number | undefined {
   return undefined;
 }
 
-// Return type is a backend-ready shape (numbers for numeric fields). Input
-// shape carries string form-input values. We intentionally widen to `any`
-// to cross the string→number boundary cleanly; callers are `buildBackendPayload`
-// only, and its return is typed loosely at the mutation call site.
 function coerceMusicDetails(music: GigFormV2State['p3']['music']): Record<string, unknown> {
   return {
     ...music,
@@ -156,12 +177,19 @@ export function buildBackendPayload(state: GigFormV2State) {
     .map((c) => c.trim())
     .filter(Boolean);
 
+  // "What you'll do" is a free textarea now (newline-separated); trim each
+  // line and drop blanks before sending.
+  const cleanedResponsibilities = (state.p4.responsibilities ?? [])
+    .map((r) => r.trim())
+    .filter(Boolean);
+
   return {
     title: state.p1.title,
     artistTypes: state.p1.artistTypes,
     eventFunction: state.p1.eventFunction,
+    headcount: state.p1.headcount,
     description: state.p4.description,
-    responsibilities: state.p4.responsibilities ?? [],
+    responsibilities: cleanedResponsibilities,
     type: 'one-time' as const,
     requiredSkills: state.p3.visual.requiredSkills ?? [],
     experienceLevel: state.p3.visual.experienceLevel ?? 'intermediate',
@@ -173,15 +201,13 @@ export function buildBackendPayload(state: GigFormV2State) {
       city: state.p2.city,
       venueName: state.p2.venue,
       address: state.p2.address,
-      state: 'Maharashtra',
+      state: state.p2.state ?? 'Maharashtra',
       country: 'India',
       isRemote: false,
     },
     schedule: {
       startDate: new Date(state.p2.startDate),
       endDate: state.p2.endDate ? new Date(state.p2.endDate) : new Date(state.p2.startDate),
-      durationLabel: state.p2.duration ?? '',
-      timeCommitment: state.p2.duration ?? '',
     },
     compensation: {
       model: state.p2.compensationModel,
@@ -195,8 +221,6 @@ export function buildBackendPayload(state: GigFormV2State) {
     applicationDeadline: state.p4.applicationDeadline
       ? new Date(state.p4.applicationDeadline)
       : undefined,
-    maxApplications: state.p4.maxApplicants ? parseInt(state.p4.maxApplicants, 10) : undefined,
-    mediaRequirements: state.p4.mediaRequirements,
     termsAndConditions: state.p4.termsAndConditions,
     musicDetails: coerceMusicDetails(state.p3.music),
     modelDetails: state.p3.model,
@@ -208,7 +232,6 @@ export function buildBackendPayload(state: GigFormV2State) {
     languagePreferences: state.p2.languagePreferences ?? [],
     ...(cleanedCustomClauses.length > 0 ? { customClauses: cleanedCustomClauses } : {}),
     isUrgent: state.isUrgent,
-    isFeatured: state.isFeatured,
   };
 }
 
@@ -227,24 +250,33 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
     const [page, setPage] = useState(1);
     const [leaveVisible, setLeaveVisible] = useState(false);
     const isNavigatingAway = useRef(false);
+    // Flips true the first time the user hand-edits the title (or when we
+    // populate from an existing gig) so the auto-title effect backs off.
+    const titleTouched = useRef(false);
+
+    // Motion — per-step enter (fade + rise) and animated progress fill.
+    const scrollRef = useRef<ScrollView>(null);
+    const enterAnim = useRef(new Animated.Value(1)).current;
+    const progressAnim = useRef(new Animated.Value(1 / TOTAL_PAGES)).current;
 
     const createMutation = useCreateGig();
     const updateMutation = useUpdateGig();
     const { data: existing } = useGig(gigId ?? '');
     const isLoading = createMutation.isPending || updateMutation.isPending;
 
-    // Populate from existing on edit — mirrors legacy form's
-    // `React.useEffect` block (lines 228-290). Runs once when `existing`
-    // first resolves for the current `gigId`. We drop into the V2 state
-    // shape, not the legacy flat shape.
+    // Populate from existing on edit. Runs once when `existing` first
+    // resolves for the current `gigId`. Mark the title touched so the
+    // auto-title effect doesn't clobber the saved title.
     useEffect(() => {
       if (!existing || !gigId) return;
       const g: any = existing;
+      titleTouched.current = true;
       setState({
         p1: {
           title: g.title ?? '',
           artistTypes: g.artistTypes ?? [],
           eventFunction: g.eventFunction ?? '',
+          headcount: g.headcount,
         },
         p2: {
           startDate: g.schedule?.startDate ? dayjs(g.schedule.startDate).format('YYYY-MM-DD') : '',
@@ -252,13 +284,13 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
           city: g.location?.city ?? '',
           venue: g.location?.venueName ?? '',
           address: g.location?.address ?? '',
+          state: g.location?.state ?? 'Maharashtra',
           compensationModel: g.compensation?.model ?? 'fixed',
           compensationStructure: g.compensation?.minAmount ? 'range' : 'fixed',
           amount: g.compensation?.amount?.toString() ?? '',
           minAmount: g.compensation?.minAmount?.toString() ?? '',
           maxAmount: g.compensation?.maxAmount?.toString() ?? '',
           negotiable: g.compensation?.negotiable ?? false,
-          duration: g.schedule?.timeCommitment ?? g.schedule?.durationLabel ?? '',
           languagePreferences: g.languagePreferences ?? [],
         },
         p3: {
@@ -277,17 +309,9 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
           crew: g.crewDetails ?? {},
         },
         p4: {
-          mediaRequirements: {
-            headshots: g.mediaRequirements?.headshots ?? false,
-            fullBody: g.mediaRequirements?.fullBody ?? false,
-            videoReel: g.mediaRequirements?.videoReel ?? false,
-            audioSample: g.mediaRequirements?.audioSample ?? false,
-            notes: g.mediaRequirements?.notes ?? '',
-          },
           applicationDeadline: g.applicationDeadline
             ? dayjs(g.applicationDeadline).format('YYYY-MM-DD')
             : '',
-          maxApplicants: g.maxApplications?.toString() ?? '',
           description: g.description ?? '',
           responsibilities: g.responsibilities ?? [],
           perks: g.compensation?.perks ?? [],
@@ -295,9 +319,39 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
           customClauses: g.customClauses ?? [],
         },
         isUrgent: g.isUrgent ?? false,
-        isFeatured: g.isFeatured ?? false,
       });
     }, [existing, gigId]);
+
+    // ── Auto-title effect ──
+    // Recompute the title from p1 + city whenever those inputs change, until
+    // the user takes over. The equality guard prevents an update loop.
+    useEffect(() => {
+      if (titleTouched.current) return;
+      const auto = buildAutoTitle(state.p1, state.p2.city);
+      if (auto !== state.p1.title) {
+        setState((s) => ({ ...s, p1: { ...s.p1, title: auto } }));
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [state.p1.headcount, state.p1.artistTypes, state.p1.eventFunction, state.p2.city]);
+
+    // ── Page-change motion ──
+    useEffect(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      enterAnim.setValue(0);
+      Animated.timing(enterAnim, {
+        toValue: 1,
+        duration: 280,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(progressAnim, {
+        toValue: page / TOTAL_PAGES,
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page]);
 
     const handleBack = useCallback((): boolean => {
       if (isNavigatingAway.current) return false;
@@ -318,9 +372,6 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
       };
       try {
         if (gigId) {
-          // Wave 6: `as any` removed — `types/gig.ts` was widened to
-          // include per-track / per-shoot comp models and the Plan 4
-          // backend sub-documents (musicDetails, modelDetails, etc.).
           await updateMutation.mutateAsync({ id: gigId, payload });
         } else {
           await createMutation.mutateAsync(payload);
@@ -332,21 +383,15 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
       }
     };
 
-    // Page-5 preview shows what an ARTIST will see when they open the gig
-    // (per spec Open Q #4). To get artist-side rendering — and hide the
-    // organizer-only "Applications" tab — we deliberately mismatch the
-    // organizerId from the current user so `useGigActions` resolves
-    // `isOrganizer = false`. organizerSnapshot is hydrated from the
-    // current user since they ARE the organizer (real backend will set
-    // organizerId = req.user.id at create time).
+    // Page-6 preview shows what an ARTIST will see when they open the gig.
+    // We deliberately mismatch the organizerId from the current user so
+    // `useGigActions` resolves `isOrganizer = false` (artist-side rendering).
     const currentUser = useAuthStore((s) => s.user);
     const previewGig = useMemo(() => {
       const base = buildBackendPayload(state);
       return {
         ...base,
         _id: 'preview-gig',
-        // Sentinel id that will never match `user._id` — keeps preview
-        // in artist-side mode regardless of who's logged in.
         organizerId: { _id: '__preview_artist_view__' },
         organizerSnapshot: {
           displayName: (currentUser as any)?.displayName ?? '',
@@ -357,11 +402,10 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
         viewerContext: { hasApplied: false, isOrganizer: false },
       };
     }, [state, currentUser]);
+
     // Checks need a richer input than the backend payload: they read
-    // `compensation.structure` (UI-only; not sent to server) plus `title` +
-    // `description` which live at different nesting levels in state. Merge
-    // the payload with the structure flag so every check can see what it
-    // needs. Post-code-review P1-1 + P1-3 fix.
+    // `compensation.structure` (UI-only) plus `title` + `description` which
+    // live at different nesting levels in state.
     const formStateForChecks = useMemo(
       () => ({
         ...previewGig,
@@ -377,97 +421,154 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
 
     return (
       <View style={styles.root}>
-        {/* Progress bar */}
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${(page / TOTAL_PAGES) * 100}%` }]} />
-        </View>
-
-        {/* Step dots */}
-        <View style={styles.dotsRow}>
-          {PAGE_LABELS.map((lbl, idx) => {
-            const isCurrent = page === idx + 1;
-            const isDone = page > idx + 1;
-            return (
-              <TouchableOpacity
-                key={lbl}
-                onPress={() => setPage(idx + 1)}
-                style={styles.dotContainer}
-                accessibilityRole="button"
-                accessibilityLabel={`Go to step ${idx + 1}: ${lbl}`}
-              >
-                <View style={[styles.dot, isCurrent && styles.dotCurrent, isDone && styles.dotDone]} />
-                <Text style={[styles.dotLabel, isCurrent && styles.dotLabelCurrent]}>{lbl}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {page === 1 && (
-            <Page1Identity
-              value={state.p1}
-              onChange={(v) => setState({ ...state, p1: v })}
-            />
-          )}
-          {page === 2 && (
-            <Page2Commitment
-              artistTypes={state.p1.artistTypes}
-              value={state.p2}
-              onChange={(v) => setState({ ...state, p2: v })}
-            />
-          )}
-          {page === 3 && (
-            <Page3Fit
-              artistTypes={state.p1.artistTypes}
-              value={state.p3}
-              onChange={(v) => setState({ ...state, p3: v })}
-              sliderWidth={sliderWidth}
-              eventFunction={state.p1.eventFunction}
-            />
-          )}
-          {page === 4 && (
-            <Page4Logistics
-              value={state.p4}
-              onChange={(v) => setState({ ...state, p4: v })}
-            />
-          )}
-          {page === 5 && (
-            <Page5SafetyReview
-              formState={formStateForChecks as any}
-              previewGig={previewGig}
-              isLoading={isLoading}
-              onDraft={() => doSubmit(true)}
-              onPublish={() => doSubmit(false)}
-              hirerName={
-                (currentUser as any)?.organizationName ||
-                (currentUser as any)?.displayName ||
-                undefined
-              }
-            />
-          )}
-        </ScrollView>
-
-        {/* Footer navigation (only on pages 1-4; Page 5 has its own Draft/Publish) */}
-        {page < 5 && (
-          <View style={styles.footer}>
-            {page > 1 && (
+        {/* Compact step header — back · title · mini dots, with a thin
+            animated progress fill beneath. */}
+        <View style={styles.header}>
+          <View style={styles.stepRow}>
+            {page > 1 ? (
               <TouchableOpacity
                 onPress={handleBack}
-                style={styles.backBtn}
+                style={styles.backChip}
                 accessibilityRole="button"
                 accessibilityLabel="Back"
               >
-                <ChevronLeft size={20} color="#fff" />
+                <ChevronLeft size={20} color="#D4D4D8" />
               </TouchableOpacity>
+            ) : (
+              <View style={styles.backSpacer} />
             )}
+            <View style={styles.stepTitleWrap}>
+              <Text style={styles.stepTitle} numberOfLines={1}>
+                {STEP_TITLES[page - 1]}
+              </Text>
+              <Text style={styles.stepMeta}>Step {page} of {TOTAL_PAGES}</Text>
+            </View>
+            <View style={styles.miniDots}>
+              {PAGE_LABELS.map((lbl, i) => (
+                <TouchableOpacity
+                  key={lbl}
+                  onPress={() => setPage(i + 1)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Go to step ${i + 1}: ${lbl}`}
+                  hitSlop={{ top: 8, bottom: 8, left: 3, right: 3 }}
+                >
+                  <View
+                    style={[
+                      styles.miniDot,
+                      page === i + 1 && styles.miniDotActive,
+                      page > i + 1 && styles.miniDotDone,
+                    ]}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+          <View style={styles.progressTrack}>
+            <Animated.View
+              style={[
+                styles.progressFill,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', '100%'],
+                  }),
+                },
+              ]}
+            />
+          </View>
+        </View>
+
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Animated.View
+            style={{
+              opacity: enterAnim,
+              transform: [
+                {
+                  translateY: enterAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [12, 0],
+                  }),
+                },
+              ],
+            }}
+          >
+            {page === 1 && (
+              <Page1Identity
+                value={state.p1}
+                onChange={(v) => setState({ ...state, p1: v })}
+                onManualTitleEdit={() => {
+                  titleTouched.current = true;
+                }}
+              />
+            )}
+            {page === 2 && (
+              <Page2Commitment
+                artistTypes={state.p1.artistTypes}
+                value={state.p2}
+                onChange={(v) => setState({ ...state, p2: v })}
+              />
+            )}
+            {page === 3 && (
+              <Page3Fit
+                artistTypes={state.p1.artistTypes}
+                value={state.p3}
+                onChange={(v) => setState({ ...state, p3: v })}
+                sliderWidth={sliderWidth}
+                eventFunction={state.p1.eventFunction}
+              />
+            )}
+            {page === 4 && (
+              <PageCompensation
+                value={state.p2}
+                onChange={(v) => setState({ ...state, p2: v })}
+                artistTypes={state.p1.artistTypes}
+                headcount={state.p1.headcount}
+              />
+            )}
+            {page === 5 && (
+              <Page4Logistics
+                value={state.p4}
+                onChange={(v) => setState({ ...state, p4: v })}
+              />
+            )}
+            {page === 6 && (
+              <Page5SafetyReview
+                formState={formStateForChecks as any}
+                previewGig={previewGig}
+                isLoading={isLoading}
+                onDraft={() => doSubmit(true)}
+                onPublish={() => doSubmit(false)}
+                onNavigateToPage={setPage}
+                hirerName={
+                  (currentUser as any)?.organizationName ||
+                  (currentUser as any)?.displayName ||
+                  undefined
+                }
+              />
+            )}
+          </Animated.View>
+        </ScrollView>
+
+        {/* Footer — content-hug "Next act" (neutral surface + orange arrow),
+            pinned to the bottom. Page 6 has its own Draft/Publish. */}
+        {page < TOTAL_PAGES && (
+          <View style={styles.footer}>
+            <View style={{ flex: 1 }} />
             <TouchableOpacity
               onPress={() => setPage(page + 1)}
-              style={styles.nextBtn}
+              style={styles.nextAct}
               accessibilityRole="button"
-              accessibilityLabel="Next"
+              accessibilityLabel={`Next: ${STEP_TITLES[page]}`}
             >
-              <Text style={styles.nextLabel}>Next</Text>
-              <ChevronRight size={20} color="#fff" />
+              <Text style={styles.nextActLabel}>Next: {STEP_TITLES[page]}</Text>
+              <View style={styles.nextArrow}>
+                <ChevronRight size={16} color="#FF6B35" />
+              </View>
             </TouchableOpacity>
           </View>
         )}
@@ -492,68 +593,89 @@ export default GigFormV2;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
-  progressBar: { height: 3, backgroundColor: '#18181C' },
-  progressFill: { height: '100%', backgroundColor: '#FF6B35' },
-  dotsRow: {
+
+  // ── compact step header ──
+  header: { backgroundColor: '#0A0A0E' },
+  stepRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#0A0A0E',
+    paddingTop: 10,
+    paddingBottom: 12,
   },
-  dotContainer: { alignItems: 'center', gap: 4, flex: 1 },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#27272A' },
-  dotCurrent: {
+  backChip: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#17171C',
+    borderWidth: 1,
+    borderColor: '#262630',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backSpacer: { width: 36, height: 36 },
+  stepTitleWrap: { flex: 1 },
+  stepTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 20, color: '#FFFFFF', letterSpacing: -0.3 },
+  stepMeta: {
+    fontFamily: 'SpaceMono-Regular',
+    fontSize: 10,
+    color: '#6A6A76',
+    letterSpacing: 0.5,
+    marginTop: 1,
+    textTransform: 'uppercase',
+  },
+  miniDots: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  miniDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2A2A33' },
+  miniDotActive: {
+    width: 18,
     backgroundColor: '#FF6B35',
     shadowColor: '#FF6B35',
-    shadowOpacity: 0.7,
-    shadowRadius: 6,
+    shadowOpacity: 0.6,
+    shadowRadius: 5,
   },
-  dotDone: { backgroundColor: 'rgba(255, 107, 53, 0.35)' },
-  dotLabel: { fontSize: 9, color: '#52525B', textTransform: 'uppercase', letterSpacing: 0.5 },
-  dotLabelCurrent: { color: '#FFFFFF', fontWeight: '900' as any },
-  // Bigger paddingBottom on the scroll content so the last fields aren't
-  // sandwiched between the footer (above) and the bottom-nav (below). Enough
-  // room to scroll past both with breathing room.
-  content: { padding: 20, paddingBottom: 200 },
+  miniDotDone: { backgroundColor: 'rgba(255,107,53,0.4)' },
+  progressTrack: { height: 2, backgroundColor: '#18181C' },
+  progressFill: { height: '100%', backgroundColor: '#FF6B35' },
+
+  content: { padding: 20, paddingBottom: 120 },
+
+  // ── content-hug footer, pinned bottom ──
   footer: {
     position: 'absolute',
-    // Sits ABOVE the floating BottomNav (height 64 + paddingBottom 20 iOS /
-    // 12 Android = 84 / 76px from screen bottom). +8 for visual gap.
-    bottom: Platform.OS === 'ios' ? 92 : 84,
+    bottom: 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
-    gap: 10,
-    padding: 16,
-    backgroundColor: 'rgba(10, 10, 14, 0.98)',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+    backgroundColor: 'rgba(5, 5, 7, 0.96)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
-  backBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#18181C',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nextBtn: {
-    flex: 1,
+  nextAct: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 48,
-    backgroundColor: '#FF6B35',
-    borderRadius: 12,
+    gap: 10,
+    paddingVertical: 11,
+    paddingLeft: 18,
+    paddingRight: 11,
+    borderRadius: 14,
+    backgroundColor: '#17171C',
+    borderWidth: 1,
+    borderColor: '#2A2A33',
   },
-  nextLabel: {
-    fontFamily: 'Outfit-Black',
-    fontSize: 15,
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
+  nextActLabel: { fontFamily: 'Outfit-SemiBold', fontSize: 14, color: '#F0F0F2', letterSpacing: -0.2 },
+  nextArrow: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255,107,53,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.32)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -1,9 +1,11 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
     View,
     Text,
     TouchableOpacity,
     StyleSheet,
+    Animated,
+    Easing,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -16,6 +18,9 @@ import GigFormV2 from "@/components/create/GigFormV2";
 import ComposerShell from "@/components/events/composer/ComposerShell";
 import { useStepBackGuard } from "@/hooks/useStepBackGuard";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+
+// Fixed per-tab width so the sliding spotlight travels a known distance.
+const TAB_W = 92;
 
 export default function CreateListing() {
     const router = useRouter();
@@ -30,6 +35,22 @@ export default function CreateListing() {
 
     const gigFormRef = useRef<GigFormHandle>(null);
     const { newGigForm } = useFeatureFlags();
+
+    // Tabs available in the Spotlight switcher. Artists only ever see Event.
+    const TABS: ('gig' | 'event')[] = canPostGigs ? ['gig', 'event'] : ['event'];
+    const activeIndex = Math.max(0, TABS.indexOf(activeTab));
+
+    // Sliding spotlight — a single warm glow that travels to the active tab
+    // instead of two separate per-tab gradients fading in/out.
+    const glowTX = useRef(new Animated.Value(activeIndex * TAB_W)).current;
+    useEffect(() => {
+        Animated.timing(glowTX, {
+            toValue: activeIndex * TAB_W,
+            duration: 320,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+        }).start();
+    }, [activeIndex, glowTX]);
 
     // Keep activeTab in a ref so handleBack (read via onBackRef inside the hook)
     // always sees the latest tab without needing useCallback deps.
@@ -79,6 +100,27 @@ export default function CreateListing() {
     // iOS (navigation.beforeRemove + preventDefault), and Web (popstate).
     useStepBackGuard(handleBack);
 
+    const renderTab = (key: 'gig' | 'event') => {
+        const isActive = activeTab === key;
+        const Icon = key === 'gig' ? Briefcase : Calendar;
+        return (
+            <TouchableOpacity
+                key={key}
+                style={styles.spotlightTab}
+                onPress={() => setActiveTab(key)}
+                activeOpacity={0.9}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={key === 'gig' ? 'Gig' : 'Event'}
+            >
+                <Icon size={16} color={isActive ? '#FFFFFF' : '#6A6A76'} />
+                <Text style={[styles.spotlightText, isActive ? styles.spotlightTextOn : null]}>
+                    {key === 'gig' ? 'Gig' : 'Event'}
+                </Text>
+            </TouchableOpacity>
+        );
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             {/* Header */}
@@ -93,7 +135,7 @@ export default function CreateListing() {
 
                 {/* Edit-mode: tab switcher hidden (you can't morph a gig into
                     an event mid-edit). Right-aligned "Edit gig" pill replaces
-                    it. Create-mode: standard gig/event tab switcher. */}
+                    it. Create-mode: Spotlight gig/event switcher, centered. */}
                 {isEditing ? (
                     <>
                         <View style={{ flex: 1 }} />
@@ -103,65 +145,29 @@ export default function CreateListing() {
                         </View>
                     </>
                 ) : (
-                    <View style={styles.tabContainer}>
-                        {canPostGigs && <TouchableOpacity
-                            style={styles.tab}
-                            onPress={() => setActiveTab("gig")}
-                            activeOpacity={0.9}
-                        >
-                            {activeTab === "gig" && (
-                                <LinearGradient
-                                    colors={['#b835ff52', '#FF8C42']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.activeTabGradient}
-                                />
-                            )}
-                            <View style={styles.tabContent}>
-                                <Briefcase
-                                    size={18}
-                                    color={activeTab === "gig" ? "#FFFFFF" : "#71717A"}
-                                />
-                                <Text
+                    <>
+                        <View style={styles.tabWrap}>
+                            <View style={styles.spotlightPill}>
+                                {/* The travelling spotlight — glow bloom + gradient sheen */}
+                                <Animated.View
+                                    pointerEvents="none"
                                     style={[
-                                        styles.tabText,
-                                        activeTab === "gig" ? styles.activeTabText : styles.inactiveTabText,
+                                        styles.spotlight,
+                                        { width: TAB_W, transform: [{ translateX: glowTX }] },
                                     ]}
                                 >
-                                    Gig
-                                </Text>
+                                    <LinearGradient
+                                        colors={['#FF6B35', '#FF8C42']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={StyleSheet.absoluteFill}
+                                    />
+                                </Animated.View>
+                                {TABS.map(renderTab)}
                             </View>
-                        </TouchableOpacity>}
-
-                        <TouchableOpacity
-                            style={styles.tab}
-                            onPress={() => setActiveTab("event")}
-                            activeOpacity={0.9}
-                        >
-                            {activeTab === "event" && (
-                                <LinearGradient
-                                    colors={['#FF6B35', '#FF8C42']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.activeTabGradient}
-                                />
-                            )}
-                            <View style={styles.tabContent}>
-                                <Calendar
-                                    size={18}
-                                    color={activeTab === "event" ? "#FFFFFF" : "#71717A"}
-                                />
-                                <Text
-                                    style={[
-                                        styles.tabText,
-                                        activeTab === "event" ? styles.activeTabText : styles.inactiveTabText,
-                                    ]}
-                                >
-                                    Event
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
-                    </View>
+                        </View>
+                        <View style={styles.headerSpacer} />
+                    </>
                 )}
             </View>
 
@@ -216,53 +222,51 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.1)",
     },
-    tabContainer: {
-        flex: 1,
+    // Centers the pill in the space between the back button and the matching
+    // right-hand spacer.
+    tabWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
+    headerSpacer: { width: 40, height: 40 },
+    // ── Spotlight switcher ──
+    spotlightPill: {
         flexDirection: "row",
-        backgroundColor: "rgba(255,255,255,0.05)",
-        borderRadius: 24,
         padding: 4,
-        height: 48,
+        borderRadius: 22,
+        backgroundColor: "rgba(255,255,255,0.04)",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.1)",
-    },
-    tab: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        borderRadius: 20,
+        borderColor: "rgba(255,255,255,0.08)",
         position: "relative",
+        overflow: "hidden",
     },
-    tabContent: {
+    spotlight: {
+        position: "absolute",
+        top: 4,
+        left: 4,
+        bottom: 4,
+        borderRadius: 18,
+        overflow: "hidden",
+        shadowColor: "#FF6B35",
+        shadowOpacity: 0.55,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 6,
+    },
+    spotlightTab: {
+        width: TAB_W,
+        height: 36,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 8,
+        gap: 7,
+        borderRadius: 18,
         zIndex: 1,
     },
-    activeTabGradient: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        borderRadius: 20,
-        opacity: 0.8,
-    },
-    tabText: {
-        color: "#71717a",
+    spotlightText: {
+        color: "#6A6A76",
+        fontFamily: "Outfit-SemiBold",
         fontSize: 14,
-        fontWeight: "600",
+        letterSpacing: -0.2,
     },
-    activeTabText: {
-        color: "#FFFFFF",
-        fontWeight: "700",
-    },
-    inactiveTabText: {
-        color: "#71717A",
-    },
+    spotlightTextOn: { color: "#FFFFFF" },
     // Edit-mode pill — sits at the right end of the header when editing.
     editPill: {
         flexDirection: "row",

@@ -50,10 +50,11 @@ import { buildBackendPayload } from '../GigFormV2';
 
 function makeBaseState() {
   return {
-    p1: { title: 'Test gig', artistTypes: ['Dancer'], eventFunction: 'Sangeet' },
+    p1: { title: 'Test gig', artistTypes: ['Dancer'], eventFunction: 'Sangeet', headcount: 5 },
     p2: {
       startDate: '2027-01-01',
       city: 'Pune',
+      state: 'Maharashtra',
       compensationModel: 'fixed' as const,
       compensationStructure: 'fixed' as const,
       amount: '5000',
@@ -62,19 +63,11 @@ function makeBaseState() {
     },
     p3: { music: {}, model: {}, visual: {}, crew: {} },
     p4: {
-      mediaRequirements: {
-        headshots: false,
-        fullBody: false,
-        videoReel: false,
-        audioSample: false,
-        notes: '',
-      },
       description: 'desc',
       perks: [] as string[],
       termsAndConditions: '',
     },
     isUrgent: false,
-    isFeatured: false,
   };
 }
 
@@ -91,6 +84,8 @@ describe('buildBackendPayload', () => {
     expect(payload.compensation.maxAmount).toBeUndefined();
     expect(payload.type).toBe('one-time');
     expect(payload.isUrgent).toBe(false);
+    expect(payload.headcount).toBe(5);
+    expect(payload.location.state).toBe('Maharashtra');
   });
 
   it('uses min/max for range compensation (not amount)', () => {
@@ -108,12 +103,13 @@ describe('buildBackendPayload', () => {
     expect(payload.compensation.maxAmount).toBe(8000);
   });
 
-  it('omits optional fields when empty (no endDate, no maxApplicants)', () => {
+  it('omits optional fields when empty (endDate falls back, no deadline)', () => {
     const payload = buildBackendPayload(makeBaseState() as any);
     // endDate falls back to startDate when not set
     expect(payload.schedule.endDate).toEqual(new Date('2027-01-01'));
-    expect(payload.maxApplications).toBeUndefined();
     expect(payload.applicationDeadline).toBeUndefined();
+    // v2 removed maxApplications from the payload entirely.
+    expect((payload as any).maxApplications).toBeUndefined();
   });
 
   it('transforms Music Producer state into musicDetails payload', () => {

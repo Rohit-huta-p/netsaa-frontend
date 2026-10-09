@@ -1,5 +1,5 @@
 // src/types/index.ts
-import type { ProfileVideoReel, ProfilePhoto } from '@/components/profile/types';
+import type { ProfileVideoReel, ProfilePhoto, FeaturedItem } from '@/components/profile/types';
 
 export type ExperienceEntry = {
   title?: string;
@@ -92,6 +92,7 @@ export type User = {
   gallery?: ProfilePhoto[];   // structured photos (url + caption/location); supersedes galleryUrls when present
   videoUrls?: string[];
   videoReels?: ProfileVideoReel[];
+  featured?: FeaturedItem[];   // LinkedIn-style highlights shown under About
   // Organizer-specific fields
   organizationName?: string;
   organizationWebsite?: string;

@@ -25,7 +25,7 @@ import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import {
     ChevronLeft, Share2, Settings, UserPlus, Clock, MessageCircle, MoreHorizontal,
     MapPin, Play, BadgeCheck, Instagram, Youtube, Globe, ExternalLink, Pencil, Camera,
-    Music2, UserMinus, Ban, Flag, Image as LucideImage,
+    Music2, UserMinus, Ban, Flag, Image as LucideImage, FileText, Plus,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useUser } from '@/hooks/useUser';
@@ -35,8 +35,9 @@ import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import { useProfileUiStore } from '@/stores/profileUiStore';
 import conversationService from '@/services/conversationService';
 import { ProfileEditModal } from '@/features/profile/components/ProfileEditModal';
-import type { ProfileData, ProfileVideoReel } from '@/components/profile/types';
+import type { ProfileData, ProfileVideoReel, FeaturedItem, FeaturedAttachment } from '@/components/profile/types';
 import MediaViewer from '@/components/profile/MediaViewer';
+import FeaturedEditSheet, { type ShowcaseRef } from '@/features/profile/components/FeaturedEditSheet';
 
 type MediaItem = { url: string; type: 'image' | 'video'; muxPlaybackId?: string; aspectRatio?: string; title?: string; location?: string };
 type LinkRow = { key: string; label: string; display: string; url: string; icon: React.ReactNode };
@@ -102,6 +103,7 @@ export function SpotlightProfile({ userId, isOwner }: {
 
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [featuredEditOpen, setFeaturedEditOpen] = useState(false);
     const [connBusy, setConnBusy] = useState(false);
     const [msgBusy, setMsgBusy] = useState(false);
 
@@ -132,6 +134,7 @@ export function SpotlightProfile({ userId, isOwner }: {
     const skills: string[] = u.skills || [];
     const languages: string[] = u.languages || u.artistDetails?.languages || [];
     const experience: any[] = u.experience || [];
+    const featured: FeaturedItem[] = u.featured || [];
     const avatarUrl: string | undefined = u.profileImageUrl;
     const availability: string | null = u.availability || u.availabilityStatus || null;
 
@@ -154,6 +157,8 @@ export function SpotlightProfile({ userId, isOwner }: {
     ];
     const photoCount = photoItems.length;
     const reelCount = readyReels.length;
+    // Showcase media the owner can attach to a Featured item (photos + reels).
+    const showcaseRefs: ShowcaseRef[] = media.map((m) => ({ type: m.type === 'video' ? 'video' : 'photo', url: m.url, thumbnailUrl: m.url, muxPlaybackId: m.muxPlaybackId, label: m.title }));
 
     // "Find me on" — labelled rows for whichever socials are present.
     const links: LinkRow[] = [];
@@ -254,6 +259,49 @@ export function SpotlightProfile({ userId, isOwner }: {
         );
     };
 
+    // ── Featured attachment + card (LinkedIn-style highlights under About) ──
+    const openAttachment = (a: FeaturedAttachment) => {
+        const href = a.url || a.thumbnailUrl;
+        if (href) Linking.openURL(href).catch(() => {});
+    };
+    const ATT_LABEL: Record<FeaturedAttachment['type'], string> = { photo: 'Photo', video: 'Video', pdf: 'PDF', link: 'Link' };
+    const Att = ({ a }: { a: FeaturedAttachment }) => {
+        const hasThumb = !!a.thumbnailUrl && (a.type === 'photo' || a.type === 'video');
+        return (
+            <Pressable onPress={() => openAttachment(a)} style={st.att}>
+                <View style={st.athumb}>
+                    {hasThumb && <Image source={{ uri: a.thumbnailUrl }} style={StyleSheet.absoluteFill} />}
+                    <View style={st.atypeBadge}><Text style={st.atypeTx}>{ATT_LABEL[a.type]}</Text></View>
+                    {a.type === 'video' ? (
+                        <View style={st.aplay}><Play size={12} color="#fff" fill="#fff" /></View>
+                    ) : a.type === 'pdf' ? (
+                        <FileText size={21} color={C.t4} />
+                    ) : a.type === 'link' ? (
+                        <Globe size={21} color={C.t4} />
+                    ) : null}
+                </View>
+                {!!a.label && <Text style={st.albl} numberOfLines={2}>{a.label}</Text>}
+            </Pressable>
+        );
+    };
+    const FeaturedCard = ({ item, full }: { item: FeaturedItem; full?: boolean }) => {
+        const atts = item.attachments || [];
+        return (
+            <View style={[st.fitem, full ? { width: '100%' } : { width: 268 }]}>
+                <Text style={st.fititle} numberOfLines={2}>{item.title}</Text>
+                {!!item.description && <Text style={st.fidesc} numberOfLines={2}>{item.description}</Text>}
+                {atts.length > 0 && (
+                    <>
+                        <Text style={st.attlab}>{atts.length} attachment{atts.length === 1 ? '' : 's'}</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 9, paddingHorizontal: 15, paddingTop: 9 }}>
+                            {atts.map((a, i) => <Att key={i} a={a} />)}
+                        </ScrollView>
+                    </>
+                )}
+            </View>
+        );
+    };
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false }} />
@@ -284,7 +332,6 @@ export function SpotlightProfile({ userId, isOwner }: {
                     {/* ── Header — centered halo portrait ── */}
                     <View style={st.header}>
                         <View style={st.avatarWrap}>
-                            <View style={st.halo} />
                             <View style={st.ring}>
                                 {avatarUrl ? (
                                     <Image source={{ uri: avatarUrl }} style={st.avatar} />
@@ -367,6 +414,34 @@ export function SpotlightProfile({ userId, isOwner }: {
                                 <Pressable onPress={() => openSheet('about')}><Text style={st.addTx}>Tell people about your craft and journey</Text></Pressable>
                             )}
                         </Section>
+                    )}
+
+                    {/* ── Featured (LinkedIn-style highlights) ── */}
+                    {(featured.length > 0 || isOwner) && (
+                        <View style={{ marginTop: 22 }}>
+                            <View style={{ paddingHorizontal: PAD }}>
+                                <View style={st.secHead}>
+                                    <Text style={st.secLabel}>Featured</Text>
+                                    <View style={st.secRule} />
+                                    {isOwner && featured.length > 0 && (
+                                        <Pressable onPress={() => setFeaturedEditOpen(true)} hitSlop={8} style={st.secAction}><Pencil size={13} color={C.t4} /></Pressable>
+                                    )}
+                                </View>
+                            </View>
+                            {featured.length === 0 ? (
+                                <View style={{ paddingHorizontal: PAD }}>
+                                    <Pressable onPress={() => setFeaturedEditOpen(true)} style={st.featAdd}>
+                                        <Plus size={15} color={C.orange} /><Text style={st.featAddTx}>Add featured section</Text>
+                                    </Pressable>
+                                </View>
+                            ) : featured.length === 1 ? (
+                                <View style={{ paddingHorizontal: PAD }}><FeaturedCard item={featured[0]} full /></View>
+                            ) : (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingLeft: PAD, paddingRight: PAD }}>
+                                    {featured.map((item, i) => <FeaturedCard key={i} item={item} />)}
+                                </ScrollView>
+                            )}
+                        </View>
                     )}
 
                     {/* ── Skills ── */}
@@ -476,6 +551,15 @@ export function SpotlightProfile({ userId, isOwner }: {
 
                 {/* Owner edit sheets */}
                 {isOwner && <ProfileEditModal profileData={buildProfileData(u, { name, city, bio, skills, experience })} />}
+                {isOwner && (
+                    <FeaturedEditSheet
+                        visible={featuredEditOpen}
+                        onClose={() => setFeaturedEditOpen(false)}
+                        userId={userId}
+                        initial={featured}
+                        showcase={showcaseRefs}
+                    />
+                )}
             </View>
         </>
     );
@@ -493,6 +577,7 @@ function buildProfileData(u: any, d: { name: string; city: string; bio: string; 
         instagramHandle: u.instagramHandle || '', youtubeUrl: u.youtubeUrl || '',
         spotifyUrl: u.spotifyUrl || '', soundcloudUrl: u.soundcloudUrl || '',
         experience: d.experience,
+        featured: u.featured || [],
         hasPhotos: (u.galleryUrls?.length || 0) > 0 || !!u.profileImageUrl,
         profileImageUrl: u.profileImageUrl || '', galleryUrls: u.galleryUrls || [],
         videoUrls: u.videoUrls || [], videoReels: u.videoReels || [],
@@ -514,7 +599,6 @@ const st = StyleSheet.create({
 
     header: { alignItems: 'center', paddingHorizontal: PAD, paddingTop: 108, textAlign: 'center' as any },
     avatarWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center', width: 150, height: 150 },
-    halo: { position: 'absolute', width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255,150,70,0.18)' },
     ring: { borderRadius: 60, borderWidth: 1.5, borderColor: 'rgba(255,186,130,0.45)', padding: 3 },
     avatar: { width: 104, height: 104, borderRadius: 52, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     pdot: { position: 'absolute', right: 26, bottom: 26, width: 19, height: 19, borderRadius: 10, borderWidth: 3, borderColor: C.screen, shadowOpacity: 0.7, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
@@ -583,6 +667,21 @@ const st = StyleSheet.create({
     lsi: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: C.border },
     llabel: { fontFamily: 'Outfit-Bold', fontSize: 13, color: '#F4F4F5' },
     lval: { fontFamily: 'Outfit-Regular', fontSize: 11, color: C.t5, marginTop: 1 },
+
+    // featured
+    secAction: { marginLeft: 10, padding: 2 },
+    featAdd: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 14 },
+    featAddTx: { fontFamily: 'Outfit-SemiBold', fontSize: 13, color: C.orange },
+    fitem: { borderWidth: 1, borderColor: C.border, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.015)', paddingTop: 14, paddingBottom: 12, overflow: 'hidden' },
+    fititle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 16, color: '#F4F4F5', paddingHorizontal: 15 },
+    fidesc: { fontFamily: 'Outfit-Light', fontSize: 12, lineHeight: 19, color: C.t4, marginTop: 6, paddingHorizontal: 15 },
+    attlab: { fontFamily: 'SpaceMono-Regular', fontSize: 8.5, letterSpacing: 1.2, color: C.t6, textTransform: 'uppercase', marginTop: 13, paddingHorizontal: 15 },
+    att: { width: 112, borderWidth: 1, borderColor: C.border, borderRadius: 11, overflow: 'hidden', backgroundColor: '#0E0E13' },
+    athumb: { height: 72, alignItems: 'center', justifyContent: 'center', backgroundColor: '#15131b' },
+    atypeBadge: { position: 'absolute', top: 6, left: 6, zIndex: 1, backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
+    atypeTx: { fontFamily: 'SpaceMono-Bold', fontSize: 7, letterSpacing: 0.8, color: '#fff', textTransform: 'uppercase' },
+    aplay: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.4)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+    albl: { paddingHorizontal: 9, paddingTop: 7, paddingBottom: 8, fontFamily: 'Outfit-SemiBold', fontSize: 10.5, lineHeight: 14, color: '#E4E4EA' },
 });
 
 export default SpotlightProfile;

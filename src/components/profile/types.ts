@@ -33,6 +33,25 @@ export interface ProfilePhoto {
     location?: string;
 }
 
+// A Featured highlight (LinkedIn-style) shown under About on the artist profile.
+// Each item = title + optional description + attachments. Attachments scroll
+// inside the card; multiple items scroll horizontally (2nd card peeks ~20%).
+export type FeaturedAttachmentType = 'photo' | 'video' | 'pdf' | 'link';
+
+export interface FeaturedAttachment {
+    type: FeaturedAttachmentType;
+    label?: string;
+    url?: string;           // link/pdf href, or media source
+    thumbnailUrl?: string;  // poster for photo/video
+    muxPlaybackId?: string; // when the attachment is a Mux reel
+}
+
+export interface FeaturedItem {
+    title: string;
+    description?: string;
+    attachments?: FeaturedAttachment[];
+}
+
 export type ProfileData = {
     fullName: string;
     headline?: string;
@@ -55,6 +74,7 @@ export type ProfileData = {
     galleryUrls?: string[];
     videoUrls?: string[];
     videoReels?: ProfileVideoReel[];
+    featured?: FeaturedItem[];
     testimonials?: {
         text: string;
         author: string;

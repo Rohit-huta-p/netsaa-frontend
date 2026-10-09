@@ -17,3 +17,18 @@
 export function searchPeopleV2Enabled(): boolean {
   return process.env.EXPO_PUBLIC_SEARCH_PEOPLE_V2 === 'true';
 }
+
+/**
+ * Returns true if contracts are enabled.
+ *
+ * Contracts are DISABLED by default (preserve-but-dormant): the
+ * contract-first booking flow and the home-screen contract strips stay in
+ * the codebase but make NO network calls — so nothing hits
+ * `GET /v1/users/me/contracts`. Flip EXPO_PUBLIC_CONTRACTS_ENABLED=true to
+ * re-enable the whole feature.
+ *
+ * Default: false.
+ */
+export function contractsEnabled(): boolean {
+  return process.env.EXPO_PUBLIC_CONTRACTS_ENABLED === 'true';
+}

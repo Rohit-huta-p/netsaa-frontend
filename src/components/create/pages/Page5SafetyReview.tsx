@@ -154,7 +154,7 @@ export default function Page5SafetyReview({
 
       <Text style={styles.sectionLabel}>Preview (artist side)</Text>
       <View style={styles.previewFrame}>
-        <GigDetails gig={previewGig} />
+        <GigDetails gig={previewGig} preview />
       </View>
 
       <View style={styles.actionRow}>

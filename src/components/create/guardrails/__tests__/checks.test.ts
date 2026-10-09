@@ -45,20 +45,31 @@ describe('runHardChecks', () => {
     expect(issues.some((i) => i.id === 'PAST_DATE')).toBe(true);
   });
 
-  it('empty state returns the 4 MISSING_* required-field HARD issues', () => {
-    // After Post-code-review P1-3: empty state surfaces required-field nags
-    // (title, performer type, event function, description) as HARD blocks.
+  it('empty state returns the 6 MISSING_* required-field HARD issues', () => {
+    // Empty state surfaces every required-field nag (title, performer type,
+    // event function, description, city, date) as a HARD block — each maps to
+    // a `required` field on the backend Gig model.
     const issues = runHardChecks({});
     const ids = issues.map((i) => i.id).sort();
-    expect(ids).toEqual(['MISSING_DESCRIPTION', 'MISSING_EVENT_FUNCTION', 'MISSING_PERFORMER_TYPE', 'MISSING_TITLE']);
+    expect(ids).toEqual([
+      'MISSING_CITY',
+      'MISSING_DATE',
+      'MISSING_DESCRIPTION',
+      'MISSING_EVENT_FUNCTION',
+      'MISSING_PERFORMER_TYPE',
+      'MISSING_TITLE',
+    ]);
   });
 
   it('fully-populated required fields clear the MISSING_* checks', () => {
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     const issues = runHardChecks({
       title: 'Test gig',
       artistTypes: ['Dancer'],
       eventFunction: 'Sangeet',
       description: 'A test gig.',
+      location: { city: 'Pune' },
+      schedule: { startDate: tomorrow },
     });
     expect(issues.some((i) => i.id.startsWith('MISSING_'))).toBe(false);
   });

@@ -34,12 +34,15 @@ describe('Page5SafetyReview', () => {
     const { getByLabelText, queryByText } = render(
       <Page5SafetyReview
         formState={{
-          // All 4 MISSING_* required fields populated so the post-review
-          // P1-3 HARD checks don't fire in the "clean" case.
+          // All required fields populated so the HARD checks don't fire in
+          // the "clean" case (title, performer type, occasion, description,
+          // city, date — each maps to a required field on the backend model).
           title: 'Test gig',
           artistTypes: ['Singer'],
           eventFunction: 'Sangeet',
           description: 'A simple test description.',
+          location: { city: 'Pune' },
+          schedule: { startDate: new Date('2027-03-15').toISOString() },
         }}
         previewGig={{}}
         isLoading={false}

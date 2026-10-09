@@ -33,9 +33,9 @@ export interface CheckableFormState {
   };
   title?: string;
   description?: string;
-  schedule?: { startDate?: string };
+  schedule?: { startDate?: string | Date };
   applicationDeadline?: string;
-  location?: { venueName?: string; address?: string };
+  location?: { venueName?: string; address?: string; city?: string };
   modelDetails?: { nudityLevel?: string; shootType?: string };
   musicDetails?: { turnaroundDays?: number | string };
   isUrgent?: boolean;
@@ -54,7 +54,7 @@ function parseNum(v: unknown): number | undefined {
   return undefined;
 }
 
-function isPast(iso: string): boolean {
+function isPast(iso: string | Date): boolean {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return false;
   const today = new Date();
@@ -99,7 +99,7 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
     issues.push({
       id: 'UNPAID_NUDITY',
       severity: 'hard',
-      message: 'Nudity gigs must specify paid compensation. Update the pay structure on Page 2.',
+      message: 'Nudity gigs must specify paid compensation — set a fixed amount or a range.',
       field: 'compensation.structure',
     });
   }
@@ -111,7 +111,7 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
     issues.push({
       id: 'MISSING_TITLE',
       severity: 'hard',
-      message: 'Title is required. Go back to Page 1 and enter a gig title.',
+      message: 'A gig title is required.',
       field: 'title',
     });
   }
@@ -119,7 +119,7 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
     issues.push({
       id: 'MISSING_PERFORMER_TYPE',
       severity: 'hard',
-      message: 'At least one performer type is required. Go back to Page 1 and select.',
+      message: 'Pick at least one performer type.',
       field: 'artistTypes',
     });
   }
@@ -127,7 +127,7 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
     issues.push({
       id: 'MISSING_EVENT_FUNCTION',
       severity: 'hard',
-      message: 'Event function is required. Go back to Page 1 and pick or type one.',
+      message: 'Add the occasion this gig is for.',
       field: 'eventFunction',
     });
   }
@@ -135,8 +135,29 @@ export function runHardChecks(state: CheckableFormState): GuardrailIssue[] {
     issues.push({
       id: 'MISSING_DESCRIPTION',
       severity: 'hard',
-      message: 'Description is required. Go back to Page 4 and add a description.',
+      message: 'Add a description so artists know what the gig is about.',
       field: 'description',
+    });
+  }
+  // City + date are `required` on the backend Gig model — an empty value is a
+  // silent 400 at publish, so block them here too (nothing else caught these).
+  if (!state.location?.city || String(state.location.city).trim().length === 0) {
+    issues.push({
+      id: 'MISSING_CITY',
+      severity: 'hard',
+      message: 'Add the city where the gig takes place.',
+      field: 'location.city',
+    });
+  }
+  const sd = state.schedule?.startDate;
+  const hasValidDate =
+    sd != null && sd !== '' && !Number.isNaN(new Date(sd as string | Date).getTime());
+  if (!hasValidDate) {
+    issues.push({
+      id: 'MISSING_DATE',
+      severity: 'hard',
+      message: 'Pick the gig date.',
+      field: 'schedule.startDate',
     });
   }
 

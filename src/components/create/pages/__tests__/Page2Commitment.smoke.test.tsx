@@ -15,23 +15,31 @@ jest.mock('@/components/ui/DatePickerInput', () => ({
 const baseValue: Page2Value = {
   startDate: '',
   city: '',
+  state: 'Maharashtra',
   compensationModel: 'fixed',
   compensationStructure: 'fixed',
   negotiable: false,
 };
 
 describe('Page2Commitment', () => {
-  it('renders date, location, compensation, and negotiate sections', () => {
+  it('renders date + the grouped location card (venue / address / city / state)', () => {
     const { getByText, getByPlaceholderText } = render(
       <Page2Commitment artistTypes={[]} value={baseValue} onChange={jest.fn()} />
     );
-    // DatePicker is string-mocked, so assert on the InputGroup labels that
-    // wrap the inputs instead of the internal DatePicker label.
-    expect(getByText(/City/)).toBeTruthy();
-    expect(getByText(/Payment unit/)).toBeTruthy();
-    expect(getByText(/Payment structure/)).toBeTruthy();
-    expect(getByText(/Open to negotiate/i)).toBeTruthy();
-    expect(getByPlaceholderText(/Mumbai/)).toBeTruthy();
+    // v2: compensation/negotiate moved to the dedicated Compensation step.
+    // DatePicker is string-mocked, so assert on the InputGroup/card labels.
+    // "Date" + "Location" carry a required asterisk in a nested Text node, so
+    // match by substring rather than exact string.
+    expect(getByText(/Date/)).toBeTruthy();
+    expect(getByText(/Location/)).toBeTruthy();
+    expect(getByText('Venue')).toBeTruthy();
+    expect(getByText('Address')).toBeTruthy();
+    expect(getByText('City')).toBeTruthy();
+    expect(getByText('State')).toBeTruthy();
+    // City free-text well (grouped card).
+    expect(getByPlaceholderText(/Pune/)).toBeTruthy();
+    // Optional end-date reveal is offered.
+    expect(getByText(/Add end date/i)).toBeTruthy();
   });
 
   it('reveals language preference chips when performer includes Singer', () => {

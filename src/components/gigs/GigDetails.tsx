@@ -82,13 +82,19 @@ interface GigDetailsProps {
      * routes users here from the hirer home.
      */
     tab?: string;
+    /**
+     * Render as an in-form preview (GigFormV2 review step). Hides the
+     * interactive Discussion / Applications tab card — there's no real gig
+     * to thread against yet, and the preview is read-only.
+     */
+    preview?: boolean;
 }
 
 /**
  * GigDetails — orchestrator component.
  * All sections, tabs, and handlers are extracted into focused subcomponents and a custom hook.
  */
-export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab }) => {
+export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab, preview }) => {
     const { width } = useWindowDimensions();
     const tabBarHeight = useMobileTabBarHeight();
     const isMobileWidth = width < 768;
@@ -320,7 +326,9 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                     {/* TABS — V4: the Discussion (+ Applications for organizers)
                         lives in a translucent "glass" card so it lifts off the
                         canvas instead of camouflaging (P9). Orange underline
-                        marks the active tab. */}
+                        marks the active tab. Hidden in form-preview mode —
+                        there's no real gig to thread against yet. */}
+                    {!preview && (
                     <View
                         className="w-full mt-6"
                         style={{
@@ -411,6 +419,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, tab 
                             />
                         )}
                     </View>
+                    )}
                 </View>
             </ScrollView>
 

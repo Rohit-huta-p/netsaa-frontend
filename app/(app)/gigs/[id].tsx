@@ -5,7 +5,6 @@ import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import { GigDetails } from '../../../src/components/gigs/GigDetails';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGig } from '@/hooks/useGigs';
-import { OrganizerGigControls } from '@/components/gigs/OrganizerGigControls';
 import useAuthStore from '@/stores/authStore';
 import { Sparkles } from 'lucide-react-native';
 import { HirerGigHub } from '@/features/hirer-hub/HirerGigHub';

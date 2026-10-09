@@ -4,17 +4,17 @@
 // useConnectionStatus as ProfileScreen, so reviews/media/tier are real. The
 // shared ProfileScreen is left untouched for artist self-view / gig-hiring.
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Image, ActivityIndicator, Modal, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, Star, MessageCircle, Check, Clock, UserPlus, Play, X } from 'lucide-react-native';
+import { ChevronLeft, Star, MessageCircle, Check, Clock, UserPlus, Play } from 'lucide-react-native';
 import { useUser } from '@/hooks/useUser';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import conversationService from '@/services/conversationService';
 import type { ProfileVideoReel } from '@/components/profile/types';
-import NetsaVideoPlayer, { parseAspectRatio } from '@/components/media/NetsaVideoPlayer';
+import MediaViewer from '@/components/profile/MediaViewer';
 
-type ShowcaseItem = { url: string; type: 'image' | 'video'; muxPlaybackId?: string; aspectRatio?: string };
+type ShowcaseItem = { url: string; type: 'image' | 'video'; muxPlaybackId?: string; aspectRatio?: string; title?: string; location?: string };
 
 const TIER: Record<string, { c: string; label: string }> = {
     new: { c: '#6B7280', label: 'New' },
@@ -44,9 +44,6 @@ export function PerformerProfile({ userId }: { userId: string }) {
     // into `media` opens a full-screen viewer; a video item mounts
     // NetsaVideoPlayer, a photo renders a plain <Image>.
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-    // Reactive viewport size for the fullscreen viewer (a module-load Dimensions
-    // snapshot is stale/0 on web and mis-sizes the video). Mirrors ProfileScreen.
-    const { width: winW, height: winH } = useWindowDimensions();
 
     if (isLoading && !data) {
         return <View style={{ flex: 1, backgroundColor: '#09090b', alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="large" color="#FF6B35" /></View>;
@@ -77,8 +74,10 @@ export function PerformerProfile({ userId }: { userId: string }) {
     const travel = u.travelPreference || u.travelWillingness || u.artistDetails?.travelPreferences || '';
     const skills: string[] = u.skills || [];
     const avatarUrl: string | undefined = u.profileImageUrl;
+    // Prefer structured `gallery` (per-photo caption/location) when present; fall back to bare galleryUrls.
+    const photoItems = (u.gallery?.length ? u.gallery : ((u.galleryUrls || []) as string[]).map((url) => ({ url }))) as { url: string; caption?: string; location?: string }[];
     const media: ShowcaseItem[] = [
-        ...((u.galleryUrls || []) as string[]).map((url) => ({ url, type: 'image' as const })),
+        ...photoItems.map((p) => ({ url: p.url, type: 'image' as const, title: p.caption, location: p.location })),
         ...((u.videoReels || []) as ProfileVideoReel[])
             .filter((r) => r.status === 'ready')
             .map((r) => ({
@@ -86,6 +85,8 @@ export function PerformerProfile({ userId }: { userId: string }) {
                 type: 'video' as const,
                 muxPlaybackId: r.muxPlaybackId,
                 aspectRatio: r.aspectRatio,
+                title: r.caption,
+                location: r.location,
             })),
     ];
 
@@ -276,38 +277,16 @@ export function PerformerProfile({ userId }: { userId: string }) {
                     </Pressable>
                 </View>
 
-                {/* Media viewer — video items mount NetsaVideoPlayer (real playback);
-                    photos render a plain <Image>. Mirrors ProfileScreen's viewer. */}
+                {/* Editorial-plate media viewer — translucent tint over the blurred
+                    profile, centred media, title + location, Connect / Share, strip.
+                    Shared component; owner controls are off here (client viewing an artist). */}
                 {viewerIndex !== null && media[viewerIndex] && (
-                    <Modal visible transparent animationType="fade" onRequestClose={() => setViewerIndex(null)}>
-                        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.94)', alignItems: 'center', justifyContent: 'center' }}>
-                            <Pressable
-                                onPress={() => setViewerIndex(null)}
-                                style={{ position: 'absolute', top: 54, right: 20, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}
-                                accessibilityRole="button"
-                                accessibilityLabel="Close"
-                            >
-                                <X size={18} color="#fff" />
-                            </Pressable>
-                            {/* Fills the screen and contains any aspect ratio (portrait/landscape),
-                                centered — sized from reactive winW/winH. Wide clips get the
-                                rotate-to-fullscreen cue. Mirrors ProfileScreen's viewer. */}
-                            <View style={{ width: winW, height: winH, justifyContent: 'center', alignItems: 'center' }}>
-                                {media[viewerIndex].type === 'video' && media[viewerIndex].muxPlaybackId ? (
-                                    <NetsaVideoPlayer
-                                        playbackId={media[viewerIndex].muxPlaybackId!}
-                                        poster={media[viewerIndex].url || undefined}
-                                        fill
-                                        contentFit="contain"
-                                        showRotateCue={(parseAspectRatio(media[viewerIndex].aspectRatio) ?? 0) >= 1.2}
-                                        style={{ width: winW, height: winH, borderRadius: 0, borderWidth: 0, backgroundColor: 'transparent' }}
-                                    />
-                                ) : (
-                                    <Image source={{ uri: media[viewerIndex].url }} style={{ width: winW, height: winH }} resizeMode="contain" />
-                                )}
-                            </View>
-                        </View>
-                    </Modal>
+                    <MediaViewer
+                        items={media}
+                        index={viewerIndex}
+                        onClose={() => setViewerIndex(null)}
+                        artist={{ id: userId, name, location }}
+                    />
                 )}
             </View>
         </>

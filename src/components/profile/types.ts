@@ -21,6 +21,16 @@ export interface ProfileVideoReel {
     thumbnailUrl?: string;
     duration?: number;
     aspectRatio?: string;
+    caption?: string;   // shown as the title in the media viewer
+    location?: string;  // where it was shot; overrides the artist's location in the viewer
+}
+
+// A showcase photo with optional per-item metadata. Supersedes the bare
+// `galleryUrls: string[]` when present; galleryUrls is kept for back-compat.
+export interface ProfilePhoto {
+    url: string;
+    caption?: string;
+    location?: string;
 }
 
 export type ProfileData = {

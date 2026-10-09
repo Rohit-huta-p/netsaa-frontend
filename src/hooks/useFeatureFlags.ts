@@ -15,12 +15,15 @@ import { useMemo } from 'react';
 export interface FeatureFlags {
   /** Plan 5 — new 5-page GigForm vs legacy 10-step wizard. */
   newGigForm: boolean;
+  /** Spotlight — editorial artist profile (SpotlightProfile) vs legacy ProfileScreen. */
+  spotlightProfile: boolean;
 }
 
 export function useFeatureFlags(): FeatureFlags {
   return useMemo<FeatureFlags>(
     () => ({
       newGigForm: process.env.EXPO_PUBLIC_FEATURE_NEW_GIG_FORM === 'true',
+      spotlightProfile: process.env.EXPO_PUBLIC_FEATURE_SPOTLIGHT_PROFILE === 'true',
     }),
     []
   );

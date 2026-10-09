@@ -1,5 +1,5 @@
 // src/types/index.ts
-import type { ProfileVideoReel } from '@/components/profile/types';
+import type { ProfileVideoReel, ProfilePhoto } from '@/components/profile/types';
 
 export type ExperienceEntry = {
   title?: string;
@@ -89,6 +89,7 @@ export type User = {
   skinToneHex?: string;
   hasPhotos?: boolean;
   galleryUrls?: string[];
+  gallery?: ProfilePhoto[];   // structured photos (url + caption/location); supersedes galleryUrls when present
   videoUrls?: string[];
   videoReels?: ProfileVideoReel[];
   // Organizer-specific fields

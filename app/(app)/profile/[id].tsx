@@ -9,10 +9,13 @@ import {
     type ClientPublicData,
 } from '@/features/profile/ClientPublicProfile';
 import { PerformerProfile } from '@/features/profile/PerformerProfile';
+import { SpotlightProfile } from '@/features/profile/SpotlightProfile';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 export default function UserProfile() {
     const { user } = useAuthStore();
     const viewerRole = useAuthStore((s) => s.role);
+    const { spotlightProfile } = useFeatureFlags();
     const { id: paramId, gigId, applicationId, fromGig } = useLocalSearchParams<{
         id: string;
         gigId?: string;
@@ -62,6 +65,19 @@ export default function UserProfile() {
         (targetRole === 'artist' || targetRole === 'creative_lead' || targetRole === 'organizer')
     ) {
         return <PerformerProfile userId={resolvedId || ''} />;
+    }
+
+    // Spotlight (flagged) — the redesigned artist profile, for self-view and any
+    // non-client peer viewing an artist. Legacy ProfileScreen stays the fallback
+    // and still serves creative_lead / organizer targets.
+    if (spotlightProfile && targetRole === 'artist') {
+        return (
+            <SpotlightProfile
+                userId={resolvedId || ''}
+                isOwner={isOwner}
+                gigContext={{ gigId, applicationId, fromGig }}
+            />
+        );
     }
 
     // Everything else (artist / creative_lead / organizer) → unchanged path.

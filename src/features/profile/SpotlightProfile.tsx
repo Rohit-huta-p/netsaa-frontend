@@ -17,7 +17,7 @@
 import { useState } from 'react';
 import {
     View, Text, Pressable, ScrollView, Image, ActivityIndicator,
-    Linking, Share, StyleSheet, Dimensions, Alert,
+    Linking, Share, StyleSheet, Dimensions, Alert, useWindowDimensions,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -87,6 +87,10 @@ export function SpotlightProfile({ userId, isOwner }: {
     const router = useRouter();
     const navClearance = (useMobileTabBarHeight() || 64) + 24;
     const openSheet = useProfileUiStore((s) => s.openSheet);
+    // Explicit px size for the ambient-bloom <Svg>: without width/height it
+    // falls back to the SVG default intrinsic size (300x150) on web, painting
+    // only a small box instead of the full screen.
+    const { width: winW, height: winH } = useWindowDimensions();
 
     const { data, isLoading, error } = useUser(userId);
     const {
@@ -255,15 +259,15 @@ export function SpotlightProfile({ userId, isOwner }: {
             <Stack.Screen options={{ headerShown: false }} />
             <View style={{ flex: 1, backgroundColor: C.screen }}>
                 {/* Ambient soft-orange blooms over near-black (B·4) */}
-                <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+                <Svg width={winW} height={winH} style={StyleSheet.absoluteFill} pointerEvents="none">
                     <Defs>
                         <RadialGradient id="b1" cx="10%" cy="4%" r="60%"><Stop offset="0" stopColor="#FF6B35" stopOpacity={0.16} /><Stop offset="1" stopColor="#FF6B35" stopOpacity={0} /></RadialGradient>
                         <RadialGradient id="b2" cx="98%" cy="22%" r="55%"><Stop offset="0" stopColor="#FF7A38" stopOpacity={0.12} /><Stop offset="1" stopColor="#FF7A38" stopOpacity={0} /></RadialGradient>
                         <RadialGradient id="b3" cx="50%" cy="104%" r="60%"><Stop offset="0" stopColor="#FF8C46" stopOpacity={0.1} /><Stop offset="1" stopColor="#FF8C46" stopOpacity={0} /></RadialGradient>
                     </Defs>
-                    <Rect x="0" y="0" width="100%" height="100%" fill="url(#b1)" />
-                    <Rect x="0" y="0" width="100%" height="100%" fill="url(#b2)" />
-                    <Rect x="0" y="0" width="100%" height="100%" fill="url(#b3)" />
+                    <Rect x="0" y="0" width={winW} height={winH} fill="url(#b1)" />
+                    <Rect x="0" y="0" width={winW} height={winH} fill="url(#b2)" />
+                    <Rect x="0" y="0" width={winW} height={winH} fill="url(#b3)" />
                 </Svg>
 
                 {/* Nav overlay — back + (owner: settings | visitor: share) */}
@@ -285,7 +289,7 @@ export function SpotlightProfile({ userId, isOwner }: {
                                 {avatarUrl ? (
                                     <Image source={{ uri: avatarUrl }} style={st.avatar} />
                                 ) : (
-                                    <LinearGradient colors={['#3a2418', '#17151d']} start={{ x: 0.7, y: 0.2 }} end={{ x: 0, y: 1 }} style={[st.avatar, st.center]}>
+                                    <LinearGradient colors={['#3a2418', '#17151d']} start={{ x: 0.7, y: 0.2 }} end={{ x: 0, y: 1 }} style={st.avatar}>
                                         <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', color: '#FFB488', fontSize: 38 }}>{initialsOf(name)}</Text>
                                     </LinearGradient>
                                 )}
@@ -512,7 +516,7 @@ const st = StyleSheet.create({
     avatarWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center', width: 150, height: 150 },
     halo: { position: 'absolute', width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255,150,70,0.18)' },
     ring: { borderRadius: 60, borderWidth: 1.5, borderColor: 'rgba(255,186,130,0.45)', padding: 3 },
-    avatar: { width: 104, height: 104, borderRadius: 52 },
+    avatar: { width: 104, height: 104, borderRadius: 52, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     pdot: { position: 'absolute', right: 26, bottom: 26, width: 19, height: 19, borderRadius: 10, borderWidth: 3, borderColor: C.screen, shadowOpacity: 0.7, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
     camBadge: { position: 'absolute', right: 24, top: 24, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.6)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
 

@@ -36,6 +36,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { contractService } from '../services/paymentService';
 import { queryKeys } from '../constants/queryKeys';
+import { contractsEnabled } from '../utils/flags';
 
 export function useContractsArtist(limit?: number) {
   return useQuery({
@@ -44,6 +45,8 @@ export function useContractsArtist(limit?: number) {
       contractService.getUserContracts(
         limit !== undefined ? { limit } : undefined
       ),
+    // Contracts are disabled by default — don't call /users/me/contracts.
+    enabled: contractsEnabled(),
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }

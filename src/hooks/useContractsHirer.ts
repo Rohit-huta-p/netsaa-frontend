@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { contractService } from '../services/paymentService';
 import { queryKeys } from '../constants/queryKeys';
 import { useAuthStore } from '../stores/authStore';
+import { contractsEnabled } from '../utils/flags';
 
 function unwrapContracts(data: any): any[] {
   if (!data) return [];
@@ -33,7 +34,8 @@ export function useContractsHirer(limit = 20) {
       if (!selfId) return rows;
       return rows.filter((c: any) => String(c?.hirerId ?? '') === String(selfId));
     },
-    enabled: !!selfId,
+    // Contracts are disabled by default — don't call /users/me/contracts.
+    enabled: contractsEnabled() && !!selfId,
     staleTime: 1000 * 60 * 2,
   });
 }

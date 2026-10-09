@@ -1,16 +1,13 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import {
     View,
     Text,
     TouchableOpacity,
     StyleSheet,
-    Animated,
-    Easing,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Briefcase, Calendar, Pencil } from "lucide-react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { ChevronLeft, Pencil } from "lucide-react-native";
 import { GigForm, GigFormHandle } from "@/components/create/GigForm";
 import { useAuthStore } from "@/stores/authStore";
 import GigFormV2 from "@/components/create/GigFormV2";
@@ -18,9 +15,6 @@ import GigFormV2 from "@/components/create/GigFormV2";
 import ComposerShell from "@/components/events/composer/ComposerShell";
 import { useStepBackGuard } from "@/hooks/useStepBackGuard";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
-
-// Fixed per-tab width so the sliding spotlight travels a known distance.
-const TAB_W = 92;
 
 export default function CreateListing() {
     const router = useRouter();
@@ -31,26 +25,11 @@ export default function CreateListing() {
     const role = useAuthStore((s) => s.role);
     const canPostGigs = role !== 'artist';
     const initialTabValue = !canPostGigs ? 'event' : (Array.isArray(initialTab) ? initialTab[0] : initialTab) === 'event' ? 'event' : 'gig';
-    const [activeTab, setActiveTab] = useState<"gig" | "event">(initialTabValue);
+    // Tab is fixed on entry (via initialTab / role) — no in-page switcher.
+    const [activeTab] = useState<"gig" | "event">(initialTabValue);
 
     const gigFormRef = useRef<GigFormHandle>(null);
     const { newGigForm } = useFeatureFlags();
-
-    // Tabs available in the Spotlight switcher. Artists only ever see Event.
-    const TABS: ('gig' | 'event')[] = canPostGigs ? ['gig', 'event'] : ['event'];
-    const activeIndex = Math.max(0, TABS.indexOf(activeTab));
-
-    // Sliding spotlight — a single warm glow that travels to the active tab
-    // instead of two separate per-tab gradients fading in/out.
-    const glowTX = useRef(new Animated.Value(activeIndex * TAB_W)).current;
-    useEffect(() => {
-        Animated.timing(glowTX, {
-            toValue: activeIndex * TAB_W,
-            duration: 320,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-        }).start();
-    }, [activeIndex, glowTX]);
 
     // Keep activeTab in a ref so handleBack (read via onBackRef inside the hook)
     // always sees the latest tab without needing useCallback deps.
@@ -100,76 +79,31 @@ export default function CreateListing() {
     // iOS (navigation.beforeRemove + preventDefault), and Web (popstate).
     useStepBackGuard(handleBack);
 
-    const renderTab = (key: 'gig' | 'event') => {
-        const isActive = activeTab === key;
-        const Icon = key === 'gig' ? Briefcase : Calendar;
-        return (
-            <TouchableOpacity
-                key={key}
-                style={styles.spotlightTab}
-                onPress={() => setActiveTab(key)}
-                activeOpacity={0.9}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                accessibilityLabel={key === 'gig' ? 'Gig' : 'Event'}
-            >
-                <Icon size={16} color={isActive ? '#FFFFFF' : '#6A6A76'} />
-                <Text style={[styles.spotlightText, isActive ? styles.spotlightTextOn : null]}>
-                    {key === 'gig' ? 'Gig' : 'Event'}
-                </Text>
-            </TouchableOpacity>
-        );
-    };
-
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.headerRow}>
-                <TouchableOpacity
-                    onPress={handleBack}
-                    style={styles.backButton}
-                    activeOpacity={0.7}
-                >
-                    <ChevronLeft size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-
-                {/* Edit-mode: tab switcher hidden (you can't morph a gig into
-                    an event mid-edit). Right-aligned "Edit gig" pill replaces
-                    it. Create-mode: Spotlight gig/event switcher, centered. */}
-                {isEditing ? (
-                    <>
-                        <View style={{ flex: 1 }} />
-                        <View style={styles.editPill} accessibilityLabel="edit-gig-indicator">
-                            <Pencil size={14} color="#FF8C42" />
-                            <Text style={styles.editPillText}>Edit gig</Text>
-                        </View>
-                    </>
-                ) : (
-                    <>
-                        <View style={styles.tabWrap}>
-                            <View style={styles.spotlightPill}>
-                                {/* The travelling spotlight — glow bloom + gradient sheen */}
-                                <Animated.View
-                                    pointerEvents="none"
-                                    style={[
-                                        styles.spotlight,
-                                        { width: TAB_W, transform: [{ translateX: glowTX }] },
-                                    ]}
-                                >
-                                    <LinearGradient
-                                        colors={['#FF6B35', '#FF8C42']}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={StyleSheet.absoluteFill}
-                                    />
-                                </Animated.View>
-                                {TABS.map(renderTab)}
+            {/* Header — hidden on the gig create flow: GigFormV2 renders its own
+                back button + step title ("The gig" / "Step 1 of 6"). Shown for
+                the event composer and for gig edit mode. */}
+            {!(activeTab === "gig" && !isEditing) && (
+                <View style={styles.headerRow}>
+                    <TouchableOpacity
+                        onPress={handleBack}
+                        style={styles.backButton}
+                        activeOpacity={0.7}
+                    >
+                        <ChevronLeft size={24} color="#FFFFFF" />
+                    </TouchableOpacity>
+                    {isEditing && (
+                        <>
+                            <View style={{ flex: 1 }} />
+                            <View style={styles.editPill} accessibilityLabel="edit-gig-indicator">
+                                <Pencil size={14} color="#FF8C42" />
+                                <Text style={styles.editPillText}>Edit gig</Text>
                             </View>
-                        </View>
-                        <View style={styles.headerSpacer} />
-                    </>
-                )}
-            </View>
+                        </>
+                    )}
+                </View>
+            )}
 
             {/* Content */}
             <View style={styles.content}>
@@ -222,51 +156,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.1)",
     },
-    // Centers the pill in the space between the back button and the matching
-    // right-hand spacer.
-    tabWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
-    headerSpacer: { width: 40, height: 40 },
-    // ── Spotlight switcher ──
-    spotlightPill: {
-        flexDirection: "row",
-        padding: 4,
-        borderRadius: 22,
-        backgroundColor: "rgba(255,255,255,0.04)",
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.08)",
-        position: "relative",
-        overflow: "hidden",
-    },
-    spotlight: {
-        position: "absolute",
-        top: 4,
-        left: 4,
-        bottom: 4,
-        borderRadius: 18,
-        overflow: "hidden",
-        shadowColor: "#FF6B35",
-        shadowOpacity: 0.55,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 0 },
-        elevation: 6,
-    },
-    spotlightTab: {
-        width: TAB_W,
-        height: 36,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 7,
-        borderRadius: 18,
-        zIndex: 1,
-    },
-    spotlightText: {
-        color: "#6A6A76",
-        fontFamily: "Outfit-SemiBold",
-        fontSize: 14,
-        letterSpacing: -0.2,
-    },
-    spotlightTextOn: { color: "#FFFFFF" },
     // Edit-mode pill — sits at the right end of the header when editing.
     editPill: {
         flexDirection: "row",

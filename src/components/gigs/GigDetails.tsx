@@ -102,14 +102,17 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, prev
                         {activeTab === 'producer' && <ProducerPanel vm={vm} onViewProfile={onViewProfile} />}
                         {activeTab === 'discussion' && (
                             <View style={{ paddingHorizontal: 16 }}>
-                                <DiscussionTab id={gig._id} type="gig" ownerId={organizerId} inline />
+                                <DiscussionTab id={gig._id} type="gig" ownerId={organizerId} inline threaded />
                             </View>
                         )}
                     </>
                 )}
             </ScrollView>
 
-            {!preview && (
+            {/* Hide the sticky Apply on the Discussion tab — the contextual
+                action there is the thread's own composer (ask / reply), and
+                two bottom bars would collide. */}
+            {!preview && activeTab !== 'discussion' && (
                 <View style={styles.sticky} pointerEvents="box-none">
                     <StickyApply
                         hasApplied={!!hasApplied}

@@ -262,6 +262,7 @@ export function HirerGigHub({ gigId }: Props) {
                         id={gigId}
                         type="gig"
                         ownerId={typeof gig.organizerId === 'object' ? gig.organizerId?._id : gig.organizerId}
+                        threaded
                     />
                 </View>
 

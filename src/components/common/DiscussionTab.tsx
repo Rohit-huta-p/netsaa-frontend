@@ -31,6 +31,7 @@ import { socketService } from "@/services/socketService";
 import eventService from "@/services/eventService";
 import gigService from "@/services/gigService";
 import useAuthStore from "@/stores/authStore";
+import DiscussionThreadView, { type ThreadComment, type ReplyingTo } from './DiscussionThreadView';
 
 // Fallback avatar when a comment has no author image: a gradient disc + the
 // author's initial. The gradient is chosen deterministically from the author
@@ -58,6 +59,11 @@ interface DiscussionMessage {
     collectionType: 'event' | 'gig';
     topicId: string;
     text: string;
+
+    // Threading (gig): a reply carries the thread-root comment id; a
+    // top-level question has none. Optional so flat event discussions are
+    // unaffected.
+    parentId?: string | null;
 
     authorId: string;
     authorName: string;
@@ -101,6 +107,13 @@ interface DiscussionTabProps {
      * the artist-side gig detail opts in — Events + Hirer Hub keep the default.
      */
     variant?: 'default' | 'glass';
+    /**
+     * Gig-only — render the A·Minimal threaded Q&A view (DiscussionThreadView):
+     * top-level questions + nested replies, a tiny Reply on every comment, a
+     * "Replying to…" composer, and an empty state. Events never set this, so
+     * their flat UI is untouched.
+     */
+    threaded?: boolean;
 }
 
 /* ================= HELPERS ================= */
@@ -119,7 +132,7 @@ const deletedLabel = (reason?: 'self' | 'organizer' | 'admin') => {
 
 /* ================= COMPONENT ================= */
 
-export default function DiscussionTab({ id, type, ownerId, inline = false, variant = 'default' }: DiscussionTabProps) {
+export default function DiscussionTab({ id, type, ownerId, inline = false, variant = 'default', threaded = false }: DiscussionTabProps) {
     const glass = variant === 'glass';
     const [messages, setMessages] = useState<DiscussionMessage[]>([]);
     const [inputText, setInputText] = useState("");
@@ -128,6 +141,8 @@ export default function DiscussionTab({ id, type, ownerId, inline = false, varia
     // Which row's dropdown is open. null = none. Using state here so a tap
     // outside (overlay) can close it. Only one open at a time.
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    // Threaded view (gig): which comment we're replying to.
+    const [replyingTo, setReplyingTo] = useState<ReplyingTo | null>(null);
 
     const currentUser = useAuthStore((state) => state.user);
     const router = useRouter();
@@ -222,7 +237,11 @@ export default function DiscussionTab({ id, type, ownerId, inline = false, varia
         if (!inputText.trim() || sending || !currentUser) return;
 
         const text = inputText.trim();
+        // Capture + clear the reply target up front so a fast second send
+        // doesn't inherit a stale parent.
+        const parentId = replyingTo?.rootId ?? null;
         setInputText("");
+        setReplyingTo(null);
         setSending(true);
 
         const tempId = `temp-${Date.now()}`;
@@ -232,6 +251,7 @@ export default function DiscussionTab({ id, type, ownerId, inline = false, varia
             collectionType: type,
             topicId: id,
             text,
+            parentId,
 
             authorId: currentUser._id,
             authorName: currentUser.displayName || "You",
@@ -246,7 +266,7 @@ export default function DiscussionTab({ id, type, ownerId, inline = false, varia
             const res =
                 type === "event"
                     ? await eventService.postEventDiscussion(id, text)
-                    : await gigService.postGigDiscussion(id, text);
+                    : await gigService.postGigDiscussion(id, text, parentId ?? undefined);
 
             const created = res?.data ?? res;
 
@@ -357,6 +377,43 @@ export default function DiscussionTab({ id, type, ownerId, inline = false, varia
 
     /* ---------- Sorted view ---------- */
     const sorted = useMemo(() => [...messages].sort(sortMessages), [messages]);
+
+    /* ---------- Threaded (gig) helpers ---------- */
+    const startReply = (c: DiscussionMessage) =>
+        setReplyingTo({ rootId: c.parentId || c._id, name: c.authorName });
+    const cancelReply = () => setReplyingTo(null);
+    const moderate = (msg: DiscussionMessage) => {
+        const isAuthor = String(msg.authorId) === String(currentUser?._id);
+        const canPin = type === 'gig' && isOwner && !msg.isDeleted;
+        const canDelete = type === 'gig' && (isAuthor || isOwner || isAdmin) && !msg.isDeleted;
+        if (!canPin && !canDelete) return;
+        const buttons: any[] = [];
+        if (canPin) buttons.push({ text: msg.isPinned ? 'Unpin' : 'Pin', onPress: () => handleTogglePin(msg) });
+        if (canDelete) buttons.push({ text: isAuthor ? 'Delete' : 'Remove', style: 'destructive', onPress: () => handleDelete(msg) });
+        buttons.push({ text: 'Cancel', style: 'cancel' });
+        Alert.alert('Comment', undefined, buttons);
+    };
+
+    // Gig-only A·Minimal threaded view. Events fall through to the flat UI.
+    if (threaded) {
+        return (
+            <DiscussionThreadView
+                comments={messages as ThreadComment[]}
+                loading={loading}
+                currentUserId={currentUser?._id}
+                ownerId={ownerId}
+                inputText={inputText}
+                sending={sending}
+                replyingTo={replyingTo}
+                onChangeText={setInputText}
+                onSend={handleSend}
+                onStartReply={(c) => { const m = messages.find((x) => x._id === c._id); if (m) startReply(m); }}
+                onCancelReply={cancelReply}
+                onModerate={(c) => { const m = messages.find((x) => x._id === c._id); if (m) moderate(m); }}
+                onOpenProfile={openAuthorProfile}
+            />
+        );
+    }
 
     /* ================= UI ================= */
 

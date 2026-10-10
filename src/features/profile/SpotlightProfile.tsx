@@ -38,6 +38,7 @@ import { ProfileEditModal } from '@/features/profile/components/ProfileEditModal
 import type { ProfileData, ProfileVideoReel, FeaturedItem, FeaturedAttachment } from '@/components/profile/types';
 import MediaViewer from '@/components/profile/MediaViewer';
 import FeaturedEditSheet, { type ShowcaseRef } from '@/features/profile/components/FeaturedEditSheet';
+import MarkdownText from '@/components/inputs/MarkdownText';
 
 type MediaItem = { url: string; type: 'image' | 'video'; muxPlaybackId?: string; aspectRatio?: string; title?: string; location?: string };
 type LinkRow = { key: string; label: string; display: string; url: string; icon: React.ReactNode };
@@ -103,7 +104,8 @@ export function SpotlightProfile({ userId, isOwner }: {
 
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
-    const [featuredEditOpen, setFeaturedEditOpen] = useState(false);
+    const [featuredEdit, setFeaturedEdit] = useState<{ open: boolean; index: number | null }>({ open: false, index: null });
+    const openEditor = (index: number | null) => setFeaturedEdit({ open: true, index });
     const [connBusy, setConnBusy] = useState(false);
     const [msgBusy, setMsgBusy] = useState(false);
 
@@ -284,12 +286,19 @@ export function SpotlightProfile({ userId, isOwner }: {
             </Pressable>
         );
     };
-    const FeaturedCard = ({ item, full }: { item: FeaturedItem; full?: boolean }) => {
+    const FeaturedCard = ({ item, index, full }: { item: FeaturedItem; index: number; full?: boolean }) => {
         const atts = item.attachments || [];
         return (
             <View style={[st.fitem, full ? { width: '100%' } : { width: 268 }]}>
-                <Text style={st.fititle} numberOfLines={2}>{item.title}</Text>
-                {!!item.description && <Text style={st.fidesc} numberOfLines={2}>{item.description}</Text>}
+                <View style={st.fcardHead}>
+                    <Text style={[st.fititle, { flex: 1, paddingHorizontal: 0 }]} numberOfLines={2}>{item.title}</Text>
+                    {isOwner && (
+                        <Pressable onPress={() => openEditor(index)} hitSlop={8} style={st.fcardEdit}><Pencil size={13} color={C.t4} /></Pressable>
+                    )}
+                </View>
+                {!!item.description && (
+                    <MarkdownText value={item.description} color={C.t4} size={12} lineHeight={18} accent={C.orange} style={{ paddingHorizontal: 15, marginTop: 6 }} />
+                )}
                 {atts.length > 0 && (
                     <>
                         <Text style={st.attlab}>{atts.length} attachment{atts.length === 1 ? '' : 's'}</Text>
@@ -416,30 +425,34 @@ export function SpotlightProfile({ userId, isOwner }: {
                         </Section>
                     )}
 
-                    {/* ── Featured (LinkedIn-style highlights) ── */}
+                    {/* ── Featured (one highlight at a time) ── */}
                     {(featured.length > 0 || isOwner) && (
                         <View style={{ marginTop: 22 }}>
                             <View style={{ paddingHorizontal: PAD }}>
                                 <View style={st.secHead}>
                                     <Text style={st.secLabel}>Featured</Text>
                                     <View style={st.secRule} />
-                                    {isOwner && featured.length > 0 && (
-                                        <Pressable onPress={() => setFeaturedEditOpen(true)} hitSlop={8} style={st.secAction}><Pencil size={13} color={C.t4} /></Pressable>
-                                    )}
                                 </View>
                             </View>
                             {featured.length === 0 ? (
                                 <View style={{ paddingHorizontal: PAD }}>
-                                    <Pressable onPress={() => setFeaturedEditOpen(true)} style={st.featAdd}>
-                                        <Plus size={15} color={C.orange} /><Text style={st.featAddTx}>Add featured section</Text>
+                                    <Pressable onPress={() => openEditor(null)} style={st.featAdd}>
+                                        <Plus size={15} color={C.orange} /><Text style={st.featAddTx}>Add featured highlight</Text>
                                     </Pressable>
                                 </View>
                             ) : featured.length === 1 ? (
-                                <View style={{ paddingHorizontal: PAD }}><FeaturedCard item={featured[0]} full /></View>
+                                <View style={{ paddingHorizontal: PAD }}><FeaturedCard item={featured[0]} index={0} full /></View>
                             ) : (
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingLeft: PAD, paddingRight: PAD }}>
-                                    {featured.map((item, i) => <FeaturedCard key={i} item={item} />)}
+                                    {featured.map((item, i) => <FeaturedCard key={i} item={item} index={i} />)}
                                 </ScrollView>
+                            )}
+                            {isOwner && featured.length > 0 && (
+                                <View style={{ paddingHorizontal: PAD, marginTop: 11 }}>
+                                    <Pressable onPress={() => openEditor(null)} style={st.addAnother}>
+                                        <Plus size={13} color={C.orange} /><Text style={st.addAnotherTx}>Add another highlight</Text>
+                                    </Pressable>
+                                </View>
                             )}
                         </View>
                     )}
@@ -553,10 +566,11 @@ export function SpotlightProfile({ userId, isOwner }: {
                 {isOwner && <ProfileEditModal profileData={buildProfileData(u, { name, city, bio, skills, experience })} />}
                 {isOwner && (
                     <FeaturedEditSheet
-                        visible={featuredEditOpen}
-                        onClose={() => setFeaturedEditOpen(false)}
+                        visible={featuredEdit.open}
+                        onClose={() => setFeaturedEdit({ open: false, index: null })}
                         userId={userId}
-                        initial={featured}
+                        featured={featured}
+                        editIndex={featuredEdit.index}
                         showcase={showcaseRefs}
                     />
                 )}
@@ -672,6 +686,10 @@ const st = StyleSheet.create({
     secAction: { marginLeft: 10, padding: 2 },
     featAdd: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 14 },
     featAddTx: { fontFamily: 'Outfit-SemiBold', fontSize: 13, color: C.orange },
+    addAnother: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: C.border2 },
+    addAnotherTx: { fontFamily: 'Outfit-SemiBold', fontSize: 12, color: C.t3 },
+    fcardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingHorizontal: 15 },
+    fcardEdit: { padding: 2, marginTop: 1 },
     fitem: { borderWidth: 1, borderColor: C.border, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.015)', paddingTop: 14, paddingBottom: 12, overflow: 'hidden' },
     fititle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 16, color: '#F4F4F5', paddingHorizontal: 15 },
     fidesc: { fontFamily: 'Outfit-Light', fontSize: 12, lineHeight: 19, color: C.t4, marginTop: 6, paddingHorizontal: 15 },

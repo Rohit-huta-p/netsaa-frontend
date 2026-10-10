@@ -109,7 +109,10 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, prev
                 )}
             </ScrollView>
 
-            {!preview && (
+            {/* Hide the sticky Apply on the Discussion tab — the contextual
+                action there is the thread's own composer (ask / reply), and
+                two bottom bars would collide. */}
+            {!preview && activeTab !== 'discussion' && (
                 <View style={styles.sticky} pointerEvents="box-none">
                     <StickyApply
                         hasApplied={!!hasApplied}

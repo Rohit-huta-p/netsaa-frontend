@@ -144,4 +144,28 @@ describe('buildBackendPayload', () => {
     expect(payload.responsibilities).toEqual(['Lead a 3-song set', '2 rehearsals']);
     expect((payload as any).minExperienceYears).toBe(5);
   });
+
+  // ── v2.2 date shape ──
+  it('defaults to range date mode with no dates[]', () => {
+    const payload = buildBackendPayload(makeBaseState() as any);
+    expect(payload.schedule.dateMode).toBe('range');
+    expect((payload.schedule as any).dates).toBeUndefined();
+    expect(payload.schedule.startDate).toEqual(new Date('2027-01-01'));
+  });
+
+  it('maps specific-dates mode to sorted dates[] + envelope start/end', () => {
+    const state = makeBaseState() as any;
+    state.p2.dateMode = 'dates';
+    state.p2.dates = ['2027-04-11', '2027-04-05', '2027-04-10']; // unsorted on purpose
+    const payload = buildBackendPayload(state);
+    expect(payload.schedule.dateMode).toBe('dates');
+    expect((payload.schedule as any).dates).toEqual([
+      new Date('2027-04-05'),
+      new Date('2027-04-10'),
+      new Date('2027-04-11'),
+    ]);
+    // envelope carries min…max so existing readers/sorters keep working
+    expect(payload.schedule.startDate).toEqual(new Date('2027-04-05'));
+    expect(payload.schedule.endDate).toEqual(new Date('2027-04-11'));
+  });
 });

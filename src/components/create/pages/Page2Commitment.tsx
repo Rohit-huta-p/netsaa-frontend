@@ -22,13 +22,12 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { MapPin, CalendarPlus, X, ChevronDown, Check } from 'lucide-react-native';
+import { MapPin, ChevronDown, Check } from 'lucide-react-native';
 import { InputGroup } from '@/components/ui/InputGroup';
 import { TagInput } from '@/components/ui/TagInput';
-import { DatePickerInput } from '@/components/ui/DatePickerInput';
+import DateOfEventField from './DateOfEventField';
 import { MapLinkCard } from '@/components/location/MapLinkCard';
 import { INDIAN_STATES } from '@/constants/indianStates';
-import dayjs from 'dayjs';
 
 export type CompensationModel = 'fixed' | 'hourly' | 'per-day' | 'per-track' | 'per-shoot';
 export type CompensationStructure = 'fixed' | 'range' | 'tbd';
@@ -36,6 +35,10 @@ export type CompensationStructure = 'fixed' | 'range' | 'tbd';
 export interface Page2Value {
   startDate: string;
   endDate?: string;
+  /** GigForm v2.2 — 'range' (start→end, single when equal) or 'dates' (specific days). Defaults to 'range'. */
+  dateMode?: 'range' | 'dates';
+  /** Specific event days (YYYY-MM-DD) when dateMode === 'dates'. */
+  dates?: string[];
   city: string;
   venue?: string;
   address?: string;
@@ -62,55 +65,28 @@ const LANGUAGE_SENSITIVE_TYPES = new Set(['Singer', 'Emcee', 'Actor']);
 export default function Page2Commitment({ artistTypes, value, onChange }: Page2CommitmentProps) {
   const update = (patch: Partial<Page2Value>) => onChange({ ...value, ...patch });
   const showLanguage = artistTypes.some((t) => LANGUAGE_SENSITIVE_TYPES.has(t));
-  const [showEnd, setShowEnd] = useState(!!value.endDate);
   const [stateOpen, setStateOpen] = useState(false);
 
   return (
     <View style={styles.container}>
-      {/* Date — single primary field + optional end-date reveal */}
-      <InputGroup label="Date" required>
-        <DatePickerInput
-          label=""
-          value={value.startDate}
-          onChange={(d: Date) => update({ startDate: dayjs(d).format('YYYY-MM-DD') })}
-          placeholder="Select date"
-          minimumDate={new Date()}
-        />
-        {showEnd ? (
-          <View style={styles.endRow}>
-            <View style={{ flex: 1 }}>
-              <DatePickerInput
-                label="End date"
-                value={value.endDate ?? ''}
-                onChange={(d: Date) => update({ endDate: dayjs(d).format('YYYY-MM-DD') })}
-                placeholder="Select end date"
-                minimumDate={value.startDate ? new Date(value.startDate) : new Date()}
-              />
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                setShowEnd(false);
-                update({ endDate: '' });
-              }}
-              style={styles.removeEnd}
-              accessibilityRole="button"
-              accessibilityLabel="Remove end date"
-            >
-              <X size={16} color="#A1A1AA" />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity
-            onPress={() => setShowEnd(true)}
-            style={styles.addEnd}
-            accessibilityRole="button"
-            accessibilityLabel="Add end date for a multi-day gig"
-          >
-            <CalendarPlus size={15} color="#FF6B35" />
-            <Text style={styles.addEndText}>Add end date</Text>
-          </TouchableOpacity>
-        )}
-      </InputGroup>
+      {/* Date of event — Range or Specific-dates picker (v2.2). The tapped
+          card morphs into an inline calendar; see DateOfEventField. */}
+      <DateOfEventField
+        value={{
+          dateMode: value.dateMode ?? 'range',
+          startDate: value.startDate || undefined,
+          endDate: value.endDate || undefined,
+          dates: value.dates,
+        }}
+        onChange={(v) =>
+          update({
+            dateMode: v.dateMode,
+            startDate: v.startDate ?? '',
+            endDate: v.endDate ?? '',
+            dates: v.dates,
+          })
+        }
+      />
 
       {/* Location — one grouped card: Venue → Address → City | State + map */}
       <View>
@@ -242,29 +218,6 @@ export default function Page2Commitment({ artistTypes, value, onChange }: Page2C
 
 const styles = StyleSheet.create({
   container: { gap: 16 },
-  endRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 10 },
-  removeEnd: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: '#18181C',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addEnd: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    alignSelf: 'flex-start',
-    marginTop: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.32)',
-    backgroundColor: 'rgba(255,107,53,0.10)',
-  },
-  addEndText: { fontFamily: 'Outfit-SemiBold', fontSize: 12, color: '#FF6B35' },
 
   // ── grouped Location card ──
   locLabel: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },

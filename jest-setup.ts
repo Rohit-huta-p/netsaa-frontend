@@ -1,6 +1,14 @@
 // jest-setup.ts
 import '@testing-library/jest-native/extend-expect';
 
+// Reanimated (v4) — use the library's bundled Jest mock so components that
+// animate (e.g. DateOfEventField) render in tests without the native runtime.
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
+// Gesture Handler — its jestSetup stubs the native module so GestureDetector /
+// Gesture.Pan render as no-op passthroughs in tests.
+require('react-native-gesture-handler/jestSetup');
+
 // Mock AsyncStorage for tests
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
@@ -57,6 +65,39 @@ jest.mock('expo-linear-gradient', () => ({
   __esModule: true,
   LinearGradient: 'LinearGradient',
 }));
+
+// Mock react-native-safe-area-context — the real `useSafeAreaInsets` throws
+// "No safe area value available" unless a <SafeAreaProvider> wraps the tree,
+// which the component-level profile suites don't set up. MediaViewer (opened
+// from the showcase/reels viewer) calls it, so stub the full public surface:
+// zero insets, and host-component stubs for Provider/View so children render.
+// Provider/View/Listener are plain strings (host components) rather than
+// `React.createElement` wrappers on purpose — nativewind's babel transform
+// rewrites createElement/JSX and injects a `_ReactNativeCSSInterop` helper that
+// babel-plugin-jest-hoist forbids inside a jest.mock factory.
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const insets = { top: 0, right: 0, bottom: 0, left: 0 };
+  const frame = { x: 0, y: 0, width: 390, height: 844 };
+  const SafeAreaInsetsContext = React.createContext(insets);
+  const SafeAreaFrameContext = React.createContext(frame);
+  return {
+    __esModule: true,
+    SafeAreaProvider: 'SafeAreaProvider',
+    SafeAreaView: 'SafeAreaView',
+    SafeAreaListener: 'SafeAreaListener',
+    SafeAreaInsetsContext,
+    SafeAreaFrameContext,
+    SafeAreaContext: SafeAreaInsetsContext, // deprecated alias
+    SafeAreaConsumer: SafeAreaInsetsContext.Consumer,
+    useSafeAreaInsets: () => insets,
+    useSafeAreaFrame: () => frame,
+    useSafeArea: () => insets, // deprecated alias
+    withSafeAreaInsets: (Comp: any) => Comp,
+    initialWindowMetrics: { insets, frame },
+    initialWindowSafeAreaInsets: insets,
+  };
+});
 
 // Mock expo-image-picker — native module, ships untranspiled ESM that jest's
 // transformIgnorePatterns doesn't cover. ProfileInterviewSheet's inline media

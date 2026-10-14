@@ -68,6 +68,17 @@ export interface Gig {
     schedule: {
         startDate: string | Date; // Frontend might receive string from JSON
         endDate: string | Date;
+        /**
+         * GigForm v2.2 — date-selection shape.
+         * - 'range' (default / omitted): the gig runs every day from startDate
+         *   to endDate (single day when they're equal).
+         * - 'dates': the gig runs only on the specific days in `dates`;
+         *   startDate/endDate are still populated as the envelope (min…max)
+         *   so existing readers/sorters keep working unchanged.
+         */
+        dateMode?: 'range' | 'dates';
+        /** Specific event days (YYYY-MM-DD), present only when dateMode === 'dates'. */
+        dates?: (string | Date)[];
         durationLabel?: string;
         timeCommitment?: string;
         practiceDays?: {

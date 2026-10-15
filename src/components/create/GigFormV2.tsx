@@ -73,6 +73,7 @@ function initialState(): GigFormV2State {
     p1: { title: '', artistTypes: [], eventFunction: '' },
     p2: {
       startDate: '',
+      dateMode: 'range',
       city: '',
       state: 'Maharashtra',
       compensationModel: 'fixed',
@@ -184,6 +185,26 @@ export function buildBackendPayload(state: GigFormV2State) {
     .map((r) => r.trim())
     .filter(Boolean);
 
+  // v2.2 — date shape. 'dates' stores the exact event days; startDate/endDate
+  // still carry the envelope (earliest…latest) so existing readers and sorters
+  // that only know startDate/endDate keep working. 'range' is the default.
+  const schedule =
+    state.p2.dateMode === 'dates' && (state.p2.dates?.length ?? 0) > 0
+      ? (() => {
+          const days = [...state.p2.dates!].sort(); // YYYY-MM-DD sorts chronologically
+          return {
+            startDate: new Date(days[0]),
+            endDate: new Date(days[days.length - 1]),
+            dateMode: 'dates' as const,
+            dates: days.map((d) => new Date(d)),
+          };
+        })()
+      : {
+          startDate: new Date(state.p2.startDate),
+          endDate: state.p2.endDate ? new Date(state.p2.endDate) : new Date(state.p2.startDate),
+          dateMode: 'range' as const,
+        };
+
   return {
     title: state.p1.title,
     artistTypes: state.p1.artistTypes,
@@ -206,10 +227,7 @@ export function buildBackendPayload(state: GigFormV2State) {
       country: 'India',
       isRemote: false,
     },
-    schedule: {
-      startDate: new Date(state.p2.startDate),
-      endDate: state.p2.endDate ? new Date(state.p2.endDate) : new Date(state.p2.startDate),
-    },
+    schedule,
     compensation: {
       model: state.p2.compensationModel,
       amount,
@@ -282,6 +300,10 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
         p2: {
           startDate: g.schedule?.startDate ? dayjs(g.schedule.startDate).format('YYYY-MM-DD') : '',
           endDate: g.schedule?.endDate ? dayjs(g.schedule.endDate).format('YYYY-MM-DD') : '',
+          dateMode: g.schedule?.dateMode === 'dates' ? 'dates' : 'range',
+          dates: Array.isArray(g.schedule?.dates)
+            ? g.schedule.dates.map((d: any) => dayjs(d).format('YYYY-MM-DD'))
+            : undefined,
           city: g.location?.city ?? '',
           venue: g.location?.venueName ?? '',
           address: g.location?.address ?? '',

@@ -417,7 +417,7 @@ export function SpotlightProfile({ userId, isOwner }: {
                             {bio ? (
                                 <View style={st.quote}>
                                     <Text style={st.quoteMark}>“</Text>
-                                    <Text style={st.bio}>{bio}</Text>
+                                    <MarkdownText value={bio} color="#C9C4CC" size={13.5} lineHeight={23} font="Outfit-Light" accent={C.orange} />
                                 </View>
                             ) : (
                                 <Pressable onPress={() => openSheet('about')}><Text style={st.addTx}>Tell people about your craft and journey</Text></Pressable>

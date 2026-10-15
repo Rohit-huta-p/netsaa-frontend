@@ -97,7 +97,7 @@ export function EditModalTabBar<K extends string>({ tabs, active, onChange }: Pr
                                         <Text style={{
                                             fontFamily: 'Outfit-Bold',
                                             fontSize: 8,
-                                            color: P.gold,
+                                            color: P.textMuted,
                                             letterSpacing: 1,
                                             textTransform: 'uppercase',
                                         }}>

@@ -10,12 +10,14 @@ import { View, Text, TextInput, StyleProp, ViewStyle } from 'react-native';
 
 // Brand palette (matches existing modal). Kept inline so primitives stay
 // self-contained — color tokens here mirror src/features/profile/components/ProfileEditModal.tsx
+// Spotlight palette — warm near-black editorial. One orange accent; the old
+// per-tab rainbow is gone (section headers / chrome now use `orange`).
 export const P = {
-    pink: '#EC4899', orange: '#F97316', gold: '#EAB308',
-    cyan: '#06B6D4', green: '#34D399',
-    bg: '#0A0A10', surface: '#121018', surfaceLight: '#1A1824',
-    border: 'rgba(255,255,255,0.06)', borderActive: 'rgba(249,115,22,0.5)',
-    textPrimary: '#F0ECE6', textInput: '#CECBC6', textSecondary: '#6B6878', textMuted: '#4A4656',
+    pink: '#EC4899', orange: '#FF6B35', gold: '#EAB308',
+    cyan: '#06B6D4', green: '#22C55E',
+    bg: '#0A0A10', surface: '#121216', surfaceLight: '#17171C',
+    border: 'rgba(255,255,255,0.07)', borderActive: 'rgba(255,107,53,0.5)',
+    textPrimary: '#F4F4F5', textInput: '#D4D4D8', textSecondary: '#71717A', textMuted: '#52525B',
     danger: '#EF4444',
 };
 

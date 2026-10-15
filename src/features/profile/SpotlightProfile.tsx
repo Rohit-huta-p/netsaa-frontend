@@ -28,7 +28,7 @@ import {
     Music2, UserMinus, Ban, Flag, Image as LucideImage, FileText, Plus,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { useUser } from '@/hooks/useUser';
+import { useUser, userKeys } from '@/hooks/useUser';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
 import { useMutualConnections, useConnectionDegree, useMyConnectionsCount } from '@/hooks/useConnectionMeta';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
@@ -39,6 +39,11 @@ import type { ProfileData, ProfileVideoReel, FeaturedItem, FeaturedAttachment } 
 import MediaViewer from '@/components/profile/MediaViewer';
 import FeaturedEditSheet, { type ShowcaseRef } from '@/features/profile/components/FeaturedEditSheet';
 import MarkdownText from '@/components/inputs/MarkdownText';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadMediaFlow } from '@/utils/upload';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/authStore';
+import authService from '@/services/authService';
 
 type MediaItem = { url: string; type: 'image' | 'video'; muxPlaybackId?: string; aspectRatio?: string; title?: string; location?: string };
 type LinkRow = { key: string; label: string; display: string; url: string; icon: React.ReactNode };
@@ -101,7 +106,12 @@ export function SpotlightProfile({ userId, isOwner }: {
     const { data: mutualData } = useMutualConnections(isOwner ? undefined : userId);
     const { data: degreeData } = useConnectionDegree(isOwner ? undefined : userId);
     const { data: myConnectionsCount } = useMyConnectionsCount(isOwner);
+    const qc = useQueryClient();
+    const authUser = useAuthStore((s) => s.user);
+    const accessToken = useAuthStore((s) => s.accessToken);
+    const setAuth = useAuthStore((s) => s.setAuth);
 
+    const [coverUploading, setCoverUploading] = useState(false);
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
     const [featuredEdit, setFeaturedEdit] = useState<{ open: boolean; index: number | null }>({ open: false, index: null });
@@ -138,6 +148,7 @@ export function SpotlightProfile({ userId, isOwner }: {
     const experience: any[] = u.experience || [];
     const featured: FeaturedItem[] = u.featured || [];
     const avatarUrl: string | undefined = u.profileImageUrl;
+    const coverImageUrl: string | undefined = u.coverImageUrl;
     const availability: string | null = u.availability || u.availabilityStatus || null;
 
     const phoneVerified = !!(u.phoneVerifiedAt || u.phoneVerified || u.isPhoneVerified);
@@ -230,6 +241,24 @@ export function SpotlightProfile({ userId, isOwner }: {
 
     const onShare = async () => {
         try { await Share.share({ message: `${name}${kicker ? ` — ${craftsShown.join(', ')}` : ''} on NETSA` }); } catch { /* cancelled */ }
+    };
+
+    // Owner: pick + upload a cover image, then persist to the profile.
+    const pickCover = async () => {
+        if (!isOwner || coverUploading) return;
+        try {
+            const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [16, 9], quality: 0.85 });
+            if (res.canceled) return;
+            setCoverUploading(true);
+            const up = await uploadMediaFlow({ asset: res.assets[0], entityType: 'user', entityId: userId, purpose: 'avatar' });
+            if (!up.success || !up.url) { Alert.alert('Upload failed', up.error || 'Please try again.'); return; }
+            const updated = await authService.updateProfile({ coverImageUrl: up.url } as any);
+            if (authUser) setAuth({ user: { ...authUser, ...(updated as any) }, accessToken: accessToken || '' });
+            qc.setQueryData(userKeys.detail(userId), (old: any) => ({ ...(old || {}), ...(updated as any), coverImageUrl: up.url }));
+            qc.invalidateQueries({ queryKey: userKeys.detail(userId) });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        } catch { Alert.alert("Couldn't update cover", 'Please try again.'); }
+        finally { setCoverUploading(false); }
     };
 
     const connected = connectionStatus === 'connected';
@@ -331,15 +360,25 @@ export function SpotlightProfile({ userId, isOwner }: {
                 <View style={st.nav}>
                     <Pressable onPress={() => router.back()} style={st.navBtn}><ChevronLeft size={18} color="#fff" /></Pressable>
                     {isOwner ? (
-                        <Pressable onPress={() => router.push('/(app)/settings' as any)} style={st.navBtn}><Settings size={16} color="#fff" /></Pressable>
+                        <View style={{ flexDirection: 'row', gap: 9 }}>
+                            <Pressable onPress={pickCover} style={st.navBtn}>{coverUploading ? <ActivityIndicator size="small" color="#fff" /> : <Camera size={16} color="#fff" />}</Pressable>
+                            <Pressable onPress={() => router.push('/(app)/settings' as any)} style={st.navBtn}><Settings size={16} color="#fff" /></Pressable>
+                        </View>
                     ) : (
                         <Pressable onPress={onShare} style={st.navBtn}><Share2 size={16} color="#fff" /></Pressable>
                     )}
                 </View>
 
                 <ScrollView contentContainerStyle={{ paddingBottom: navClearance + 40 }} showsVerticalScrollIndicator={false}>
+                    {/* ── Immersive cover (H·1) — image fades into the screen; halo sits low in the fade ── */}
+                    {coverImageUrl && (
+                        <View style={st.cover} pointerEvents="none">
+                            <Image source={{ uri: coverImageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                            <LinearGradient colors={['transparent', 'rgba(10,10,16,0.35)', C.screen]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
+                        </View>
+                    )}
                     {/* ── Header — centered halo portrait ── */}
-                    <View style={st.header}>
+                    <View style={[st.header, coverImageUrl ? st.headerOnCover : null]}>
                         <View style={st.avatarWrap}>
                             <View style={st.ring}>
                                 {avatarUrl ? (
@@ -612,6 +651,8 @@ const st = StyleSheet.create({
     navBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
 
     header: { alignItems: 'center', paddingHorizontal: PAD, paddingTop: 108, textAlign: 'center' as any },
+    cover: { height: 248, width: '100%', backgroundColor: '#17151d' },
+    headerOnCover: { paddingTop: 0, marginTop: -92 },
     avatarWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center', width: 150, height: 150 },
     ring: { borderRadius: 60, borderWidth: 1.5, borderColor: 'rgba(255,186,130,0.45)', padding: 3 },
     avatar: { width: 104, height: 104, borderRadius: 52, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },

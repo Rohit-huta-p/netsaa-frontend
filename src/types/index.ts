@@ -70,6 +70,7 @@ export type User = {
   phoneVerifiedAt?: string | null;
   kycLevel?: number;
   profileImageUrl?: string;
+  coverImageUrl?: string;   // header/cover image (Spotlight immersive header)
   // Registration personalization
   intent?: 'find_gigs' | 'hire_artists' | 'learn_workshops' | 'host_events';
   experienceLevel?: 'beginner' | 'intermediate' | 'professional';

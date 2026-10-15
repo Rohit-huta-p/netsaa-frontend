@@ -13,6 +13,7 @@ import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import conversationService from '@/services/conversationService';
 import type { ProfileVideoReel } from '@/components/profile/types';
 import MediaViewer from '@/components/profile/MediaViewer';
+import MarkdownText from '@/components/inputs/MarkdownText';
 
 type ShowcaseItem = { url: string; type: 'image' | 'video'; muxPlaybackId?: string; aspectRatio?: string; title?: string; location?: string };
 
@@ -204,7 +205,7 @@ export function PerformerProfile({ userId }: { userId: string }) {
                     {!!bio && (
                         <>
                             <SectionLabel>About</SectionLabel>
-                            <Text style={{ fontFamily: 'Outfit-Regular', color: '#c9c4cc', fontSize: 13, lineHeight: 20 }}>{bio}</Text>
+                            <MarkdownText value={bio} color="#c9c4cc" size={13} lineHeight={20} accent="#FF6B35" />
                         </>
                     )}
 

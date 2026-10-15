@@ -27,6 +27,7 @@ import { AccountVerificationSheet } from '@/features/profile/components/verify/A
 import { ProfileData, ProfileVideoReel } from '@/components/profile/types';
 import NetsaVideoPlayer, { parseAspectRatio } from '@/components/media/NetsaVideoPlayer';
 import MediaViewer from '@/components/profile/MediaViewer';
+import MarkdownText from '@/components/inputs/MarkdownText';
 import type { ConnectionContext } from '@/types/connection';
 import { useMutualConnections, useConnectionDegree, useMyConnectionsCount } from '@/hooks/useConnectionMeta';
 import { SimilarRail } from '@/components/profile/SimilarRail';
@@ -480,7 +481,7 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                 {(bio || isOwner) && (
                     <View style={s.bioSection}>
                         <Text style={s.bioQuoteMark}>&ldquo;</Text>
-                        {bio ? <Text style={s.bioText}>{bio}</Text> :
+                        {bio ? <MarkdownText value={bio} color="#F0ECE6" size={16} lineHeight={30} font="Outfit-Light" accent="#FF6B35" style={{ paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: 'rgba(249,115,22,0.15)', marginLeft: 4 }} /> :
                             isOwner ? <Pressable onPress={() => openSheet('about')}><Text style={s.bioPlaceholder}>Tell hirers about yourself, your style, and what makes your performances unforgettable...</Text></Pressable> : null}
                     </View>
                 )}

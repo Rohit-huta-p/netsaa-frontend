@@ -18,7 +18,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Wand2 } from 'lucide-react-native';
+import { Wand2, CalendarClock } from 'lucide-react-native';
 import { InputGroup } from '@/components/ui/InputGroup';
 import { TagInput } from '@/components/ui/TagInput';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
@@ -43,9 +43,11 @@ export interface Page4Value {
 export interface Page4LogisticsProps {
   value: Page4Value;
   onChange: (next: Page4Value) => void;
+  /** GigForm v2.2 — reminder of the Step 2 event date(s), shown under the deadline. */
+  eventDateHint?: string;
 }
 
-export default function Page4Logistics({ value, onChange }: Page4LogisticsProps) {
+export default function Page4Logistics({ value, onChange, eventDateHint }: Page4LogisticsProps) {
   const update = (patch: Partial<Page4Value>) => onChange({ ...value, ...patch });
   const [rephrasingField, setRephrasingField] = useState<'description' | 'termsAndConditions' | null>(
     null
@@ -141,6 +143,12 @@ export default function Page4Logistics({ value, onChange }: Page4LogisticsProps)
           placeholder="Select date"
           minimumDate={new Date()}
         />
+        {eventDateHint ? (
+          <View style={styles.dateHint}>
+            <CalendarClock size={13} color="#FF6B35" />
+            <Text style={styles.dateHintText}>{eventDateHint}</Text>
+          </View>
+        ) : null}
       </InputGroup>
 
       {/* T&C with template chip row + AI rephrase */}
@@ -195,6 +203,20 @@ export default function Page4Logistics({ value, onChange }: Page4LogisticsProps)
 
 const styles = StyleSheet.create({
   container: { gap: 16 },
+  // reminder of the Step 2 event date(s) under the deadline input
+  dateHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255,107,53,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.20)',
+  },
+  dateHintText: { flex: 1, fontFamily: 'Outfit-Regular', fontSize: 11.5, color: '#FFCBB2', lineHeight: 15 },
   aiButtonRow: { alignItems: 'flex-end', marginBottom: 6 },
   aiButton: {
     flexDirection: 'row',

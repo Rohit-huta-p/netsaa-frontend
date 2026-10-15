@@ -117,6 +117,23 @@ export function buildAutoTitle(p1: Page1Value, city?: string): string {
   return title.charAt(0).toUpperCase() + title.slice(1);
 }
 
+// A short reminder of the Step 2 event date(s), shown under the Application
+// deadline input so the user doesn't set a deadline after the event. Returns
+// undefined when no date is set yet (nothing to remind about).
+export function buildDateHint(p2: Page2Value): string | undefined {
+  const fmt = (d: string) => dayjs(d).format('D MMM YYYY');
+  if (p2.dateMode === 'dates' && p2.dates && p2.dates.length > 0) {
+    const sorted = [...p2.dates].sort();
+    const extra = sorted.length > 1 ? ` (+${sorted.length - 1} more)` : '';
+    return `Event's first date: ${fmt(sorted[0])}${extra} — set the deadline before it.`;
+  }
+  if (!p2.startDate) return undefined;
+  if (p2.endDate && p2.endDate !== p2.startDate) {
+    return `Event runs ${fmt(p2.startDate)} → ${fmt(p2.endDate)} — set the deadline before it starts.`;
+  }
+  return `Event is on ${fmt(p2.startDate)} — set the deadline before it.`;
+}
+
 // ── Nested state update helper ─────────────────────────────────────
 // Writes `value` to the nested path `path` inside an immutable copy of
 // `state`, preserving all unrelated sibling keys.
@@ -567,6 +584,7 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
               <Page4Logistics
                 value={state.p4}
                 onChange={(v) => setState({ ...state, p4: v })}
+                eventDateHint={buildDateHint(state.p2)}
               />
             )}
             {page === 6 && (

@@ -17,6 +17,8 @@ export interface FeatureFlags {
   newGigForm: boolean;
   /** Spotlight — editorial artist profile (SpotlightProfile) vs legacy ProfileScreen. */
   spotlightProfile: boolean;
+  /** Events — v4 "one form for every event" composer vs legacy ComposerShell. */
+  eventComposerV4: boolean;
 }
 
 export function useFeatureFlags(): FeatureFlags {
@@ -24,6 +26,7 @@ export function useFeatureFlags(): FeatureFlags {
     () => ({
       newGigForm: process.env.EXPO_PUBLIC_FEATURE_NEW_GIG_FORM === 'true',
       spotlightProfile: process.env.EXPO_PUBLIC_FEATURE_SPOTLIGHT_PROFILE === 'true',
+      eventComposerV4: process.env.EXPO_PUBLIC_FEATURE_EVENT_V4 === 'true',
     }),
     []
   );

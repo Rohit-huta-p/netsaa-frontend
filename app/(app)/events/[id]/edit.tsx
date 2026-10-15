@@ -4,10 +4,28 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEvent } from '@/hooks/useEvents';
 import { useCreateEventStore, type ComposerStep } from '@/stores/createEventStore';
 import ComposerShell from '@/components/events/composer/ComposerShell';
+import ComposerV4 from '@/components/events/composer/v4/ComposerV4';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 const BG = '#09090b';
 
 export default function EditEventScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { eventComposerV4 } = useFeatureFlags();
+
+  // v4 one-form composer owns its own fetch + hydrate + loading (see ComposerV4).
+  if (eventComposerV4) {
+    return (
+      <View style={{ flex: 1, backgroundColor: BG }}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ComposerV4 eventId={id} />
+      </View>
+    );
+  }
+  return <LegacyEditEventScreen />;
+}
+
+function LegacyEditEventScreen() {
   const { id, step } = useLocalSearchParams<{ id: string; step?: string }>();
   const { data: event, isLoading } = useEvent(id);
   const { hydrateFromEvent, setStep, reset } = useCreateEventStore();

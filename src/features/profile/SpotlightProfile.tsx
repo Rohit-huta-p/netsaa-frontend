@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient, Stop, Rect, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 import {
     ChevronLeft, Share2, Settings, UserPlus, Clock, MessageCircle, MoreHorizontal,
     MapPin, Play, BadgeCheck, Instagram, Youtube, Globe, ExternalLink, Pencil, Camera,
@@ -57,6 +58,46 @@ const PAD = 18;
 const GAP = 7;
 const SCREEN_W = Dimensions.get('window').width;
 const GRID_W = SCREEN_W - PAD * 2;
+const COVER_H = 248;
+
+// Fallback immersive cover — the finalized mockup's warm gradient (`.cover`): a dark
+// diagonal base with warm/magenta/violet radial blooms. Shown when the artist has no
+// uploaded cover image; an uploaded photo replaces it. Explicit px size avoids the
+// react-native-svg web default-intrinsic-size (300x150) bug.
+function CoverGradient() {
+    return (
+        <Svg width={SCREEN_W} height={COVER_H} style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Defs>
+                <SvgLinearGradient id="cvbase" x1="0.33" y1="0.03" x2="0.67" y2="0.97">
+                    <Stop offset="0" stopColor="#3A1A0C" />
+                    <Stop offset="1" stopColor="#160A14" />
+                </SvgLinearGradient>
+                <RadialGradient id="cvwarm" cx="28%" cy="-5%" r="120%">
+                    <Stop offset="0" stopColor="#FFA050" stopOpacity={0.6} />
+                    <Stop offset="0.55" stopColor="#FFA050" stopOpacity={0} />
+                </RadialGradient>
+                <RadialGradient id="cvmag" cx="88%" cy="15%" r="90%">
+                    <Stop offset="0" stopColor="#EC4899" stopOpacity={0.3} />
+                    <Stop offset="0.6" stopColor="#EC4899" stopOpacity={0} />
+                </RadialGradient>
+                <RadialGradient id="cvvio" cx="60%" cy="90%" r="90%">
+                    <Stop offset="0" stopColor="#8B5CF6" stopOpacity={0.26} />
+                    <Stop offset="0.6" stopColor="#8B5CF6" stopOpacity={0} />
+                </RadialGradient>
+                {/* mockup `.cover::after` — fade the lower half into #121216 so the halo sits low in the fade */}
+                <SvgLinearGradient id="cvfade" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0.45" stopColor="#121216" stopOpacity={0.1} />
+                    <Stop offset="0.97" stopColor="#121216" stopOpacity={1} />
+                </SvgLinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width={SCREEN_W} height={COVER_H} fill="url(#cvbase)" />
+            <Rect x="0" y="0" width={SCREEN_W} height={COVER_H} fill="url(#cvwarm)" />
+            <Rect x="0" y="0" width={SCREEN_W} height={COVER_H} fill="url(#cvmag)" />
+            <Rect x="0" y="0" width={SCREEN_W} height={COVER_H} fill="url(#cvvio)" />
+            <Rect x="0" y="0" width={SCREEN_W} height={COVER_H} fill="url(#cvfade)" />
+        </Svg>
+    );
+}
 const COL = (GRID_W - GAP * 2) / 3;
 const COL2 = COL * 2 + GAP;
 
@@ -355,15 +396,19 @@ export function SpotlightProfile({ userId, isOwner }: {
                 </View>
 
                 <ScrollView contentContainerStyle={{ paddingBottom: navClearance + 40 }} showsVerticalScrollIndicator={false}>
-                    {/* ── Immersive cover (H·1) — image fades into the screen; halo sits low in the fade ── */}
-                    {coverImageUrl && (
-                        <View style={st.cover} pointerEvents="none">
-                            <Image source={{ uri: coverImageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                            <LinearGradient colors={['transparent', 'rgba(18,18,22,0.35)', C.screen]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
-                        </View>
-                    )}
-                    {/* ── Header — centered halo portrait ── */}
-                    <View style={[st.header, coverImageUrl ? st.headerOnCover : null]}>
+                    {/* ── Immersive cover (H·1) — uploaded photo, else the finalized mockup gradient; fades into the screen, halo sits low in the fade ── */}
+                    <View style={st.cover} pointerEvents="none">
+                        {coverImageUrl ? (
+                            <>
+                                <Image source={{ uri: coverImageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                                <LinearGradient colors={['transparent', 'rgba(18,18,22,0.35)', C.screen]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
+                            </>
+                        ) : (
+                            <CoverGradient />
+                        )}
+                    </View>
+                    {/* ── Header — centered halo portrait (always sits low on the cover) ── */}
+                    <View style={[st.header, st.headerOnCover]}>
                         <View style={st.avatarWrap}>
                             <View style={st.ring}>
                                 {avatarUrl ? (

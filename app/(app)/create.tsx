@@ -13,6 +13,8 @@ import { useAuthStore } from "@/stores/authStore";
 import GigFormV2 from "@/components/create/GigFormV2";
 // Event tab now renders the 7-step composer inline (also routable standalone at /events/compose)
 import ComposerShell from "@/components/events/composer/ComposerShell";
+// v4 "one form for every event" composer — gated behind EXPO_PUBLIC_FEATURE_EVENT_V4
+import ComposerV4 from "@/components/events/composer/v4/ComposerV4";
 import { useStepBackGuard } from "@/hooks/useStepBackGuard";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
@@ -29,7 +31,7 @@ export default function CreateListing() {
     const [activeTab] = useState<"gig" | "event">(initialTabValue);
 
     const gigFormRef = useRef<GigFormHandle>(null);
-    const { newGigForm } = useFeatureFlags();
+    const { newGigForm, eventComposerV4 } = useFeatureFlags();
 
     // Keep activeTab in a ref so handleBack (read via onBackRef inside the hook)
     // always sees the latest tab without needing useCallback deps.
@@ -123,8 +125,11 @@ export default function CreateListing() {
                             gigId={gigIdValue}
                         />
                     )
+                ) : eventComposerV4 ? (
+                    /* Event tab — v4 "one form for every event" composer */
+                    <ComposerV4 />
                 ) : (
-                    /* Event tab — inline 7-step composer (same component as /events/compose route) */
+                    /* Event tab — legacy inline 7-step composer */
                     <ComposerShell />
                 )}
             </View>

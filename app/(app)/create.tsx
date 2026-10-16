@@ -38,6 +38,12 @@ export default function CreateListing() {
     const activeTabRef = useRef(activeTab);
     activeTabRef.current = activeTab;
 
+    // Hide create.tsx's own header when the content renders its own nav:
+    //  - gig create (GigFormV2 has its own back + step title)
+    //  - v4 event composer (ComposerV4's shell has back / "New event" / close)
+    const hideCreateHeader =
+        (activeTab === "gig" && !isEditing) || (activeTab === "event" && eventComposerV4);
+
     const handlePublish = (data: any) => {
         console.log(`Publishing ${activeTab}:`, data);
         router.replace("/dashboard");
@@ -86,7 +92,7 @@ export default function CreateListing() {
             {/* Header — hidden on the gig create flow: GigFormV2 renders its own
                 back button + step title ("The gig" / "Step 1 of 6"). Shown for
                 the event composer and for gig edit mode. */}
-            {!(activeTab === "gig" && !isEditing) && (
+            {!hideCreateHeader && (
                 <View style={styles.headerRow}>
                     <TouchableOpacity
                         onPress={handleBack}

@@ -17,11 +17,10 @@
 import { useState } from 'react';
 import {
     View, Text, Pressable, ScrollView, Image, ActivityIndicator,
-    Linking, Share, StyleSheet, Dimensions, Alert, useWindowDimensions,
+    Linking, Share, StyleSheet, Dimensions, Alert,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import {
     ChevronLeft, Share2, Settings, UserPlus, Clock, MessageCircle, MoreHorizontal,
     MapPin, Play, BadgeCheck, Instagram, Youtube, Globe, ExternalLink, Pencil, Camera,
@@ -50,7 +49,7 @@ type LinkRow = { key: string; label: string; display: string; url: string; icon:
 
 // ── Palette (mirrors the mockup tokens) ──
 const C = {
-    screen: '#0A0A10', card: '#0F0F12', border: '#1F1F23', border2: '#27272A',
+    screen: '#121216', card: '#0F0F12', border: '#1F1F23', border2: '#27272A',
     orange: '#FF6B35', green: '#22C55E', blue: '#3B82F6', violet: '#8B5CF6',
     t1: '#FFFFFF', t2: '#E5E5E5', t3: '#D4D4D8', t4: '#A1A1AA', t5: '#71717A', t6: '#52525B',
 };
@@ -94,10 +93,6 @@ export function SpotlightProfile({ userId, isOwner }: {
     const router = useRouter();
     const navClearance = (useMobileTabBarHeight() || 64) + 24;
     const openSheet = useProfileUiStore((s) => s.openSheet);
-    // Explicit px size for the ambient-bloom <Svg>: without width/height it
-    // falls back to the SVG default intrinsic size (300x150) on web, painting
-    // only a small box instead of the full screen.
-    const { width: winW, height: winH } = useWindowDimensions();
 
     const { data, isLoading, error } = useUser(userId);
     const {
@@ -344,17 +339,7 @@ export function SpotlightProfile({ userId, isOwner }: {
         <>
             <Stack.Screen options={{ headerShown: false }} />
             <View style={{ flex: 1, backgroundColor: C.screen }}>
-                {/* Ambient soft-orange blooms over near-black (B·4) */}
-                <Svg width={winW} height={winH} style={StyleSheet.absoluteFill} pointerEvents="none">
-                    <Defs>
-                        <RadialGradient id="b1" cx="10%" cy="4%" r="60%"><Stop offset="0" stopColor="#FF6B35" stopOpacity={0.16} /><Stop offset="1" stopColor="#FF6B35" stopOpacity={0} /></RadialGradient>
-                        <RadialGradient id="b2" cx="98%" cy="22%" r="55%"><Stop offset="0" stopColor="#FF7A38" stopOpacity={0.12} /><Stop offset="1" stopColor="#FF7A38" stopOpacity={0} /></RadialGradient>
-                        <RadialGradient id="b3" cx="50%" cy="104%" r="60%"><Stop offset="0" stopColor="#FF8C46" stopOpacity={0.1} /><Stop offset="1" stopColor="#FF8C46" stopOpacity={0} /></RadialGradient>
-                    </Defs>
-                    <Rect x="0" y="0" width={winW} height={winH} fill="url(#b1)" />
-                    <Rect x="0" y="0" width={winW} height={winH} fill="url(#b2)" />
-                    <Rect x="0" y="0" width={winW} height={winH} fill="url(#b3)" />
-                </Svg>
+                {/* Flat #121216 under the header — ambient orange blooms removed (cover supplies the only warmth) */}
 
                 {/* Nav overlay — back + (owner: settings | visitor: share) */}
                 <View style={st.nav}>
@@ -374,7 +359,7 @@ export function SpotlightProfile({ userId, isOwner }: {
                     {coverImageUrl && (
                         <View style={st.cover} pointerEvents="none">
                             <Image source={{ uri: coverImageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                            <LinearGradient colors={['transparent', 'rgba(10,10,16,0.35)', C.screen]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
+                            <LinearGradient colors={['transparent', 'rgba(18,18,22,0.35)', C.screen]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
                         </View>
                     )}
                     {/* ── Header — centered halo portrait ── */}

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { ChevronLeft, X } from 'lucide-react-native';
 import { useComposerStoreV4 } from './useComposerStoreV4';
+import { useComposerVideoPoll } from './useComposerVideoPoll';
 import { ProgressDots, FooterBar } from './ui';
 import { C, F } from './theme';
 import Step1Event from './steps/Step1Event';
@@ -29,6 +30,9 @@ export default function ComposerShellV4({ onPublish, onClose, publishing }: {
   const next = useComposerStoreV4((s) => s.next);
   const back = useComposerStoreV4((s) => s.back);
   const meta = STEP_META[step];
+
+  // Keep Mux reel polling alive across step changes (steps mount/unmount).
+  useComposerVideoPoll();
 
   const goBack = () => (step > 1 ? back() : onClose());
 

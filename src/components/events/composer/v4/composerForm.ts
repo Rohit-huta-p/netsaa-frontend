@@ -15,6 +15,7 @@ export interface MediaItemV4 {
   width?: number; height?: number;
   isHero?: boolean; sortOrder?: number;
   uploadId?: string; muxPlaybackId?: string; status?: 'processing' | 'ready' | 'errored';
+  duration?: number; aspectRatio?: string;   // video only — filled by the Mux status poll
 }
 export interface PersonV4 { userId?: string; displayName: string; role: string; avatarUrl?: string; invited?: boolean }
 export interface SpotV4 { id: string; name: string; note?: string; capacity: number; price: number } // price 0 = free
@@ -75,6 +76,7 @@ export interface ComposerFormV4 {
   bring: { items: string[]; note?: string };
   included: string[];
   photos: MediaItemV4[];
+  videos: MediaItemV4[];
   // step 6 — publish
   visibility: 'public' | 'unlisted' | 'private';
 }
@@ -103,6 +105,7 @@ export function initialFormV4(type: string = 'workshop'): ComposerFormV4 {
     cover: null, coverFit: 'whole', about: '', tagline: '',
     lineup: [], bring: { items: [] }, included: [],
     photos: [],
+    videos: [],
     visibility: 'public',
   };
 }
@@ -143,6 +146,13 @@ function buildMedia(form: ComposerFormV4): MediaItemV4[] {
   const out: MediaItemV4[] = [];
   if (form.cover) out.push({ ...form.cover, isHero: true, sortOrder: 0 });
   form.photos.forEach((m, i) => out.push({ ...m, isHero: false, sortOrder: i + 1 }));
+  // Videos ride after the photos. Only persist a reel that finished processing on
+  // Mux (has a playbackId) — a still-processing or errored reel never reaches the
+  // event doc, where nothing would later flip it to ready (publish is gated on this too).
+  const base = form.photos.length + 1;
+  form.videos
+    .filter((v) => v.status === 'ready' && v.muxPlaybackId)
+    .forEach((v, i) => out.push({ ...v, kind: 'video', isHero: false, sortOrder: base + i }));
   return out;
 }
 
@@ -239,8 +249,10 @@ export function eventToForm(e: any): Partial<ComposerFormV4> {
   }
 
   const media: MediaItemV4[] = Array.isArray(e?.media) ? e.media : [];
-  const cover = media.find((m) => m.isHero) || null;
-  const photos = media.filter((m) => !m.isHero);
+  const videos = media.filter((m) => m.kind === 'video');
+  const imgs = media.filter((m) => m.kind !== 'video');   // undefined kind = legacy photo
+  const cover = imgs.find((m) => m.isHero) || null;
+  const photos = imgs.filter((m) => !m.isHero);
 
   const presetKey = isPresetType(e?.eventType) ? e.eventType : undefined;
   return {
@@ -290,6 +302,7 @@ export function eventToForm(e: any): Partial<ComposerFormV4> {
     bring: e?.bring ? { items: Array.isArray(e.bring.items) ? e.bring.items : [], note: e.bring.note } : { items: [] },
     included: Array.isArray(e?.included) ? e.included : [],
     photos,
+    videos,
 
     visibility: e?.visibility || 'public',
   };

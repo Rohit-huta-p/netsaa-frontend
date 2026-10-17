@@ -1,31 +1,35 @@
 /**
- * Photo upload for the v4 composer.
+ * Photo + video upload for the v4 composer.
  *
- * Photos upload against the signed-in USER's scope (entityType:'user',
- * purpose:'gallery' — a valid combo that needs no event to exist yet), so the
- * cover/gallery can be added in-composer before the event is created. The
- * returned S3 url rides in the create payload's media[] (buildEventPayload →
- * composerMapping persists it). Reuses the app's uploadMediaFlow presign→S3 PUT.
+ * Both upload against the signed-in USER's scope (entityType:'user',
+ * purpose:'gallery' — a valid combo that needs no event to exist yet), so cover,
+ * gallery and video can be added in-composer before the event is created. What
+ * rides in the create payload's media[] (buildEventPayload → composerMapping
+ * persists it) is the S3 url (photos) or the Mux playbackId (video).
  *
- * NOTE: video is intentionally not handled here — Mux auto-attach is event-scoped,
- * so video needs the draft-first flow (create a draft event, upload against its
- * id, poll for the Mux playbackId). That's the documented follow-up.
+ * Photos reuse uploadMediaFlow (presign → S3 PUT) and are ready instantly.
+ * Video reuses uploadVideoFlow (presign → direct-to-Mux PUT); Mux then processes
+ * it asynchronously, so a video lands as status:'processing' and is advanced to
+ * 'ready' (with its playbackId) by useComposerVideoPoll, which runs at the shell
+ * level so polling survives step changes. This mirrors the live profile-reel flow.
  */
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { uploadMediaFlow } from '@/utils/upload';
+import { uploadMediaFlow, uploadVideoFlow } from '@/utils/upload';
 import { useAuthStore } from '@/stores/authStore';
 import { useComposerStoreV4 } from './useComposerStoreV4';
 import type { MediaItemV4 } from './composerForm';
 
 const MAX_PHOTOS = 6; // including the cover
+const MAX_VIDEOS = 2; // a promo/trailer plus one extra reel
 
 export function useComposerMediaV4() {
   const user = useAuthStore((s) => s.user);
   const photos = useComposerStoreV4((s) => s.form.photos);
+  const videos = useComposerStoreV4((s) => s.form.videos);
   const update = useComposerStoreV4((s) => s.update);
-  const [uploading, setUploading] = useState<null | 'cover' | 'gallery'>(null);
+  const [uploading, setUploading] = useState<null | 'cover' | 'gallery' | 'video'>(null);
 
   const pickImage = useCallback(async (): Promise<ImagePicker.ImagePickerAsset | null> => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -84,5 +88,50 @@ export function useComposerMediaV4() {
     [photos, update],
   );
 
-  return { uploading, addCover, addPhoto, removeCover, removePhoto };
+  const pickVideo = useCallback(async (): Promise<ImagePicker.ImagePickerAsset | null> => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Allow photo access', 'Enable photo-library access in Settings to add a video.');
+      return null;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      quality: 0.8,
+      videoMaxDuration: 60, // keep reels short — matches the profile reel cap
+    });
+    if (res.canceled || !res.assets?.length) return null;
+    return res.assets[0];
+  }, []);
+
+  const addVideo = useCallback(async () => {
+    if (uploading) return;
+    if (videos.length >= MAX_VIDEOS) {
+      Alert.alert('Video limit', `You can add up to ${MAX_VIDEOS} videos.`);
+      return;
+    }
+    if (!user?._id) { Alert.alert('Not signed in', 'Please sign in again to upload.'); return; }
+    setUploading('video');
+    try {
+      const asset = await pickVideo();
+      if (!asset) return;
+      // Direct-to-Mux PUT; bytes never touch our API. The reel starts life as
+      // 'processing' and the shell-level poll fills in its playbackId when ready.
+      const r = await uploadVideoFlow({ asset, entityType: 'user', entityId: user._id, purpose: 'gallery' });
+      if (!r.success || !r.uploadId) { Alert.alert('Upload failed', r.error || 'Please try again.'); return; }
+      const item: MediaItemV4 = {
+        kind: 'video', url: '', status: 'processing', uploadId: r.uploadId,
+        width: asset.width, height: asset.height,
+      };
+      update('videos', [...videos, item]);
+    } finally {
+      setUploading(null);
+    }
+  }, [uploading, videos, user, pickVideo, update]);
+
+  const removeVideo = useCallback(
+    (index: number) => update('videos', videos.filter((_, i) => i !== index)),
+    [videos, update],
+  );
+
+  return { uploading, addCover, addPhoto, removeCover, removePhoto, addVideo, removeVideo };
 }

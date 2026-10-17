@@ -91,4 +91,20 @@ describe('eventToForm — edit round-trip (form → payload → eventToForm)', (
     expect(back3.eventType).toBe('Sound bath');
     expect(back3.eventTypeLabel).toBe('Sound bath');
   });
+
+  it('splits media back into cover / photos / videos by kind', () => {
+    const p = buildEventPayload({
+      ...filledForm(),
+      cover: { kind: 'photo', url: 'cover.jpg' },
+      photos: [{ kind: 'photo', url: 'p1.jpg' }, { kind: 'photo', url: 'p2.jpg' }],
+      videos: [{ kind: 'video', url: 'https://stream.mux.com/pb.m3u8', status: 'ready', muxPlaybackId: 'pb', uploadId: 'up' }],
+    });
+    const back4 = eventToForm(p);
+    expect(back4.cover?.url).toBe('cover.jpg');
+    expect(back4.cover?.isHero).toBe(true);
+    expect(back4.photos?.map((m) => m.url)).toEqual(['p1.jpg', 'p2.jpg']);
+    expect(back4.photos?.every((m) => m.kind !== 'video')).toBe(true);
+    expect(back4.videos).toHaveLength(1);
+    expect(back4.videos?.[0]).toMatchObject({ kind: 'video', muxPlaybackId: 'pb' });
+  });
 });

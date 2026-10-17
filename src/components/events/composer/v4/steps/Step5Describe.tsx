@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, Image, ActivityIndicator } from 'react-native';
-import { Image as ImageIcon, Plus, X, Check } from 'lucide-react-native';
+import { Image as ImageIcon, Plus, X, Check, Video as VideoIcon, Play } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../useComposerStoreV4';
 import { useComposerMediaV4 } from '../useComposerMediaV4';
 import { presetFor, type DescribeSection } from '../eventTypePresets';
@@ -14,6 +14,7 @@ const SECTION_META: Record<DescribeSection, { label: string; sub: string }> = {
   included: { label: 'What they get', sub: "Anything included: certificates, materials, prizes, food." },
 };
 const ALL_SECTIONS: DescribeSection[] = ['lineup', 'bring', 'included'];
+const MAX_VIDEOS = 2; // keep in sync with useComposerMediaV4
 
 export default function Step5Describe() {
   const form = useComposerStoreV4((s) => s.form);
@@ -145,7 +146,43 @@ export default function Step5Describe() {
             {media.uploading === 'gallery' ? <ActivityIndicator color={C.dim} size="small" /> : <Plus size={18} color={C.dim} />}
           </Pressable>
         </View>
-        <Hint>Photos help people choose. Video is coming soon.</Hint>
+        <Hint>Photos help people choose.</Hint>
+      </Group>
+
+      <Group label="Video" optional sub={`Up to ${MAX_VIDEOS} — a promo, trailer or past highlight.`}>
+        <View style={{ gap: 8 }}>
+          {form.videos.map((v, i) => (
+            <View key={v.uploadId || i} style={st.reel}>
+              {v.status === 'processing' ? (
+                <View style={st.reelCenter}>
+                  <ActivityIndicator color={C.orange} />
+                  <Text style={st.reelMeta}>Processing…</Text>
+                </View>
+              ) : v.status === 'errored' ? (
+                <View style={st.reelCenter}>
+                  <Text style={[st.reelMeta, { color: C.red }]}>Upload failed</Text>
+                  <Text style={st.reelSub}>Remove and try another clip.</Text>
+                </View>
+              ) : (
+                <>
+                  {v.thumbnailUrl
+                    ? <Image source={{ uri: v.thumbnailUrl }} style={st.reelImg} />
+                    : <View style={[st.reelImg, { backgroundColor: C.well }]} />}
+                  <View style={st.reelPlay}><Play size={15} color="#fff" fill="#fff" /></View>
+                </>
+              )}
+              <Pressable style={st.reelRemove} onPress={() => media.removeVideo(i)} hitSlop={6}><X size={13} color="#fff" /></Pressable>
+            </View>
+          ))}
+          {form.videos.length < MAX_VIDEOS ? (
+            <Pressable style={st.reelAdd} onPress={media.addVideo} disabled={!!media.uploading}>
+              {media.uploading === 'video'
+                ? <ActivityIndicator color={C.dim} />
+                : (<><VideoIcon size={18} color={C.dim} /><Text style={st.reelAddTxt}>Add video</Text></>)}
+            </Pressable>
+          ) : null}
+        </View>
+        <Hint>Short clips play on your event page — up to 60 seconds each.</Hint>
       </Group>
     </View>
   );
@@ -185,4 +222,13 @@ const st = StyleSheet.create({
   thumb: { width: '100%', height: '100%', backgroundColor: C.well },
   thumbRemove: { position: 'absolute', top: 3, right: 3, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
   thumbAdd: { width: 72, height: 72, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, alignItems: 'center', justifyContent: 'center' },
+  reel: { aspectRatio: 16 / 9, borderRadius: 12, overflow: 'hidden', backgroundColor: C.card, borderWidth: 1, borderColor: C.border, position: 'relative' },
+  reelCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 5 },
+  reelMeta: { fontFamily: F.semibold, fontSize: 11, color: C.dim, textTransform: 'uppercase', letterSpacing: 1 },
+  reelSub: { fontFamily: F.body, fontSize: 11, color: C.dim2 },
+  reelImg: { width: '100%', height: '100%' },
+  reelPlay: { position: 'absolute', top: '50%', left: '50%', width: 40, height: 40, borderRadius: 20, marginLeft: -20, marginTop: -20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  reelRemove: { position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  reelAdd: { aspectRatio: 16 / 9, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, backgroundColor: C.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  reelAddTxt: { fontFamily: F.semibold, fontSize: 13, color: C.t3 },
 });

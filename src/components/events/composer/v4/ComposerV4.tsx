@@ -49,6 +49,13 @@ export default function ComposerV4({ eventId }: { eventId?: string }) {
   const submitting = create.isPending || update.isPending;
 
   const handleSubmit = () => {
+    // A reel still transcoding on Mux has no playbackId yet; publishing now would
+    // drop it (buildMedia only keeps ready reels) and nothing server-side would
+    // re-attach it. Make the host wait the few seconds instead.
+    if (form.videos.some((v) => v.status === 'processing')) {
+      Alert.alert('Video still processing', 'Your video is almost ready — give it a few seconds, then publish.');
+      return;
+    }
     if (eventId) {
       update.mutate(payload() as any, {
         onSuccess: () => { reset(); router.replace(`/(app)/events/${eventId}`); },

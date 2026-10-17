@@ -107,4 +107,28 @@ describe('buildEventPayload', () => {
     expect(p.media[0].isHero).toBe(true);
     expect(p.media[1].isHero).toBe(false);
   });
+
+  it('ready videos ride after the photos with a muxPlaybackId; processing/errored reels are dropped', () => {
+    const p = buildEventPayload(base({
+      cover: { kind: 'photo', url: 'u' },
+      photos: [{ kind: 'photo', url: 'p1' }],
+      videos: [
+        { kind: 'video', url: 'https://stream.mux.com/pb_ok.m3u8', status: 'ready', muxPlaybackId: 'pb_ok', uploadId: 'up_ok' },
+        { kind: 'video', url: '', status: 'processing', uploadId: 'up_wait' },
+        { kind: 'video', url: '', status: 'errored', uploadId: 'up_bad' },
+      ],
+    }));
+    expect(p.media).toHaveLength(3);                 // cover + 1 photo + 1 ready video
+    const video = p.media[2];
+    expect(video.kind).toBe('video');
+    expect(video.muxPlaybackId).toBe('pb_ok');
+    expect(video.isHero).toBe(false);
+    expect(video.sortOrder).toBe(2);
+    expect(p.media.some((m: any) => m.uploadId === 'up_wait' || m.uploadId === 'up_bad')).toBe(false);
+  });
+
+  it('a ready video with no playbackId is still not persisted', () => {
+    const p = buildEventPayload(base({ videos: [{ kind: 'video', url: '', status: 'ready' }] }));
+    expect(p.media).toHaveLength(0);
+  });
 });

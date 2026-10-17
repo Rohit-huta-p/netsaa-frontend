@@ -15,34 +15,38 @@ const seedPaid = (offers?: any[]) => {
   if (offers) s.update('offers', offers);
 };
 
-describe('Step3 — discounts as toggle sections', () => {
-  it('shows Early bird + Group rates toggles, no generic "Add a discount"; collapsed when off', () => {
+describe('Step3 — Discounts list + separate Group rates', () => {
+  it('offers an "Add a discount" button and a Group rates toggle; nothing expanded by default', () => {
     seedPaid();
     const { queryByText, queryByLabelText } = render(<Step3Spots />);
-    expect(queryByLabelText('Early bird')).toBeTruthy();   // toggle switch
-    expect(queryByLabelText('Group rates')).toBeTruthy();
-    expect(queryByText('Add a discount')).toBeNull();      // removed — you toggle on instead
-    expect(queryByText('Price each')).toBeNull();          // early bird off → no inputs
-    expect(queryByText('Add a tier')).toBeNull();          // group off → no ladder
+    expect(queryByText('Add a discount')).toBeTruthy();   // the add button for multiple discounts (#1)
+    expect(queryByLabelText('Group rates')).toBeTruthy(); // separate section with its own toggle (#3)
+    expect(queryByText('Price each')).toBeNull();         // no discount cards yet
+    expect(queryByText('Add a tier')).toBeNull();         // group rates off
   });
 
-  it('early bird on → price input; group on → a tier row + Add a tier', () => {
-    seedPaid([
-      { id: 'eb', name: 'Early bird', audience: 'everyone', price: 400, seatLimit: 20 },
-      { id: 'g1', name: 'Group rate', audience: 'group', minSeats: 2, price: 450 },
-    ]);
+  it('a discount card shows price, a deadline field and an optional first-N cap (#1 + #2)', () => {
+    seedPaid([{ id: 'd1', name: 'Early bird', audience: 'everyone', price: 400, endsAt: null, seatLimit: 20 }]);
     const { queryByText } = render(<Step3Spots />);
-    expect(queryByText('Price each')).toBeTruthy();  // early bird expanded
-    expect(queryByText('+ people')).toBeTruthy();    // one group tier row
+    expect(queryByText('Price each')).toBeTruthy();
+    expect(queryByText('Ends on')).toBeTruthy();                        // deadline (#2)
+    expect(queryByText('No deadline')).toBeTruthy();
+    expect(queryByText('First N tickets (optional)')).toBeTruthy();
+  });
+
+  it('group rates on → a tier row + Add a tier, independent of the discount list', () => {
+    seedPaid([{ id: 'g1', name: 'Group rate', audience: 'group', minSeats: 2, price: 450 }]);
+    const { queryByText } = render(<Step3Spots />);
+    expect(queryByText('+ people')).toBeTruthy();
     expect(queryByText('Add a tier')).toBeTruthy();
   });
 
-  it('no discounts UI on a free event', () => {
+  it('no discounts / group UI on a free event', () => {
     const s = useComposerStoreV4.getState();
     s.reset('workshop');
     s.update('paid', false);
-    const { queryByLabelText, queryByText } = render(<Step3Spots />);
-    expect(queryByLabelText('Early bird')).toBeNull();
-    expect(queryByText('Discounts')).toBeNull();
+    const { queryByText, queryByLabelText } = render(<Step3Spots />);
+    expect(queryByText('Add a discount')).toBeNull();
+    expect(queryByLabelText('Group rates')).toBeNull();
   });
 });

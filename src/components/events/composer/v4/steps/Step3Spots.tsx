@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
-import { Gift, IndianRupee, Calendar, Clock, Users, Plus, X } from 'lucide-react-native';
+import { Gift, IndianRupee, Calendar, Users, Tag, Plus, X } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../useComposerStoreV4';
 import { Group, TextField, Segmented, Hint, Card } from '../ui';
 import { C, F } from '../theme';
@@ -8,7 +8,8 @@ import { computeOrganizerBreakdown, formatRupees } from '@/lib/eventPricing';
 import { CalendarModal } from '@/components/ui/CalendarModal';
 import type { OfferV4 } from '../composerForm';
 
-const MAX_TIERS = 4;
+const MAX_DISCOUNTS = 3, MAX_TIERS = 3;
+const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '');
 
 // A plain number box. Money = same box with a ₹ prefix.
 const Num = ({ value, onChange, prefix, placeholder = '0' }: {
@@ -33,22 +34,20 @@ export default function Step3Spots() {
   const updateSpot = useComposerStoreV4((s) => s.updateSpot);
   const { addOffer, updateOffer, removeOffer } = useComposerStoreV4.getState();
   const [refundOpen, setRefundOpen] = useState(false);
+  const [deadlineFor, setDeadlineFor] = useState<string | null>(null);
 
-  // One ticket type per event — kept as the single spot the backend derives from.
+  // One ticket type per event — the single spot the backend derives from.
   const spot = form.spots[0];
   const basePrice = spot?.price ?? 0;
   const earn = form.paid && spot && spot.price > 0 ? computeOrganizerBreakdown(spot.price, 1) : null;
   const setCapacity = (n: number) => spot && updateSpot(spot.id, { capacity: n });
   const setPrice = (n: number) => spot && updateSpot(spot.id, { price: n });
 
-  // Discounts live in form.offers: one audience:'everyone' (early bird) + N audience:'group' tiers.
-  const earlyBird = form.offers.find((o) => o.audience === 'everyone');
+  // Discounts = everyone-offers (price + deadline + first-N) · Group rates = group-offers (min + price).
+  const discounts = form.offers.filter((o) => o.audience === 'everyone');
   const groupTiers = form.offers.filter((o) => o.audience === 'group');
 
-  const toggleEarlyBird = () => {
-    if (earlyBird) update('offers', form.offers.filter((o) => o.audience !== 'everyone'));
-    else addOffer({ name: 'Early bird', audience: 'everyone', price: basePrice });
-  };
+  const addDiscount = () => { if (discounts.length < MAX_DISCOUNTS) addOffer({ name: '', audience: 'everyone', price: basePrice }); };
   const toggleGroup = () => {
     if (groupTiers.length) update('offers', form.offers.filter((o) => o.audience !== 'group'));
     else addOffer({ name: 'Group rate', audience: 'group', minSeats: 2, price: basePrice });
@@ -96,33 +95,55 @@ export default function Step3Spots() {
         </Group>
       ) : null}
 
+      {/* ── Discounts: a list you add to, each with a deadline ── */}
       {form.paid ? (
-        <Group label="Discounts" optional sub="Reward booking early, or booking together. Turn on what you want.">
-          {/* ── Early bird ── */}
-          <View style={[st.disc, !!earlyBird && st.discOn]}>
-            <View style={st.discHead}>
-              <View style={st.discIc}><Clock size={15} color={C.orange} /></View>
-              <View style={{ flex: 1 }}>
-                <Text style={st.discName}>Early bird</Text>
-                <Text style={st.discMeta}>A lower price for everyone — or just the first few.</Text>
+        <Group label="Discounts" optional sub="A lower price for everyone — add as many as you like, each with its own deadline.">
+          {discounts.map((o: OfferV4) => (
+            <Card key={o.id} style={st.offerCardGap}>
+              <View style={st.offerTop}>
+                <View style={st.offerName}>
+                  <Tag size={13} color={C.orange} />
+                  <TextInput value={o.name} onChangeText={(t) => updateOffer(o.id, { name: t })} placeholder="Name (e.g. Early bird)" placeholderTextColor={C.dim2} style={st.offerNameInput} />
+                </View>
+                <Pressable onPress={() => removeOffer(o.id)} hitSlop={6}><X size={16} color={C.dim2} /></Pressable>
               </View>
-              <Toggle on={!!earlyBird} onPress={toggleEarlyBird} label="Early bird" />
-            </View>
-            {earlyBird ? (
-              <View style={[st.row, { marginTop: 12 }]}>
-                <View style={{ flex: 1 }}><Text style={st.miniLab}>Price each</Text><Num prefix="₹" value={earlyBird.price} onChange={(n) => updateOffer(earlyBird.id, { price: n })} /></View>
-                <View style={{ flex: 1 }}><Text style={st.miniLab}>First N tickets</Text><Num value={earlyBird.seatLimit ?? 0} onChange={(n) => updateOffer(earlyBird.id, { seatLimit: n || null })} placeholder="any" /></View>
+              <View style={st.row}>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.miniLab}>Price each</Text>
+                  <Num prefix="₹" value={o.price} onChange={(n) => updateOffer(o.id, { price: n })} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.miniLab}>Ends on</Text>
+                  <View style={st.dateBox}>
+                    <Pressable style={st.dateMain} onPress={() => setDeadlineFor(o.id)}>
+                      <Calendar size={13} color={C.dim} />
+                      <Text style={[st.dateTxt, !o.endsAt && { color: C.dim2 }]} numberOfLines={1}>{o.endsAt ? fmtDate(o.endsAt) : 'No deadline'}</Text>
+                    </Pressable>
+                    {o.endsAt ? <Pressable onPress={() => updateOffer(o.id, { endsAt: null })} hitSlop={6}><X size={13} color={C.dim2} /></Pressable> : null}
+                  </View>
+                </View>
               </View>
-            ) : null}
-          </View>
+              <View>
+                <Text style={st.miniLab}>First N tickets (optional)</Text>
+                <Num value={o.seatLimit ?? 0} onChange={(n) => updateOffer(o.id, { seatLimit: n || null })} placeholder="No cap" />
+              </View>
+            </Card>
+          ))}
+          {discounts.length < MAX_DISCOUNTS ? (
+            <Pressable onPress={addDiscount} style={st.add}><Plus size={16} color={C.orange} /><Text style={st.addTxt}>Add a discount</Text></Pressable>
+          ) : <Hint>{MAX_DISCOUNTS} of {MAX_DISCOUNTS} used. Remove one to add another.</Hint>}
+        </Group>
+      ) : null}
 
-          {/* ── Group rates (its own section + toggle) ── */}
+      {/* ── Group rates: its own section + toggle ── */}
+      {form.paid ? (
+        <Group label="Group rates" optional sub="Cheaper when people book together.">
           <View style={[st.disc, groupTiers.length > 0 && st.discOn]}>
             <View style={st.discHead}>
               <View style={st.discIc}><Users size={15} color={C.orange} /></View>
               <View style={{ flex: 1 }}>
-                <Text style={st.discName}>Group rates</Text>
-                <Text style={st.discMeta}>Cheaper when people book together.</Text>
+                <Text style={st.discName}>Group pricing</Text>
+                <Text style={st.discMeta}>Set a lower price for bigger groups.</Text>
               </View>
               <Toggle on={groupTiers.length > 0} onPress={toggleGroup} label="Group rates" />
             </View>
@@ -142,13 +163,13 @@ export default function Step3Spots() {
               </View>
             ) : null}
           </View>
-
-          {(earlyBird || groupTiers.length > 0) ? (
-            <View style={st.ruleBar}>
-              <Text style={st.ruleTxt}>Each person pays the best price they qualify for — a group of 6 gets the 5+ rate, or the early-bird price if it's lower. Discounts don't stack.</Text>
-            </View>
-          ) : null}
         </Group>
+      ) : null}
+
+      {form.paid && (discounts.length > 0 || groupTiers.length > 0) ? (
+        <View style={st.ruleBar}>
+          <Text style={st.ruleTxt}>Each person pays the best price they qualify for — a group of 6 gets the 5+ rate, or a discount if it's lower and still running. They don't stack.</Text>
+        </View>
       ) : null}
 
       {form.paid ? (
@@ -173,6 +194,8 @@ export default function Step3Spots() {
 
       <CalendarModal visible={refundOpen} onClose={() => setRefundOpen(false)} minDate={new Date()}
         onSelect={(d) => { update('refundFullUntil', d.toISOString()); setRefundOpen(false); }} />
+      <CalendarModal visible={!!deadlineFor} onClose={() => setDeadlineFor(null)} minDate={new Date()}
+        onSelect={(d) => { if (deadlineFor) updateOffer(deadlineFor, { endsAt: d.toISOString() }); setDeadlineFor(null); }} />
     </View>
   );
 }
@@ -188,24 +211,29 @@ const st = StyleSheet.create({
   num: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, paddingHorizontal: 12, height: 46 },
   prefix: { fontFamily: F.bold, fontSize: 16, color: C.dim },
   numInput: { flex: 1, fontFamily: F.bold, fontSize: 16, color: C.t1, padding: 0, minWidth: 0 },
-  // discount section (early bird / group rates)
+  // discount card
+  offerCardGap: { gap: 11 },
+  offerTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  offerName: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  offerNameInput: { flex: 1, fontFamily: F.bold, fontSize: 14, color: C.t1, padding: 0 },
+  dateBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, height: 46, paddingHorizontal: 12 },
+  dateMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dateTxt: { flex: 1, fontFamily: F.semibold, fontSize: 13.5, color: C.t2 },
+  // group section
   disc: { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 15 },
   discOn: { borderColor: C.orangeBorder, backgroundColor: 'rgba(255,107,53,0.05)' },
   discHead: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   discIc: { width: 30, height: 30, borderRadius: 9, backgroundColor: C.orangeSoft, alignItems: 'center', justifyContent: 'center' },
   discName: { fontFamily: F.serif, fontSize: 16, color: C.t1, letterSpacing: -0.2 },
   discMeta: { fontFamily: F.body, fontSize: 10.5, color: C.dim, marginTop: 1 },
-  // toggle switch
   tog: { width: 44, height: 26, borderRadius: 13, backgroundColor: C.border2, padding: 3, justifyContent: 'center' },
   togOn: { backgroundColor: C.orange },
   knob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff', alignSelf: 'flex-start' },
   knobOn: { alignSelf: 'flex-end' },
-  // group tier row
   tier: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tierMinBox: { width: 68 },
   tierLbl: { fontFamily: F.semibold, fontSize: 12, color: C.dim },
-  // rule note
-  ruleBar: { backgroundColor: 'rgba(139,92,246,0.08)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.22)', borderRadius: 12, padding: 12 },
+  ruleBar: { backgroundColor: 'rgba(139,92,246,0.08)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.22)', borderRadius: 12, padding: 12, marginTop: -4, marginBottom: 4 },
   ruleTxt: { fontFamily: F.body, fontSize: 11, color: C.t4, lineHeight: 16 },
   add: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.well, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, borderRadius: 11, paddingVertical: 11, paddingHorizontal: 12, justifyContent: 'center' },
   addTxt: { fontFamily: F.semibold, fontSize: 13, color: C.orange },

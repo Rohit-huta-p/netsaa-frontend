@@ -11,12 +11,12 @@ import { View, Text, Pressable, StyleSheet, Image, StyleProp, ViewStyle } from '
 import { LinearGradient } from 'expo-linear-gradient';
 
 export const C = {
-  canvas: '#050505',
-  card: '#0B0B0F',
-  well: '#101016',
-  wellb: '#262630',
-  chip: '#141419',
-  chipb: '#26262f',
+  canvas: '#121216',
+  card: '#1C1C23',
+  well: '#212129',
+  wellb: '#35353F',
+  chip: '#24242E',
+  chipb: '#3C3C47',
   orange: '#FF6B35',
   orangeSoft: 'rgba(255,107,53,0.10)',
   orangeBorder: 'rgba(255,107,53,0.30)',
@@ -32,7 +32,7 @@ export const C = {
   t4: '#8B8B99',
   t5: '#54545C',
   t6: '#3F3F46',
-  hair: 'rgba(255,255,255,0.06)',
+  hair: 'rgba(255,255,255,0.08)',
 } as const;
 
 // Space Grotesk → Outfit-Bold (display), Space Mono → Outfit-SemiBold uppercase.

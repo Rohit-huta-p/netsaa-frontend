@@ -1154,34 +1154,42 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                             <EditModalToast state={toast} onDismiss={() => setToast(null)} />
 
                             {discardPromptVisible && (
-                                <View style={{
-                                    position: 'absolute', left: 0, right: 0, bottom: 0,
-                                    backgroundColor: P.surface, borderTopWidth: 1, borderTopColor: P.border,
-                                    padding: 20, gap: 12, zIndex: 100,
-                                }}>
-                                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 14, color: P.textPrimary }}>
-                                        You have unsaved changes
-                                    </Text>
-                                    <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textSecondary }}>
-                                        Discard them?
-                                    </Text>
-                                    <View style={{ flexDirection: 'row', gap: 12 }}>
-                                        <TouchableOpacity
-                                            onPress={handleKeepEditing}
-                                            style={{ flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: P.border, alignItems: 'center' }}>
-                                            <Text style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-                                                Keep editing
-                                            </Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            onPress={handleConfirmDiscard}
-                                            style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: P.danger, alignItems: 'center' }}>
-                                            <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-                                                Discard
-                                            </Text>
-                                        </TouchableOpacity>
+                                <>
+                                    {/* scrim — dims the form so the prompt reads as a deliberate decision; tap = keep editing */}
+                                    <Pressable
+                                        onPress={handleKeepEditing}
+                                        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 99 }}
+                                    />
+                                    <View style={{
+                                        position: 'absolute', left: 0, right: 0, bottom: 0,
+                                        backgroundColor: P.surface, borderTopWidth: 1, borderTopColor: P.border,
+                                        paddingHorizontal: 20, paddingTop: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+                                        gap: 10, zIndex: 100,
+                                    }}>
+                                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 16, color: P.textPrimary }}>
+                                            You have unsaved changes
+                                        </Text>
+                                        <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 13, lineHeight: 19, color: P.textSecondary, marginBottom: 4 }}>
+                                            Your edits haven’t been saved yet. Leave now and you’ll lose them.
+                                        </Text>
+                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            <TouchableOpacity
+                                                onPress={handleKeepEditing}
+                                                style={{ flex: 1, paddingVertical: 13, borderRadius: 12, borderWidth: 1, borderColor: P.border, alignItems: 'center' }}>
+                                                <Text style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                                    Keep editing
+                                                </Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                onPress={handleConfirmDiscard}
+                                                style={{ flex: 1, paddingVertical: 13, borderRadius: 12, backgroundColor: P.danger, alignItems: 'center' }}>
+                                                <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                                    Discard changes
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     </View>
-                                </View>
+                                </>
                             )}
 
                             <HeightPickerSheet

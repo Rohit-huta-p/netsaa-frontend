@@ -188,6 +188,7 @@ export function HirerGigHub({ gigId }: Props) {
                     eventFunction={gig.eventFunction}
                     city={gig.location?.city}
                     startDate={gig.schedule?.startDate ?? gig.startDate}
+                    schedule={gig.schedule}
                     showStatus={!showMobileHeader}
                 />
 
@@ -270,6 +271,7 @@ export function HirerGigHub({ gigId }: Props) {
 
                 <HubEssentials
                     eventDate={gig.schedule?.startDate ?? gig.startDate}
+                    schedule={gig.schedule}
                     venue={gig.location?.venueName}
                     city={gig.location?.city}
                     scope={gig.description}

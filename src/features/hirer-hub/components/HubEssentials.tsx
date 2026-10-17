@@ -8,10 +8,15 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Calendar, MapPin, FileText, Clock } from 'lucide-react-native';
 
+import { formatGigWhen, type GigScheduleInput } from '@/utils/gigSchedule';
+
 const COLORS = { text0: '#F3EFE8', text1: '#B8B1A6', text2: '#6B6878', orange: '#FF6B35', line: 'rgba(243,239,232,0.07)' };
 
 type Props = {
     eventDate?: string;
+    /** GigForm v2.2 schedule — renders the real range / specific-dates in the
+     *  "When" row. Falls back to eventDate when absent. */
+    schedule?: GigScheduleInput;
     venue?: string;
     city?: string;
     scope?: string;
@@ -57,7 +62,9 @@ function Row({ icon: Icon, label, value, sub, last }: { icon: any; label: string
     );
 }
 
-export function HubEssentials({ eventDate, venue, city, scope, postedDate, onEditGig }: Props) {
+export function HubEssentials({ eventDate, schedule, venue, city, scope, postedDate, onEditGig }: Props) {
+    // v2.2 — real range / specific-dates; fall back to the single eventDate.
+    const when = schedule ? formatGigWhen(schedule) : { value: fmtEvent(eventDate) };
     return (
         <View style={{ paddingTop: 28, paddingHorizontal: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -72,7 +79,7 @@ export function HubEssentials({ eventDate, venue, city, scope, postedDate, onEdi
             </View>
 
             <View>
-                <Row icon={Calendar} label="When" value={fmtEvent(eventDate)} />
+                <Row icon={Calendar} label="When" value={when.value} sub={when.sub} />
                 <Row
                     icon={MapPin}
                     label="Where"

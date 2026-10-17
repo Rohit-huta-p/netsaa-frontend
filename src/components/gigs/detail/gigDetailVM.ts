@@ -141,8 +141,9 @@ function facetsVM(gig: any): { facets: string[]; overflow: number } {
   const discipline = gig?.artistTypes?.[0];
   const mode = gig?.location?.isRemote ? 'Remote' : 'On-site';
   const exp = gig?.minExperienceYears ? `${gig.minExperienceYears}+ yrs` : undefined;
-  const occasion = gig?.eventFunction || gig?.tags?.[0];
-  const facets = [discipline, mode, exp, occasion].filter(Boolean) as string[];
+  // Occasion / event-function is intentionally NOT a facet chip (it reads in
+  // the title + Details); keep the pills to discipline · mode · experience.
+  const facets = [discipline, mode, exp].filter(Boolean) as string[];
   const extraPool = [...(gig?.requiredSkills ?? []), ...(gig?.tags ?? [])];
   const overflow = Math.max(0, extraPool.length - 1); // rough; tune with real facet rules
   return { facets, overflow };

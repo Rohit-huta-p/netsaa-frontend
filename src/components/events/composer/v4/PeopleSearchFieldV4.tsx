@@ -85,7 +85,6 @@ export default function PeopleSearchFieldV4({ roleLabel, existingUserIds, onPick
                   <Text style={st.name} numberOfLines={1}>{person.displayName}</Text>
                   {meta ? <Text style={st.meta} numberOfLines={1}>{meta}</Text> : null}
                 </View>
-                <Text style={st.onNetsa}>On NETSA</Text>
               </Pressable>
             );
           })}
@@ -115,7 +114,6 @@ const st = StyleSheet.create({
   avatarBlank: { borderWidth: 1, borderColor: C.border2 },
   name: { fontFamily: F.semibold, fontSize: 13, color: C.t2 },
   meta: { fontFamily: F.body, fontSize: 11, color: C.dim, marginTop: 1 },
-  onNetsa: { fontFamily: F.mono, fontSize: 8.5, letterSpacing: 0.6, color: C.green, textTransform: 'uppercase' },
   empty: { fontFamily: F.body, fontSize: 12, color: C.dim, paddingHorizontal: 12, paddingVertical: 11 },
   addPlainIc: { alignItems: 'center', justifyContent: 'center', backgroundColor: C.orangeSoft },
   addPlain: { flex: 1, fontFamily: F.semibold, fontSize: 13, color: C.t3 },

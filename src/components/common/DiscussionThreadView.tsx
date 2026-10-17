@@ -14,11 +14,11 @@ import { View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator } fro
 import { Send, CornerUpLeft, X, MessageSquare } from 'lucide-react-native';
 
 const C = {
-  well: '#101016', wellb: '#262630',
+  well: '#212129', wellb: '#35353F',
   orange: '#FF6B35', orangeTint: '#FFCBB2',
   orangeSoft: 'rgba(255,107,53,0.10)', orangeBorder: 'rgba(255,107,53,0.28)', orange06: 'rgba(255,107,53,0.06)',
   t1: '#FFFFFF', t2: '#D4D4D8', t3: '#A1A1AA', t4: '#8B8B99', t5: '#54545C',
-  hair: 'rgba(255,255,255,0.06)', avatarBg: '#1A1A20', producerBg: '#2A1A12',
+  hair: 'rgba(255,255,255,0.08)', avatarBg: '#24242E', producerBg: '#2A1A12',
 };
 
 export interface ThreadComment {
@@ -196,7 +196,7 @@ export default function DiscussionThreadView({
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, justifyContent: 'center', marginTop: 18 }}>
             {starterPrompts.map((p) => (
-              <TouchableOpacity key={p} onPress={() => onChangeText(p)} style={{ borderWidth: 1, borderColor: C.wellb, backgroundColor: '#141419', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}>
+              <TouchableOpacity key={p} onPress={() => onChangeText(p)} style={{ borderWidth: 1, borderColor: C.wellb, backgroundColor: '#24242E', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}>
                 <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: C.t3 }}>{p}</Text>
               </TouchableOpacity>
             ))}

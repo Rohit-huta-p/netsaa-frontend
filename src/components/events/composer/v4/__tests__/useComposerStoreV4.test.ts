@@ -35,10 +35,10 @@ describe('useComposerStoreV4', () => {
     expect(S().form.offers[0].spotId).toBeUndefined();
   });
 
-  it('offers cap at 3, questions cap at 3', () => {
-    for (let i = 0; i < 9; i++) S().addOffer();
+  it('offers cap at 6 (1 early-bird + up to 5 group tiers), questions cap at 3', () => {
+    for (let i = 0; i < 12; i++) S().addOffer();
     for (let i = 0; i < 9; i++) S().addQuestion();
-    expect(S().form.offers.length).toBe(3);
+    expect(S().form.offers.length).toBe(6);
     expect(S().form.questions.length).toBe(3);
   });
 

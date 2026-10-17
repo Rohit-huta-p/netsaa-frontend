@@ -16,7 +16,7 @@ import {
 } from './composerForm';
 
 export type V4Step = 1 | 2 | 3 | 4 | 5 | 6;
-const MAX_SPOTS = 8, MAX_OFFERS = 3, MAX_QUESTIONS = 3;
+const MAX_SPOTS = 8, MAX_OFFERS = 6, MAX_QUESTIONS = 3; // offers = 1 early-bird + up to 5 group tiers
 
 let seq = 0;
 const uid = (p: string) => `${p}-${++seq}-${Math.random().toString(36).slice(2, 7)}`;

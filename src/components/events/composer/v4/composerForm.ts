@@ -97,7 +97,9 @@ export function initialFormV4(type: string = 'workshop'): ComposerFormV4 {
     people: [],
     startsAt: null, endsAt: null, timeTbd: false, durationKind: null, format: 'in_person', location: {},
     paid: false,
-    spots: preset.startingSpots.map((s, i) => ({ id: `spot-${i}`, name: s.name, note: s.note, capacity: 20, price: 0 })),
+    // One ticket type per event (kept simple): a single invisible spot the
+    // backend derives capacity/price from. Not seeded per type anymore.
+    spots: [{ id: 'spot-0', name: 'General', capacity: 20, price: 0 }],
     offers: [],
     refundPolicy: 'flex_24h',
     door: preset.defaultDoor,
@@ -227,9 +229,19 @@ export function buildEventPayload(form: ComposerFormV4): Record<string, any> {
 export function eventToForm(e: any): Partial<ComposerFormV4> {
   const paid = e?.registrationMode === 'paid_ticket';
 
-  const spots: SpotV4[] = Array.isArray(e?.spots) && e.spots.length
-    ? e.spots.map((s: any, i: number) => ({ id: String(s._id || `spot-${i}`), name: s.name || '', note: s.note, capacity: Number(s.capacity) || 0, price: Number(s.price) || 0 }))
-    : [{ id: 'spot-0', name: 'Standard', capacity: Number(e?.capacity?.total) || 20, price: paid ? (Number(e?.pricing?.amount ?? e?.ticketPrice) || 0) : 0 }];
+  // Collapse any event to a single ticket type: total capacity + its one price.
+  // (The composer is one-ticket now; a legacy multi-spot event folds down, keeping
+  // the first spot's _id so its identity is preserved on save.)
+  const firstSpot = Array.isArray(e?.spots) && e.spots.length ? e.spots[0] : undefined;
+  const totalCap = Number(e?.capacity?.total)
+    || (Array.isArray(e?.spots) ? e.spots.reduce((n: number, s: any) => n + (Number(s.capacity) || 0), 0) : 0)
+    || 20;
+  const spots: SpotV4[] = [{
+    id: String(firstSpot?._id || 'spot-0'),
+    name: firstSpot?.name || 'General',
+    capacity: totalCap,
+    price: paid ? (Number(e?.pricing?.amount ?? e?.ticketPrice ?? firstSpot?.price) || 0) : 0,
+  }];
 
   const offers: OfferV4[] = Array.isArray(e?.offers) ? e.offers.map((o: any, i: number) => ({
     id: String(o._id || `offer-${i}`), spotId: o.spotId ? String(o.spotId) : undefined,

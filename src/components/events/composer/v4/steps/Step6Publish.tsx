@@ -36,7 +36,7 @@ export default function Step6Publish() {
     { ok: !!form.title.trim(), text: form.title.trim() ? `Titled “${form.title.trim()}”` : 'Add a title', fix: 1 },
     { ok: form.timeTbd || !!form.startsAt, text: form.timeTbd ? 'Date to be announced' : form.startsAt ? fmtDate(form.startsAt, false) : 'Set a date and time', fix: 2 },
     { ok: form.format === 'online' ? !!form.location.onlinePlatform : !!(form.location.venueName || form.location.city), text: form.format === 'online' ? (form.location.onlinePlatform ? 'Online event' : 'Say where it happens online') : (form.location.venueName || form.location.city ? place : 'Add a venue'), fix: 2 },
-    { ok: totalCap > 0, text: totalCap > 0 ? `${totalCap} ${totalCap === 1 ? 'spot' : 'spots'} across ${form.spots.length} ${form.spots.length === 1 ? 'kind' : 'kinds'}` : 'Add at least one spot', fix: 3 },
+    { ok: totalCap > 0, text: totalCap > 0 ? (form.paid && paidSpots.length ? `${totalCap} ${totalCap === 1 ? 'ticket' : 'tickets'} · ${priceText}` : `Room for ${totalCap}`) : 'Set how many can join', fix: 3 },
     { ok: !!form.about.trim(), text: form.about.trim() ? 'About is written' : 'Write a few lines in About', fix: 5 },
     { ok: !!form.cover, text: form.cover ? 'Cover added' : 'Add a cover so your event stands out', fix: 5 },
   ];

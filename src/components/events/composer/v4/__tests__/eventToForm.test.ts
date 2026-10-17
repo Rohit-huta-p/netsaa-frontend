@@ -60,9 +60,10 @@ describe('eventToForm — edit round-trip (form → payload → eventToForm)', (
     expect(back.location.city).toBe('Pune');
   });
 
-  it('preserves spots, paid flag and offers', () => {
+  it('collapses to one ticket (total capacity + its price), keeping paid flag and offers', () => {
     expect(back.paid).toBe(true);
-    expect(back.spots.map((s) => [s.name, s.capacity, s.price])).toEqual([['Dancer', 20, 1500], ['Observer', 10, 800]]);
+    expect(back.spots).toHaveLength(1);                                   // one ticket type now
+    expect([back.spots[0].capacity, back.spots[0].price]).toEqual([30, 800]); // 20+10 cap, lowest paid price
     expect(back.offers).toHaveLength(1);
     expect(back.offers[0]).toMatchObject({ name: 'Early bird', price: 1200, audience: 'everyone', seatLimit: 10 });
   });

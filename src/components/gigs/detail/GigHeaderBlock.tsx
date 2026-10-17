@@ -60,9 +60,9 @@ export function GigHeaderBlock({
       {(vm.facets.length > 0 || vm.overflow > 0) && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
           {vm.facets.map((f, i) => (
-            <Chip key={`${f}-${i}`}>{f}</Chip>
+            <Chip key={`${f}-${i}`} small>{f}</Chip>
           ))}
-          {vm.overflow > 0 && <Chip muted>{`+${vm.overflow}`}</Chip>}
+          {vm.overflow > 0 && <Chip muted small>{`+${vm.overflow}`}</Chip>}
         </ScrollView>
       )}
     </View>

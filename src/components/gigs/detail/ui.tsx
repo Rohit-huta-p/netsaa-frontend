@@ -146,10 +146,10 @@ export function KVRow({ k, v, sub, last }: { k: string; v: string; sub?: string;
   );
 }
 
-export function Chip({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
+export function Chip({ children, muted, small }: { children: React.ReactNode; muted?: boolean; small?: boolean }) {
   return (
-    <View style={s.chip}>
-      <Text style={[s.chipTxt, muted && { color: C.t4 }]}>{children}</Text>
+    <View style={[s.chip, small && s.chipSm]}>
+      <Text style={[s.chipTxt, small && s.chipTxtSm, muted && { color: C.t4 }]}>{children}</Text>
     </View>
   );
 }
@@ -178,6 +178,8 @@ const s = StyleSheet.create({
   rSub: { fontFamily: F.reg, fontSize: 12, color: C.t4, marginTop: 2 },
   chip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 10, backgroundColor: C.chip, borderWidth: 1, borderColor: C.chipb },
   chipTxt: { fontFamily: F.reg, fontSize: 13, color: C.t3 },
+  chipSm: { paddingHorizontal: 11, paddingVertical: 4.5, borderRadius: 999 },
+  chipTxtSm: { fontSize: 11 },
   tag: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 9, backgroundColor: C.orangeSoft, borderWidth: 1, borderColor: C.orangeBorder },
   tagTxt: { fontFamily: F.med, fontSize: 12.5, color: C.orangeTint },
 });

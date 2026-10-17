@@ -2,12 +2,17 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { MapPin } from 'lucide-react-native';
 
+import { formatGigWhenCompact, type GigScheduleInput } from '@/utils/gigSchedule';
+
 type Props = {
     title: string;
     status?: string; // 'draft' | 'published' | 'closed' | 'paused'
     eventFunction?: string;
     city?: string;
     startDate?: string;
+    /** GigForm v2.2 schedule — renders the real range or specific-dates list
+     *  instead of just startDate. Falls back to startDate when absent. */
+    schedule?: GigScheduleInput;
     /** When false, the status pill is hidden here (parent renders it in the header row). */
     showStatus?: boolean;
 };
@@ -32,10 +37,11 @@ function formatHeroDate(iso?: string): string {
     }
 }
 
-export function HubHero({ title, status, eventFunction, city, startDate, showStatus = true }: Props) {
+export function HubHero({ title, status, eventFunction, city, startDate, schedule, showStatus = true }: Props) {
     const statusInfo = STATUS_LABEL[status ?? ''] ?? STATUS_LABEL.published;
     const eyebrow = eventFunction ? eventFunction.toUpperCase() : null;
-    const dateStr = formatHeroDate(startDate);
+    // v2.2 — show the real range / specific-dates; fall back to startDate.
+    const dateStr = formatGigWhenCompact(schedule) || formatHeroDate(startDate);
     const submeta = [city, dateStr].filter(Boolean).join('   ·   ');
 
     return (

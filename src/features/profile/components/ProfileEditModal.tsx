@@ -1154,22 +1154,23 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                             <EditModalToast state={toast} onDismiss={() => setToast(null)} />
 
                             {discardPromptVisible && (
-                                <>
-                                    {/* scrim — dims the form so the prompt reads as a deliberate decision; tap = keep editing */}
+                                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 }}>
+                                    {/* scrim — dims the form; tap outside the card = keep editing */}
                                     <Pressable
                                         onPress={handleKeepEditing}
-                                        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 99 }}
+                                        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' }}
                                     />
+                                    {/* centered dialog — floats in the middle of the form */}
                                     <View style={{
-                                        position: 'absolute', left: 0, right: 0, bottom: 0,
-                                        backgroundColor: P.surface, borderTopWidth: 1, borderTopColor: P.border,
-                                        paddingHorizontal: 20, paddingTop: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-                                        gap: 10, zIndex: 100,
+                                        width: '100%', maxWidth: 360,
+                                        backgroundColor: P.surface, borderWidth: 1, borderColor: P.border, borderRadius: 20,
+                                        padding: 22, gap: 10,
+                                        shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 28, shadowOffset: { width: 0, height: 14 }, elevation: 16,
                                     }}>
-                                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 16, color: P.textPrimary }}>
+                                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 17, color: P.textPrimary }}>
                                             You have unsaved changes
                                         </Text>
-                                        <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 13, lineHeight: 19, color: P.textSecondary, marginBottom: 4 }}>
+                                        <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 13, lineHeight: 19, color: P.textSecondary, marginBottom: 6 }}>
                                             Your edits haven’t been saved yet. Leave now and you’ll lose them.
                                         </Text>
                                         <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -1189,7 +1190,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                             </TouchableOpacity>
                                         </View>
                                     </View>
-                                </>
+                                </View>
                             )}
 
                             <HeightPickerSheet

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 
 jest.mock('@/components/ui/CalendarModal', () => ({ CalendarModal: () => null }));
 
@@ -25,13 +25,30 @@ describe('Step3 — Discounts list + separate Group rates', () => {
     expect(queryByText('Add a tier')).toBeNull();         // group rates off
   });
 
-  it('a discount card shows price, a deadline field and an optional first-N cap (#1 + #2)', () => {
+  it('a seeded discount is a collapsed accordion — summary shows, fields appear only when expanded (#1 + #2)', () => {
     seedPaid([{ id: 'd1', name: 'Early bird', audience: 'everyone', price: 400, endsAt: null, seatLimit: 20 }]);
-    const { queryByText } = render(<Step3Spots />);
+    const { getByText, queryByText } = render(<Step3Spots />);
+    // collapsed: the name is visible, the editable fields are hidden
+    expect(getByText('Early bird')).toBeTruthy();
+    expect(queryByText('Price each')).toBeNull();
+    expect(queryByText('First N tickets (optional)')).toBeNull();
+    // expand → the fields (price, deadline #2, first-N) appear
+    fireEvent.press(getByText('Early bird'));
     expect(queryByText('Price each')).toBeTruthy();
-    expect(queryByText('Ends on')).toBeTruthy();                        // deadline (#2)
+    expect(queryByText('Ends on')).toBeTruthy();
     expect(queryByText('No deadline')).toBeTruthy();
     expect(queryByText('First N tickets (optional)')).toBeTruthy();
+    // collapse again → fields hidden
+    fireEvent.press(getByText('Early bird'));
+    expect(queryByText('Price each')).toBeNull();
+  });
+
+  it('pressing "Add a discount" creates a card already expanded for editing', () => {
+    seedPaid();
+    const { getByText, queryByText } = render(<Step3Spots />);
+    expect(queryByText('Price each')).toBeNull();
+    fireEvent.press(getByText('Add a discount'));
+    expect(queryByText('Price each')).toBeTruthy(); // the new accordion auto-opens
   });
 
   it('group rates on → a tier row + Add a tier, independent of the discount list', () => {

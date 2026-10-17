@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
-import { Gift, IndianRupee, Calendar, Users, Tag, Plus, X } from 'lucide-react-native';
+import { Gift, IndianRupee, Calendar, Users, Tag, Plus, X, ChevronDown } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../useComposerStoreV4';
 import { Group, TextField, Segmented, Hint, Card } from '../ui';
 import { C, F } from '../theme';
@@ -35,6 +35,7 @@ export default function Step3Spots() {
   const { addOffer, updateOffer, removeOffer } = useComposerStoreV4.getState();
   const [refundOpen, setRefundOpen] = useState(false);
   const [deadlineFor, setDeadlineFor] = useState<string | null>(null);
+  const [openDiscount, setOpenDiscount] = useState<string | null>(null); // which discount accordion is expanded
 
   // One ticket type per event — the single spot the backend derives from.
   const spot = form.spots[0];
@@ -47,7 +48,13 @@ export default function Step3Spots() {
   const discounts = form.offers.filter((o) => o.audience === 'everyone');
   const groupTiers = form.offers.filter((o) => o.audience === 'group');
 
-  const addDiscount = () => { if (discounts.length < MAX_DISCOUNTS) addOffer({ name: '', audience: 'everyone', price: basePrice }); };
+  const addDiscount = () => {
+    if (discounts.length >= MAX_DISCOUNTS) return;
+    addOffer({ name: '', audience: 'everyone', price: basePrice });
+    const all = useComposerStoreV4.getState().form.offers;
+    setOpenDiscount(all[all.length - 1]?.id ?? null); // newly added one is last — open it for editing
+  };
+  const toggleDiscount = (id: string) => setOpenDiscount((cur) => (cur === id ? null : id));
   const toggleGroup = () => {
     if (groupTiers.length) update('offers', form.offers.filter((o) => o.audience !== 'group'));
     else addOffer({ name: 'Group rate', audience: 'group', minSeats: 2, price: basePrice });
@@ -99,35 +106,15 @@ export default function Step3Spots() {
       {form.paid ? (
         <Group label="Discounts" optional sub="A lower price for everyone — add as many as you like, each with its own deadline.">
           {discounts.map((o: OfferV4) => (
-            <Card key={o.id} style={st.offerCardGap}>
-              <View style={st.offerTop}>
-                <View style={st.offerName}>
-                  <Tag size={13} color={C.orange} />
-                  <TextInput value={o.name} onChangeText={(t) => updateOffer(o.id, { name: t })} placeholder="Name (e.g. Early bird)" placeholderTextColor={C.dim2} style={st.offerNameInput} />
-                </View>
-                <Pressable onPress={() => removeOffer(o.id)} hitSlop={6}><X size={16} color={C.dim2} /></Pressable>
-              </View>
-              <View style={st.row}>
-                <View style={{ flex: 1 }}>
-                  <Text style={st.miniLab}>Price each</Text>
-                  <Num prefix="₹" value={o.price} onChange={(n) => updateOffer(o.id, { price: n })} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={st.miniLab}>Ends on</Text>
-                  <View style={st.dateBox}>
-                    <Pressable style={st.dateMain} onPress={() => setDeadlineFor(o.id)}>
-                      <Calendar size={13} color={C.dim} />
-                      <Text style={[st.dateTxt, !o.endsAt && { color: C.dim2 }]} numberOfLines={1}>{o.endsAt ? fmtDate(o.endsAt) : 'No deadline'}</Text>
-                    </Pressable>
-                    {o.endsAt ? <Pressable onPress={() => updateOffer(o.id, { endsAt: null })} hitSlop={6}><X size={13} color={C.dim2} /></Pressable> : null}
-                  </View>
-                </View>
-              </View>
-              <View>
-                <Text style={st.miniLab}>First N tickets (optional)</Text>
-                <Num value={o.seatLimit ?? 0} onChange={(n) => updateOffer(o.id, { seatLimit: n || null })} placeholder="No cap" />
-              </View>
-            </Card>
+            <DiscountCard
+              key={o.id}
+              o={o}
+              open={openDiscount === o.id}
+              onToggle={() => toggleDiscount(o.id)}
+              onRemove={() => { removeOffer(o.id); setOpenDiscount((c) => (c === o.id ? null : c)); }}
+              onPickDeadline={() => setDeadlineFor(o.id)}
+              updateOffer={updateOffer}
+            />
           ))}
           {discounts.length < MAX_DISCOUNTS ? (
             <Pressable onPress={addDiscount} style={st.add}><Plus size={16} color={C.orange} /><Text style={st.addTxt}>Add a discount</Text></Pressable>
@@ -200,6 +187,69 @@ export default function Step3Spots() {
   );
 }
 
+// One discount = a collapsible accordion. Collapsed shows name + a money summary;
+// expanded reveals the editable price / deadline / first-N fields.
+const DiscountCard = ({ o, open, onToggle, onRemove, onPickDeadline, updateOffer }: {
+  o: OfferV4;
+  open: boolean;
+  onToggle: () => void;
+  onRemove: () => void;
+  onPickDeadline: () => void;
+  updateOffer: (id: string, patch: Partial<OfferV4>) => void;
+}) => {
+  const meta = [
+    o.price ? formatRupees(o.price) : null,
+    o.endsAt ? `till ${fmtDate(o.endsAt)}` : null,
+    o.seatLimit ? `first ${o.seatLimit}` : null,
+  ].filter(Boolean).join('   ·   ');
+  return (
+    <Card style={st.accCard}>
+      <View style={st.accHeadRow}>
+        <Pressable style={st.accHead} onPress={onToggle} accessibilityRole="button"
+          accessibilityState={{ expanded: open }} accessibilityLabel={`${o.name || 'Discount'}, ${open ? 'collapse' : 'expand'}`}>
+          <View style={st.accIc}><Tag size={13} color={C.orange} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={[st.accName, !o.name && { color: C.dim2 }]} numberOfLines={1}>{o.name || 'New discount'}</Text>
+            {meta ? <Text style={st.accMeta} numberOfLines={1}>{meta}</Text> : null}
+          </View>
+          <ChevronDown size={18} color={C.dim2} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
+        </Pressable>
+        <Pressable onPress={onRemove} hitSlop={8} style={st.accX} accessibilityRole="button" accessibilityLabel="Remove discount"><X size={16} color={C.dim2} /></Pressable>
+      </View>
+      {open ? (
+        <View style={st.accBody}>
+          <View>
+            <Text style={st.miniLab}>Name</Text>
+            <View style={st.nameField}>
+              <TextInput value={o.name} onChangeText={(t) => updateOffer(o.id, { name: t })} placeholder="e.g. Early bird" placeholderTextColor={C.dim2} style={st.offerNameInput} />
+            </View>
+          </View>
+          <View style={st.row}>
+            <View style={{ flex: 1 }}>
+              <Text style={st.miniLab}>Price each</Text>
+              <Num prefix="₹" value={o.price} onChange={(n) => updateOffer(o.id, { price: n })} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={st.miniLab}>Ends on</Text>
+              <View style={st.dateBox}>
+                <Pressable style={st.dateMain} onPress={onPickDeadline}>
+                  <Calendar size={13} color={C.dim} />
+                  <Text style={[st.dateTxt, !o.endsAt && { color: C.dim2 }]} numberOfLines={1}>{o.endsAt ? fmtDate(o.endsAt) : 'No deadline'}</Text>
+                </Pressable>
+                {o.endsAt ? <Pressable onPress={() => updateOffer(o.id, { endsAt: null })} hitSlop={6}><X size={13} color={C.dim2} /></Pressable> : null}
+              </View>
+            </View>
+          </View>
+          <View>
+            <Text style={st.miniLab}>First N tickets (optional)</Text>
+            <Num value={o.seatLimit ?? 0} onChange={(n) => updateOffer(o.id, { seatLimit: n || null })} placeholder="No cap" />
+          </View>
+        </View>
+      ) : null}
+    </Card>
+  );
+};
+
 const Row = ({ k, v, bold }: { k: string; v: string; bold?: boolean }) => (
   <View style={st.erow}><Text style={[st.ek, bold && { color: C.t2 }]}>{k}</Text><Text style={[st.ev, bold && st.evBold]}>{v}</Text></View>
 );
@@ -211,10 +261,16 @@ const st = StyleSheet.create({
   num: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, paddingHorizontal: 12, height: 46 },
   prefix: { fontFamily: F.bold, fontSize: 16, color: C.dim },
   numInput: { flex: 1, fontFamily: F.bold, fontSize: 16, color: C.t1, padding: 0, minWidth: 0 },
-  // discount card
-  offerCardGap: { gap: 11 },
-  offerTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  offerName: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  // discount accordion
+  accCard: { padding: 0, gap: 0, overflow: 'hidden' },
+  accHeadRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 14 },
+  accHead: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  accIc: { width: 28, height: 28, borderRadius: 8, backgroundColor: C.orangeSoft, alignItems: 'center', justifyContent: 'center' },
+  accName: { fontFamily: F.semibold, fontSize: 14, color: C.t1 },
+  accMeta: { fontFamily: F.body, fontSize: 11.5, color: C.dim, marginTop: 2 },
+  accX: { padding: 4 },
+  accBody: { borderTopWidth: 1, borderTopColor: C.border, padding: 14, gap: 11 },
+  nameField: { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, height: 46, paddingHorizontal: 12, justifyContent: 'center' },
   offerNameInput: { flex: 1, fontFamily: F.bold, fontSize: 14, color: C.t1, padding: 0 },
   dateBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, height: 46, paddingHorizontal: 12 },
   dateMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },

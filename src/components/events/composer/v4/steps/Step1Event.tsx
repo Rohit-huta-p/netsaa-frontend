@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
-import { Pencil, Users, Send, X } from 'lucide-react-native';
+import { Pencil, Users, Send, X, Check } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../useComposerStoreV4';
 import { presetFor, EVENT_TYPE_PRESETS, EVENT_TYPE_KEYS } from '../eventTypePresets';
 import { Group, TextField, Pills, Chips, TagInput, Hint } from '../ui';
+import InviteSheetV4 from '../InviteSheetV4';
 import { C, F } from '../theme';
 
 const PRESET_KEYS = new Set<string>(EVENT_TYPE_KEYS);
@@ -18,14 +19,18 @@ export default function Step1Event() {
   const setEventType = useComposerStoreV4((s) => s.setEventType);
   const [custom, setCustom] = useState(PRESET_KEYS.has(form.eventType) ? '' : form.eventType);
   const [person, setPerson] = useState('');
+  const [invitingIndex, setInvitingIndex] = useState<number | null>(null);
   const preset = presetFor(form.eventType);
 
   const addWho = (t: string) => { if (t && !form.whoFor.includes(t) && form.whoFor.length < 3) update('whoFor', [...form.whoFor, t]); };
   const removeWho = (t: string) => update('whoFor', form.whoFor.filter((x) => x !== t));
   const addStyle = (t: string) => { if (t && !form.styles.includes(t)) update('styles', [...form.styles, t]); };
   const addLang = (t: string) => { if (t && !form.languages.includes(t)) update('languages', [...form.languages, t]); };
-  const addPerson = () => { if (!person.trim()) return; update('people', [...form.people, { displayName: person.trim(), role: preset.peopleRole, invited: true }]); setPerson(''); };
+  // A typed name is a plain-text person, NOT yet invited — the host sends an
+  // invite from the chip's ✈ (opens InviteSheetV4), which flips invited=true.
+  const addPerson = () => { if (!person.trim()) return; update('people', [...form.people, { displayName: person.trim(), role: preset.peopleRole, invited: false }]); setPerson(''); };
   const removePerson = (i: number) => update('people', form.people.filter((_, k) => k !== i));
+  const markInvited = (i: number) => update('people', form.people.map((p, k) => (k === i ? { ...p, invited: true } : p)));
 
   return (
     <View>
@@ -69,12 +74,23 @@ export default function Step1Event() {
       <Group label="People" optional sub="Anyone attendees should know about. Each person gets a role.">
         <View style={st.people}>
           {form.people.map((p, i) => (
-            <Pressable key={i} onPress={() => removePerson(i)} style={st.person}>
-              {p.invited ? <Send size={11} color={C.orange} /> : null}
+            <View key={i} style={st.person}>
               <Text style={st.personName}>{p.displayName}</Text>
               <Text style={st.personRole}>{p.role}</Text>
-              <X size={12} color={C.dim2} />
-            </Pressable>
+              {p.userId ? null : p.invited ? (
+                <View style={st.invitedPill}>
+                  <Check size={10} color={C.green} strokeWidth={2.8} />
+                  <Text style={st.invitedTxt}>Invited</Text>
+                </View>
+              ) : (
+                <Pressable onPress={() => setInvitingIndex(i)} hitSlop={6} style={st.inviteBtn} accessibilityLabel={`Invite ${p.displayName}`}>
+                  <Send size={12} color={C.orange} />
+                </Pressable>
+              )}
+              <Pressable onPress={() => removePerson(i)} hitSlop={6} accessibilityLabel={`Remove ${p.displayName}`}>
+                <X size={13} color={C.dim2} />
+              </Pressable>
+            </View>
           ))}
         </View>
         <View style={st.addPerson}>
@@ -83,8 +99,14 @@ export default function Step1Event() {
             placeholder={`Search NETSA or type a ${preset.peopleRole.toLowerCase()}`} placeholderTextColor={C.dim2} style={st.addInput} />
           {person.trim() ? <Pressable onPress={addPerson}><Send size={16} color={C.orange} /></Pressable> : null}
         </View>
-        <Hint>A name that isn't on NETSA is added as plain text; you can send them an invite link later.</Hint>
+        <Hint>A name that isn’t on NETSA is added as plain text. Tap ✈ to invite them over WhatsApp, SMS or a link.</Hint>
       </Group>
+
+      <InviteSheetV4
+        person={invitingIndex != null ? form.people[invitingIndex] ?? null : null}
+        onClose={() => setInvitingIndex(null)}
+        onShared={() => { if (invitingIndex != null) markInvited(invitingIndex); }}
+      />
     </View>
   );
 }
@@ -97,6 +119,9 @@ const st = StyleSheet.create({
   person: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: '#1B1B24', borderWidth: 1, borderColor: C.border2 },
   personName: { fontFamily: F.semibold, fontSize: 12, color: C.t3 },
   personRole: { fontFamily: F.bold, fontSize: 9.5, color: C.t4, backgroundColor: '#2A2A34', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  invitedPill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: C.greenSoft, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  invitedTxt: { fontFamily: F.bold, fontSize: 9.5, color: C.green },
+  inviteBtn: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.orangeSoft, alignItems: 'center', justifyContent: 'center' },
   addPerson: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: C.card, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 11 },
   addInput: { flex: 1, fontFamily: F.body, fontSize: 13, color: C.t2, padding: 0 },
 });

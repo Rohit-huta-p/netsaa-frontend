@@ -267,60 +267,13 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const initialTab = section ? (SECTION_TO_TAB[section] || 'header') : 'header';
     const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
 
-    // ── Scrollspy: one long form, the active tab follows the section in view ──
-    const SCROLL_ANCHOR = 90; // px line below the tab bar that marks the "active" section
+    // ── Tabbed view: tap a tab → show only that tab's content ──
     const scrollRef = useRef<ScrollView>(null);
-    const sectionOffsets = useRef<Partial<Record<TabKey, number>>>({});
-    const pendingScrollTab = useRef<TabKey | null>(null);
-    const programmaticScroll = useRef(false);
-    const programmaticTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    // Capture each section's y-offset within the scroll content as it lays out.
-    // If the modal was opened targeting this section, jump to it once measured.
-    const onSectionLayout = (k: TabKey) => (e: any) => {
-        const y = e.nativeEvent.layout.y;
-        sectionOffsets.current[k] = y;
-        if (pendingScrollTab.current === k) {
-            pendingScrollTab.current = null;
-            programmaticScroll.current = true;
-            requestAnimationFrame(() => {
-                scrollRef.current?.scrollTo({ y: Math.max(0, y - SCROLL_ANCHOR + 1), animated: false });
-            });
-            setTimeout(() => { programmaticScroll.current = false; }, 300);
-        }
-    };
-
-    // Tab tap → smooth-scroll to that section (inverse of the scrollspy).
-    const scrollToSection = (k: TabKey) => {
-        const off = sectionOffsets.current[k];
-        if (off == null) return;
-        programmaticScroll.current = true;
-        setActiveTab(k); // optimistic; scrollspy is suppressed mid-animation
-        scrollRef.current?.scrollTo({ y: Math.max(0, off - SCROLL_ANCHOR + 1), animated: true });
-        if (programmaticTimer.current) clearTimeout(programmaticTimer.current);
-        programmaticTimer.current = setTimeout(() => { programmaticScroll.current = false; }, 500);
-    };
 
     const handleTabPress = (k: TabKey) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-        scrollToSection(k);
-    };
-
-    // Scrollspy: active tab = last section whose top has crossed the anchor line.
-    const handleScroll = (e: any) => {
-        if (programmaticScroll.current) return;
-        const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-        const y = contentOffset.y;
-        let current: TabKey = TABS[0].key;
-        for (const t of TABS) {
-            const off = sectionOffsets.current[t.key];
-            if (off != null && off - SCROLL_ANCHOR <= y) current = t.key;
-        }
-        // Bottom guard: short trailing sections can't push their top to the anchor line.
-        if (contentSize.height - y - layoutMeasurement.height < 4) {
-            current = TABS[TABS.length - 1].key;
-        }
-        if (current !== activeTab) setActiveTab(current);
+        setActiveTab(k);
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
     };
 
     const [isSaving, setIsSaving] = useState(false);
@@ -391,21 +344,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         const tab = section ? (SECTION_TO_TAB[section] || 'header') : 'header';
         setActiveTab(tab); setJustSaved(false); setExpandedEntries(new Set()); setDirtyTabs(new Set());
         setDiscardPromptVisible(false);
-        // Long-scroll: forget old offsets and queue a jump to the requested section.
-        sectionOffsets.current = {};
-        pendingScrollTab.current = tab !== 'header' ? tab : null;
-        programmaticScroll.current = tab !== 'header';
-        // Fallback in case the target's onLayout fired before this effect ran.
-        if (tab !== 'header') {
-            setTimeout(() => {
-                const off = sectionOffsets.current[tab];
-                if (pendingScrollTab.current === tab && off != null) {
-                    pendingScrollTab.current = null;
-                    scrollRef.current?.scrollTo({ y: Math.max(0, off - SCROLL_ANCHOR + 1), animated: false });
-                    setTimeout(() => { programmaticScroll.current = false; }, 200);
-                }
-            }, 160);
-        }
+        // Tabbed view: show the requested tab, scrolled to top.
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
         setDisplayName(profileData.fullName || ''); setHeadline(profileData.headline || '');
         setArtistType(profileData.artistType || ''); setLocation(profileData.location || '');
         { const lp = (profileData.location || '').split(',').map(s => s.trim()); setLocCity(lp[0] || ''); setLocState(lp[1] || ''); }
@@ -1170,19 +1110,17 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                 onChange={handleTabPress}
                             />
 
-                            {/* Content — one long scroll; the tab bar above tracks position */}
+                            {/* Content — only the active tab's section (discrete tabs, no scrollspy) */}
                             <ScrollView
                                 ref={scrollRef}
-                                onScroll={handleScroll}
-                                scrollEventThrottle={16}
                                 contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 120 }}
                                 keyboardShouldPersistTaps="handled"
                                 showsVerticalScrollIndicator={false}>
-                                {SECTION_RENDERERS.filter(s => visibleTabs.some(t => t.key === s.key)).map(({ key, render }, i) => {
-                                    const def = visibleTabs.find(t => t.key === key)!;
+                                {SECTION_RENDERERS.filter(s => s.key === activeTab && visibleTabs.some(t => t.key === s.key)).map(({ key, render }) => {
+                                    const def = visibleTabs.find(t => t.key === key);
+                                    if (!def) return null;
                                     return (
-                                        <View key={key} onLayout={onSectionLayout(key)} style={{ marginTop: i === 0 ? 0 : 28 }}>
-                                            {i > 0 && <View style={{ height: 1, backgroundColor: P.border, marginBottom: 24 }} />}
+                                        <View key={key}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                                                 <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: P.orange }} />
                                                 <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2 }}>{def.label}</Text>

@@ -93,22 +93,22 @@ describe('ProfileEditModal — Display Name is always editable', () => {
 describe('ProfileEditModal — 8 tabs always visible', () => {
     it('renders all 8 tab labels including Org and Billing', () => {
         const { getAllByText } = render(<ProfileEditModal profileData={baseProfile} />);
-        // In the long-scroll layout each label appears twice — once in the tab
-        // bar, once as the section header — so assert at least one match.
+        // Discrete tabs: the tab bar always shows every label (and the active
+        // section repeats its own label as a header), so assert at least one match.
         ['Basic', 'Bio', 'Skills', 'Experience', 'Media', 'Social', 'Org', 'Billing'].forEach(
             label => expect(getAllByText(label).length).toBeGreaterThanOrEqual(1)
         );
     });
 
-    it('renders the Org Name input as part of the single long-scroll form', () => {
-        const { getAllByText, getByPlaceholderText } = render(
+    it('shows the Org Name input only when the Org tab is selected', () => {
+        const { getAllByText, getByPlaceholderText, queryByPlaceholderText } = render(
             <ProfileEditModal profileData={baseProfile} />
         );
-        // The form is now one long scroll — every section renders at once, so the
-        // Org Name input is present immediately (it lives in the Org section).
-        expect(getByPlaceholderText('Organization name')).toBeTruthy();
-        // The Org tab still works as a scroll-to affordance and never unmounts it.
-        // ([0] = the tab-bar pill, which sits above the section headers.)
+        // Discrete tabs: only the active tab's section renders. The Org Name input
+        // (in the Org section) is absent until the Org tab is selected.
+        expect(queryByPlaceholderText('Organization name')).toBeNull();
+        // Tap the Org tab → its section mounts with the Org Name input.
+        // ([0] = the tab-bar pill.)
         fireEvent.press(getAllByText('Org')[0]);
         expect(getByPlaceholderText('Organization name')).toBeTruthy();
     });

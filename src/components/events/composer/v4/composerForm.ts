@@ -11,6 +11,7 @@ import { presetFor, type EventTypeKey, type DoorPolicy, type DescribeSection } f
 export interface MediaItemV4 {
   kind: 'photo' | 'video';
   url: string;
+  thumbnailUrl?: string;
   width?: number; height?: number;
   isHero?: boolean; sortOrder?: number;
   uploadId?: string; muxPlaybackId?: string; status?: 'processing' | 'ready' | 'errored';

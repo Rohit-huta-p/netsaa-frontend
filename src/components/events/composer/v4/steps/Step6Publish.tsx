@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { Check, TriangleAlert, Calendar, MapPin, Video, Image as ImageIcon } from 'lucide-react-native';
 import { useComposerStoreV4, type V4Step } from '../useComposerStoreV4';
 import { presetFor } from '../eventTypePresets';
@@ -66,7 +66,14 @@ export default function Step6Publish() {
 
       <View style={st.pvLab}><View style={st.pvDot} /><Text style={st.pvLabTxt}>Preview · how artists see it</Text></View>
       <View style={st.card}>
-        <View style={st.cardCover}><ImageIcon size={20} color={C.dim2} /></View>
+        <View style={st.cardCover}>
+          {form.cover ? (
+            <Image source={{ uri: form.cover.thumbnailUrl || form.cover.url }} style={st.cardCoverImg}
+              resizeMode={form.coverFit === 'fill' ? 'cover' : 'contain'} />
+          ) : (
+            <ImageIcon size={20} color={C.dim2} />
+          )}
+        </View>
         <View style={st.cardBody}>
           <View style={st.cardChips}>{chips.map((c) => <View key={c} style={st.cardChip}><Text style={st.cardChipTxt}>{c}</Text></View>)}</View>
           <Text style={st.cardTitle}>{form.title.trim() || 'Your event title'}</Text>
@@ -109,7 +116,8 @@ const st = StyleSheet.create({
   pvDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.orange },
   pvLabTxt: { fontFamily: F.labelHeavy, fontSize: 10.5, letterSpacing: 0.5, color: C.t3, textTransform: 'uppercase' },
   card: { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 16, overflow: 'hidden', marginBottom: 22 },
-  cardCover: { height: 120, backgroundColor: C.well, alignItems: 'center', justifyContent: 'center' },
+  cardCover: { height: 120, backgroundColor: C.well, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  cardCoverImg: { width: '100%', height: '100%' },
   cardBody: { padding: 13, gap: 8 },
   cardChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   cardChip: { backgroundColor: C.well, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },

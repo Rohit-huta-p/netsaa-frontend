@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TextInput, Image, ActivityIndicator } from 'react-native';
 import { Image as ImageIcon, Plus, X, Check } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../useComposerStoreV4';
+import { useComposerMediaV4 } from '../useComposerMediaV4';
 import { presetFor, type DescribeSection } from '../eventTypePresets';
 import { Group, TextField, Segmented, Hint } from '../ui';
 import { C, F } from '../theme';
@@ -17,6 +18,7 @@ const ALL_SECTIONS: DescribeSection[] = ['lineup', 'bring', 'included'];
 export default function Step5Describe() {
   const form = useComposerStoreV4((s) => s.form);
   const update = useComposerStoreV4((s) => s.update);
+  const media = useComposerMediaV4();
   const preset = presetFor(form.eventType);
 
   const has = (s: DescribeSection) =>
@@ -36,11 +38,28 @@ export default function Step5Describe() {
       <Text style={st.sub}>What people read before they sign up.</Text>
 
       <Group label="Cover / poster" required>
-        <Pressable style={st.cover}>
-          <ImageIcon size={22} color={C.dim} />
-          <Text style={st.coverTxt}>Add a poster or photo</Text>
-          <Text style={st.coverHint}>Portrait posters keep their text on the “whole poster” fit.</Text>
-        </Pressable>
+        {form.cover ? (
+          <View style={st.coverWrap}>
+            <Image source={{ uri: form.cover.thumbnailUrl || form.cover.url }} style={st.coverImg}
+              resizeMode={form.coverFit === 'fill' ? 'cover' : 'contain'} />
+            <Pressable style={st.coverRemove} onPress={media.removeCover} hitSlop={8}><X size={15} color="#fff" /></Pressable>
+            <Pressable style={st.coverChange} onPress={media.addCover}>
+              <ImageIcon size={12} color="#fff" /><Text style={st.coverChangeTxt}>Change</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable style={st.cover} onPress={media.addCover} disabled={media.uploading === 'cover'}>
+            {media.uploading === 'cover' ? (
+              <ActivityIndicator color={C.orange} />
+            ) : (
+              <>
+                <ImageIcon size={22} color={C.dim} />
+                <Text style={st.coverTxt}>Add a poster or photo</Text>
+                <Text style={st.coverHint}>Portrait posters keep their text on the “whole poster” fit.</Text>
+              </>
+            )}
+          </Pressable>
+        )}
         <View style={st.fitRow}>
           <Text style={st.fitLab}>FIT</Text>
           <View style={{ flex: 1 }}>
@@ -48,7 +67,6 @@ export default function Step5Describe() {
               options={[{ key: 'whole', label: 'Whole poster' }, { key: 'fill', label: 'Fill the frame' }]} />
           </View>
         </View>
-        <Hint>Uploads open once your draft is saved.</Hint>
       </Group>
 
       <Group label="About" required>
@@ -115,9 +133,19 @@ export default function Step5Describe() {
         </View>
       ) : null}
 
-      <Group label="More photos & video" optional sub="Up to 6, including the cover.">
-        <Pressable style={st.photoAdd}><Plus size={18} color={C.dim} /><Text style={st.photoTxt}>Add photos</Text></Pressable>
-        <Hint>Uploads open once your draft is saved.</Hint>
+      <Group label="More photos" optional sub="Up to 6, including the cover.">
+        <View style={st.thumbs}>
+          {form.photos.map((p, i) => (
+            <View key={i} style={st.thumbWrap}>
+              <Image source={{ uri: p.thumbnailUrl || p.url }} style={st.thumb} />
+              <Pressable style={st.thumbRemove} onPress={() => media.removePhoto(i)} hitSlop={6}><X size={11} color="#fff" /></Pressable>
+            </View>
+          ))}
+          <Pressable style={st.thumbAdd} onPress={media.addPhoto} disabled={!!media.uploading}>
+            {media.uploading === 'gallery' ? <ActivityIndicator color={C.dim} size="small" /> : <Plus size={18} color={C.dim} />}
+          </Pressable>
+        </View>
+        <Hint>Photos help people choose. Video is coming soon.</Hint>
       </Group>
     </View>
   );
@@ -147,6 +175,14 @@ const st = StyleSheet.create({
   addLab: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.2, color: C.dim },
   secPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: C.border2 },
   secPillTxt: { fontFamily: F.semibold, fontSize: 11.5, color: C.orange },
-  photoAdd: { height: 54, borderRadius: 11, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
-  photoTxt: { fontFamily: F.semibold, fontSize: 12.5, color: C.dim },
+  coverWrap: { height: 180, borderRadius: 14, overflow: 'hidden', backgroundColor: C.well, position: 'relative' },
+  coverImg: { width: '100%', height: '100%' },
+  coverRemove: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
+  coverChange: { position: 'absolute', bottom: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.55)' },
+  coverChangeTxt: { fontFamily: F.semibold, fontSize: 11, color: '#fff' },
+  thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  thumbWrap: { width: 72, height: 72, borderRadius: 10, overflow: 'hidden', position: 'relative' },
+  thumb: { width: '100%', height: '100%', backgroundColor: C.well },
+  thumbRemove: { position: 'absolute', top: 3, right: 3, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  thumbAdd: { width: 72, height: 72, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, alignItems: 'center', justifyContent: 'center' },
 });

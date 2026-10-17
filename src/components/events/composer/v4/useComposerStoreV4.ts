@@ -71,7 +71,7 @@ export const useComposerStoreV4 = create<V4State>((set, get) => ({
     form: { ...s.form, spots: [...s.form.spots, { id: uid('spot'), name: '', capacity: 20, price: 0, ...spot }] },
   })),
   updateSpot: (id, patch) => set((s) => ({ form: { ...s.form, spots: s.form.spots.map((x) => x.id === id ? { ...x, ...patch } : x) } })),
-  removeSpot: (id) => set((s) => ({ form: { ...s.form, spots: s.form.spots.filter((x) => x.id !== id) } })),
+  removeSpot: (id) => set((s) => ({ form: { ...s.form, spots: s.form.spots.filter((x) => x.id !== id), offers: s.form.offers.map((o) => (o.spotId === id ? { ...o, spotId: undefined } : o)) } })),
 
   addOffer: (offer) => set((s) => s.form.offers.length >= MAX_OFFERS ? s : ({
     form: { ...s.form, offers: [...s.form.offers, { id: uid('offer'), name: '', price: 0, audience: 'everyone', ...offer }] },

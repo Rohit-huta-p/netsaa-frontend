@@ -108,6 +108,20 @@ describe('buildEventPayload', () => {
     expect(p.media[1].isHero).toBe(false);
   });
 
+  it('spots carry clientId; a paid offer keeps a spotId matching a spot and drops a dangling one', () => {
+    const p = buildEventPayload(base({
+      paid: true,
+      spots: [{ id: 's0', name: 'Front', capacity: 10, price: 1500 }, { id: 's1', name: 'Back', capacity: 20, price: 800 }],
+      offers: [
+        { id: 'o0', name: 'Early', price: 1200, audience: 'everyone', spotId: 's1' },
+        { id: 'o1', name: 'Ghost', price: 500, audience: 'everyone', spotId: 'nope' },
+      ],
+    }));
+    expect(p.spots.map((s: any) => s.clientId)).toEqual(['s0', 's1']);
+    expect(p.offers[0].spotId).toBe('s1');        // matches a real spot
+    expect(p.offers[1].spotId).toBeUndefined();   // dangling ref dropped
+  });
+
   it('ready videos ride after the photos with a muxPlaybackId; processing/errored reels are dropped', () => {
     const p = buildEventPayload(base({
       cover: { kind: 'photo', url: 'u' },

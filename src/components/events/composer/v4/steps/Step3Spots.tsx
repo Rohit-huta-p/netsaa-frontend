@@ -83,6 +83,21 @@ export default function Step3Spots() {
                 </View>
                 <Pressable onPress={() => removeOffer(o.id)}><X size={16} color={C.dim2} /></Pressable>
               </View>
+              {form.spots.length > 1 ? (
+                <View>
+                  <Text style={st.miniLab}>Applies to</Text>
+                  <View style={st.applyChips}>
+                    <Pressable onPress={() => updateOffer(o.id, { spotId: undefined })} style={[st.applyChip, !o.spotId && st.applyChipOn]}>
+                      <Text style={[st.applyChipTxt, !o.spotId && st.applyChipTxtOn]}>All spots</Text>
+                    </Pressable>
+                    {form.spots.map((s) => (
+                      <Pressable key={s.id} onPress={() => updateOffer(o.id, { spotId: s.id })} style={[st.applyChip, o.spotId === s.id && st.applyChipOn]}>
+                        <Text style={[st.applyChipTxt, o.spotId === s.id && st.applyChipTxtOn]} numberOfLines={1}>{s.name || 'Unnamed spot'}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
               <Segmented value={o.audience} onChange={(v) => updateOffer(o.id, { audience: v })}
                 options={[{ key: 'everyone', label: 'Everyone' }, { key: 'group', label: 'Groups of N+' }]} />
               <View style={st.spotRow}>
@@ -148,4 +163,9 @@ const st = StyleSheet.create({
   enote: { fontFamily: F.body, fontSize: 10.5, color: C.dim, lineHeight: 15, marginTop: 2 },
   dateField: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 11 },
   fieldVal: { flex: 1, fontFamily: F.medium, fontSize: 13.5, color: C.t2 },
+  applyChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  applyChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: C.border2, backgroundColor: C.card, maxWidth: 160 },
+  applyChipOn: { borderColor: C.orangeBorder, backgroundColor: C.orangeSoft },
+  applyChipTxt: { fontFamily: F.semibold, fontSize: 12, color: C.t3 },
+  applyChipTxtOn: { color: C.orangeInk ?? C.orange },
 });

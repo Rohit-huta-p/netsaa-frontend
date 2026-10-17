@@ -27,6 +27,14 @@ describe('useComposerStoreV4', () => {
     expect(S().form.spots.find((x) => x.id === id)).toBeUndefined();
   });
 
+  it('removeSpot clears offers that pointed at the removed spot', () => {
+    S().update('spots', [{ id: 's0', name: 'A', capacity: 10, price: 1000 }, { id: 's1', name: 'B', capacity: 5, price: 500 }]);
+    S().update('offers', [{ id: 'o0', name: 'Early', price: 800, audience: 'everyone', spotId: 's1' }]);
+    S().removeSpot('s1');
+    expect(S().form.spots).toHaveLength(1);
+    expect(S().form.offers[0].spotId).toBeUndefined();
+  });
+
   it('offers cap at 3, questions cap at 3', () => {
     for (let i = 0; i < 9; i++) S().addOffer();
     for (let i = 0; i < 9; i++) S().addQuestion();

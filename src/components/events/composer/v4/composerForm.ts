@@ -159,9 +159,12 @@ function buildMedia(form: ComposerFormV4): MediaItemV4[] {
 /** Map the form to the POST /v1/events body (v4 schema). Pure. */
 export function buildEventPayload(form: ComposerFormV4): Record<string, any> {
   const paid = form.paid;
-  const spots = form.spots.map((s) => ({ name: s.name, note: s.note || undefined, capacity: s.capacity, price: paid ? s.price : 0 }));
+  // clientId carries each spot's identity to the backend, which turns it into a
+  // stable _id (preserved on edit). Offers reference a spot by that same id.
+  const spots = form.spots.map((s) => ({ clientId: s.id, name: s.name, note: s.note || undefined, capacity: s.capacity, price: paid ? s.price : 0 }));
+  const spotIds = new Set(form.spots.map((s) => s.id));
   const offers = paid
-    ? form.offers.map((o) => ({ spotId: o.spotId, name: o.name, price: o.price, audience: o.audience, endsAt: o.endsAt || undefined, seatLimit: o.seatLimit ?? undefined, minSeats: o.minSeats ?? undefined }))
+    ? form.offers.map((o) => ({ spotId: o.spotId && spotIds.has(o.spotId) ? o.spotId : undefined, name: o.name, price: o.price, audience: o.audience, endsAt: o.endsAt || undefined, seatLimit: o.seatLimit ?? undefined, minSeats: o.minSeats ?? undefined }))
     : [];
   const capacityTotal = spots.reduce((sum, s) => sum + (s.capacity || 0), 0);
 

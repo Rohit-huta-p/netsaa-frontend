@@ -65,7 +65,7 @@ describe('GigApplyModal — profile-incomplete gate opens inline interview', () 
     });
 
     it('opens the ProfileInterviewSheet (not a bounce modal) on PROFILE_INCOMPLETE', async () => {
-        const { getByText, getByTestId, getByPlaceholderText, findByText } = render(
+        const { getByTestId, findByText } = render(
             <GigApplyModal
                 visible
                 onClose={jest.fn()}
@@ -75,17 +75,9 @@ describe('GigApplyModal — profile-incomplete gate opens inline interview', () 
             />
         );
 
-        // Step 1 -> step 2. handleNext requires a non-empty cover note.
-        fireEvent.changeText(
-            getByPlaceholderText(/I have 5 years of experience/i),
-            'Great fit for this gig.'
-        );
-        fireEvent.press(getByText('Review Terms'));
-
-        // Step 2 — accept terms (gigAmount=50000 => "standard" tier, so no
-        // premium scroll guard blocks the checkbox), then submit.
-        fireEvent.press(getByTestId('apply-terms-checkbox'));
-        fireEvent.press(getByText('Submit Application'));
+        // Single-screen apply (V2): the note is optional, so submitting goes
+        // straight to the apply mutation — no terms step / tier ceremony.
+        fireEvent.press(getByTestId('apply-submit-btn'));
 
         // mutate -> onError -> PROFILE_INCOMPLETE -> setProfileModalVisible(true).
         // ProfileInterviewSheet renders fields[0] first. enrichMissing(['Profile

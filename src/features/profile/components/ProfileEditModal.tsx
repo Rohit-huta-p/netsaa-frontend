@@ -812,11 +812,10 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('about'); };
         return (
             <>
-                {/* Bio — editorial quote frame; rich text (RichTextInput) + AI rephrase */}
-                <View style={{ position: 'relative', borderLeftWidth: 3, borderLeftColor: `${P.orange}40`, paddingLeft: 16, backgroundColor: `${P.orange}06`, borderRadius: 16, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, paddingVertical: 16, paddingRight: 16, marginBottom: 24 }}>
-                    <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 48, lineHeight: 48, color: `${P.orange}20`, position: 'absolute', top: -4, left: 8 }}>&ldquo;</Text>
+                {/* Bio — plain field (matches the all-tabs mockup); rich text (RichTextInput) + AI rephrase */}
+                <View style={{ marginBottom: 24 }}>
                     {isFieldMissing('bio') && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: P.orange }} /><Text style={{ color: P.orange, fontSize: 10, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5 }}>Required</Text></View>}
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>Bio</Text>
+                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>About you</Text>
                     <RichTextInput value={bio} onChangeText={set(setBio)} placeholder="Tell your story..." minHeight={120} />
                     <Pressable onPress={handleBioRephrase} disabled={bioRephrasing || !bio.trim()} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 10, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)', backgroundColor: 'rgba(139,92,246,0.08)', opacity: (bioRephrasing || !bio.trim()) ? 0.5 : 1 }}>
                         {bioRephrasing ? <ActivityIndicator size="small" color="#CDBBF5" /> : <Sparkles size={14} color="#A78BFA" />}

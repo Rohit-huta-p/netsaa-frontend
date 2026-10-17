@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
-import { Pencil, Users, Send, X, Check } from 'lucide-react-native';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { Pencil, Send, X, Check } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../useComposerStoreV4';
 import { presetFor, EVENT_TYPE_PRESETS, EVENT_TYPE_KEYS } from '../eventTypePresets';
 import { Group, TextField, Pills, Chips, TagInput, Hint } from '../ui';
 import InviteSheetV4 from '../InviteSheetV4';
+import PeopleSearchFieldV4, { PickedPerson } from '../PeopleSearchFieldV4';
 import { C, F } from '../theme';
 
 const PRESET_KEYS = new Set<string>(EVENT_TYPE_KEYS);
@@ -18,7 +19,6 @@ export default function Step1Event() {
   const update = useComposerStoreV4((s) => s.update);
   const setEventType = useComposerStoreV4((s) => s.setEventType);
   const [custom, setCustom] = useState(PRESET_KEYS.has(form.eventType) ? '' : form.eventType);
-  const [person, setPerson] = useState('');
   const [invitingIndex, setInvitingIndex] = useState<number | null>(null);
   const preset = presetFor(form.eventType);
 
@@ -26,9 +26,17 @@ export default function Step1Event() {
   const removeWho = (t: string) => update('whoFor', form.whoFor.filter((x) => x !== t));
   const addStyle = (t: string) => { if (t && !form.styles.includes(t)) update('styles', [...form.styles, t]); };
   const addLang = (t: string) => { if (t && !form.languages.includes(t)) update('languages', [...form.languages, t]); };
-  // A typed name is a plain-text person, NOT yet invited — the host sends an
-  // invite from the chip's ✈ (opens InviteSheetV4), which flips invited=true.
-  const addPerson = () => { if (!person.trim()) return; update('people', [...form.people, { displayName: person.trim(), role: preset.peopleRole, invited: false }]); setPerson(''); };
+  // Pick a real NETSA profile from search → has userId, no invite needed.
+  const addPersonPicked = (p: PickedPerson) => {
+    if (!p.userId || form.people.some((x) => x.userId === p.userId)) return;
+    update('people', [...form.people, { userId: p.userId, displayName: p.displayName, avatarUrl: p.avatarUrl, role: preset.peopleRole, invited: false }]);
+  };
+  // A typed name not on NETSA is a plain-text person, NOT yet invited — the host
+  // sends an invite from the chip's ✈ (opens InviteSheetV4), which flips invited=true.
+  const addPersonPlain = (name: string) => {
+    const n = name.trim();
+    if (n) update('people', [...form.people, { displayName: n, role: preset.peopleRole, invited: false }]);
+  };
   const removePerson = (i: number) => update('people', form.people.filter((_, k) => k !== i));
   const markInvited = (i: number) => update('people', form.people.map((p, k) => (k === i ? { ...p, invited: true } : p)));
 
@@ -75,6 +83,7 @@ export default function Step1Event() {
         <View style={st.people}>
           {form.people.map((p, i) => (
             <View key={i} style={st.person}>
+              {p.avatarUrl ? <Image source={{ uri: p.avatarUrl }} style={st.personAvatar} /> : null}
               <Text style={st.personName}>{p.displayName}</Text>
               <Text style={st.personRole}>{p.role}</Text>
               {p.userId ? null : p.invited ? (
@@ -93,13 +102,13 @@ export default function Step1Event() {
             </View>
           ))}
         </View>
-        <View style={st.addPerson}>
-          <Users size={15} color={C.dim} />
-          <TextInput value={person} onChangeText={setPerson} onSubmitEditing={addPerson} returnKeyType="done"
-            placeholder={`Search NETSA or type a ${preset.peopleRole.toLowerCase()}`} placeholderTextColor={C.dim2} style={st.addInput} />
-          {person.trim() ? <Pressable onPress={addPerson}><Send size={16} color={C.orange} /></Pressable> : null}
-        </View>
-        <Hint>A name that isn’t on NETSA is added as plain text. Tap ✈ to invite them over WhatsApp, SMS or a link.</Hint>
+        <PeopleSearchFieldV4
+          roleLabel={preset.peopleRole}
+          existingUserIds={new Set(form.people.filter((p) => p.userId).map((p) => p.userId!))}
+          onPick={addPersonPicked}
+          onAddPlain={addPersonPlain}
+        />
+        <Hint>Pick someone on NETSA, or add a name and invite them with ✈.</Hint>
       </Group>
 
       <InviteSheetV4
@@ -122,6 +131,5 @@ const st = StyleSheet.create({
   invitedPill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: C.greenSoft, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   invitedTxt: { fontFamily: F.bold, fontSize: 9.5, color: C.green },
   inviteBtn: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.orangeSoft, alignItems: 'center', justifyContent: 'center' },
-  addPerson: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: C.card, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 11 },
-  addInput: { flex: 1, fontFamily: F.body, fontSize: 13, color: C.t2, padding: 0 },
+  personAvatar: { width: 18, height: 18, borderRadius: 9, backgroundColor: C.well, marginRight: -2 },
 });

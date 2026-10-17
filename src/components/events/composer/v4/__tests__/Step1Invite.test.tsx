@@ -2,6 +2,8 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn() }));
+// Step1 now renders PeopleSearchFieldV4, which uses the search-service query hook.
+jest.mock('@/hooks/useSearchQueries', () => ({ useSearchPeople: () => ({ data: { results: [] }, isFetching: false }) }));
 
 import Step1Event from '../steps/Step1Event';
 import { useComposerStoreV4 } from '../useComposerStoreV4';

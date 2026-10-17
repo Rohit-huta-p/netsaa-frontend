@@ -1,8 +1,9 @@
 // src/components/gigs/__tests__/GigApplyModal.contract-preview.test.tsx
 //
-// Phase 4C — light-touch render assertions for the contract preview card.
-// Deep behavior (PDF generation) is covered by Phase 4B-Lite tests; here we
-// just lock in the prop-driven scaffold so the card renders/hides cleanly.
+// Guards that the old tiered CONTRACT CEREMONY stays retired. The apply sheet
+// is now a single "make your case" screen (V2) — no "Review Terms" step, no
+// booking-terms agreement, no contract-preview card. These assertions lock
+// that in and smoke-test that the sheet still renders with / without a gig.
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
@@ -53,13 +54,9 @@ const sampleGig = {
     description: 'Lead 6 dancers',
 };
 
-describe('GigApplyModal contract preview', () => {
-    it('renders the contract preview card when gig prop is present', () => {
-        // Step 1 is the form. The contract preview only renders on Step 2,
-        // so on initial render with the modal visible the card should not be
-        // visible yet — we just assert the component renders without crashing
-        // when the gig prop is provided.
-        const { queryByText } = render(
+describe('GigApplyModal — contract ceremony removed', () => {
+    it('renders the single-screen apply sheet with a full gig prop, no ceremony', () => {
+        const { queryByText, getByTestId } = render(
             <GigApplyModal
                 visible={true}
                 onClose={jest.fn()}
@@ -69,12 +66,16 @@ describe('GigApplyModal contract preview', () => {
                 gig={sampleGig as any}
             />
         );
-        // Step 1 (form) is showing; preview card not visible yet.
+        // The single-screen submit CTA is present…
+        expect(getByTestId('apply-submit-btn')).toBeTruthy();
+        // …and none of the retired contract-ceremony surfaces are.
+        expect(queryByText(/Review Terms/i)).toBeNull();
+        expect(queryByText(/agree to .*booking terms/i)).toBeNull();
         expect(queryByText(/Booking contract/i)).toBeNull();
     });
 
-    it('omits the preview card when gig prop is absent', () => {
-        const { queryByText } = render(
+    it('still renders without a gig prop', () => {
+        const { getByTestId } = render(
             <GigApplyModal
                 visible={true}
                 onClose={jest.fn()}
@@ -83,6 +84,6 @@ describe('GigApplyModal contract preview', () => {
                 gigAmount={50000}
             />
         );
-        expect(queryByText(/Booking contract/i)).toBeNull();
+        expect(getByTestId('apply-submit-btn')).toBeTruthy();
     });
 });

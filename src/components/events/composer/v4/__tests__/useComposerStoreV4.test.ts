@@ -11,10 +11,10 @@ describe('useComposerStoreV4', () => {
     expect(S().form.spots).toHaveLength(1);        // one role row
   });
 
-  it('step navigation clamps to 1..6', () => {
+  it('step navigation clamps to 1..7', () => {
     S().back(); expect(S().step).toBe(1);
     for (let i = 0; i < 10; i++) S().next();
-    expect(S().step).toBe(6);
+    expect(S().step).toBe(7);
   });
 
   it('spots cap at 8 and can be updated/removed', () => {

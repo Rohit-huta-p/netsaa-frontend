@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { Pencil, Send, X, Check } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../useComposerStoreV4';
 import { presetFor, EVENT_TYPE_PRESETS, EVENT_TYPE_KEYS } from '../eventTypePresets';
-import { Group, TextField, Pills, Chips, TagInput, Hint } from '../ui';
+import { Group, TextField, Pills, ChipsMulti, TagInput, Hint } from '../ui';
+import type { SkillLevelV4 } from '../composerForm';
 import InviteSheetV4 from '../InviteSheetV4';
 import PeopleSearchFieldV4, { PickedPerson } from '../PeopleSearchFieldV4';
 import { C, F } from '../theme';
@@ -26,6 +27,12 @@ export default function Step1Event() {
   const removeWho = (t: string) => update('whoFor', form.whoFor.filter((x) => x !== t));
   const addStyle = (t: string) => { if (t && !form.styles.includes(t)) update('styles', [...form.styles, t]); };
   const addLang = (t: string) => { if (t && !form.languages.includes(t)) update('languages', [...form.languages, t]); };
+  // Level is multi-select; [] = any. "Any" clears the array, a specific level toggles in/out.
+  const toggleLevel = (v: string) => {
+    if (v === 'all') return update('levels', []);
+    const lv = v as SkillLevelV4;
+    update('levels', form.levels.includes(lv) ? form.levels.filter((x) => x !== lv) : [...form.levels, lv]);
+  };
   // Pick a real NETSA profile from search → has userId, no invite needed.
   const addPersonPicked = (p: PickedPerson) => {
     if (!p.userId || form.people.some((x) => x.userId === p.userId)) return;
@@ -64,8 +71,12 @@ export default function Step1Event() {
           suggestions={['All creatives', ...WHO_SUGGEST].filter((w) => !form.whoFor.includes(w))}
           onAddSuggestion={(w) => (w === 'All creatives' ? update('openToAll', true) : addWho(w))} />
         <View style={st.lvl}>
-          <Text style={st.lvlLab}>LEVEL</Text>
-          <Chips options={LEVELS.map((l) => l.label)} value={LEVELS.find((l) => l.v === form.level)?.label} onChange={(lbl) => update('level', LEVELS.find((l) => l.label === lbl)!.v)} />
+          <Text style={st.lvlLab}>LEVEL · pick any</Text>
+          <ChipsMulti
+            options={LEVELS.map((l) => ({ label: l.label, key: l.v }))}
+            values={form.levels.length ? form.levels : ['all']}
+            onToggle={toggleLevel}
+          />
         </View>
       </Group>
 

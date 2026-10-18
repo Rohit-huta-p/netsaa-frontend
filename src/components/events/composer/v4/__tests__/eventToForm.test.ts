@@ -8,7 +8,7 @@ function filledForm(): ComposerFormV4 {
     whoFor: ['Dancer'],
     otherArtistTypes: ['Folk dancer'],
     openToAll: false,
-    level: 'beginner',
+    levels: ['beginner'],
     styles: ['kathak', 'classical'],
     languages: ['hi', 'en'],
     people: [{ displayName: 'Aditi', role: 'Led by', invited: false }],
@@ -46,7 +46,7 @@ describe('eventToForm — edit round-trip (form → payload → eventToForm)', (
     expect(back.title).toBe('Kathak Foundations');
     expect(back.whoFor).toEqual(['Dancer']);
     expect(back.otherArtistTypes).toEqual(['Folk dancer']);
-    expect(back.level).toBe('beginner');
+    expect(back.levels).toEqual(['beginner']);
     expect(back.styles).toEqual(['kathak', 'classical']);
     expect(back.languages).toEqual(['hi', 'en']);
     expect(back.people[0]).toMatchObject({ displayName: 'Aditi', role: 'Led by' });

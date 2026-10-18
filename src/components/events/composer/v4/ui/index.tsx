@@ -71,6 +71,21 @@ export function Chips({ options, value, onChange }: { options: string[]; value?:
   );
 }
 
+export function ChipsMulti({ options, values, onToggle }: { options: { label: string; key: string }[]; values: string[]; onToggle: (key: string) => void }) {
+  return (
+    <View style={s.chips}>
+      {options.map((o) => {
+        const on = values.includes(o.key);
+        return (
+          <Pressable key={o.key} onPress={() => onToggle(o.key)} style={[s.chip, on && s.chipOn]}>
+            <Text style={[s.chipTxt, on && s.chipTxtOn]}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function Pills({ options, onPress, noPlus }: { options: { label: string; key?: string; on?: boolean }[]; onPress: (key: string) => void; noPlus?: boolean }) {
   return (
     <View style={s.pills}>

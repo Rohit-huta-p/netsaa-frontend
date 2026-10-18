@@ -25,6 +25,10 @@ import MoreByOrganizerRail from './MoreByOrganizerRail';
 import EventCtaBar from './EventCtaBar';
 import MeetingLinkRevealCard from './MeetingLinkRevealCard';
 import DiscussionTabs from './DiscussionTabs';
+import EventHeroV3 from './EventHeroV3';
+import EventDetailV3Body from './EventDetailV3Body';
+import { usePublicRoster } from '@/hooks/usePublicRoster';
+import { eventDetailV3Enabled } from '@/utils/flags';
 
 const BG = '#0B0A0F'; // v2 bg-1
 
@@ -48,6 +52,11 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
 
   // One query powers both the organizer card's "N events" and the rail.
   const { data: orgEvents } = useEventsByOrganizer(organizerId, event._id);
+
+  // E·9 photo-led page (flag-gated). Roster = public "who's going" (count + names).
+  const v3 = eventDetailV3Enabled();
+  const { data: roster } = usePublicRoster(v3 ? event._id : undefined);
+  const openProfile = (uid?: string) => { if (uid) router.push(`/profile/${uid}` as any); };
 
   // Save / unsave — POST /v1/events/:id/save toggles server-side and returns the
   // new state. Seeded from viewerContext.hasSaved (detail endpoint), optimistic
@@ -75,15 +84,36 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
     <View style={{ flex: 1, backgroundColor: BG }}>
       <ScrollView contentInsetAdjustmentBehavior="never" showsVerticalScrollIndicator={false}>
         {/* Hero owns the overlaid nav (back · share · save) */}
-        <EventHeroV2
-          event={event}
-          onBack={handleBack}
-          onShare={() => shareEvent(event)}
-          onSave={preview ? undefined : onToggleSave}
-          saved={saved}
-        />
-
-        <EventDetailV2Body event={event} organizerEventCount={orgEvents?.total} />
+        {v3 ? (
+          <>
+            <EventHeroV3
+              event={event}
+              onBack={handleBack}
+              onShare={() => shareEvent(event)}
+              onSave={preview ? undefined : onToggleSave}
+              saved={saved}
+              goingCount={roster?.count ?? 0}
+            />
+            <EventDetailV3Body
+              event={event}
+              goingCount={roster?.count}
+              goingNames={roster?.names}
+              organizerId={organizerId}
+              onOpenProfile={preview ? undefined : openProfile}
+            />
+          </>
+        ) : (
+          <>
+            <EventHeroV2
+              event={event}
+              onBack={handleBack}
+              onShare={() => shareEvent(event)}
+              onSave={preview ? undefined : onToggleSave}
+              saved={saved}
+            />
+            <EventDetailV2Body event={event} organizerEventCount={orgEvents?.total} />
+          </>
+        )}
 
         <View style={{ paddingHorizontal: 20 }}>
           <MeetingLinkRevealCard event={event} />
@@ -96,7 +126,7 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
       </ScrollView>
 
       {/* Register bar — inert while previewing (greyed, non-interactive) */}
-      <EventCtaBar event={event} preview={preview} initialOpen={!preview && !!initialOpenRegister} />
+      <EventCtaBar event={event} preview={preview} initialOpen={!preview && !!initialOpenRegister} v3={v3} />
     </View>
   );
 }

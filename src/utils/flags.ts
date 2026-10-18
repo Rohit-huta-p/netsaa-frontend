@@ -32,3 +32,12 @@ export function searchPeopleV2Enabled(): boolean {
 export function contractsEnabled(): boolean {
   return process.env.EXPO_PUBLIC_CONTRACTS_ENABLED === 'true';
 }
+
+/**
+ * Returns true if the E·9 photo-led event detail page (V3) is enabled.
+ * `/events/[id]` then renders the photo-led layout; otherwise the current v2 page.
+ * Default: false.
+ */
+export function eventDetailV3Enabled(): boolean {
+  return process.env.EXPO_PUBLIC_EVENT_DETAIL_V3 === 'true';
+}

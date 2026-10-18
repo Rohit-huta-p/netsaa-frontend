@@ -15,6 +15,7 @@ import { DPDPConsentScreen } from '@/components/events/register/DPDPConsentScree
 import { useRegisterFlowStore } from '@/stores/registerFlowStore';
 import WaitlistJoinSheet from '@/components/events/register/WaitlistJoinSheet';
 import LeaveWaitlistConfirm from '@/components/events/register/LeaveWaitlistConfirm';
+import { ctaLabel, refundLabel, closesLabel } from '@/lib/eventDetailV3';
 
 interface Props {
   event: EventDoc;
@@ -23,6 +24,8 @@ interface Props {
   /** Organizer preview: render the bar as a viewer sees it, but inert (the
    *  organizer can't register for their own event). */
   preview?: boolean;
+  /** E·9 photo-led page: "₹X onwards" button + refund·closing ribbon. */
+  v3?: boolean;
 }
 
 const BG = 'rgba(9,9,11,0.92)';
@@ -34,7 +37,7 @@ const TEXT_3 = '#52525b';
 const ORANGE_INK = '#1A0D06';
 const PAD = 20;
 
-export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed, preview }: Props) {
+export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed, preview, v3 }: Props) {
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -88,6 +91,11 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
           ? `Register · ${slotsLeft} left →`
           : 'Register →';
 
+  // E·9: the reserve button carries the lowest price + "onwards"; a small
+  // refund·closing line sits above the row. Other states keep their labels.
+  const reserveLabel = v3 && isLive && !isFull && !deadlinePassed ? ctaLabel(event) : buttonLabel;
+  const ribbon = v3 && !isRegistered ? [refundLabel(event), closesLabel(event)].filter(Boolean).join('  ·  ') : '';
+
   // Preview → the primary CTA is greyed + non-interactive (organizer proofing).
   const ctaDisabled = deadlinePassed || isFull || !isLive || regLoading || preview;
 
@@ -105,9 +113,13 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
       borderColor: HAIRLINE_2,
       gap: 0,
     }}>
+      {ribbon ? (
+        <Text className="font-outfit" style={{ fontSize: 11.5, color: TEXT_2, textAlign: 'center', marginBottom: 10 }}>{ribbon}</Text>
+      ) : null}
       {/* Price + CTA row */}
       <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 10 }}>
-        {/* Price / status column */}
+        {/* Price / status column (hidden in v3 reserve state — the button carries the price) */}
+        {(!v3 || isRegistered) ? (
         <View style={{ paddingHorizontal: 4, justifyContent: 'center' }}>
           {isRegistered ? (
             <>
@@ -151,6 +163,7 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
             </>
           )}
         </View>
+        ) : null}
 
         {isRegistered ? (
           /* Registered state: View ticket (primary flex) + Cancel (secondary smaller) */
@@ -295,7 +308,7 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
                 fontWeight: '700',
                 fontSize: 14,
               }}>
-                {buttonLabel}
+                {reserveLabel}
               </Text>
             </Pressable>
           )

@@ -98,6 +98,31 @@ export interface EventDoc {
   publishedAt?: string;
   createdAt: string;
   updatedAt: string;
+
+  // ── E·9 photo-led detail fields (v4 schema; returned by the detail endpoint) ──
+  eventType?: 'workshop' | 'masterclass' | 'audition' | 'open_mic' | 'competition' | 'performance' | 'screening' | 'meetup' | 'other' | 'showcase';
+  eventTypeLabel?: string;
+  skillLevel?: 'all' | 'beginner' | 'intermediate' | 'advanced';
+  eligibleArtistTypes?: string[];
+  otherArtistTypes?: string[];
+  openToAll?: boolean;
+  languages?: string[];
+  timeTbd?: boolean;
+  coverFit?: 'whole' | 'fill';
+  /** Featured artists — "Led by". userId links a NETSA profile; invite.status marks invited vs joined. */
+  people?: Array<{ userId?: string; displayName: string; role?: string; avatarUrl?: string; invite?: { status: 'invited' | 'joined' } }>;
+  spots?: Array<{ name: string; note?: string; capacity?: number; price: number }>;
+  offers?: Array<{ spotId?: string; name: string; price: number; audience?: 'everyone' | 'group'; endsAt?: string; seatLimit?: number; minSeats?: number }>;
+  registration?: { door: 'open' | 'guest_list' | 'apply'; questions?: Array<{ label: string; type: string; options?: string[]; required?: boolean }> };
+  requiresApproval?: boolean;
+  lineup?: Array<{ when?: string; title: string; detail?: string }>;
+  bring?: { items?: string[]; note?: string };
+  included?: string[];
+  eventConfig?: {
+    materialsProvided?: boolean; preparationRequired?: boolean; preparationNotes?: string;
+    competitionFormat?: string; judgingCriteria?: string[]; prizes?: Array<{ position: string; reward: string }>;
+  };
+  organizerSnapshot?: { name?: string; organizationName?: string; profileImageUrl?: string; verified?: boolean; role?: string; rating?: number };
 }
 
 export interface RegisterPayload {
@@ -176,6 +201,12 @@ export const eventService = {
 
   detail: async (id: string): Promise<EventDoc> => {
     const r = await client.get(`/v1/events/${id}`);
+    return r.data.data;
+  },
+
+  /** Public "who's going" — count + first names only (no PII). Used by the E·9 detail page. */
+  getPublicRoster: async (id: string): Promise<{ count: number; names: string[] }> => {
+    const r = await client.get(`/v1/events/${id}/roster/public`);
     return r.data.data;
   },
 

@@ -46,7 +46,7 @@ export function StyledTextInput({
       <AnyTextInput
         type={type}
         className={`w-full bg-zinc-900/50  border ${error ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 text-white placeholder-zinc-500 outline-none`}
-        style={{ outlineStyle: 'none', fontSize: T.size.xs, lineHeight: getLineHeight('body') } as any}
+        style={{ outlineStyle: 'none', fontSize: 14, lineHeight: getLineHeight('body') } as any}
         placeholder={placeholder}
         placeholderTextColor="rgba(255, 255, 255, 0.3)"
         value={value}

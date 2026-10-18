@@ -40,10 +40,13 @@ export default function Step1Event() {
     <View>
       <Text style={st.sub}>Start with the kind of event. It fills in suggestions; the form stays the same.</Text>
 
-      <Group label="Event type" required>
-        <EventTypeField />
-        <Hint>It only fills in suggestions. Every event, even one you type in, gets the same form.</Hint>
-      </Group>
+      {/* Raised so the Event-type dropdown overlays the fields below it. */}
+      <View style={st.eventTypeZ}>
+        <Group label="Event type" required>
+          <EventTypeField />
+          <Hint>It only fills in suggestions. Every event, even one you type in, gets the same form.</Hint>
+        </Group>
+      </View>
 
       <Group label="Title" required>
         <TextField icon={Pencil} placeholder="e.g. Kathak Foundations · 3-day intensive" value={form.title} onChangeText={(t) => update('title', t)} maxLength={80} />
@@ -79,6 +82,7 @@ export default function Step1Event() {
 
 const st = StyleSheet.create({
   sub: { fontFamily: F.body, fontSize: 13, color: C.dim, marginBottom: 18, lineHeight: 18 },
+  eventTypeZ: { position: 'relative', zIndex: 30 },
   lvl: { gap: 8, marginTop: 12 },
   lvlLab: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.2, color: C.dim },
 });

@@ -71,12 +71,12 @@ export function Chips({ options, value, onChange }: { options: string[]; value?:
   );
 }
 
-export function Pills({ options, onPress }: { options: { label: string; key?: string; on?: boolean }[]; onPress: (key: string) => void }) {
+export function Pills({ options, onPress, noPlus }: { options: { label: string; key?: string; on?: boolean }[]; onPress: (key: string) => void; noPlus?: boolean }) {
   return (
     <View style={s.pills}>
       {options.map((o) => (
         <Pressable key={o.key ?? o.label} onPress={() => onPress(o.key ?? o.label)} style={[s.pill, o.on && s.pillOn]}>
-          {!o.on ? <Text style={s.pillPlus}>+ </Text> : null}
+          {!o.on && !noPlus ? <Text style={s.pillPlus}>+ </Text> : null}
           <Text style={[s.pillTxt, o.on && s.pillTxtOn]}>{o.label}</Text>
         </Pressable>
       ))}
@@ -222,10 +222,10 @@ const s = StyleSheet.create({
   chipTxt: { fontFamily: F.medium, fontSize: 12.5, color: C.t4 },
   chipTxtOn: { color: C.orangeInk, fontFamily: F.semibold },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
-  pill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, paddingVertical: 4, borderRadius: R.pill, borderWidth: 1, borderColor: C.border2 },
+  pill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, borderWidth: 1, borderColor: C.border2 },
   pillOn: { backgroundColor: C.orangeSoft, borderColor: C.orangeBorder },
-  pillPlus: { fontFamily: F.bold, fontSize: 11, color: C.orange },
-  pillTxt: { fontFamily: F.semibold, fontSize: 11, color: C.t4 },
+  pillPlus: { fontFamily: F.bold, fontSize: 10, color: C.orange },
+  pillTxt: { fontFamily: F.semibold, fontSize: 10, color: C.t4 },
   pillTxtOn: { color: C.orangeInk },
   tag: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 11, paddingVertical: 7, borderRadius: R.sm, backgroundColor: C.orangeSoft, borderWidth: 1, borderColor: C.orangeBorder },
   tagTxt: { fontFamily: F.semibold, fontSize: 12.5, color: C.orangeInk },

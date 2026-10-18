@@ -45,12 +45,12 @@ export default function Step1Event() {
       <Text style={st.sub}>Start with the kind of event. It fills in suggestions; the form stays the same.</Text>
 
       <Group label="Event type" required>
-        <Pills
+        <TextField placeholder="Type your own, or pick one below…" value={custom}
+          onChangeText={(t) => { setCustom(t); if (t.trim()) { setEventType(t.trim()); update('eventTypeLabel', t.trim()); } }} />
+        <Pills noPlus
           options={EVENT_TYPE_KEYS.filter((k) => k !== 'other').map((k) => ({ label: EVENT_TYPE_PRESETS[k].label, key: k, on: form.eventType === k }))}
           onPress={(k) => { setEventType(k); setCustom(''); }}
         />
-        <TextField placeholder="Or type your own kind of event…" value={custom}
-          onChangeText={(t) => { setCustom(t); if (t.trim()) { setEventType(t.trim()); update('eventTypeLabel', t.trim()); } }} />
         <Hint>It only fills in suggestions. Every event, even one you type in, gets the same form.</Hint>
       </Group>
 
@@ -79,7 +79,7 @@ export default function Step1Event() {
           suggestions={['Hindi', 'English', 'Marathi'].filter((x) => !form.languages.includes(x))} onAddSuggestion={addLang} />
       </Group>
 
-      <Group label="People" optional sub="Anyone attendees should know about. Each person gets a role.">
+      <Group label="Featuring" optional sub="Anyone attendees should know about. Each person gets a role.">
         <View style={st.people}>
           {form.people.map((p, i) => (
             <View key={i} style={st.person}>
@@ -122,7 +122,7 @@ export default function Step1Event() {
 
 const st = StyleSheet.create({
   sub: { fontFamily: F.body, fontSize: 13, color: C.dim, marginBottom: 18, lineHeight: 18 },
-  lvl: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  lvl: { gap: 8, marginTop: 12 },
   lvlLab: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.2, color: C.dim },
   people: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   person: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: '#1B1B24', borderWidth: 1, borderColor: C.border2 },

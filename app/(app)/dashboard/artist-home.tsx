@@ -12,7 +12,9 @@
 // no mode toggle under the three-role model).
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { useBottomNavScroll, NAV_SCROLL_EVENT_THROTTLE } from '@/components/nav/navVisibility';
 import { useQueryClient } from '@tanstack/react-query';
 
 import ArtistGreet from '../../../src/components/dashboard/artist/home/ArtistGreet';
@@ -36,9 +38,13 @@ export default function ArtistHome() {
     }
   }, [queryClient]);
 
+  const onNavScroll = useBottomNavScroll();
+
   return (
     <SafeAreaView style={styles.root}>
-      <ScrollView
+      <Animated.ScrollView
+        onScroll={onNavScroll}
+        scrollEventThrottle={NAV_SCROLL_EVENT_THROTTLE}
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -56,7 +62,7 @@ export default function ArtistHome() {
           <View style={styles.footerRule} />
           <Text style={styles.footerCaption}>THE STAGE IS YOURS</Text>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }

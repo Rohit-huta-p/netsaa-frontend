@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { useBottomNavScroll, NAV_SCROLL_EVENT_THROTTLE } from '@/components/nav/navVisibility';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, Filter, X } from 'lucide-react-native';
@@ -54,6 +56,7 @@ export default function Talent() {
     const router = useRouter();
     const queryClient = useQueryClient();
     const navClearance = (useMobileTabBarHeight() || 64) + 56;
+    const onNavScroll = useBottomNavScroll();
     const authRole = useAuthStore((s) => s.role);
     const isClient = authRole === 'client';
     // A creative_lead hires artists DOWN the chain; agencies are client-layer
@@ -358,9 +361,11 @@ export default function Talent() {
                 {isLoading ? (
                     <ActivityIndicator color="#FF6B35" style={{ marginTop: 40 }} />
                 ) : (
-                    <FlatList
+                    <Animated.FlatList
                         data={people}
-                        keyExtractor={(p) => p._id}
+                        keyExtractor={(p: DirectoryPerson) => p._id}
+                        onScroll={onNavScroll}
+                        scrollEventThrottle={NAV_SCROLL_EVENT_THROTTLE}
                         contentContainerStyle={{ paddingBottom: navClearance }}
                         ListEmptyComponent={
                             <Text

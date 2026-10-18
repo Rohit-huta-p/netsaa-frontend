@@ -1,13 +1,14 @@
 // src/components/AppScrollView.tsx
 import Footer from "@/components/Footer";
 import { useMobileTabBarHeight } from "@/components/MobileTabBar";
+import { useBottomNavScroll, NAV_SCROLL_EVENT_THROTTLE } from "@/components/nav/navVisibility";
 import React from "react";
 import {
-    ScrollView,
     ScrollViewProps,
     ViewStyle,
     StyleProp,
 } from "react-native";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 
@@ -27,6 +28,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function AppScrollView(props: ScrollViewProps) {
     const insets = useSafeAreaInsets();
     const tabBarHeight = useMobileTabBarHeight();
+    // Drives the global BottomNav auto-hide. Every AppScrollView is a vertical
+    // page scroller, so it always reports direction.
+    const onNavScroll = useBottomNavScroll();
 
     // On mobile: use tab bar height (which includes safe area)
     // On desktop: use safe area insets only
@@ -40,16 +44,21 @@ export default function AppScrollView(props: ScrollViewProps) {
     ];
 
     return (
-        <ScrollView
+        <Animated.ScrollView
             keyboardShouldPersistTaps="handled"
+            scrollEventThrottle={NAV_SCROLL_EVENT_THROTTLE}
             {...props}
+            // Our handler is authoritative for nav auto-hide. No current caller
+            // passes onScroll; a future one that needs its own should use
+            // useBottomNavScroll() alongside it on a raw Animated list instead.
+            onScroll={onNavScroll}
             style={[{ flex: 1 }, props.style]}
             contentContainerStyle={mergedContentContainerStyle}
         >
             {props.children}
             {/* Footer is appended inside the ScrollView so it scrolls with the page */}
             <Footer />
-        </ScrollView>
+        </Animated.ScrollView>
     );
 }
 

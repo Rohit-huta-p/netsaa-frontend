@@ -12,11 +12,11 @@ import Step4Register from './steps/Step4Register';
 import Step5Describe from './steps/Step5Describe';
 import Step6Publish from './steps/Step6Publish';
 
-const STEP_LABELS = ['Event', 'Where', 'Spots', 'Register', 'Describe', 'Review'];
+const STEP_LABELS = ['Event', 'Where', 'Tickets', 'Register', 'Describe', 'Review'];
 const STEP_META: Record<number, { eyebrow: string; title: string }> = {
   1: { eyebrow: 'the event', title: 'What are you putting on?' },
   2: { eyebrow: 'when & where', title: 'When and where?' },
-  3: { eyebrow: 'spots', title: 'Who can come, and how many?' },
+  3: { eyebrow: 'tickets', title: 'Who can come, and the price?' },
   4: { eyebrow: 'registration', title: 'How do people get in?' },
   5: { eyebrow: 'describe', title: 'Tell people about it.' },
   6: { eyebrow: 'review', title: 'A last look.' },

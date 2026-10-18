@@ -39,7 +39,7 @@ export interface ComposerFormV4 {
   whoFor: string[];                  // listed artist types
   otherArtistTypes: string[];        // typed-in artist types
   openToAll: boolean;
-  level: SkillLevelV4;
+  levels: SkillLevelV4[];
   styles: string[];                  // topicTags
   languages: string[];
   people: PersonV4[];
@@ -93,7 +93,7 @@ export function initialFormV4(type: string = 'workshop'): ComposerFormV4 {
     eventType: type,
     eventTypeLabel: isPresetType(type) ? undefined : type,
     title: '',
-    whoFor: [], otherArtistTypes: [], openToAll: false, level: 'all', styles: [], languages: [],
+    whoFor: [], otherArtistTypes: [], openToAll: false, levels: [], styles: [], languages: [],
     people: [],
     startsAt: null, endsAt: null, timeTbd: false, durationKind: null, format: 'in_person', location: {},
     paid: false,
@@ -177,7 +177,7 @@ export function buildEventPayload(form: ComposerFormV4): Record<string, any> {
     eligibleArtistTypes: form.openToAll ? [] : form.whoFor,
     otherArtistTypes: form.otherArtistTypes,
     openToAll: form.openToAll,
-    skillLevel: form.level,
+    skillLevel: form.levels,
     topicTags: form.styles,
     languages: form.languages,
     language: form.languages[0] || 'en',
@@ -277,7 +277,7 @@ export function eventToForm(e: any): Partial<ComposerFormV4> {
     whoFor: Array.isArray(e?.eligibleArtistTypes) ? e.eligibleArtistTypes : [],
     otherArtistTypes: Array.isArray(e?.otherArtistTypes) ? e.otherArtistTypes : [],
     openToAll: !!e?.openToAll,
-    level: (e?.skillLevel as SkillLevelV4) || 'all',
+    levels: (Array.isArray(e?.skillLevel) ? e?.skillLevel : e?.skillLevel ? [e?.skillLevel] : []).filter((x: any) => x && x !== 'all') as SkillLevelV4[],
     styles: Array.isArray(e?.topicTags) ? e.topicTags : [],
     languages: Array.isArray(e?.languages) && e.languages.length ? e.languages : (e?.language ? [e.language] : []),
     people: Array.isArray(e?.people) ? e.people.map((p: any) => ({

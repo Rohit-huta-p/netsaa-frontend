@@ -246,10 +246,10 @@ const Row = ({ k, v, bold }: { k: string; v: string; bold?: boolean }) => (
 const st = StyleSheet.create({
   sub: { fontFamily: F.body, fontSize: 13, color: C.dim, marginBottom: 18, lineHeight: 18 },
   row: { flexDirection: 'row', gap: 12 },
-  miniLab: { fontFamily: F.bold, fontSize: 11, color: C.t3, marginBottom: 5 },
+  miniLab: { fontFamily: F.semibold, fontSize: 11, color: C.t3, marginBottom: 5 },
   num: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, paddingHorizontal: 12, height: 46 },
-  prefix: { fontFamily: F.bold, fontSize: 16, color: C.dim },
-  numInput: { flex: 1, fontFamily: F.bold, fontSize: 16, color: C.t1, padding: 0, minWidth: 0 },
+  prefix: { fontFamily: F.body, fontSize: 14, color: C.dim },
+  numInput: { flex: 1, fontFamily: F.body, fontSize: 14, color: C.t1, padding: 0, minWidth: 0 },
   // discount accordion
   accCard: { padding: 0, gap: 0, overflow: 'hidden' },
   accHeadRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 14 },
@@ -260,10 +260,10 @@ const st = StyleSheet.create({
   accX: { padding: 4 },
   accBody: { borderTopWidth: 1, borderTopColor: C.border, padding: 14, gap: 11 },
   nameField: { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, height: 46, paddingHorizontal: 12, justifyContent: 'center' },
-  offerNameInput: { flex: 1, fontFamily: F.bold, fontSize: 14, color: C.t1, padding: 0 },
+  offerNameInput: { flex: 1, fontFamily: F.body, fontSize: 14, color: C.t1, padding: 0 },
   dateBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, height: 46, paddingHorizontal: 12 },
   dateMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dateTxt: { flex: 1, fontFamily: F.semibold, fontSize: 13.5, color: C.t2 },
+  dateTxt: { flex: 1, fontFamily: F.body, fontSize: 14, color: C.t2 },
   // group section
   disc: { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 15 },
   discOn: { borderColor: C.orangeBorder, backgroundColor: 'rgba(255,107,53,0.05)' },

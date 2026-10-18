@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { Pencil, Send, X, Check } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../useComposerStoreV4';
 import { presetFor, EVENT_TYPE_PRESETS, EVENT_TYPE_KEYS } from '../eventTypePresets';
-import { Group, TextField, Pills, Chips, TagInput, Hint } from '../ui';
+import { Group, TextField, Pills, ChipsMulti, TagInput, Hint } from '../ui';
+import type { SkillLevelV4 } from '../composerForm';
 import InviteSheetV4 from '../InviteSheetV4';
 import PeopleSearchFieldV4, { PickedPerson } from '../PeopleSearchFieldV4';
 import { C, F } from '../theme';
@@ -26,6 +27,12 @@ export default function Step1Event() {
   const removeWho = (t: string) => update('whoFor', form.whoFor.filter((x) => x !== t));
   const addStyle = (t: string) => { if (t && !form.styles.includes(t)) update('styles', [...form.styles, t]); };
   const addLang = (t: string) => { if (t && !form.languages.includes(t)) update('languages', [...form.languages, t]); };
+  // Level is multi-select; [] = any. "Any" clears the array, a specific level toggles in/out.
+  const toggleLevel = (v: string) => {
+    if (v === 'all') return update('levels', []);
+    const lv = v as SkillLevelV4;
+    update('levels', form.levels.includes(lv) ? form.levels.filter((x) => x !== lv) : [...form.levels, lv]);
+  };
   // Pick a real NETSA profile from search → has userId, no invite needed.
   const addPersonPicked = (p: PickedPerson) => {
     if (!p.userId || form.people.some((x) => x.userId === p.userId)) return;
@@ -45,12 +52,12 @@ export default function Step1Event() {
       <Text style={st.sub}>Start with the kind of event. It fills in suggestions; the form stays the same.</Text>
 
       <Group label="Event type" required>
-        <Pills
+        <TextField placeholder="Type your own, or pick one below…" value={custom}
+          onChangeText={(t) => { setCustom(t); if (t.trim()) { setEventType(t.trim()); update('eventTypeLabel', t.trim()); } }} />
+        <Pills noPlus
           options={EVENT_TYPE_KEYS.filter((k) => k !== 'other').map((k) => ({ label: EVENT_TYPE_PRESETS[k].label, key: k, on: form.eventType === k }))}
           onPress={(k) => { setEventType(k); setCustom(''); }}
         />
-        <TextField placeholder="Or type your own kind of event…" value={custom}
-          onChangeText={(t) => { setCustom(t); if (t.trim()) { setEventType(t.trim()); update('eventTypeLabel', t.trim()); } }} />
         <Hint>It only fills in suggestions. Every event, even one you type in, gets the same form.</Hint>
       </Group>
 
@@ -64,8 +71,12 @@ export default function Step1Event() {
           suggestions={['All creatives', ...WHO_SUGGEST].filter((w) => !form.whoFor.includes(w))}
           onAddSuggestion={(w) => (w === 'All creatives' ? update('openToAll', true) : addWho(w))} />
         <View style={st.lvl}>
-          <Text style={st.lvlLab}>LEVEL</Text>
-          <Chips options={LEVELS.map((l) => l.label)} value={LEVELS.find((l) => l.v === form.level)?.label} onChange={(lbl) => update('level', LEVELS.find((l) => l.label === lbl)!.v)} />
+          <Text style={st.lvlLab}>LEVEL · pick any</Text>
+          <ChipsMulti
+            options={LEVELS.map((l) => ({ label: l.label, key: l.v }))}
+            values={form.levels.length ? form.levels : ['all']}
+            onToggle={toggleLevel}
+          />
         </View>
       </Group>
 
@@ -79,7 +90,7 @@ export default function Step1Event() {
           suggestions={['Hindi', 'English', 'Marathi'].filter((x) => !form.languages.includes(x))} onAddSuggestion={addLang} />
       </Group>
 
-      <Group label="People" optional sub="Anyone attendees should know about. Each person gets a role.">
+      <Group label="Featuring" optional sub="Anyone attendees should know about. Each person gets a role.">
         <View style={st.people}>
           {form.people.map((p, i) => (
             <View key={i} style={st.person}>
@@ -122,7 +133,7 @@ export default function Step1Event() {
 
 const st = StyleSheet.create({
   sub: { fontFamily: F.body, fontSize: 13, color: C.dim, marginBottom: 18, lineHeight: 18 },
-  lvl: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  lvl: { gap: 8, marginTop: 12 },
   lvlLab: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.2, color: C.dim },
   people: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   person: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: '#1B1B24', borderWidth: 1, borderColor: C.border2 },

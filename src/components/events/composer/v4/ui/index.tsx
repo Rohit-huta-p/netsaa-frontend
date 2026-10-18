@@ -71,12 +71,27 @@ export function Chips({ options, value, onChange }: { options: string[]; value?:
   );
 }
 
-export function Pills({ options, onPress }: { options: { label: string; key?: string; on?: boolean }[]; onPress: (key: string) => void }) {
+export function ChipsMulti({ options, values, onToggle }: { options: { label: string; key: string }[]; values: string[]; onToggle: (key: string) => void }) {
+  return (
+    <View style={s.chips}>
+      {options.map((o) => {
+        const on = values.includes(o.key);
+        return (
+          <Pressable key={o.key} onPress={() => onToggle(o.key)} style={[s.chip, on && s.chipOn]}>
+            <Text style={[s.chipTxt, on && s.chipTxtOn]}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function Pills({ options, onPress, noPlus }: { options: { label: string; key?: string; on?: boolean }[]; onPress: (key: string) => void; noPlus?: boolean }) {
   return (
     <View style={s.pills}>
       {options.map((o) => (
         <Pressable key={o.key ?? o.label} onPress={() => onPress(o.key ?? o.label)} style={[s.pill, o.on && s.pillOn]}>
-          {!o.on ? <Text style={s.pillPlus}>+ </Text> : null}
+          {!o.on && !noPlus ? <Text style={s.pillPlus}>+ </Text> : null}
           <Text style={[s.pillTxt, o.on && s.pillTxtOn]}>{o.label}</Text>
         </Pressable>
       ))}
@@ -205,16 +220,16 @@ const s = StyleSheet.create({
   hint: { fontFamily: F.body, fontSize: 11, color: C.dim, lineHeight: 16 },
   group: { gap: SP.sm, marginBottom: SP.xl },
   glabelRow: { flexDirection: 'row', alignItems: 'baseline' },
-  glabel: { fontFamily: F.bold, fontSize: 15, color: C.t1, letterSpacing: -0.2 },
+  glabel: { fontFamily: F.semibold, fontSize: 15, color: C.t1, letterSpacing: -0.2 },
   req: { fontFamily: F.bold, fontSize: 15, color: C.orange },
   opt: { fontFamily: F.medium, fontSize: 11, color: C.dim2 },
   gsub: { fontFamily: F.body, fontSize: 11.5, color: C.dim, marginTop: -4, lineHeight: 16 },
   field: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: 12, paddingVertical: 11 },
   fieldMultiline: { alignItems: 'flex-start' },
   tagField: { flexWrap: 'wrap', gap: 6, minHeight: 44 },
-  fieldVal: { flex: 1, fontFamily: F.medium, fontSize: 13.5, color: C.t2 },
+  fieldVal: { flex: 1, fontFamily: F.body, fontSize: 14, color: C.t2 },
   fieldPh: { color: C.dim2, fontFamily: F.body },
-  input: { flex: 1, color: C.t2, fontFamily: F.body, fontSize: 13.5, padding: 0 },
+  input: { flex: 1, color: C.t2, fontFamily: F.body, fontSize: 14, padding: 0 },
   inputMultiline: { minHeight: 76, textAlignVertical: 'top', lineHeight: 20 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: R.md, backgroundColor: C.card2, borderWidth: 1, borderColor: C.border2 },
@@ -222,10 +237,10 @@ const s = StyleSheet.create({
   chipTxt: { fontFamily: F.medium, fontSize: 12.5, color: C.t4 },
   chipTxtOn: { color: C.orangeInk, fontFamily: F.semibold },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
-  pill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, paddingVertical: 4, borderRadius: R.pill, borderWidth: 1, borderColor: C.border2 },
+  pill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, borderWidth: 1, borderColor: C.border2 },
   pillOn: { backgroundColor: C.orangeSoft, borderColor: C.orangeBorder },
-  pillPlus: { fontFamily: F.bold, fontSize: 11, color: C.orange },
-  pillTxt: { fontFamily: F.semibold, fontSize: 11, color: C.t4 },
+  pillPlus: { fontFamily: F.bold, fontSize: 10, color: C.orange },
+  pillTxt: { fontFamily: F.semibold, fontSize: 10, color: C.t4 },
   pillTxtOn: { color: C.orangeInk },
   tag: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 11, paddingVertical: 7, borderRadius: R.sm, backgroundColor: C.orangeSoft, borderWidth: 1, borderColor: C.orangeBorder },
   tagTxt: { fontFamily: F.semibold, fontSize: 12.5, color: C.orangeInk },

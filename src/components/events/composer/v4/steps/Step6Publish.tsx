@@ -44,7 +44,7 @@ export default function Step6Publish() {
   const button = form.door === 'apply' ? 'Apply' : form.door === 'guest_list' ? 'Request to join'
     : (form.paid && paidSpots.length ? `Get tickets · ${priceText.replace('From ', '')}` : 'Register');
   const typeLabel = form.eventTypeLabel || preset.label;
-  const chips = [typeLabel, form.level !== 'all' ? form.level : null, form.format === 'online' ? 'Online' : 'In person'].filter(Boolean) as string[];
+  const chips = [typeLabel, form.levels.length ? form.levels.join(' · ') : null, form.format === 'online' ? 'Online' : 'In person'].filter(Boolean) as string[];
 
   return (
     <View>

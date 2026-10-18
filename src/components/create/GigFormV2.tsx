@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepTitleWrap: { flex: 1 },
-  stepTitle: { fontFamily: FONT.serif, fontSize: 20, color: TEXT.value, letterSpacing: -0.3 },
+  stepTitle: { fontFamily: FONT.serif, fontSize: 16, color: TEXT.value, letterSpacing: -0.3 },
   stepMeta: {
     fontFamily: FONT.mono,
     fontSize: 10,

@@ -74,7 +74,7 @@ export const TagInput: React.FC<TagInputProps> = ({
                 ))}
 
                 <TextInput
-                    className="flex-1 min-w-[100px] font-thin text-white p-1 text-xs placeholder-zinc-500 outline-none"
+                    className="flex-1 min-w-[100px] font-thin text-white p-1 text-sm placeholder-zinc-500 outline-none"
                     style={{ outlineStyle: 'none' } as any}
                     placeholder={tags.length === 0 ? placeholder : ''}
                     placeholderTextColor="rgba(255, 255, 255, 0.3)"

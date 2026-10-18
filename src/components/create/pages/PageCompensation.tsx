@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     height: 50,
   },
   currency: { fontFamily: 'Outfit-Medium', fontSize: 17, color: '#71717A' },
-  amountInput: { flex: 1, color: '#FFFFFF', fontFamily: 'Outfit-Regular', fontSize: 16, paddingVertical: 0 },
+  amountInput: { flex: 1, color: '#FFFFFF', fontFamily: 'Outfit-Regular', fontSize: 14, paddingVertical: 0 },
   unitPill: {
     flexDirection: 'row',
     alignItems: 'center',

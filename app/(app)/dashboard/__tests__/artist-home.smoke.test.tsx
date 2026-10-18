@@ -5,7 +5,9 @@
 // Uses react-test-renderer directly (not RTL) — matches the house smoke pattern.
 
 import React from 'react';
-import TestRenderer from 'react-test-renderer';
+// require (not import) — react-test-renderer ships no type declarations; the
+// house smoke tests consume it this way to avoid an implicit-any TS7016.
+const TestRenderer = require('react-test-renderer');
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
@@ -66,7 +68,7 @@ function collectText(node: any): string {
 
 describe('artist-home (simplified, skin A) — smoke', () => {
   it('renders all three sections with data and no crash', () => {
-    let r: TestRenderer.ReactTestRenderer | undefined;
+    let r: any;
     TestRenderer.act(() => {
       r = TestRenderer.create(React.createElement(ArtistHome));
     });

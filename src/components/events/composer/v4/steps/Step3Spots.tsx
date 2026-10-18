@@ -33,7 +33,6 @@ export default function Step3Spots() {
   const update = useComposerStoreV4((s) => s.update);
   const updateSpot = useComposerStoreV4((s) => s.updateSpot);
   const { addOffer, updateOffer, removeOffer } = useComposerStoreV4.getState();
-  const [refundOpen, setRefundOpen] = useState(false);
   const [deadlineFor, setDeadlineFor] = useState<string | null>(null);
   const [openDiscount, setOpenDiscount] = useState<string | null>(null); // which discount accordion is expanded
 
@@ -166,21 +165,11 @@ export default function Step3Spots() {
           {form.refundPolicy === 'flex_24h' ? <Hint>Full refund up to 24h before the event.</Hint> : null}
           {form.refundPolicy === 'firm' ? <Hint>No refunds once registered.</Hint> : null}
           {form.refundPolicy === 'custom' ? (
-            <>
-              <Pressable onPress={() => setRefundOpen(true)}>
-                <View style={st.dateField}>
-                  <Calendar size={14} color={C.dim} />
-                  <Text style={[st.fieldVal, !form.refundFullUntil && { color: C.dim2 }]}>{form.refundFullUntil ? new Date(form.refundFullUntil).toLocaleDateString('en-IN') : 'Full refund until…'}</Text>
-                </View>
-              </Pressable>
-              <TextField placeholder="A note for attendees (optional)" value={form.refundNote} onChangeText={(t) => update('refundNote', t)} />
-            </>
+            <TextField multiline placeholder="Describe your refund policy — e.g. Full refund up to 7 days before, then 50%." value={form.refundNote} onChangeText={(t) => update('refundNote', t)} />
           ) : null}
         </Group>
       ) : null}
 
-      <CalendarModal visible={refundOpen} onClose={() => setRefundOpen(false)} minDate={new Date()}
-        onSelect={(d) => { update('refundFullUntil', d.toISOString()); setRefundOpen(false); }} />
       <CalendarModal visible={!!deadlineFor} onClose={() => setDeadlineFor(null)} minDate={new Date()}
         onSelect={(d) => { if (deadlineFor) updateOffer(deadlineFor, { endsAt: d.toISOString() }); setDeadlineFor(null); }} />
     </View>
@@ -298,6 +287,4 @@ const st = StyleSheet.create({
   ev: { fontFamily: F.semibold, fontSize: 12.5, color: C.t3 },
   evBold: { fontFamily: F.bold, color: C.t1, fontSize: 14 },
   enote: { fontFamily: F.body, fontSize: 10.5, color: C.dim, lineHeight: 15, marginTop: 2 },
-  dateField: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 11 },
-  fieldVal: { flex: 1, fontFamily: F.medium, fontSize: 13.5, color: C.t2 },
 });

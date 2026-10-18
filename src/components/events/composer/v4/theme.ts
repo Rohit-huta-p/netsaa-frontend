@@ -1,10 +1,10 @@
 /** v4 composer theme — the mockup's sheet look, using the app's loaded fonts. */
 export const C = {
-  bg: '#0A0A0E',
-  sheet: '#141319',
-  card: '#101016',
-  card2: '#18181C',
-  well: '#17171E',
+  bg: '#18181C',
+  sheet: '#101016',
+  card: '#0E0E12',
+  card2: '#2A2A34',
+  well: '#202027',
   border: '#262630',
   border2: '#34343F',
   t1: '#FFFFFF',

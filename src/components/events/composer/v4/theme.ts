@@ -1,6 +1,7 @@
 /** v4 composer theme — the mockup's sheet look, using the app's loaded fonts. */
 export const C = {
-  bg: '#18181C',
+  bg: '#000',
+  header: '#18181C',
   sheet: '#0A0A10',
   card: '#121216',
   card2: '#17171C',

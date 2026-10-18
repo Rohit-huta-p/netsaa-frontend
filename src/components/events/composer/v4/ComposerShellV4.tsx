@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { ChevronLeft, X } from 'lucide-react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import { useComposerStoreV4 } from './useComposerStoreV4';
 import { useComposerVideoPoll } from './useComposerVideoPoll';
-import { ProgressDots, FooterBar } from './ui';
+import { FooterBar } from './ui';
 import { C, F } from './theme';
 import Step1Event from './steps/Step1Event';
 import Step2WhereWhen from './steps/Step2WhereWhen';
@@ -38,21 +38,21 @@ export default function ComposerShellV4({ onPublish, onClose, publishing }: {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: C.bg }}>
-      <View style={st.nav}>
-        <Pressable onPress={goBack} hitSlop={10} style={st.navBtn} accessibilityRole="button" accessibilityLabel="Back">
-          <ChevronLeft size={18} color={C.t2} />
-        </Pressable>
-        <Text style={st.navTitle}>{editMode ? 'Edit event' : 'New event'}</Text>
-        <Pressable onPress={onClose} hitSlop={10} style={st.navBtn} accessibilityRole="button" accessibilityLabel="Close">
-          <X size={18} color={C.t2} />
-        </Pressable>
-      </View>
-
-      <View style={st.prog}><ProgressDots step={step} steps={STEP_LABELS} /></View>
-
-      <View style={st.head}>
-        <Text style={st.eyebrow}>Step {step} · {meta.eyebrow}</Text>
-        <Text style={st.title}>{meta.title}</Text>
+      {/* Compact gig-form-style header — dimmed strip, serif step title + mono
+          counter, thin orange progress. No mini-dots; back chip exits on step 1. */}
+      <View style={st.header}>
+        <View style={st.stepRow}>
+          <Pressable onPress={goBack} hitSlop={8} style={st.backChip} accessibilityRole="button" accessibilityLabel={step > 1 ? 'Back a step' : 'Close'}>
+            <ChevronLeft size={20} color={C.t4} />
+          </Pressable>
+          <View style={st.titleWrap}>
+            <Text style={st.stepTitle} numberOfLines={1}>{meta.title}</Text>
+            <Text style={st.stepMeta}>Step {step} of {STEP_LABELS.length}</Text>
+          </View>
+        </View>
+        <View style={st.progressTrack}>
+          <View style={[st.progressFill, { width: `${(step / STEP_LABELS.length) * 100}%` }]} />
+        </View>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={st.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -80,12 +80,13 @@ export default function ComposerShellV4({ onPublish, onClose, publishing }: {
 }
 
 const st = StyleSheet.create({
-  nav: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
-  navBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: C.card },
-  navTitle: { flex: 1, textAlign: 'center', fontFamily: F.bold, fontSize: 14, color: C.t2, marginRight: 38 },
-  prog: { paddingHorizontal: 20 },
-  head: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14 },
-  eyebrow: { fontFamily: F.mono, fontSize: 10.5, letterSpacing: 1, color: C.orange, textTransform: 'uppercase' },
-  title: { fontFamily: F.serif, fontSize: 27, color: C.t1, letterSpacing: -0.5, marginTop: 5, lineHeight: 31 },
-  scroll: { paddingHorizontal: 20, paddingBottom: 120 },
+  header: { backgroundColor: C.header },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12 },
+  backChip: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.border2, alignItems: 'center', justifyContent: 'center' },
+  titleWrap: { flex: 1, minWidth: 0 },
+  stepTitle: { fontFamily: F.serif, fontSize: 16, color: C.t1, letterSpacing: -0.2 },
+  stepMeta: { fontFamily: F.mono, fontSize: 10, color: C.dim2, letterSpacing: 0.5, marginTop: 1, textTransform: 'uppercase' },
+  progressTrack: { height: 2, backgroundColor: C.border },
+  progressFill: { height: '100%', backgroundColor: C.orange },
+  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 },
 });

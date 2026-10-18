@@ -103,7 +103,7 @@ export function TagInput({ tags, onRemove, placeholder = 'Add…', suggestions, 
   tags: string[]; onRemove: (t: string) => void; placeholder?: string; suggestions?: string[]; onAddSuggestion?: (t: string) => void;
 }) {
   return (
-    <View>
+    <View style={s.tagWrap}>
       <View style={[s.field, s.tagField]}>
         {tags.map((t) => (
           <Pressable key={t} onPress={() => onRemove(t)} style={s.tag}>
@@ -226,6 +226,7 @@ const s = StyleSheet.create({
   gsub: { fontFamily: F.body, fontSize: 11.5, color: C.dim, marginTop: -4, lineHeight: 16 },
   field: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: 12, paddingVertical: 11 },
   fieldMultiline: { alignItems: 'flex-start' },
+  tagWrap: { gap: SP.sm },
   tagField: { flexWrap: 'wrap', gap: 6, minHeight: 44 },
   fieldVal: { flex: 1, fontFamily: F.body, fontSize: 14, color: C.t2 },
   fieldPh: { color: C.dim2, fontFamily: F.body },

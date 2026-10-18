@@ -15,12 +15,12 @@ import {
   initialFormV4, buildEventPayload,
 } from './composerForm';
 
-export type V4Step = 1 | 2 | 3 | 4 | 5 | 6;
+export type V4Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 const MAX_SPOTS = 8, MAX_OFFERS = 6, MAX_QUESTIONS = 3; // offers = 1 early-bird + up to 5 group tiers
 
 let seq = 0;
 const uid = (p: string) => `${p}-${++seq}-${Math.random().toString(36).slice(2, 7)}`;
-const clampStep = (n: number): V4Step => (Math.max(1, Math.min(6, n)) as V4Step);
+const clampStep = (n: number): V4Step => (Math.max(1, Math.min(7, n)) as V4Step);
 
 export interface V4State {
   step: V4Step;

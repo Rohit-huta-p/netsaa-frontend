@@ -46,6 +46,7 @@ import Page4Logistics, { type Page4Value } from './pages/Page4Logistics';
 import Page5SafetyReview from './pages/Page5SafetyReview';
 import { LeaveGigModal } from './LeaveGigModal';
 import type { GigFormHandle } from './GigFormTypes';
+import { SURFACE, BORDER, ACCENT, TEXT, FONT, RADIUS } from '@/constants/formTokens';
 
 const TOTAL_PAGES = 6;
 // Short labels for the mini-dot rail.
@@ -485,7 +486,7 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
               accessibilityRole="button"
               accessibilityLabel={page > 1 ? 'Back a step' : 'Exit'}
             >
-              <ChevronLeft size={20} color="#D4D4D8" />
+              <ChevronLeft size={20} color={TEXT.icon} />
             </TouchableOpacity>
             <View style={styles.stepTitleWrap}>
               <Text style={styles.stepTitle} numberOfLines={1}>
@@ -618,7 +619,7 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
             >
               <Text style={styles.nextActLabel}>Next: {STEP_TITLES[page]}</Text>
               <View style={styles.nextArrow}>
-                <ChevronRight size={16} color="#FF6B35" />
+                <ChevronRight size={16} color={ACCENT.primary} />
               </View>
             </TouchableOpacity>
           </View>
@@ -643,10 +644,10 @@ GigFormV2.displayName = 'GigFormV2';
 export default GigFormV2;
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#000' },
+  root: { flex: 1, backgroundColor: SURFACE.canvas },
 
   // ── compact step header ──
-  header: { backgroundColor: '#0A0A0E' },
+  header: { backgroundColor: SURFACE.header },
   stepRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -658,35 +659,35 @@ const styles = StyleSheet.create({
   backChip: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: '#17171C',
+    borderRadius: RADIUS.control,
+    backgroundColor: SURFACE.chip,
     borderWidth: 1,
-    borderColor: '#262630',
+    borderColor: BORDER.default,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepTitleWrap: { flex: 1 },
-  stepTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 20, color: '#FFFFFF', letterSpacing: -0.3 },
+  stepTitle: { fontFamily: FONT.serif, fontSize: 20, color: TEXT.value, letterSpacing: -0.3 },
   stepMeta: {
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: FONT.mono,
     fontSize: 10,
-    color: '#6A6A76',
+    color: TEXT.meta,
     letterSpacing: 0.5,
     marginTop: 1,
     textTransform: 'uppercase',
   },
   miniDots: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  miniDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2A2A33' },
+  miniDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: BORDER.muted },
   miniDotActive: {
     width: 18,
-    backgroundColor: '#FF6B35',
-    shadowColor: '#FF6B35',
+    backgroundColor: ACCENT.primary,
+    shadowColor: ACCENT.primary,
     shadowOpacity: 0.6,
     shadowRadius: 5,
   },
-  miniDotDone: { backgroundColor: 'rgba(255,107,53,0.4)' },
-  progressTrack: { height: 2, backgroundColor: '#18181C' },
-  progressFill: { height: '100%', backgroundColor: '#FF6B35' },
+  miniDotDone: { backgroundColor: ACCENT.done },
+  progressTrack: { height: 2, backgroundColor: SURFACE.inset },
+  progressFill: { height: '100%', backgroundColor: ACCENT.primary },
 
   content: { padding: 20, paddingBottom: 120 },
 
@@ -701,9 +702,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 20,
-    backgroundColor: 'rgba(5, 5, 7, 0.96)',
+    backgroundColor: SURFACE.footer,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    borderTopColor: BORDER.separator,
   },
   nextAct: {
     flexDirection: 'row',
@@ -712,19 +713,19 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     paddingLeft: 18,
     paddingRight: 11,
-    borderRadius: 14,
-    backgroundColor: '#17171C',
+    borderRadius: RADIUS.nextAct,
+    backgroundColor: SURFACE.chip,
     borderWidth: 1,
-    borderColor: '#2A2A33',
+    borderColor: BORDER.muted,
   },
-  nextActLabel: { fontFamily: 'Outfit-SemiBold', fontSize: 14, color: '#F0F0F2', letterSpacing: -0.2 },
+  nextActLabel: { fontFamily: FONT.semibold, fontSize: 14, color: TEXT.label, letterSpacing: -0.2 },
   nextArrow: {
     width: 28,
     height: 28,
-    borderRadius: 9,
-    backgroundColor: 'rgba(255,107,53,0.14)',
+    borderRadius: RADIUS.chipSm,
+    backgroundColor: ACCENT.tint14,
     borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.32)',
+    borderColor: ACCENT.border32,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
+import { TEXT, FONT, ACCENT, STATUS } from '@/constants/formTokens';
 
 interface InputGroupProps {
     label: string;
@@ -9,29 +10,30 @@ interface InputGroupProps {
     error?: string;
 }
 
-// GigForm v2 type hierarchy: the field name is a real title (prominent,
-// bright) with the helper text tucked beneath it, so the form reads as titled
-// sections rather than a stack of boxes. Input wells / values stay lighter
-// (never bold). Shared app-wide — also affects Event/profile forms.
+// Shared form field wrapper (gig + event forms, profile editors). Type
+// hierarchy: the field name is a real title (prominent, bright) with the
+// helper text tucked beneath it, so the form reads as titled sections rather
+// than a stack of boxes. Input wells / values stay lighter (never bold).
+// Colors come from the shared formTokens system.
 export const InputGroup: React.FC<InputGroupProps> = ({ label, children, required, subtitle, error }) => (
     <View style={{ marginBottom: 22 }}>
         <Text
             style={{
-                fontFamily: 'Outfit-SemiBold',
+                fontFamily: FONT.semibold,
                 fontSize: 15,
-                color: '#F0F0F2',
+                color: TEXT.label,
                 letterSpacing: -0.2,
             }}
         >
             {label}
-            {required ? <Text style={{ color: '#FF6B35' }}> *</Text> : null}
+            {required ? <Text style={{ color: ACCENT.primary }}> *</Text> : null}
         </Text>
         {subtitle ? (
             <Text
                 style={{
-                    fontFamily: 'Outfit-Regular',
+                    fontFamily: FONT.regular,
                     fontSize: 11.5,
-                    color: '#7A7A86',
+                    color: TEXT.helper,
                     marginTop: 3,
                 }}
             >
@@ -40,7 +42,7 @@ export const InputGroup: React.FC<InputGroupProps> = ({ label, children, require
         ) : null}
         <View style={{ marginTop: 10 }}>{children}</View>
         {error ? (
-            <Text style={{ fontSize: 12, color: '#f43f5e', marginTop: 4 }}>{error}</Text>
+            <Text style={{ fontSize: 12, color: STATUS.error, marginTop: 4 }}>{error}</Text>
         ) : null}
     </View>
 );

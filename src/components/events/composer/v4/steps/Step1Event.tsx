@@ -1,13 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Pencil } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../useComposerStoreV4';
-import { EVENT_TYPE_PRESETS, EVENT_TYPE_KEYS } from '../eventTypePresets';
-import { Group, TextField, Pills, ChipsMulti, TagInput, Hint } from '../ui';
+import { Group, TextField, ChipsMulti, TagInput, Hint } from '../ui';
 import type { SkillLevelV4 } from '../composerForm';
+import EventTypeField from '../EventTypeField';
 import { C, F } from '../theme';
 
-const PRESET_KEYS = new Set<string>(EVENT_TYPE_KEYS);
 const WHO_SUGGEST = ['Dancer', 'Actor', 'Musician', 'Singer', 'DJ', 'Model', 'Photographer', 'Director'];
 const LEVELS: { label: string; v: 'all' | 'beginner' | 'intermediate' | 'advanced' }[] = [
   { label: 'Any', v: 'all' }, { label: 'Beginner', v: 'beginner' }, { label: 'Intermediate', v: 'intermediate' }, { label: 'Advanced', v: 'advanced' },
@@ -16,8 +15,6 @@ const LEVELS: { label: string; v: 'all' | 'beginner' | 'intermediate' | 'advance
 export default function Step1Event() {
   const form = useComposerStoreV4((s) => s.form);
   const update = useComposerStoreV4((s) => s.update);
-  const setEventType = useComposerStoreV4((s) => s.setEventType);
-  const [custom, setCustom] = useState(PRESET_KEYS.has(form.eventType) ? '' : form.eventType);
 
   // "All creatives" and specific types are mutually exclusive, so a specific
   // pick is never hidden behind openToAll (and vice-versa).
@@ -44,12 +41,7 @@ export default function Step1Event() {
       <Text style={st.sub}>Start with the kind of event. It fills in suggestions; the form stays the same.</Text>
 
       <Group label="Event type" required>
-        <TextField placeholder="Type your own, or pick one below…" value={custom}
-          onChangeText={(t) => { setCustom(t); if (t.trim()) { setEventType(t.trim()); update('eventTypeLabel', t.trim()); } }} />
-        <Pills noPlus
-          options={EVENT_TYPE_KEYS.filter((k) => k !== 'other').map((k) => ({ label: EVENT_TYPE_PRESETS[k].label, key: k, on: form.eventType === k }))}
-          onPress={(k) => { setEventType(k); setCustom(''); }}
-        />
+        <EventTypeField />
         <Hint>It only fills in suggestions. Every event, even one you type in, gets the same form.</Hint>
       </Group>
 

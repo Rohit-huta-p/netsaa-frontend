@@ -102,6 +102,9 @@ export function Pills({ options, onPress, noPlus }: { options: { label: string; 
 export function TagInput({ tags, onRemove, placeholder = 'Add…', suggestions, onAddSuggestion }: {
   tags: string[]; onRemove: (t: string) => void; placeholder?: string; suggestions?: string[]; onAddSuggestion?: (t: string) => void;
 }) {
+  const [draft, setDraft] = React.useState('');
+  // Typing + Enter adds a tag through the same handler the suggestion pills use.
+  const submit = () => { const t = draft.trim(); if (!t) return; onAddSuggestion?.(t); setDraft(''); };
   return (
     <View style={s.tagWrap}>
       <View style={[s.field, s.tagField]}>
@@ -111,7 +114,17 @@ export function TagInput({ tags, onRemove, placeholder = 'Add…', suggestions, 
             <X size={12} color={C.orange} />
           </Pressable>
         ))}
-        <Text style={s.fieldPh}>{placeholder}</Text>
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          onSubmitEditing={submit}
+          placeholder={placeholder}
+          placeholderTextColor={C.dim2}
+          style={s.tagInput}
+          returnKeyType="done"
+          blurOnSubmit={false}
+          autoCapitalize="words"
+        />
       </View>
       {suggestions && suggestions.length ? (
         <Pills options={suggestions.map((x) => ({ label: x }))} onPress={(k) => onAddSuggestion?.(k)} />
@@ -228,6 +241,7 @@ const s = StyleSheet.create({
   fieldMultiline: { alignItems: 'flex-start' },
   tagWrap: { gap: SP.sm },
   tagField: { flexWrap: 'wrap', gap: 6, minHeight: 44 },
+  tagInput: { flex: 1, minWidth: 90, color: C.t2, fontFamily: F.body, fontSize: 14, padding: 0 },
   fieldVal: { flex: 1, fontFamily: F.body, fontSize: 14, color: C.t2 },
   fieldPh: { color: C.dim2, fontFamily: F.body },
   input: { flex: 1, color: C.t2, fontFamily: F.body, fontSize: 14, padding: 0 },

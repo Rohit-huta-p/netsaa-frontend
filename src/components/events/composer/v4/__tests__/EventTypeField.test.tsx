@@ -20,7 +20,7 @@ describe('EventTypeField', () => {
   it('typing a custom type sets eventType + eventTypeLabel to the typed text', () => {
     const { getByLabelText, getByText, getByPlaceholderText } = render(<EventTypeField />);
     fireEvent.press(getByLabelText('Choose event type'));
-    fireEvent.changeText(getByPlaceholderText('e.g. Residency, Retreat…'), 'Sound Bath');
+    fireEvent.changeText(getByPlaceholderText('Or type your own…'), 'Sound Bath');
     fireEvent.press(getByText('Add'));
     expect(form().eventType).toBe('Sound Bath');
     expect(form().eventTypeLabel).toBe('Sound Bath');
@@ -29,7 +29,7 @@ describe('EventTypeField', () => {
   it('a blank custom entry does nothing', () => {
     const { getByLabelText, getByText, getByPlaceholderText } = render(<EventTypeField />);
     fireEvent.press(getByLabelText('Choose event type'));
-    fireEvent.changeText(getByPlaceholderText('e.g. Residency, Retreat…'), '   ');
+    fireEvent.changeText(getByPlaceholderText('Or type your own…'), '   ');
     fireEvent.press(getByText('Add'));
     expect(form().eventType).toBe('workshop'); // unchanged
   });

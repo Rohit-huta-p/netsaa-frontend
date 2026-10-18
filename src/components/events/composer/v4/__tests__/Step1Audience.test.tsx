@@ -33,4 +33,12 @@ describe('Step1 — "Who\'s it for" audience selection', () => {
     expect(form().openToAll).toBe(false);
     expect(form().whoFor).toEqual(['Dancer']);
   });
+
+  it('typing a custom artist type and submitting adds it', () => {
+    const { getByPlaceholderText } = render(<Step1Event />);
+    const input = getByPlaceholderText('Pick or type an artist type…');
+    fireEvent.changeText(input, 'Choreographer');
+    fireEvent(input, 'submitEditing');
+    expect(form().whoFor).toEqual(['Choreographer']);
+  });
 });

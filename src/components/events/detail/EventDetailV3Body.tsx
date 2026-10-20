@@ -15,7 +15,7 @@ import {
 import type { EventDoc } from '@/services/eventService';
 import type { MediaViewerItem } from '@/components/profile/MediaViewer';
 import {
-  metaLine, dateRange, timeLine, initials, featuringLabel, EVENT_TYPE_LABEL,
+  metaParts, dateRange, timeLine, initials, featuringLabel, EVENT_TYPE_LABEL,
 } from '@/lib/eventDetailV3';
 
 /* ── v6 / E·9 palette ── */
@@ -74,7 +74,7 @@ export default function EventDetailV3Body({ event, goingCount = 0, goingNames = 
   const spotsLeft = Math.max(0, total - registered);
 
   const org = event.organizerSnapshot;
-  const meta = metaLine(event);
+  const metaPills = metaParts(event);
   const tags = event.topicTags ?? [];
   const featuring: FeatPerson[] = (event.people ?? []).map((p) => ({ name: p.displayName, role: p.role, invited: p.invite?.status === 'invited', userId: p.userId, avatarUrl: p.avatarUrl }));
 
@@ -96,18 +96,6 @@ export default function EventDetailV3Body({ event, goingCount = 0, goingNames = 
         />
       </View>
 
-      {/* ═══ META LINE ═══ */}
-      {meta ? <Text style={styles.meta}>{meta}</Text> : null}
-
-      {/* ═══ STYLE TAGS ═══ */}
-      {tags.length ? (
-        <View style={styles.tags}>
-          <Text style={styles.tagLabel}>STYLE</Text>
-          {tags.map((t, i) => (
-            <View key={`tag-${i}`} style={styles.tag}><Text style={styles.tagText}>{t}</Text></View>
-          ))}
-        </View>
-      ) : null}
 
       {/* ═══ ABOUT ═══ */}
       {event.about ? (
@@ -115,6 +103,18 @@ export default function EventDetailV3Body({ event, goingCount = 0, goingNames = 
           <Text style={styles.aboutH}>About this {(EVENT_TYPE_LABEL[event.eventType ?? ''] || 'event').toLowerCase()}</Text>
           <Text style={styles.p}>{event.about}</Text>
           {event.whatToExpect ? <Text style={[styles.p, { marginTop: 12 }]}>{event.whatToExpect}</Text> : null}
+
+          {/* ═══ BEGINNER FRIENDLY LINE ═══ */}
+          {metaPills.length ? (
+            <View style={styles.meta}>
+              {metaPills.map((word, i) => (
+                <View key={`meta-${i}`} style={styles.metaPill}>
+                  <Text style={styles.metaPillText}>{word}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
         </View>
       ) : null}
 
@@ -185,6 +185,18 @@ export default function EventDetailV3Body({ event, goingCount = 0, goingNames = 
               ))}
             </ScrollView>
           )}
+        </View>
+      ) : null}
+
+
+
+      {/* ═══ STYLE TAGS ═══ */}
+      {tags.length ? (
+        <View style={styles.tags}>
+          <Text style={styles.tagLabel}>SKILLS</Text>
+          {tags.map((t, i) => (
+            <View key={`tag-${i}`} style={styles.tag}><Text style={styles.tagText}>{t}</Text></View>
+          ))}
         </View>
       ) : null}
 
@@ -384,16 +396,33 @@ const styles = StyleSheet.create({
   facts: { flexDirection: 'row', paddingHorizontal: PAD, paddingTop: 20 },
   fact: { flex: 1, minWidth: 0, borderRightWidth: 1, borderRightColor: HAIR2, paddingLeft: 0 },
   factLabel: { fontFamily: MONO, fontSize: 9.5, letterSpacing: 1.4, textTransform: 'uppercase', color: T3, marginBottom: 7 },
-  factVal: { fontFamily: OUTFIT_SEMI, fontSize: 14, color: T0, lineHeight: 18 },
+  factVal: { fontFamily: OUTFIT_SEMI, fontSize: 12, color: T0, lineHeight: 18 },
   factUnit: { fontFamily: OUTFIT, fontSize: 12, color: T2 },
   factSub: { fontFamily: OUTFIT, fontSize: 12, color: T2, marginTop: 4 },
 
-  meta: { paddingHorizontal: PAD, paddingTop: 14, fontFamily: OUTFIT, fontSize: 12.5, color: T1, lineHeight: 18 },
+  meta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 14,
+  },
+  metaPill: {
+    backgroundColor: '#18181C',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  metaPillText: {
+    fontFamily: OUTFIT_MED,
+    fontSize: 8,
+    color: '#ffffff',
+  },
 
-  tags: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 7, paddingHorizontal: PAD, paddingTop: 12 },
-  tagLabel: { fontFamily: MONO_BOLD, fontSize: 9, letterSpacing: 1, color: T3, marginRight: 2 },
-  tag: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: HAIR2, backgroundColor: SURFACE },
-  tagText: { fontFamily: OUTFIT_MED, fontSize: 12, color: T1 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 7, paddingHorizontal: PAD, paddingTop: 12, marginTop: 20 },
+  tagLabel: { fontFamily: MONO_BOLD, fontSize: 10, letterSpacing: 1, color: T3, marginRight: 2 },
+  tag: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: HAIR2, backgroundColor: SURFACE },
+  tagText: { fontFamily: OUTFIT_MED, fontSize: 10, color: T1 },
 
   aboutH: { fontFamily: SERIF, fontSize: 20, color: T0, letterSpacing: -0.2, marginBottom: 10 },
   p: { fontFamily: OUTFIT, fontSize: 14.5, lineHeight: 24, color: T1 },

@@ -18,6 +18,7 @@ import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadMediaFlow, uploadVideoFlow } from '@/utils/upload';
 import { useAuthStore } from '@/stores/authStore';
+import { usePickAndCrop } from '@/hooks/usePickAndCrop';
 import { useComposerStoreV4 } from './useComposerStoreV4';
 import type { MediaItemV4 } from './composerForm';
 
@@ -29,6 +30,7 @@ export function useComposerMediaV4() {
   const photos = useComposerStoreV4((s) => s.form.photos);
   const videos = useComposerStoreV4((s) => s.form.videos);
   const update = useComposerStoreV4((s) => s.update);
+  const { pickAndCrop, cropperProps } = usePickAndCrop();
   const [uploading, setUploading] = useState<null | 'cover' | 'gallery' | 'video'>(null);
 
   const pickImage = useCallback(async (): Promise<ImagePicker.ImagePickerAsset | null> => {
@@ -56,14 +58,15 @@ export function useComposerMediaV4() {
     if (uploading) return;
     setUploading('cover');
     try {
-      const asset = await pickImage();
+      // Event cover is a crop surface → pick + frame to 4:5 (eventCover spec).
+      const asset = await pickAndCrop('eventCover');
       if (!asset) return;
       const item = await uploadOne(asset);
       if (item) update('cover', { ...item, isHero: true, sortOrder: 0 });
     } finally {
       setUploading(null);
     }
-  }, [uploading, pickImage, uploadOne, update]);
+  }, [uploading, pickAndCrop, uploadOne, update]);
 
   const addPhoto = useCallback(async () => {
     if (uploading) return;
@@ -133,5 +136,5 @@ export function useComposerMediaV4() {
     [videos, update],
   );
 
-  return { uploading, addCover, addPhoto, removeCover, removePhoto, addVideo, removeVideo };
+  return { uploading, addCover, addPhoto, removeCover, removePhoto, addVideo, removeVideo, cropperProps };
 }

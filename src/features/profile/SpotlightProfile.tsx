@@ -41,6 +41,8 @@ import FeaturedEditSheet, { type ShowcaseRef } from '@/features/profile/componen
 import MarkdownText from '@/components/inputs/MarkdownText';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadMediaFlow } from '@/utils/upload';
+import { usePickAndCrop } from '@/hooks/usePickAndCrop';
+import MediaCropper from '@/components/media/MediaCropper';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import authService from '@/services/authService';
@@ -154,6 +156,7 @@ export function SpotlightProfile({ userId, isOwner }: {
     const openEditor = (index: number | null) => setFeaturedEdit({ open: true, index });
     const [connBusy, setConnBusy] = useState(false);
     const [msgBusy, setMsgBusy] = useState(false);
+    const { pickAndCrop, cropperProps } = usePickAndCrop();
 
     if (isLoading && !data) {
         return <View style={st.center}><ActivityIndicator size="large" color={C.orange} /></View>;
@@ -283,10 +286,10 @@ export function SpotlightProfile({ userId, isOwner }: {
     const pickCover = async () => {
         if (!isOwner || coverUploading) return;
         try {
-            const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [16, 9], quality: 0.85 });
-            if (res.canceled) return;
+            const asset = await pickAndCrop('cover');
+            if (!asset) return;
             setCoverUploading(true);
-            const up = await uploadMediaFlow({ asset: res.assets[0], entityType: 'user', entityId: userId, purpose: 'avatar' });
+            const up = await uploadMediaFlow({ asset, entityType: 'user', entityId: userId, purpose: 'banner' });
             if (!up.success || !up.url) { Alert.alert('Upload failed', up.error || 'Please try again.'); return; }
             const updated = await authService.updateProfile({ coverImageUrl: up.url } as any);
             if (authUser) setAuth({ user: { ...authUser, ...(updated as any) }, accessToken: accessToken || '' });
@@ -642,6 +645,8 @@ export function SpotlightProfile({ userId, isOwner }: {
                         showcase={showcaseRefs}
                     />
                 )}
+
+                <MediaCropper {...cropperProps} />
             </View>
         </>
     );

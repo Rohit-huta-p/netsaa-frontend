@@ -23,6 +23,8 @@ import mediaService from '@/services/mediaService';
 import { ProfileData, ExperienceEntry, ProfileVideoReel } from '@/components/profile/types';
 import { AITextInput } from '@/components/ui/AITextInput';
 import RichTextInput from '@/components/inputs/RichTextInput';
+import { usePickAndCrop } from '@/hooks/usePickAndCrop';
+import MediaCropper from '@/components/media/MediaCropper';
 import { Field, Input, MiniField, P } from './edit/EditModalPrimitives';
 import { EditModalToast, type ToastState } from './edit/EditModalToast';
 import { EditModalTabBar } from './edit/EditModalTabBar';
@@ -261,6 +263,7 @@ function SkillSearchSheet({
 export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const { activeSheet, closeSheet, highlightMissing } = useProfileUiStore();
     const { user, setAuth, accessToken } = useAuthStore();
+    const { pickAndCrop, cropperProps } = usePickAndCrop();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const section = activeSheet;
     const isVisible = !!section;
@@ -645,9 +648,18 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         else Alert.alert('Upload Failed', result.error || 'Unknown error');
     };
     const handlePickMedia = async (type: 'profile' | 'gallery', index?: number) => {
-        const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: type === 'profile', aspect: type === 'profile' ? [1, 1] : [16, 9], quality: 0.8 });
-        if (result.canceled) return;
-        const asset = result.assets[0];
+        let asset: ImagePicker.ImagePickerAsset;
+        if (type === 'profile') {
+            // Avatar is a crop surface — pick full-res + in-app crop to the 1:1 frame.
+            const cropped = await pickAndCrop('avatar');
+            if (!cropped) return;
+            asset = cropped;
+        } else {
+            // Gallery is NOT a crop surface — keep the OS picker.
+            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, aspect: [16, 9], quality: 0.8 });
+            if (result.canceled) return;
+            asset = result.assets[0];
+        }
         const validation = validateMediaFile(asset, false);
         if (!validation.valid) { Alert.alert('Error', validation.error); return; }
         if (isLargeFile(asset)) { Alert.alert('Large File', 'Continue?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Continue', onPress: () => performUpload(type, asset, index) }]); return; }
@@ -1233,6 +1245,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                 onClose={() => setShowCityPicker(false)}
                                 allowCustom
                             />
+
+                            <MediaCropper {...cropperProps} />
 
                         </TouchableOpacity>
                     </Animated.View>

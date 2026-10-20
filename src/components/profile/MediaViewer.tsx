@@ -36,16 +36,19 @@ type Props = {
     items: MediaViewerItem[];
     index: number;
     onClose: () => void;
-    artist: { id: string; name: string; location?: string };
+    /** The media's owner. Omit it (e.g. for an event gallery) to hide the Connect action. */
+    artist?: { id: string; name: string; location?: string };
     isOwner?: boolean;
     onEdit?: (index: number) => void;
     onDelete?: (index: number) => void;
+    /** Overrides the default "share this profile" action (e.g. share an event). */
+    onShare?: () => void;
 };
 
 const TINT = 'rgba(6,4,9,0.70)';
 const VIOLET = '#8B5CF6';
 
-export default function MediaViewer({ items, index, onClose, artist, isOwner = false, onEdit, onDelete }: Props) {
+export default function MediaViewer({ items, index, onClose, artist, isOwner = false, onEdit, onDelete, onShare: onShareProp }: Props) {
     const insets = useSafeAreaInsets();
     const { width: winW, height: winH } = useWindowDimensions();
     const pagerRef = useRef<FlatList>(null);
@@ -53,7 +56,7 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
     const [cur, setCur] = useState(index);
     const [pagerH, setPagerH] = useState(0);
 
-    const { connectionStatus, isConnectionLoading, sendRequest, withdrawRequest } = useConnectionStatus(artist.id, isOwner);
+    const { connectionStatus, isConnectionLoading, sendRequest, withdrawRequest } = useConnectionStatus(artist?.id, isOwner);
     const [busy, setBusy] = useState(false);
 
     useEffect(() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); }, []);
@@ -72,7 +75,7 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
     if (!items.length) return null;
     const m = items[cur];
     const title = m.title || (m.type === 'video' ? 'Reel' : 'Photo');
-    const location = m.location || artist.location;
+    const location = m.location || artist?.location;
 
     // media box: centred, matted with side margins
     const boxW = Math.min(winW - 56, 520);
@@ -88,8 +91,9 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
     };
 
     const onShare = async () => {
+        if (onShareProp) { onShareProp(); return; }
         try {
-            await Share.share({ message: `${artist.name} on NETSA — https://netsa.app/profile/${artist.id}` });
+            await Share.share({ message: `${artist?.name ?? 'This artist'} on NETSA — https://netsa.app/profile/${artist?.id ?? ''}` });
         } catch { /* user dismissed */ }
     };
 
@@ -185,7 +189,7 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
                                 <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
                             </Pressable>
                         </>
-                    ) : (
+                    ) : artist ? (
                         <>
                             <Pressable onPress={connected ? undefined : onConnect} disabled={connected || busy} style={[styles.pbtn, styles.pbtnConnect, (connected || busy) && { opacity: 0.7 }]}>
                                 {connected ? <Check size={15} color="#34D399" /> : pending ? <Clock size={15} color="#A1A1AA" /> : <UserPlus size={15} color="#CDBBF5" />}
@@ -197,6 +201,10 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
                                 <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
                             </Pressable>
                         </>
+                    ) : (
+                        <Pressable onPress={onShare} style={[styles.pbtn, styles.pbtnGhost]}>
+                            <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
+                        </Pressable>
                     )}
                 </View>
 

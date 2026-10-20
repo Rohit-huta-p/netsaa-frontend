@@ -2,7 +2,7 @@
  * EventDetailV3Body — the scrolling content for the E·9 photo-led detail page.
  *
  * Order (each section hides itself when its data is empty — no placeholders):
- *   facts (When · Where · Spots) → meta line → style tags → About →
+ *   facts (When · Where · Spots) → meta line → style tags → About → gallery →
  *   Hosted by → Led by → type-specific details → day-by-day → venue / online.
  *
  * Reads only from EventDoc; "who's going" is passed in from the public roster.
@@ -10,9 +10,10 @@
 import { View, Text, Pressable, Linking, StyleSheet, ScrollView } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import {
-  BadgeCheck, MapPin, Video, Lock, Navigation, UserPlus,
+  BadgeCheck, MapPin, Video, Lock, Navigation, UserPlus, Play,
 } from 'lucide-react-native';
 import type { EventDoc } from '@/services/eventService';
+import type { MediaViewerItem } from '@/components/profile/MediaViewer';
 import {
   metaLine, dateRange, timeLine, initials, featuringLabel, EVENT_TYPE_LABEL,
 } from '@/lib/eventDetailV3';
@@ -46,6 +47,10 @@ interface Props {
   goingNames?: string[];
   organizerId?: string;
   onOpenProfile?: (userId?: string) => void;
+  /** The event's gallery (photos + videos) for the rail + fullscreen viewer. */
+  media?: MediaViewerItem[];
+  /** Open the fullscreen MediaViewer at this index. */
+  onOpenMedia?: (index: number) => void;
 }
 
 const AVT_COLORS = ['#8a4a2a', '#46307a', '#2c5a4a', '#6a2a44', '#2a4a6a'];
@@ -61,7 +66,7 @@ function SectionLabel({ children, aside }: { children: string; aside?: string })
   );
 }
 
-export default function EventDetailV3Body({ event, goingCount = 0, goingNames = [], organizerId, onOpenProfile }: Props) {
+export default function EventDetailV3Body({ event, goingCount = 0, goingNames = [], organizerId, onOpenProfile, media = [], onOpenMedia }: Props) {
   const loc = event.location;
   const online = loc?.kind === 'online';
   const total = event.capacity?.total ?? 0;
@@ -110,6 +115,33 @@ export default function EventDetailV3Body({ event, goingCount = 0, goingNames = 
           <Text style={styles.aboutH}>About this {(EVENT_TYPE_LABEL[event.eventType ?? ''] || 'event').toLowerCase()}</Text>
           <Text style={styles.p}>{event.about}</Text>
           {event.whatToExpect ? <Text style={[styles.p, { marginTop: 12 }]}>{event.whatToExpect}</Text> : null}
+        </View>
+      ) : null}
+
+      {/* ═══ GALLERY ═══ (unlabelled media rail — tap a tile → fullscreen viewer) */}
+      {media.length ? (
+        <View style={styles.gallerySec}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.gal}
+            contentContainerStyle={styles.galInner}
+          >
+            {media.map((m, i) => (
+              <Pressable
+                key={`media-${i}`}
+                style={styles.gt}
+                onPress={() => onOpenMedia?.(i)}
+                accessibilityRole="imagebutton"
+                accessibilityLabel={m.type === 'video' ? 'Play video' : 'View photo'}
+              >
+                <ExpoImage source={{ uri: m.url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
+                {m.type === 'video' ? (
+                  <View style={styles.gtPlay}><View style={styles.gtPlayChip}><Play size={14} color="#fff" fill="#fff" /></View></View>
+                ) : null}
+              </Pressable>
+            ))}
+          </ScrollView>
         </View>
       ) : null}
 
@@ -365,6 +397,14 @@ const styles = StyleSheet.create({
 
   aboutH: { fontFamily: SERIF, fontSize: 20, color: T0, letterSpacing: -0.2, marginBottom: 10 },
   p: { fontFamily: OUTFIT, fontSize: 14.5, lineHeight: 24, color: T1 },
+
+  /* Gallery rail (E·★): unlabelled full-bleed row of 150×112 tiles, tap → viewer. */
+  gallerySec: { paddingHorizontal: PAD, paddingTop: 16 },
+  gal: { marginHorizontal: -PAD },
+  galInner: { paddingHorizontal: PAD, gap: 8 },
+  gt: { width: 150, height: 112, borderRadius: 12, borderWidth: 1, borderColor: HAIR2, backgroundColor: SURFACE, overflow: 'hidden' },
+  gtPlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  gtPlayChip: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
 
   pr: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 },
   avt: { width: 42, height: 42, borderRadius: 21, overflow: 'hidden' },

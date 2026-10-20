@@ -41,7 +41,7 @@ export interface CroppedAsset {
 export const MEDIA_SPEC: Record<CropPurpose, MediaSpec> = {
   avatar:     { aspect: 1,     shape: 'circle', outputWidth: 1080, compress: 0.85, title: 'Position your photo',  ratioLabel: '1:1', osAspect: [1, 1] },
   cover:      { aspect: 3 / 2, shape: 'rect',   outputWidth: 1620, compress: 0.85, title: 'Position your cover',  ratioLabel: '3:2', osAspect: [3, 2] },
-  eventCover: { aspect: 4 / 5, shape: 'rect',   outputWidth: 1080, compress: 0.9,  title: 'Position your poster', ratioLabel: '4:5', osAspect: [4, 5] },
+  eventCover: { aspect: 16 / 9, shape: 'rect',  outputWidth: 1600, compress: 0.9,  title: 'Position your cover',  ratioLabel: '16:9', osAspect: [16, 9] },
   logo:       { aspect: 1,     shape: 'rect',   outputWidth: 1080, compress: 0.85, title: 'Position your logo',   ratioLabel: '1:1', osAspect: [1, 1] },
 };
 

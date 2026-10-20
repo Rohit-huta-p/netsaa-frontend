@@ -10,10 +10,9 @@ import type { LineupItemV4 } from '../composerForm';
 
 const SECTION_META: Record<DescribeSection, { label: string; sub: string }> = {
   lineup: { label: 'Lineup', sub: 'What happens, in order: days, sessions, films or rounds.' },
-  bring: { label: 'What to bring', sub: 'Things to bring, wear or prepare.' },
   included: { label: 'What they get', sub: "Anything included: certificates, materials, prizes, food." },
 };
-const ALL_SECTIONS: DescribeSection[] = ['lineup', 'bring', 'included'];
+const ALL_SECTIONS: DescribeSection[] = ['lineup', 'included'];
 const MAX_VIDEOS = 2; // keep in sync with useComposerMediaV4
 
 export default function Step5Describe() {
@@ -23,7 +22,7 @@ export default function Step5Describe() {
   const preset = presetFor(form.eventType);
 
   const has = (s: DescribeSection) =>
-    s === 'lineup' ? form.lineup.length > 0 : s === 'bring' ? form.bring.items.length > 0 : form.included.length > 0;
+    s === 'lineup' ? form.lineup.length > 0 : form.included.length > 0;
   const [revealed, setRevealed] = useState<DescribeSection[]>(() => preset.openSections);
   const shown = ALL_SECTIONS.filter((s) => revealed.includes(s) || has(s));
   const missing = ALL_SECTIONS.filter((s) => !shown.includes(s));
@@ -94,19 +93,6 @@ export default function Step5Describe() {
                 </View>
               ))}
               <Adder label="Add an item" onPress={() => setLineup([...form.lineup, { title: '' }])} />
-            </View>
-          ) : s === 'bring' ? (
-            <View style={{ gap: 7 }}>
-              {form.bring.items.map((it, i) => (
-                <View key={i} style={st.get}>
-                  <View style={st.bringDot} />
-                  <TextInput value={it} onChangeText={(t) => update('bring', { ...form.bring, items: form.bring.items.map((x, k) => (k === i ? t : x)) })} placeholder="Ghungroo, water bottle, headshot…" placeholderTextColor={C.dim2} style={st.getTxt} />
-                  <Pressable onPress={() => update('bring', { ...form.bring, items: form.bring.items.filter((_, k) => k !== i) })}><X size={15} color={C.dim2} /></Pressable>
-                </View>
-              ))}
-              <Adder label="Add something" onPress={() => update('bring', { ...form.bring, items: [...form.bring.items, ''] })} />
-              <TextField value={form.bring.note ?? ''} onChangeText={(t) => update('bring', { ...form.bring, note: t })}
-                placeholder="Anything to prepare before coming? (optional)" multiline />
             </View>
           ) : (
             <View style={{ gap: 7 }}>
@@ -204,7 +190,6 @@ const st = StyleSheet.create({
   lineTitle: { flex: 1, fontFamily: F.body, fontSize: 12.5, color: C.t2, padding: 0 },
   get: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 9, paddingHorizontal: 9, paddingVertical: 7 },
   getIc: { width: 17, height: 17, borderRadius: 9, backgroundColor: C.greenSoft, alignItems: 'center', justifyContent: 'center' },
-  bringDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.orange, marginLeft: 5, marginRight: 3 },
   getTxt: { flex: 1, fontFamily: F.body, fontSize: 12.5, color: C.t2, padding: 0 },
   adder: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 4 },
   adderTxt: { fontFamily: F.semibold, fontSize: 12, color: C.orange },

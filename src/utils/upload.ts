@@ -1,5 +1,7 @@
 // File upload utilities for direct-to-S3 media uploads
 import type { ImagePickerAsset } from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { SaveFormat } from 'expo-image-manipulator';
 import mediaService, { MediaPurpose, EntityType } from '../services/mediaService';
 
 // ─────────────────────────────────────────────────────────────
@@ -94,6 +96,48 @@ export async function uploadToS3(options: UploadOptions): Promise<UploadResult> 
 
 
 // ─────────────────────────────────────────────────────────────
+// DOWNSCALE (large originals only)
+// ─────────────────────────────────────────────────────────────
+
+const UPLOAD_MAX_EDGE = 3072; // generous cap — quality-first, still trims big phone photos
+const UPLOAD_QUALITY = 0.9;
+
+/**
+ * Shrink an oversized image before upload (resize-only, NO crop). A large phone
+ * photo (~4000px, several MB) becomes much smaller at a long edge no phone or
+ * tablet can out-resolve, so there is no visible quality loss on-device.
+ * Returns the asset unchanged when it is already within the cap, or if resizing
+ * fails — it never blocks the upload. Images only; videos use uploadVideoFlow.
+ * In-app cropper outputs (≤1620px) are already under the cap, so they pass through.
+ */
+async function downscaleIfLarge(asset: ImagePickerAsset): Promise<ImagePickerAsset> {
+    try {
+        const w = asset.width ?? 0;
+        const h = asset.height ?? 0;
+        const longEdge = Math.max(w, h);
+        if (!longEdge || longEdge <= UPLOAD_MAX_EDGE) return asset;
+
+        const resize = w >= h ? { width: UPLOAD_MAX_EDGE } : { height: UPLOAD_MAX_EDGE };
+        const IM = ImageManipulator as any;
+        let out: { uri: string; width: number; height: number };
+        if (typeof IM.manipulate === 'function') {
+            // SDK 52+ context API
+            const ref = await IM.manipulate(asset.uri).resize(resize).renderAsync();
+            out = await ref.saveAsync({ compress: UPLOAD_QUALITY, format: SaveFormat.JPEG });
+        } else {
+            // legacy API fallback
+            out = await IM.manipulateAsync(asset.uri, [{ resize }], { compress: UPLOAD_QUALITY, format: SaveFormat.JPEG });
+        }
+
+        let fileSize = asset.fileSize;
+        try { const r = await fetch(out.uri); fileSize = (await r.blob()).size; } catch { /* keep prior size */ }
+        return { ...asset, uri: out.uri, width: out.width, height: out.height, mimeType: 'image/jpeg', fileSize };
+    } catch {
+        return asset; // never block the upload on a resize failure
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
 // UPLOAD FLOW ORCHESTRATOR
 // ─────────────────────────────────────────────────────────────
 
@@ -104,7 +148,8 @@ export async function uploadToS3(options: UploadOptions): Promise<UploadResult> 
 export async function uploadMediaFlow(
     options: MediaUploadOptions
 ): Promise<{ success: boolean; url?: string; error?: string }> {
-    const { asset, entityType, entityId, purpose, onProgress } = options;
+    const { entityType, entityId, purpose, onProgress } = options;
+    const asset = await downscaleIfLarge(options.asset);
 
     const mimeType = asset.mimeType || 'application/octet-stream';
     const fileSize = asset.fileSize || 0;

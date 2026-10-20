@@ -19,6 +19,8 @@ export interface FeatureFlags {
   spotlightProfile: boolean;
   /** Events — v4 "one form for every event" composer vs legacy ComposerShell. */
   eventComposerV4: boolean;
+  /** Media — in-app pan/zoom cropper (MediaCropper) for avatar/cover/event-poster/logo uploads. */
+  mediaCropper: boolean;
 }
 
 export function useFeatureFlags(): FeatureFlags {
@@ -27,6 +29,7 @@ export function useFeatureFlags(): FeatureFlags {
       newGigForm: process.env.EXPO_PUBLIC_FEATURE_NEW_GIG_FORM === 'true',
       spotlightProfile: process.env.EXPO_PUBLIC_FEATURE_SPOTLIGHT_PROFILE === 'true',
       eventComposerV4: process.env.EXPO_PUBLIC_FEATURE_EVENT_V4 === 'true',
+      mediaCropper: process.env.EXPO_PUBLIC_FEATURE_MEDIA_CROPPER === 'true',
     }),
     []
   );

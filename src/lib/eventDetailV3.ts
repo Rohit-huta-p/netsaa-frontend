@@ -124,7 +124,9 @@ export function timeLine(event: EventDoc): string {
 /** The small "Level · For · Language · Age" meta line, from whatever is present. */
 export function metaLine(event: EventDoc): string {
   const parts: string[] = [];
-  if (event.skillLevel && event.skillLevel !== 'all') parts.push(SKILL_LABEL[event.skillLevel]);
+  const levels = (Array.isArray(event.skillLevel) ? event.skillLevel : (event.skillLevel ? [event.skillLevel] : []))
+    .filter((x) => x && x !== 'all');
+  if (levels.length) parts.push(levels.map((l) => SKILL_LABEL[l] || l).join(', '));
   if (event.openToAll) {
     parts.push('All creatives');
   } else {

@@ -73,7 +73,6 @@ export interface ComposerFormV4 {
   about: string;
   tagline?: string;
   lineup: LineupItemV4[];
-  bring: { items: string[]; note?: string };
   included: string[];
   photos: MediaItemV4[];
   videos: MediaItemV4[];
@@ -105,7 +104,7 @@ export function initialFormV4(type: string = 'workshop'): ComposerFormV4 {
     door: preset.defaultDoor,
     questions: [], ageRestriction: null,
     cover: null, coverFit: 'whole', about: '', tagline: '',
-    lineup: [], bring: { items: [] }, included: [],
+    lineup: [], included: [],
     photos: [],
     videos: [],
     visibility: 'public',
@@ -212,7 +211,6 @@ export function buildEventPayload(form: ComposerFormV4): Record<string, any> {
     tagline: form.tagline || undefined,
     coverFit: form.coverFit,
     lineup: form.lineup.filter((l) => l.title.trim()).map((l) => ({ when: l.when || undefined, title: l.title, detail: l.detail || undefined })),
-    bring: (form.bring.items.length || form.bring.note) ? { items: form.bring.items, note: form.bring.note || undefined } : undefined,
     included: form.included.filter(Boolean),
     media: buildMedia(form),
 
@@ -314,7 +312,6 @@ export function eventToForm(e: any): Partial<ComposerFormV4> {
     about: e?.about || '',
     tagline: e?.tagline || '',
     lineup: Array.isArray(e?.lineup) ? e.lineup.map((l: any) => ({ when: l.when, title: l.title || '', detail: l.detail })) : [],
-    bring: e?.bring ? { items: Array.isArray(e.bring.items) ? e.bring.items : [], note: e.bring.note } : { items: [] },
     included: Array.isArray(e?.included) ? e.included : [],
     photos,
     videos,

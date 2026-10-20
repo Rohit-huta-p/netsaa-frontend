@@ -34,9 +34,10 @@ export const navShown = makeMutable(1);
 // direction delta survives across handler invocations without a React render.
 const lastScrollY = makeMutable(0);
 
-// How far down to slide the nav when hiding. Clears the bar (~64 + bottom
-// padding) plus the Post FAB that overhangs above it (~86 total), with margin.
-const HIDE_DISTANCE = 140;
+// How far down to slide the nav when hiding. Must fully clear the bar (~64 +
+// bottom padding) AND the Post FAB overhanging above it, plus its shadow. There
+// is no opacity fade to mask a leftover sliver (see below), so err generous.
+const HIDE_DISTANCE = 160;
 
 // Tuning. DIR_DELTA swallows sub-pixel jitter and momentum wobble; TOP_LOCK
 // keeps the nav pinned near the top (so a tiny scroll never hides it); the nav
@@ -78,34 +79,34 @@ export function useBottomNavScroll() {
 }
 
 /**
- * Consumer hook — animated style for the nav container. translateY + opacity
- * are the only "free" (non-layout) animatable properties. Timing with ease-out
- * because no finger is on the nav itself (it's derived from scroll, not dragged).
- * Under system Reduce Motion we drop the slide entirely and keep the nav pinned
- * visible — gentler than a motion-less flicker tied to every scroll reversal.
+ * Consumer hook — animated style for the nav container. We animate ONLY
+ * translateY (slide the nav off the bottom edge), never opacity.
+ *
+ * Why no opacity: the nav's bar is an expo-blur BlurView. Alpha-compositing a
+ * BlurView (any opacity < 1 on it or an ancestor) forces iOS to rasterize the
+ * live blur to a weaker static tint, and it does NOT fully restore when opacity
+ * returns to 1 — so the glass came back looking flatter after each hide/show.
+ * A transform never touches the blur's compositing, so the glass stays byte-for-
+ * byte identical to the initial render. Timing with ease-out (no finger is on
+ * the nav; it's derived from scroll). Reduce Motion pins it visible.
  */
 export function useBottomNavVisibilityStyle() {
   const reduced = useReducedMotion();
   return useAnimatedStyle(() => {
     if (reduced) {
-      return { transform: [{ translateY: 0 }], opacity: 1 };
+      return { transform: [{ translateY: 0 }] };
     }
     const shown = navShown.get() === 1;
     return {
       transform: [
         {
           translateY: withTiming(shown ? 0 : HIDE_DISTANCE, {
-            duration: 220,
+            duration: 240,
             easing: EASE_OUT,
             reduceMotion: ReduceMotion.System,
           }),
         },
       ],
-      opacity: withTiming(shown ? 1 : 0, {
-        duration: 160,
-        easing: EASE_OUT,
-        reduceMotion: ReduceMotion.System,
-      }),
     };
   }, [reduced]);
 }

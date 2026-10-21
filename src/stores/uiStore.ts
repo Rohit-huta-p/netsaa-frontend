@@ -13,6 +13,9 @@ interface UiState {
   isFilterModalOpen: boolean;
   activeModal: string | null;
   isDrawerOpen: boolean;
+  // > 0 while a full-screen overlay (e.g. the MediaViewer) is open → global chrome
+  // like the BottomNav hides itself. A counter (not a bool) so stacked overlays are safe.
+  fullscreenOverlayCount: number;
 
   // Actions
   setSelectedGigId: (id: string | null) => void;
@@ -22,6 +25,8 @@ interface UiState {
   toggleFilterModal: (isOpen: boolean) => void;
   setActiveModal: (modalName: string | null) => void;
   setDrawerOpen: (isOpen: boolean) => void;
+  pushFullscreenOverlay: () => void;
+  popFullscreenOverlay: () => void;
   resetSelections: () => void;
 }
 
@@ -33,6 +38,7 @@ export const useUiStore = create<UiState>((set) => ({
   isFilterModalOpen: false,
   activeModal: null,
   isDrawerOpen: false,
+  fullscreenOverlayCount: 0,
 
   setSelectedGigId: (id) => set({ selectedGigId: id }),
   setSelectedEventId: (id) => set({ selectedEventId: id }),
@@ -43,6 +49,8 @@ export const useUiStore = create<UiState>((set) => ({
   toggleFilterModal: (isOpen) => set({ isFilterModalOpen: isOpen }),
   setActiveModal: (modalName) => set({ activeModal: modalName }),
   setDrawerOpen: (isOpen) => set({ isDrawerOpen: isOpen }),
+  pushFullscreenOverlay: () => set((s) => ({ fullscreenOverlayCount: s.fullscreenOverlayCount + 1 })),
+  popFullscreenOverlay: () => set((s) => ({ fullscreenOverlayCount: Math.max(0, s.fullscreenOverlayCount - 1) })),
 
   resetSelections: () => set({
     selectedGigId: null,

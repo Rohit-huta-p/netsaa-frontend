@@ -22,6 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { X, MapPin, UserPlus, Check, Clock, Share2, Play, Pencil, Trash2 } from 'lucide-react-native';
 import NetsaVideoPlayer, { parseAspectRatio, muxPoster } from '@/components/media/NetsaVideoPlayer';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
+import { useUiStore } from '@/stores/uiStore';
 
 export type MediaViewerItem = {
     url: string;                    // photo url, or the video's thumbnail/poster url
@@ -61,6 +62,13 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
 
     useEffect(() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); }, []);
 
+    // Full-screen viewer → hide the global bottom nav while it's open.
+    useEffect(() => {
+        const { pushFullscreenOverlay, popFullscreenOverlay } = useUiStore.getState();
+        pushFullscreenOverlay();
+        return () => popFullscreenOverlay();
+    }, []);
+
     // keep the active thumbnail in view as the pager moves
     useEffect(() => {
         if (items.length > 1) stripRef.current?.scrollToIndex({ index: cur, animated: true, viewPosition: 0.5 });
@@ -74,7 +82,7 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
 
     if (!items.length) return null;
     const m = items[cur];
-    const title = m.title || (m.type === 'video' ? 'Reel' : 'Photo');
+    const title = m.title;   // no generic "Photo"/"Reel" fallback — show only a real caption
     const location = m.location || artist?.location;
 
     // media box: centred, matted with side margins
@@ -164,7 +172,7 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
 
             {/* caption · actions · thumbnail strip */}
             <View style={[styles.bottom, { paddingBottom: insets.bottom + 18 }]}>
-                <Text style={styles.title} numberOfLines={1}>{title}</Text>
+                {!!title && <Text style={styles.title} numberOfLines={1}>{title}</Text>}
                 {!!location && (
                     <View style={styles.locRow}>
                         <MapPin size={12} color="#71717A" />
@@ -248,7 +256,8 @@ const styles = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
     pager: { flex: 1 },
-    bottom: { paddingHorizontal: 20, paddingTop: 10 },
+    // controls overlay the bottom so the pager fills the whole screen → media sits at exact screen centre
+    bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 10 },
     title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 25, color: '#F4F4F5', textAlign: 'center', letterSpacing: -0.3 },
     locRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 9 },
     loc: { fontFamily: 'SpaceMono-Regular', fontSize: 10.5, letterSpacing: 1.3, textTransform: 'uppercase', color: '#71717A' },

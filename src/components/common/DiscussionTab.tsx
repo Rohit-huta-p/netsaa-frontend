@@ -114,6 +114,14 @@ interface DiscussionTabProps {
      * their flat UI is untouched.
      */
     threaded?: boolean;
+    /**
+     * Owner hub only — map of commenter User id → { applicationId, status } for
+     * askers who are in this gig's pipeline. The threaded view renders an
+     * Applied/Shortlisted/Hired chip on their comments; `onOpenApplicant` opens
+     * that asker's applicant card. Omitted elsewhere, so no chip shows.
+     */
+    applicantsByUserId?: Record<string, { applicationId: string; status: string }>;
+    onOpenApplicant?: (applicationId: string) => void;
 }
 
 /* ================= HELPERS ================= */
@@ -132,7 +140,7 @@ const deletedLabel = (reason?: 'self' | 'organizer' | 'admin') => {
 
 /* ================= COMPONENT ================= */
 
-export default function DiscussionTab({ id, type, ownerId, inline = false, variant = 'default', threaded = false }: DiscussionTabProps) {
+export default function DiscussionTab({ id, type, ownerId, inline = false, variant = 'default', threaded = false, applicantsByUserId, onOpenApplicant }: DiscussionTabProps) {
     const glass = variant === 'glass';
     const [messages, setMessages] = useState<DiscussionMessage[]>([]);
     const [inputText, setInputText] = useState("");
@@ -411,6 +419,8 @@ export default function DiscussionTab({ id, type, ownerId, inline = false, varia
                 onCancelReply={cancelReply}
                 onModerate={(c) => { const m = messages.find((x) => x._id === c._id); if (m) moderate(m); }}
                 onOpenProfile={openAuthorProfile}
+                applicantsByUserId={applicantsByUserId}
+                onOpenApplicant={onOpenApplicant}
             />
         );
     }

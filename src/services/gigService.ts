@@ -107,9 +107,9 @@ const gigService = {
     },
 
     postGigDiscussion: async (gigId: string, text: string, parentId?: string): Promise<any> => {
-        // parentId (optional) threads a reply under its root comment. The
-        // backend ignores it until GigComment.parentId lands (see
-        // docs/discussion-threading-backend.md).
+        // parentId (optional) threads a reply under its root comment. Honored
+        // by the backend as of gigs-service GigComment.parentId (netsaa-backend
+        // #10); pin/unpin + soft-delete moderation land via #11.
         const res = await API.post(`/gigs/${gigId}/discussion`, parentId ? { text, parentId } : { text });
         return res.data;
     },

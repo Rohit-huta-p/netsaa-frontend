@@ -76,6 +76,19 @@ export function HirerGigHub({ gigId }: Props) {
         [data.pendingApplicantsCount, data.urgentTeamRowCount, data.firstUrgentLabel]
     );
 
+    // Commenter User id → their application, so the Discussion thread can show
+    // an Applied/Shortlisted/Hired chip on askers who are in the pipeline and
+    // tap through to their card. Built from every application (all statuses);
+    // artistId may be populated (object) or a raw id.
+    const applicantsByUserId = useMemo(() => {
+        const map: Record<string, { applicationId: string; status: string }> = {};
+        for (const a of (data.applications ?? [])) {
+            const uid = typeof a.artistId === 'object' ? a.artistId?._id : a.artistId;
+            if (uid) map[String(uid)] = { applicationId: a._id, status: a.status };
+        }
+        return map;
+    }, [data.applications]);
+
     if (data.isLoading) {
         return (
             <View style={{ flex: 1, backgroundColor: COLORS.bg, alignItems: 'center', justifyContent: 'center' }}>
@@ -264,6 +277,11 @@ export function HirerGigHub({ gigId }: Props) {
                         type="gig"
                         ownerId={typeof gig.organizerId === 'object' ? gig.organizerId?._id : gig.organizerId}
                         threaded
+                        applicantsByUserId={applicantsByUserId}
+                        onOpenApplicant={(applicationId) => {
+                            const app = findApplication(applicationId);
+                            if (app) setActionSheetTarget(app);
+                        }}
                     />
                 </View>
 

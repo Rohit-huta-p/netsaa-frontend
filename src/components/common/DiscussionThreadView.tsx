@@ -11,7 +11,7 @@
 
 import React, { useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
-import { Send, CornerUpLeft, X, MessageSquare } from 'lucide-react-native';
+import { Send, CornerUpLeft, X, MessageSquare, ArrowUpRight } from 'lucide-react-native';
 
 const C = {
   well: '#212129', wellb: '#35353F',
@@ -29,11 +29,31 @@ export interface ThreadComment {
   authorImageUrl?: string;
   parentId?: string | null;
   createdAt: string;
+  isPinned?: boolean;
   isDeleted?: boolean;
   deletedReason?: 'self' | 'organizer' | 'admin';
 }
 
 export interface ReplyingTo { rootId: string; name: string }
+
+/**
+ * A commenter who is also in this gig's applicant pipeline. The owner hub
+ * passes this so an asker who applied gets a status chip that taps through to
+ * their applicant card. Keyed by the commenter's User id (= application.artistId).
+ */
+export interface ApplicantRef { applicationId: string; status: string }
+export type ApplicantsByUserId = Record<string, ApplicantRef>;
+
+/** One-level thread: a root question + its replies, flagged if still unanswered. */
+export interface Thread { root: ThreadComment; replies: ThreadComment[]; unanswered: boolean }
+
+// Status → chip label + color. Only pipeline-active statuses get a chip;
+// rejected/withdrawn askers show no chip (nothing to tap through to).
+const APPLICANT_CHIP: Record<string, { label: string; color: string }> = {
+  applied: { label: 'Applied', color: '#5B8DEF' },
+  shortlisted: { label: 'Shortlisted', color: '#EAB308' },
+  hired: { label: 'Hired', color: '#22C55E' },
+};
 
 interface Props {
   comments: ThreadComment[];
@@ -49,6 +69,9 @@ interface Props {
   onCancelReply: () => void;
   onModerate?: (c: ThreadComment) => void; // long-press → pin/delete (owner/author/admin)
   onOpenProfile?: (authorId: string) => void;
+  /** Owner hub only — commenters who are in the pipeline, for the asker→card chip. */
+  applicantsByUserId?: ApplicantsByUserId;
+  onOpenApplicant?: (applicationId: string) => void;
   starterPrompts?: string[];
 }
 
@@ -67,8 +90,13 @@ function timeAgo(iso: string) {
   return `${days}d`;
 }
 
-/** Group a flat comment list into one-level threads (root + its replies). */
-function buildThreads(comments: ThreadComment[]) {
+/**
+ * Group a flat comment list into one-level threads (root + its replies).
+ * `unanswered` flags a question the owner still owes a reply on: a root NOT
+ * authored by the owner, with no reply from the owner. The owner hub uses it to
+ * float waiting questions up and badge the count; other viewers ignore it.
+ */
+function buildThreads(comments: ThreadComment[], ownerId?: string): Thread[] {
   const ids = new Set(comments.map((c) => c._id));
   const roots = comments.filter((c) => !c.parentId || !ids.has(c.parentId));
   const repliesByRoot = new Map<string, ThreadComment[]>();
@@ -81,9 +109,12 @@ function buildThreads(comments: ThreadComment[]) {
   }
   const byTime = (a: ThreadComment, b: ThreadComment) =>
     new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-  return roots
-    .sort(byTime)
-    .map((root) => ({ root, replies: (repliesByRoot.get(root._id) ?? []).sort(byTime) }));
+  return roots.sort(byTime).map((root) => {
+    const replies = (repliesByRoot.get(root._id) ?? []).sort(byTime);
+    const rootByOwner = !!ownerId && String(root.authorId) === String(ownerId);
+    const ownerReplied = !!ownerId && replies.some((r) => String(r.authorId) === String(ownerId));
+    return { root, replies, unanswered: !rootByOwner && !ownerReplied };
+  });
 }
 
 function Avatar({ c, size, isProducer }: { c: ThreadComment; size: number; isProducer: boolean }) {
@@ -110,14 +141,23 @@ function Avatar({ c, size, isProducer }: { c: ThreadComment; size: number; isPro
 }
 
 function Comment({
-  c, size, ownerId, onStartReply, onModerate, onOpenProfile,
+  c, size, ownerId, onStartReply, onModerate, onOpenProfile, applicantsByUserId, onOpenApplicant,
 }: {
   c: ThreadComment; size: number; ownerId?: string;
   onStartReply: (c: ThreadComment) => void;
   onModerate?: (c: ThreadComment) => void;
   onOpenProfile?: (id: string) => void;
+  applicantsByUserId?: ApplicantsByUserId;
+  onOpenApplicant?: (applicationId: string) => void;
 }) {
   const isProducer = !!ownerId && String(c.authorId) === String(ownerId);
+  // The producer never gets an applicant chip (they're the owner, not an
+  // applicant). Others get one only if they're in the pipeline with a status
+  // that has somewhere to tap through to.
+  const applicant = !isProducer && !c.isDeleted ? applicantsByUserId?.[String(c.authorId)] : undefined;
+  const chip = applicant && APPLICANT_CHIP[applicant.status]
+    ? { ...APPLICANT_CHIP[applicant.status], applicationId: applicant.applicationId }
+    : undefined;
   return (
     <View>
       <TouchableOpacity
@@ -136,6 +176,18 @@ function Comment({
           <View style={{ borderWidth: 1, borderColor: C.orangeBorder, backgroundColor: C.orangeSoft, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}>
             <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 8, letterSpacing: 0.8, textTransform: 'uppercase', color: C.orange }}>Producer</Text>
           </View>
+        )}
+        {chip && (
+          <TouchableOpacity
+            onPress={() => onOpenApplicant?.(chip.applicationId)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={`${chip.label} applicant — open their card`}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderColor: `${chip.color}59`, backgroundColor: `${chip.color}1A`, borderRadius: 999, paddingLeft: 7, paddingRight: 5, paddingVertical: 2 }}
+          >
+            <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 8, letterSpacing: 0.8, textTransform: 'uppercase', color: chip.color }}>{chip.label}</Text>
+            <ArrowUpRight size={10} color={chip.color} />
+          </TouchableOpacity>
         )}
         <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 10, color: C.t5, marginLeft: 'auto' }}>{timeAgo(c.createdAt)}</Text>
       </TouchableOpacity>
@@ -167,21 +219,53 @@ function Comment({
 export default function DiscussionThreadView({
   comments, loading, currentUserId, ownerId, inputText, sending, replyingTo,
   onChangeText, onSend, onStartReply, onCancelReply, onModerate, onOpenProfile,
+  applicantsByUserId, onOpenApplicant,
   starterPrompts = ['When are rehearsals?', 'Is travel covered?', 'What should I prepare?'],
 }: Props) {
-  const threads = useMemo(() => buildThreads(comments), [comments]);
+  // The owner (producer) gets the triage treatment: unanswered questions float
+  // up, a "waiting" badge + nudge appear, and each waiting root is tagged.
+  // Everyone else (artist-side gig page) keeps the plain chronological view.
+  const isOwner = !!ownerId && !!currentUserId && String(currentUserId) === String(ownerId);
+  const built = useMemo(() => buildThreads(comments, ownerId), [comments, ownerId]);
+  const unansweredCount = useMemo(() => built.filter((t) => t.unanswered).length, [built]);
+  const threads = useMemo(() => {
+    if (!isOwner) return built;
+    // Pinned first, then still-waiting, then the rest — oldest first within
+    // each band so the longest-waiting question sits on top.
+    const rank = (t: Thread) => (t.root.isPinned ? 0 : t.unanswered ? 1 : 2);
+    const byTime = (a: Thread, b: Thread) =>
+      new Date(a.root.createdAt).getTime() - new Date(b.root.createdAt).getTime();
+    return [...built].sort((a, b) => rank(a) - rank(b) || byTime(a, b));
+  }, [built, isOwner]);
   const isEmpty = !loading && comments.length === 0;
+  const commentProps = { onStartReply, onModerate, onOpenProfile, applicantsByUserId, onOpenApplicant };
 
   return (
     <View>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 4, marginBottom: 2 }}>
         <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 17, color: C.t1, letterSpacing: -0.3 }}>Questions &amp; answers</Text>
-        {threads.length > 0 && (
-          <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 9.5, letterSpacing: 0.8, textTransform: 'uppercase', color: C.t5 }}>
-            {threads.length} {threads.length === 1 ? 'thread' : 'threads'}
-          </Text>
-        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {isOwner && unansweredCount > 0 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: C.orangeBorder, backgroundColor: C.orangeSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2.5 }}>
+              <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.orange }} />
+              <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 9.5, letterSpacing: 0.3, color: C.orange }}>{unansweredCount} waiting</Text>
+            </View>
+          )}
+          {threads.length > 0 && (
+            <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 9.5, letterSpacing: 0.8, textTransform: 'uppercase', color: C.t5 }}>
+              {threads.length} {threads.length === 1 ? 'thread' : 'threads'}
+            </Text>
+          )}
+        </View>
       </View>
+
+      {isOwner && unansweredCount > 0 && !loading && (
+        <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11.5, lineHeight: 16, color: C.orangeTint, marginBottom: 2 }}>
+          {unansweredCount === 1
+            ? '1 question is waiting for your reply.'
+            : `${unansweredCount} questions are waiting for your reply.`}
+        </Text>
+      )}
 
       {loading ? (
         <ActivityIndicator color={C.orange} style={{ marginVertical: 24 }} />
@@ -204,21 +288,30 @@ export default function DiscussionThreadView({
         </View>
       ) : (
         <View>
-          {threads.map(({ root, replies }, i) => (
-            <View
-              key={root._id}
-              style={{ paddingVertical: 16, borderBottomWidth: i === threads.length - 1 ? 0 : 1, borderBottomColor: C.hair }}
-            >
-              <Comment c={root} size={28} ownerId={ownerId} onStartReply={onStartReply} onModerate={onModerate} onOpenProfile={onOpenProfile} />
-              {replies.length > 0 && (
-                <View style={{ marginTop: 13, marginLeft: 13, paddingLeft: 15, borderLeftWidth: 1, borderLeftColor: C.hair, gap: 14 }}>
-                  {replies.map((r) => (
-                    <Comment key={r._id} c={r} size={24} ownerId={ownerId} onStartReply={onStartReply} onModerate={onModerate} onOpenProfile={onOpenProfile} />
-                  ))}
-                </View>
-              )}
-            </View>
-          ))}
+          {threads.map(({ root, replies, unanswered }, i) => {
+            const awaiting = isOwner && unanswered;
+            return (
+              <View
+                key={root._id}
+                style={{ paddingVertical: 16, borderBottomWidth: i === threads.length - 1 ? 0 : 1, borderBottomColor: C.hair }}
+              >
+                {awaiting && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 9 }}>
+                    <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.orange }} />
+                    <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 9, letterSpacing: 0.9, textTransform: 'uppercase', color: C.orange }}>Awaiting reply</Text>
+                  </View>
+                )}
+                <Comment c={root} size={28} ownerId={ownerId} {...commentProps} />
+                {replies.length > 0 && (
+                  <View style={{ marginTop: 13, marginLeft: 13, paddingLeft: 15, borderLeftWidth: 1, borderLeftColor: C.hair, gap: 14 }}>
+                    {replies.map((r) => (
+                      <Comment key={r._id} c={r} size={24} ownerId={ownerId} {...commentProps} />
+                    ))}
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
       )}
 

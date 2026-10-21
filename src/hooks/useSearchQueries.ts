@@ -41,7 +41,8 @@ export const useSearchPeople = (debouncedQuery: string, filters?: any) => {
 export const useSearchGigs = (debouncedQuery: string, filters?: any) => {
     return useQuery({
         queryKey: SEARCH_KEYS.gigs(debouncedQuery, filters),
-        queryFn: () => searchService.searchGigs(debouncedQuery, filters),
+        // searchGigs takes a single request object — passing positionally left q undefined.
+        queryFn: () => searchService.searchGigs({ q: debouncedQuery, filters }),
         enabled: debouncedQuery.length >= 2,
         placeholderData: keepPreviousData,
     });
@@ -53,7 +54,8 @@ export const useSearchGigs = (debouncedQuery: string, filters?: any) => {
 export const useSearchEvents = (debouncedQuery: string, filters?: any) => {
     return useQuery({
         queryKey: SEARCH_KEYS.events(debouncedQuery, filters),
-        queryFn: () => searchService.searchEvents(debouncedQuery, filters),
+        // searchEvents takes a single request object — passing positionally left q undefined.
+        queryFn: () => searchService.searchEvents({ q: debouncedQuery, filters }),
         enabled: debouncedQuery.length >= 2,
         placeholderData: keepPreviousData,
     });

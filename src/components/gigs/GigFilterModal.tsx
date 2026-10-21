@@ -1,12 +1,12 @@
-// GigFilterModal — the unified gig refine surface: a bottom sheet that slides up
-// (rests ~30% from the top / ≈72% tall) over a dimmed scrim, holding every gig
-// filter group PLUS Sort. Mirrors EventFilterModal exactly (container · animation
-// · tokens · draft-then-apply); the only gig-specific change is the group set and
-// a predicate-based Group so the multi-select axes (Artist type · Experience)
-// render alongside the single-select ones (Pay · City · Sort).
+// GigFilterModal — the gig refine sheet, reskinned to A·Minimal
+// (DOCS/04-design/mockups/gig-filters-aminimal.html). Bottom sheet over a dimmed
+// scrim; edits a local `draft`, commits on "Apply". Groups: Performer type
+// (searchable, data-driven multi-select) · Minimum pay · City · Experience.
 //
-// Draft-then-apply: edits a local copy, commits on "Apply filters". Sort lives
-// inside but is excluded from the active-filter count (a sort is always applied).
+// Sort was moved OUT of this sheet and onto the board toolbar, so it is no longer
+// a group here — but `clearAll` still preserves the current sort (it lives in the
+// same FilterState). The data/filter wiring is unchanged: every selection flows
+// through the existing setX helpers so the emitted FilterState is byte-identical.
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -32,14 +32,9 @@ import { X } from 'lucide-react-native';
 
 import { FilterState } from '@/types/filters';
 import {
-    ACTIVE_BG,
-    ACTIVE_BORDER,
-    ACTIVE_FG,
-    ARTIST_OPTIONS,
     PAY_OPTIONS,
     CITY_OPTIONS,
     EXPERIENCE_OPTIONS,
-    SORT_OPTIONS,
     FilterOption,
     artistValues,
     payValue,
@@ -54,6 +49,8 @@ import {
     countGigFacets,
     emptyGigFilters,
 } from './discovery/gigFilterOptions';
+import { PerformerSelect } from './board/PerformerSelect';
+import { C, F, INK, SHEET } from './board/theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -62,24 +59,16 @@ interface GigFilterModalProps {
     onClose: () => void;
     filters: FilterState;
     onApplyFilters: (filters: FilterState | null) => void;
+    /** ARTIST_OPTIONS ∪ crafts present in the data (derived by the screen). */
+    craftOptions: FilterOption[];
 }
 
-const Chip = ({
-    label,
-    active,
-    onPress,
-}: {
-    label: string;
-    active: boolean;
-    onPress: () => void;
-}) => (
+const Chip = ({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) => (
     <TouchableOpacity onPress={onPress} style={[styles.chip, active && styles.chipOn]}>
         <Text style={[styles.chipText, active && styles.chipTextOn]}>{label}</Text>
     </TouchableOpacity>
 );
 
-// `isActive` is a predicate so a single Group renders both single-select groups
-// (value === current) and multi-select groups (array.includes(value)).
 const Group = ({
     label,
     options,
@@ -101,19 +90,16 @@ const Group = ({
     </View>
 );
 
-/**
- * GigFilterModal — bottom sheet holding all gig filters + sort. Slides up over a
- * dimmed scrim; edits a local `draft`, commits on "Apply filters".
- */
 export const GigFilterModal: React.FC<GigFilterModalProps> = ({
     visible,
     onClose,
     filters,
     onApplyFilters,
+    craftOptions,
 }) => {
     const { height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
-    const SHEET_H = Math.round(height * 0.72);
+    const SHEET_H = Math.round(height * 0.8);
 
     const [rendered, setRendered] = useState(visible);
     const [draft, setDraft] = useState<FilterState>(filters);
@@ -142,7 +128,8 @@ export const GigFilterModal: React.FC<GigFilterModalProps> = ({
         onApplyFilters(draft);
         onClose();
     };
-    const clearAll = () => setDraft(emptyGigFilters());
+    // Clear the four facets but keep whatever sort is active (sort is board-owned).
+    const clearAll = () => setDraft(setSort(emptyGigFilters(), sortValue(draft)));
 
     return (
         <Modal visible={rendered} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
@@ -153,11 +140,12 @@ export const GigFilterModal: React.FC<GigFilterModalProps> = ({
                     <View style={styles.grabber} />
 
                     <View style={styles.head}>
-                        <Text style={styles.headTitle}>
-                            Filters{draftCount > 0 ? `   ·   ${draftCount} active` : ''}
-                        </Text>
+                        <View style={styles.headTitleRow}>
+                            <Text style={styles.headTitle}>Filters</Text>
+                            {draftCount > 0 ? <Text style={styles.headCount}>· {draftCount} active</Text> : null}
+                        </View>
                         <TouchableOpacity onPress={onClose} style={styles.x}>
-                            <X size={18} color="#a1a1aa" />
+                            <X size={18} color={C.t2} />
                         </TouchableOpacity>
                     </View>
 
@@ -165,13 +153,19 @@ export const GigFilterModal: React.FC<GigFilterModalProps> = ({
                         style={styles.body}
                         contentContainerStyle={{ paddingBottom: 24 }}
                         showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
                     >
-                        <Group
-                            label="Artist type"
-                            options={ARTIST_OPTIONS}
-                            isActive={(v) => artistValues(draft).includes(v)}
-                            onSelect={(v) => setDraft(setArtist(draft, v))}
-                        />
+                        <View style={styles.group}>
+                            <Text style={styles.gLabel}>
+                                Performer type <Text style={styles.hint}>· search &amp; pick</Text>
+                            </Text>
+                            <PerformerSelect
+                                selected={artistValues(draft)}
+                                options={craftOptions}
+                                onToggle={(v) => setDraft(setArtist(draft, v))}
+                            />
+                        </View>
+
                         <Group
                             label="Minimum pay"
                             options={PAY_OPTIONS}
@@ -190,20 +184,16 @@ export const GigFilterModal: React.FC<GigFilterModalProps> = ({
                             isActive={(v) => expValues(draft).includes(v)}
                             onSelect={(v) => setDraft(setExperience(draft, v))}
                         />
-                        <Group
-                            label="Sort by"
-                            options={SORT_OPTIONS}
-                            isActive={(v) => sortValue(draft) === v}
-                            onSelect={(v) => setDraft(setSort(draft, v))}
-                        />
                     </ScrollView>
 
                     <View style={[styles.foot, { paddingBottom: 14 + insets.bottom }]}>
                         <TouchableOpacity onPress={clearAll} style={styles.clear}>
-                            <Text style={styles.clearText}>Clear all</Text>
+                            <Text style={styles.clearText}>CLEAR ALL</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={apply} style={styles.apply}>
-                            <Text style={styles.applyText}>Apply filters</Text>
+                            <Text style={styles.applyText}>
+                                {draftCount > 0 ? `Apply · ${draftCount} filter${draftCount > 1 ? 's' : ''}` : 'Apply filters'}
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </Animated.View>
@@ -213,98 +203,101 @@ export const GigFilterModal: React.FC<GigFilterModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.62)' },
+    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(6,6,9,0.66)' },
     sheet: {
         position: 'absolute',
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: '#0d0a0d',
-        borderTopLeftRadius: 22,
-        borderTopRightRadius: 22,
+        backgroundColor: SHEET,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         borderTopWidth: 1,
-        borderColor: 'rgba(255,255,255,0.10)',
+        borderColor: C.hair,
     },
     grabber: {
-        width: 38,
+        width: 40,
         height: 4,
         borderRadius: 99,
         backgroundColor: 'rgba(255,255,255,0.18)',
         alignSelf: 'center',
         marginTop: 10,
-        marginBottom: 4,
+        marginBottom: 2,
     },
     head: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 18,
-        paddingTop: 8,
+        paddingTop: 10,
         paddingBottom: 14,
         borderBottomWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: C.hairSoft,
     },
-    headTitle: { color: '#fafafa', fontSize: 19, fontWeight: '800', letterSpacing: -0.2 },
+    headTitleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 9 },
+    headTitle: { fontFamily: F.serif, fontSize: 21, letterSpacing: -0.3, color: C.cream },
+    headCount: { fontFamily: F.mono, fontSize: 10, letterSpacing: 1, color: C.orange },
     x: {
         width: 32,
         height: 32,
         borderRadius: 99,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(255,255,255,0.03)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.10)',
+        borderColor: C.hair,
         alignItems: 'center',
         justifyContent: 'center',
     },
     body: { flex: 1, paddingHorizontal: 18, paddingTop: 18 },
     group: { marginBottom: 22 },
     gLabel: {
-        color: '#52525b',
+        fontFamily: F.mono,
         fontSize: 10,
-        fontWeight: '700',
-        letterSpacing: 1.5,
+        letterSpacing: 1.6,
+        color: C.t4,
         textTransform: 'uppercase',
-        marginBottom: 11,
+        marginBottom: 12,
     },
+    hint: { fontFamily: F.body, fontSize: 9, color: C.t4, letterSpacing: 0 },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     chip: {
         height: 36,
         paddingHorizontal: 15,
         borderRadius: 11,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.10)',
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        borderColor: C.hair,
+        backgroundColor: 'transparent',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    chipOn: { backgroundColor: ACTIVE_BG, borderColor: ACTIVE_BORDER },
-    chipText: { fontSize: 13, fontWeight: '600', color: '#a1a1aa' },
-    chipTextOn: { color: ACTIVE_FG },
+    chipOn: { backgroundColor: C.orange, borderColor: C.orange },
+    chipText: { fontFamily: F.semi, fontSize: 13, color: C.t2 },
+    chipTextOn: { color: INK, fontFamily: F.bold },
     foot: {
         flexDirection: 'row',
         gap: 12,
         paddingHorizontal: 18,
         paddingTop: 14,
         borderTopWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
-        backgroundColor: '#0d0a0d',
+        borderColor: C.hairSoft,
+        backgroundColor: SHEET,
     },
     clear: {
         flex: 1,
-        height: 50,
+        height: 52,
         borderRadius: 14,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.10)',
+        borderColor: C.hair,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    clearText: { color: '#a1a1aa', fontSize: 13, fontWeight: '700' },
+    clearText: { fontFamily: F.mono, fontSize: 11, letterSpacing: 1, color: C.t2 },
     apply: {
         flex: 2,
-        height: 50,
+        height: 52,
         borderRadius: 14,
-        backgroundColor: '#fafafa',
+        backgroundColor: C.orange,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    applyText: { color: '#0a0a0a', fontSize: 13, fontWeight: '800' },
+    applyText: { fontFamily: F.bold, fontSize: 14, color: INK },
 });

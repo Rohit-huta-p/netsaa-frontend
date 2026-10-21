@@ -11,6 +11,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useOrganizer } from '@/hooks/useOrganizer';
 import { uploadMediaFlow, validateMediaFile } from '@/utils/upload';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
+import { usePickAndCrop } from '@/hooks/usePickAndCrop';
+import MediaCropper from '@/components/media/MediaCropper';
 
 /**
  * Agency profile edit (Client Experience spec Part D / D.1, agency tier).
@@ -37,6 +39,7 @@ export default function AgencyProfile() {
     const user = useAuthStore((s) => s.user) as any;
     const userId = user?._id || '';
     const { organizer, isAgency } = useOrganizer();
+    const { pickAndCrop, cropperProps } = usePickAndCrop();
 
     // ── Form state (prefilled once the organizer doc resolves) ──
     const [logoUrl, setLogoUrl] = useState('');
@@ -77,14 +80,8 @@ export default function AgencyProfile() {
 
     // ── Media upload (mirror ProfileEditModal's media tab) ──
     const pickLogo = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-        });
-        if (result.canceled) return;
-        const asset = result.assets[0];
+        const asset = await pickAndCrop('logo');
+        if (!asset) return;
         const validation = validateMediaFile(asset, false);
         if (!validation.valid) { Alert.alert('Invalid image', validation.error); return; }
         setLogoUploading(true);
@@ -364,6 +361,7 @@ export default function AgencyProfile() {
                     )}
                 </Pressable>
             </ScrollView>
+            <MediaCropper {...cropperProps} />
         </>
     );
 }

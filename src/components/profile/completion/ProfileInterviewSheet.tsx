@@ -9,6 +9,8 @@ import authService from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfileUiStore } from '@/stores/profileUiStore';
 import { uploadMediaFlow, uploadVideoFlow, validateMediaFile } from '@/utils/upload';
+import { usePickAndCrop } from '@/hooks/usePickAndCrop';
+import MediaCropper from '@/components/media/MediaCropper';
 import type { InterviewField } from './interviewFieldMeta';
 
 interface ProfileInterviewSheetProps {
@@ -156,6 +158,7 @@ const ProfileInterviewSheet: React.FC<ProfileInterviewSheetProps> = ({ visible, 
   const [error, setError] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [uploadPct, setUploadPct] = useState(0);
+  const { pickAndCrop, cropperProps } = usePickAndCrop();
 
   // Reactive so the preview re-fills the instant an upload updates the store.
   const authUser = useAuthStore((s) => s.user) as any;
@@ -241,15 +244,23 @@ const ProfileInterviewSheet: React.FC<ProfileInterviewSheetProps> = ({ visible, 
 
   const pickAndUploadMedia = async () => {
     const isVideo = field.id === 'videoReel';
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: isVideo ? ImagePicker.MediaTypeOptions.Videos : ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: field.id === 'photo',
-      aspect: field.id === 'photo' ? [1, 1] : [16, 9],
-      quality: 0.8,
-      ...(isVideo ? { videoMaxDuration: 60 } : {}),
-    });
-    if (result.canceled) return;
-    const asset = result.assets[0];
+    let asset: ImagePicker.ImagePickerAsset;
+    if (field.id === 'photo') {
+      // Avatar photo is a crop surface — pick full-res + in-app crop to 1:1.
+      const cropped = await pickAndCrop('avatar');
+      if (!cropped) return;
+      asset = cropped;
+    } else {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: isVideo ? ImagePicker.MediaTypeOptions.Videos : ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        aspect: [16, 9],
+        quality: 0.8,
+        ...(isVideo ? { videoMaxDuration: 60 } : {}),
+      });
+      if (result.canceled) return;
+      asset = result.assets[0];
+    }
 
     const v = validateMediaFile(asset, isVideo);
     if (!v.valid) { setError(v.error || "That file won't work."); return; }
@@ -409,6 +420,8 @@ const ProfileInterviewSheet: React.FC<ProfileInterviewSheetProps> = ({ visible, 
             </Pressable>
           )}
         </View>
+
+        <MediaCropper {...cropperProps} />
       </View>
     </Modal>
   );

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, TextInput, Image, ActivityIndicator 
 import { Image as ImageIcon, Plus, X, Check, Video as VideoIcon, Play } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../useComposerStoreV4';
 import { useComposerMediaV4 } from '../useComposerMediaV4';
+import MediaCropper from '@/components/media/MediaCropper';
 import { presetFor, type DescribeSection } from '../eventTypePresets';
 import { Group, TextField, Segmented, Hint } from '../ui';
 import { C, F } from '../theme';
@@ -170,6 +171,8 @@ export default function Step5Describe() {
         </View>
         <Hint>Short clips play on your event page — up to 60 seconds each.</Hint>
       </Group>
+
+      <MediaCropper {...media.cropperProps} />
     </View>
   );
 }

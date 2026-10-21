@@ -121,10 +121,12 @@ export function timeLine(event: EventDoc): string {
   return `${s} – ${e}`;
 }
 
-/** The small "Level · For · Language · Age" meta line, from whatever is present. */
-export function metaLine(event: EventDoc): string {
+/** The individual "Level", "For", "Language", "Age" meta tags. */
+export function metaParts(event: EventDoc): string[] {
   const parts: string[] = [];
-  if (event.skillLevel && event.skillLevel !== 'all') parts.push(SKILL_LABEL[event.skillLevel]);
+  const levels = (Array.isArray(event.skillLevel) ? event.skillLevel : (event.skillLevel ? [event.skillLevel] : []))
+    .filter((x) => x && x !== 'all');
+  if (levels.length) parts.push(levels.map((l) => SKILL_LABEL[l] || l).join(', '));
   if (event.openToAll) {
     parts.push('All creatives');
   } else {
@@ -134,7 +136,12 @@ export function metaLine(event: EventDoc): string {
   const lang = langLabel(event);
   if (lang) parts.push(lang);
   if (typeof event.ageRestriction === 'number' && event.ageRestriction > 0) parts.push(`${event.ageRestriction}+`);
-  return parts.join('  ·  ');
+  return parts;
+}
+
+/** The small "Level · For · Language · Age" meta line, from whatever is present. */
+export function metaLine(event: EventDoc): string {
+  return metaParts(event).join('  ·  ');
 }
 
 /** Refund label from the structured policy. */

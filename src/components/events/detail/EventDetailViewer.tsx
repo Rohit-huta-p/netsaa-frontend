@@ -29,6 +29,8 @@ import EventHeroV3 from './EventHeroV3';
 import EventDetailV3Body from './EventDetailV3Body';
 import { usePublicRoster } from '@/hooks/usePublicRoster';
 import { eventDetailV3Enabled } from '@/utils/flags';
+import MediaViewer, { type MediaViewerItem } from '@/components/profile/MediaViewer';
+import { muxPoster } from '@/components/media/NetsaVideoPlayer';
 
 const BG = '#0B0A0F'; // v2 bg-1
 
@@ -57,6 +59,25 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
   const v3 = eventDetailV3Enabled();
   const { data: roster } = usePublicRoster(v3 ? event._id : undefined);
   const openProfile = (uid?: string) => { if (uid) router.push(`/profile/${uid}` as any); };
+
+  // E·9 gallery → fullscreen viewer. Reuses the profile MediaViewer with no
+  // `artist` (so the Connect action is hidden) and shares the event, not a
+  // profile. Built once here and shared by both the rail and the lightbox.
+  const [mediaIndex, setMediaIndex] = useState<number | null>(null);
+  const galleryCity = (event.location as any)?.city as string | undefined;
+  const galleryItems: MediaViewerItem[] = v3
+    ? [...(event.media ?? [])]
+        .filter((m) => (m.kind === 'photo' ? !!m.url : m.status !== 'errored' && (!!m.thumbnailUrl || !!m.muxPlaybackId)))
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((m): MediaViewerItem => ({
+          url: m.kind === 'video' ? (m.thumbnailUrl || (m.muxPlaybackId ? muxPoster(m.muxPlaybackId) : '')) : m.url,
+          type: m.kind === 'photo' ? 'image' : 'video',
+          muxPlaybackId: m.muxPlaybackId,
+          aspectRatio: m.aspectRatio,
+          title: event.title,
+          location: galleryCity,
+        }))
+    : [];
 
   // Save / unsave — POST /v1/events/:id/save toggles server-side and returns the
   // new state. Seeded from viewerContext.hasSaved (detail endpoint), optimistic
@@ -100,6 +121,8 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
               goingNames={roster?.names}
               organizerId={organizerId}
               onOpenProfile={preview ? undefined : openProfile}
+              media={galleryItems}
+              onOpenMedia={setMediaIndex}
             />
           </>
         ) : (
@@ -127,6 +150,16 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
 
       {/* Register bar — inert while previewing (greyed, non-interactive) */}
       <EventCtaBar event={event} preview={preview} initialOpen={!preview && !!initialOpenRegister} v3={v3} />
+
+      {/* Fullscreen gallery viewer — overlays everything, including the CTA bar */}
+      {v3 && mediaIndex !== null && galleryItems[mediaIndex] ? (
+        <MediaViewer
+          items={galleryItems}
+          index={mediaIndex}
+          onClose={() => setMediaIndex(null)}
+          onShare={() => shareEvent(event)}
+        />
+      ) : null}
     </View>
   );
 }

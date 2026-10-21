@@ -102,7 +102,7 @@ export interface EventDoc {
   // ── E·9 photo-led detail fields (v4 schema; returned by the detail endpoint) ──
   eventType?: 'workshop' | 'masterclass' | 'audition' | 'open_mic' | 'competition' | 'performance' | 'screening' | 'meetup' | 'other' | 'showcase';
   eventTypeLabel?: string;
-  skillLevel?: 'all' | 'beginner' | 'intermediate' | 'advanced';
+  skillLevel?: ('all' | 'beginner' | 'intermediate' | 'advanced') | Array<'all' | 'beginner' | 'intermediate' | 'advanced'>;
   eligibleArtistTypes?: string[];
   otherArtistTypes?: string[];
   openToAll?: boolean;

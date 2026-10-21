@@ -75,15 +75,13 @@ describe('buildEventPayload', () => {
     expect(p.registration.questions[1].options).toBeUndefined();
   });
 
-  it('lineup drops empty titles; included drops falsy; bring omitted when empty', () => {
+  it('lineup drops empty titles; included drops falsy', () => {
     const p = buildEventPayload(base({
       lineup: [{ when: 'Day 1', title: 'Tatkar' }, { title: '   ' }],
       included: ['Certificate', ''],
-      bring: { items: [] },
     }));
     expect(p.lineup).toHaveLength(1);
     expect(p.included).toEqual(['Certificate']);
-    expect(p.bring).toBeUndefined();
   });
 
   it('custom refund is a structured window, not prose', () => {

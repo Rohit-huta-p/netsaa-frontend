@@ -30,7 +30,6 @@ function filledForm(): ComposerFormV4 {
     tagline: 'Rhythm, posture and the basics.',
     coverFit: 'whole',
     lineup: [{ when: '10:00', title: 'Warm-up', detail: 'Tatkar' }],
-    bring: { items: ['Ghungroo'], note: 'Cotton clothes' },
     included: ['Certificate'],
     visibility: 'public',
   };
@@ -74,7 +73,6 @@ describe('eventToForm — edit round-trip (form → payload → eventToForm)', (
     expect(back.ageRestriction).toBe(16);
     expect(back.about).toBe('A hands-on morning on tatkar and posture.');
     expect(back.lineup[0]).toMatchObject({ when: '10:00', title: 'Warm-up' });
-    expect(back.bring.items).toEqual(['Ghungroo']);
     expect(back.included).toEqual(['Certificate']);
     expect(back.visibility).toBe('public');
   });

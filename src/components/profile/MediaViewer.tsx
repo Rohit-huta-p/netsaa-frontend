@@ -22,6 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { X, MapPin, UserPlus, Check, Clock, Share2, Play, Pencil, Trash2 } from 'lucide-react-native';
 import NetsaVideoPlayer, { parseAspectRatio, muxPoster } from '@/components/media/NetsaVideoPlayer';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
+import { useUiStore } from '@/stores/uiStore';
 
 export type MediaViewerItem = {
     url: string;                    // photo url, or the video's thumbnail/poster url
@@ -36,16 +37,19 @@ type Props = {
     items: MediaViewerItem[];
     index: number;
     onClose: () => void;
-    artist: { id: string; name: string; location?: string };
+    /** The media's owner. Omit it (e.g. for an event gallery) to hide the Connect action. */
+    artist?: { id: string; name: string; location?: string };
     isOwner?: boolean;
     onEdit?: (index: number) => void;
     onDelete?: (index: number) => void;
+    /** Overrides the default "share this profile" action (e.g. share an event). */
+    onShare?: () => void;
 };
 
 const TINT = 'rgba(6,4,9,0.70)';
 const VIOLET = '#8B5CF6';
 
-export default function MediaViewer({ items, index, onClose, artist, isOwner = false, onEdit, onDelete }: Props) {
+export default function MediaViewer({ items, index, onClose, artist, isOwner = false, onEdit, onDelete, onShare: onShareProp }: Props) {
     const insets = useSafeAreaInsets();
     const { width: winW, height: winH } = useWindowDimensions();
     const pagerRef = useRef<FlatList>(null);
@@ -53,10 +57,17 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
     const [cur, setCur] = useState(index);
     const [pagerH, setPagerH] = useState(0);
 
-    const { connectionStatus, isConnectionLoading, sendRequest, withdrawRequest } = useConnectionStatus(artist.id, isOwner);
+    const { connectionStatus, isConnectionLoading, sendRequest, withdrawRequest } = useConnectionStatus(artist?.id, isOwner);
     const [busy, setBusy] = useState(false);
 
     useEffect(() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); }, []);
+
+    // Full-screen viewer → hide the global bottom nav while it's open.
+    useEffect(() => {
+        const { pushFullscreenOverlay, popFullscreenOverlay } = useUiStore.getState();
+        pushFullscreenOverlay();
+        return () => popFullscreenOverlay();
+    }, []);
 
     // keep the active thumbnail in view as the pager moves
     useEffect(() => {
@@ -71,8 +82,8 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
 
     if (!items.length) return null;
     const m = items[cur];
-    const title = m.title || (m.type === 'video' ? 'Reel' : 'Photo');
-    const location = m.location || artist.location;
+    const title = m.title;   // no generic "Photo"/"Reel" fallback — show only a real caption
+    const location = m.location || artist?.location;
 
     // media box: centred, matted with side margins
     const boxW = Math.min(winW - 56, 520);
@@ -88,8 +99,9 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
     };
 
     const onShare = async () => {
+        if (onShareProp) { onShareProp(); return; }
         try {
-            await Share.share({ message: `${artist.name} on NETSA — https://netsa.app/profile/${artist.id}` });
+            await Share.share({ message: `${artist?.name ?? 'This artist'} on NETSA — https://netsa.app/profile/${artist?.id ?? ''}` });
         } catch { /* user dismissed */ }
     };
 
@@ -160,7 +172,7 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
 
             {/* caption · actions · thumbnail strip */}
             <View style={[styles.bottom, { paddingBottom: insets.bottom + 18 }]}>
-                <Text style={styles.title} numberOfLines={1}>{title}</Text>
+                {!!title && <Text style={styles.title} numberOfLines={1}>{title}</Text>}
                 {!!location && (
                     <View style={styles.locRow}>
                         <MapPin size={12} color="#71717A" />
@@ -185,7 +197,7 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
                                 <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
                             </Pressable>
                         </>
-                    ) : (
+                    ) : artist ? (
                         <>
                             <Pressable onPress={connected ? undefined : onConnect} disabled={connected || busy} style={[styles.pbtn, styles.pbtnConnect, (connected || busy) && { opacity: 0.7 }]}>
                                 {connected ? <Check size={15} color="#34D399" /> : pending ? <Clock size={15} color="#A1A1AA" /> : <UserPlus size={15} color="#CDBBF5" />}
@@ -197,6 +209,10 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
                                 <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
                             </Pressable>
                         </>
+                    ) : (
+                        <Pressable onPress={onShare} style={[styles.pbtn, styles.pbtnGhost]}>
+                            <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
+                        </Pressable>
                     )}
                 </View>
 
@@ -240,7 +256,8 @@ const styles = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
     pager: { flex: 1 },
-    bottom: { paddingHorizontal: 20, paddingTop: 10 },
+    // controls overlay the bottom so the pager fills the whole screen → media sits at exact screen centre
+    bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 10 },
     title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 25, color: '#F4F4F5', textAlign: 'center', letterSpacing: -0.3 },
     locRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 9 },
     loc: { fontFamily: 'SpaceMono-Regular', fontSize: 10.5, letterSpacing: 1.3, textTransform: 'uppercase', color: '#71717A' },

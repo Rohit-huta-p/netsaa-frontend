@@ -7,6 +7,7 @@ import { Home, Briefcase, Calendar, User as UserIcon, Users } from 'lucide-react
 import { useRouter, usePathname } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { useOrganizer } from '../../hooks/useOrganizer';
+import { useUiStore } from '../../stores/uiStore';
 import PostFAB from './PostFAB';
 import { useBottomNavVisibilityStyle, resetBottomNavVisibility } from './navVisibility';
 
@@ -86,6 +87,7 @@ export default function BottomNav() {
   const { isAgency } = useOrganizer();
   const router = useRouter();
   const pathname = usePathname();
+  const fullscreenOverlayOpen = useUiStore((s) => s.fullscreenOverlayCount > 0);
 
   // Scroll-direction auto-hide. Hooks must run before any early return (Rules
   // of Hooks); the style is a no-op until a scroll surface moves the signal.
@@ -96,7 +98,8 @@ export default function BottomNav() {
     resetBottomNavVisibility();
   }, [pathname]);
 
-  if (shouldHideNav(pathname)) return null;
+  // Hide on deep screens (pathname) and while a full-screen overlay is open (e.g. MediaViewer).
+  if (shouldHideNav(pathname) || fullscreenOverlayOpen) return null;
 
   // One static nav per role (no mode toggle). Creative Lead uses an agency-style
   // layout where both market faces are first-class tabs — Talent + Post FAB to

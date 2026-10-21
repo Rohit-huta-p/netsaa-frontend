@@ -12,7 +12,7 @@ export type EventTypeKey =
   | 'competition' | 'performance' | 'screening' | 'meetup' | 'other';
 
 export type DoorPolicy = 'open' | 'guest_list' | 'apply';
-export type DescribeSection = 'lineup' | 'bring' | 'included';
+export type DescribeSection = 'lineup' | 'included';
 
 export interface StartingSpot {
   name: string;
@@ -40,35 +40,35 @@ export const EVENT_TYPE_PRESETS: Record<EventTypeKey, EventTypePreset> = {
     key: 'workshop', label: 'Workshop', peopleRole: 'Teacher',
     startingSpots: [{ name: 'Seats' }],
     addSpotLabel: 'Add another kind of spot', addSpotPills: ['Observer', 'Student', 'Pair'],
-    defaultDoor: 'open', openSections: ['lineup', 'bring', 'included'],
+    defaultDoor: 'open', openSections: ['lineup', 'included'],
     questionSuggestions: ['Email', 'Instagram'],
   }),
   masterclass: P({
     key: 'masterclass', label: 'Masterclass', peopleRole: 'Teacher',
     startingSpots: [{ name: 'Seats' }],
     addSpotLabel: 'Add another kind of spot', addSpotPills: ['Watch only', 'Student'],
-    defaultDoor: 'open', openSections: ['lineup', 'bring', 'included'],
+    defaultDoor: 'open', openSections: ['lineup', 'included'],
     questionSuggestions: ['Email', 'SoundCloud link'],
   }),
   audition: P({
     key: 'audition', label: 'Audition', peopleRole: 'Casting director',
     startingSpots: [{ name: 'Role 1', free: true }],
     addSpotLabel: 'Add a role', addSpotPills: [],
-    defaultDoor: 'apply', openSections: ['lineup', 'bring', 'included'],
+    defaultDoor: 'apply', openSections: ['lineup', 'included'],
     questionSuggestions: ['Email', 'Languages you speak'],
   }),
   open_mic: P({
     key: 'open_mic', label: 'Open mic / Jam', peopleRole: 'Host',
     startingSpots: [{ name: 'Perform', note: '7 min each', free: true }, { name: 'Watch' }],
     addSpotLabel: 'Add another kind of spot', addSpotPills: ['Feature act', 'Watch + dinner'],
-    defaultDoor: 'open', openSections: ['lineup', 'bring', 'included'],
+    defaultDoor: 'open', openSections: ['lineup', 'included'],
     questionSuggestions: ['Email', 'Instagram'],
   }),
   competition: P({
     key: 'competition', label: 'Competition', peopleRole: 'Judge',
     startingSpots: [{ name: 'Entry' }],
     addSpotLabel: 'Add a category', addSpotPills: ['Covers', 'Under 21'],
-    defaultDoor: 'apply', openSections: ['lineup', 'bring', 'included'],
+    defaultDoor: 'apply', openSections: ['lineup', 'included'],
     questionSuggestions: ['Email', 'Instagram'],
   }),
   performance: P({

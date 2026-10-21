@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { eventService, EventDoc, EventListParams } from '@/services/eventService';
 
 export const eventKeys = {
@@ -15,6 +15,10 @@ export function useEventsList(params: EventListParams = {}) {
     queryKey: eventKeys.list(params),
     queryFn: () => eventService.list(params),
     staleTime: 60_000,
+    // Keep the current results on screen while the next (debounced) search loads,
+    // instead of tearing the list down to a full-screen loader on every keystroke —
+    // that re-render janks the JS thread and freezes the search input. Matches useGigs.
+    placeholderData: keepPreviousData,
   });
 }
 

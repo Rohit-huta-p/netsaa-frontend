@@ -22,6 +22,7 @@ export interface EventMedia {
 export interface EventLocation {
   kind: 'in_person' | 'online';
   venueName?: string;
+  city?: string;                                          // persisted + filtered server-side (events.ts: query['location.city'])
   address?: string;
   landmark?: string;
   geo?: { type: 'Point'; coordinates: [number, number] };

@@ -382,19 +382,6 @@ export function SpotlightProfile({ userId, isOwner }: {
             <View style={{ flex: 1, backgroundColor: C.screen }}>
                 {/* Flat #121216 under the header — ambient orange blooms removed (cover supplies the only warmth) */}
 
-                {/* Nav overlay — back + (owner: settings | visitor: share) */}
-                <View style={st.nav}>
-                    <Pressable onPress={() => router.back()} style={st.navBtn}><ChevronLeft size={18} color="#fff" /></Pressable>
-                    {isOwner ? (
-                        <View style={{ flexDirection: 'row', gap: 9 }}>
-                            <Pressable onPress={pickCover} style={st.navBtn}>{coverUploading ? <ActivityIndicator size="small" color="#fff" /> : <Camera size={16} color="#fff" />}</Pressable>
-                            <Pressable onPress={() => router.push('/(app)/settings' as any)} style={st.navBtn}><Settings size={16} color="#fff" /></Pressable>
-                        </View>
-                    ) : (
-                        <Pressable onPress={onShare} style={st.navBtn}><Share2 size={16} color="#fff" /></Pressable>
-                    )}
-                </View>
-
                 <ScrollView contentContainerStyle={{ paddingBottom: navClearance + 40 }} showsVerticalScrollIndicator={false}>
                     {/* ── Immersive cover (H·1) — uploaded photo, else the finalized mockup gradient; fades into the screen, halo sits low in the fade ── */}
                     <View style={st.cover} pointerEvents="none">
@@ -405,6 +392,18 @@ export function SpotlightProfile({ userId, isOwner }: {
                             </>
                         ) : (
                             <CoverGradient />
+                        )}
+                    </View>
+                    {/* Nav — back + (owner: camera + settings | visitor: share); sits on the cover and scrolls with it */}
+                    <View style={st.nav}>
+                        <Pressable onPress={() => router.back()} style={st.navBtn}><ChevronLeft size={18} color="#fff" /></Pressable>
+                        {isOwner ? (
+                            <View style={{ flexDirection: 'row', gap: 9 }}>
+                                <Pressable onPress={pickCover} style={st.navBtn}>{coverUploading ? <ActivityIndicator size="small" color="#fff" /> : <Camera size={16} color="#fff" />}</Pressable>
+                                <Pressable onPress={() => router.push('/(app)/settings' as any)} style={st.navBtn}><Settings size={16} color="#fff" /></Pressable>
+                            </View>
+                        ) : (
+                            <Pressable onPress={onShare} style={st.navBtn}><Share2 size={16} color="#fff" /></Pressable>
                         )}
                     </View>
                     {/* ── Header — centered halo portrait (always sits low on the cover) ── */}

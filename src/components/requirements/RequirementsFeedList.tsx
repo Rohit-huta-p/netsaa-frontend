@@ -19,12 +19,13 @@ import {
     Text,
     Pressable,
     TextInput,
-    FlatList,
     RefreshControl,
     ActivityIndicator,
     TouchableOpacity,
     ScrollView,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { useBottomNavScroll, NAV_SCROLL_EVENT_THROTTLE } from '@/components/nav/navVisibility';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -102,6 +103,7 @@ const OCCASION_CATEGORIES = ['All briefs', 'Weddings', 'Corporate', 'College', '
 export default function RequirementsFeedList() {
     const router = useRouter();
     const navClearance = (useMobileTabBarHeight() || 64) + 56;
+    const onNavScroll = useBottomNavScroll();
 
     const [q, setQ] = useState('');
     const [filters, setFilters] = useState<RequirementFilters>(EMPTY_REQ_FILTERS);
@@ -150,9 +152,11 @@ export default function RequirementsFeedList() {
             />
 
             <SafeAreaView className="flex-1" edges={['top']}>
-                <FlatList
+                <Animated.FlatList
                     data={requirements as any[]}
                     keyExtractor={(r: any) => r._id}
+                    onScroll={onNavScroll}
+                    scrollEventThrottle={NAV_SCROLL_EVENT_THROTTLE}
                     contentContainerStyle={{
                         paddingHorizontal: 24,
                         paddingTop: 24,

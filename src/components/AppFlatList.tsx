@@ -1,5 +1,6 @@
 // src/components/AppFlatList.tsx
 import { useMobileTabBarHeight } from "@/components/MobileTabBar";
+import { useBottomNavScroll, NAV_SCROLL_EVENT_THROTTLE } from "@/components/nav/navVisibility";
 import React from "react";
 import {
     FlatList,
@@ -7,7 +8,15 @@ import {
     ViewStyle,
     StyleProp,
 } from "react-native";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+// Reanimated's Animated.FlatList carries a stricter prop type that rejects a
+// spread of the full FlatListProps<T> (e.g. CellRendererComponent's null). At
+// runtime this IS Animated.FlatList (the cast is type-only), so the worklet
+// scroll handler still runs on the UI thread; we just type it as the plain RN
+// FlatList so our generic props spread cleanly.
+const AnimatedFlatList = Animated.FlatList as unknown as typeof FlatList;
 
 /**
  * AppFlatList
@@ -28,6 +37,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function AppFlatList<T>(props: FlatListProps<T>) {
     const insets = useSafeAreaInsets();
     const tabBarHeight = useMobileTabBarHeight();
+    const onNavScroll = useBottomNavScroll();
 
     // On mobile: use tab bar height (which includes safe area)
     // On desktop: use safe area insets only
@@ -41,9 +51,14 @@ export default function AppFlatList<T>(props: FlatListProps<T>) {
     ];
 
     return (
-        <FlatList
+        <AnimatedFlatList
+            scrollEventThrottle={NAV_SCROLL_EVENT_THROTTLE}
             // preserve any props passed by caller
             {...props}
+            // nav auto-hide handler is authoritative (see AppScrollView note).
+            // Cast: onScroll is typed for plain FlatList here, but the runtime
+            // component is Animated.FlatList which accepts the worklet handler.
+            onScroll={onNavScroll as any}
             // override/merge contentContainerStyle
             contentContainerStyle={mergedContentContainerStyle}
         />

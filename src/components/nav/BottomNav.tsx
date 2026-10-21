@@ -1,6 +1,7 @@
 // netsa-mobile/src/components/nav/BottomNav.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { Home, Briefcase, Calendar, User as UserIcon, Users } from 'lucide-react-native';
 import { useRouter, usePathname } from 'expo-router';
@@ -8,6 +9,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useOrganizer } from '../../hooks/useOrganizer';
 import { useUiStore } from '../../stores/uiStore';
 import PostFAB from './PostFAB';
+import { useBottomNavVisibilityStyle, resetBottomNavVisibility } from './navVisibility';
 
 /**
  * Role-aware bottom nav. Spec §3.1. One static nav per role (no mode toggle).
@@ -87,6 +89,15 @@ export default function BottomNav() {
   const pathname = usePathname();
   const fullscreenOverlayOpen = useUiStore((s) => s.fullscreenOverlayCount > 0);
 
+  // Scroll-direction auto-hide. Hooks must run before any early return (Rules
+  // of Hooks); the style is a no-op until a scroll surface moves the signal.
+  const navVisibilityStyle = useBottomNavVisibilityStyle();
+
+  // Every new route starts with the nav shown, whatever the last screen left it.
+  useEffect(() => {
+    resetBottomNavVisibility();
+  }, [pathname]);
+
   // Hide on deep screens (pathname) and while a full-screen overlay is open (e.g. MediaViewer).
   if (shouldHideNav(pathname) || fullscreenOverlayOpen) return null;
 
@@ -104,7 +115,7 @@ export default function BottomNav() {
         : CREATIVE_LEAD_TABS;
 
   return (
-    <View style={styles.container} pointerEvents="box-none">
+    <Animated.View style={[styles.container, navVisibilityStyle]} pointerEvents="box-none">
       <BlurView intensity={40} tint="dark" style={styles.bar}>
         <View style={styles.tabRow}>
           {/* Left 2 tabs */}
@@ -120,7 +131,7 @@ export default function BottomNav() {
         </View>
       </BlurView>
       <PostFAB />
-    </View>
+    </Animated.View>
   );
 }
 

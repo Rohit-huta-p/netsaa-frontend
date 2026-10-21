@@ -2,7 +2,9 @@
 // Client home — "Launchpad": a springboard, not a workbench. A hero post CTA,
 // craft quick-starts + browse grid (→ Talent), and a 3-brief peek (→ /briefs for
 // the full list). Heavy brief management lives on /briefs and /client/[id].
-import { View, Text, Pressable, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { useBottomNavScroll, NAV_SCROLL_EVENT_THROTTLE } from '@/components/nav/navVisibility';
 import { Stack, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -60,13 +62,17 @@ export default function ClientHome() {
     const goTalent = (craft?: string) =>
         router.push((craft ? `/(app)/talent?craft=${encodeURIComponent(craft)}` : '/(app)/talent') as any);
 
+    const onNavScroll = useBottomNavScroll();
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false }} />
             <View style={{ flex: 1, backgroundColor: '#09090b' }}>
                 {/* Branding + inbox live in the global top Navbar (app/_layout.tsx) — this
                     home renders straight into its content, like the artist/CL dashboard. */}
-                <ScrollView
+                <Animated.ScrollView
+                    onScroll={onNavScroll}
+                    scrollEventThrottle={NAV_SCROLL_EVENT_THROTTLE}
                     contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: navClearance }}
                     showsVerticalScrollIndicator={false}
                     refreshControl={<RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor="#FF6B35" />}
@@ -224,7 +230,7 @@ export default function ClientHome() {
                             </Text>
                         </Pressable>
                     )}
-                </ScrollView>
+                </Animated.ScrollView>
             </View>
         </>
     );

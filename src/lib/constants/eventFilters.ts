@@ -7,6 +7,7 @@ export const INITIAL_EVENT_FILTERS: EventFilterState = {
     quick: null,
     advanced: {
         category: {},
+        eventType: {},
         location: { format: 'any' },
         timing: {},
         pricing: { mode: 'any' },
@@ -25,6 +26,7 @@ export const EVENT_FILTER_PRESETS: Record<string, { name: string; description: s
         filters: {
             advanced: {
                 category: {},
+                eventType: {},
                 location: { format: 'any' },
                 timing: { timeFrame: 'next_7' },
                 pricing: { mode: 'any' },
@@ -39,6 +41,7 @@ export const EVENT_FILTER_PRESETS: Record<string, { name: string; description: s
         filters: {
             advanced: {
                 category: {},
+                eventType: {},
                 location: { format: 'any' },
                 timing: { timeFrame: 'this_weekend' },
                 pricing: { mode: 'any' },
@@ -53,6 +56,7 @@ export const EVENT_FILTER_PRESETS: Record<string, { name: string; description: s
         filters: {
             advanced: {
                 category: {},
+                eventType: {},
                 location: { format: 'any' },
                 timing: {},
                 pricing: { mode: 'free' },
@@ -67,6 +71,7 @@ export const EVENT_FILTER_PRESETS: Record<string, { name: string; description: s
         filters: {
             advanced: {
                 category: {},
+                eventType: {},
                 location: { format: 'online' },
                 timing: {},
                 pricing: { mode: 'any' },
@@ -90,6 +95,7 @@ export const countActiveEventFilters = (filters: EventFilterState): number => {
     if (!adv) return count;
 
     if ((adv.category?.categories?.length ?? 0) > 0) count++;
+    if ((adv.eventType?.eventTypes?.length ?? 0) > 0) count++;
     if (adv.location?.city && adv.location.city !== 'any') count++;
     if (adv.location?.format && adv.location.format !== 'any') count++;
     if (adv.timing?.timeFrame) count++;

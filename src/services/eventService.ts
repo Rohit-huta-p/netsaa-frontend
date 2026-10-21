@@ -22,6 +22,7 @@ export interface EventMedia {
 export interface EventLocation {
   kind: 'in_person' | 'online';
   venueName?: string;
+  city?: string;                                          // persisted + filtered server-side (events.ts: query['location.city'])
   address?: string;
   landmark?: string;
   geo?: { type: 'Point'; coordinates: [number, number] };
@@ -153,6 +154,8 @@ export interface EventListParams {
   topicTag?: string;
   /** Comma-separated craft/category slugs → any-of match server-side. */
   category?: string;
+  /** Comma-separated eventType enum slugs → any-of ($in) match server-side (needs netsaa-backend#16). */
+  eventType?: string;
   city?: string;
   mode?: 'free_rsvp' | 'paid_ticket';
   /** location.kind filter. */

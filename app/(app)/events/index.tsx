@@ -1,15 +1,31 @@
-// app/(app)/events/index.tsx
-import React, { useState, useMemo } from 'react';
+// app/(app)/events/index.tsx — the events board, A·Minimal
+// (DOCS/04-design/mockups/event-board-aminimal.html, locked 2026-10-21).
+// Sibling of the gig board: a flat filtered feed of Marquee poster cards in a
+// 2-up grid (stepping to 3→4 columns on wider screens). Quiet masthead, a
+// search · sort · filter-funnel toolbar, craft tabs with a trailing "More"
+// pill, and a single bottom-sheet for the refine filters (Event type · Location
+// · When · Format · Price). Pay is a plain fact (pay-as-fact rule).
+//
+// The data path (useEventsList → GET /v1/events) and the server-mapped filter
+// wiring (category · city · format · when · price · sort) are unchanged from the
+// previous screen. Event type is the one ADDED facet — a searchable multi-select
+// applied client-side over the loaded page (the backend honours eventType only
+// as a single exact match; see types/eventFilters.ts). price_low / popular sort
+// client-side, exactly as before.
+
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
     View,
     Text,
     TextInput,
-    Image,
-    TouchableOpacity,
+    Pressable,
+    ScrollView,
+    ActivityIndicator,
+    StyleSheet,
     useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, MapPin, Calendar, Users, Plus, X } from 'lucide-react-native';
+import { Search, Plus, X, Filter, SlidersHorizontal } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 import { useEventsList } from '@/hooks/useEvents';
@@ -18,44 +34,37 @@ import { useAuthStore } from '@/stores/authStore';
 import { usePlatform } from '@/utils/platform';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
-import { LoadingAnimation } from '@/components/ui/LoadingAnimation';
 import AppScrollView from '@/components/AppScrollView';
-import { EventRemote } from '@/components/events/discovery/EventRemote';
-import { EventFacetRail } from '@/components/events/discovery/EventFacetRail';
+import AppLoadingScreen from '@/components/ui/AppLoadingScreen';
 import {
-    ACTIVE_BG,
-    ACTIVE_BORDER,
-    ACTIVE_FG,
-    SORT_OPTIONS,
+    CRAFT_OPTIONS,
+    WHEN_OPTIONS,
+    craftValue,
+    setCraft,
     sortValue,
     setSort,
-    describeFilters,
+    whenValue,
+    eventTypeValues,
+    countEventFacets,
+    distinctEventTypeOptions,
 } from '@/components/events/discovery/eventFilterOptions';
 import { INITIAL_EVENT_FILTERS } from '@/lib/constants/eventFilters';
 import { EventFilterState } from '@/types/eventFilters';
 import type { EventDoc } from '@/services/eventService';
-
-/* ------------------------------------------------------------------ */
-/* VisualEventCard — adapted to the new EventDoc schema (Plan 7)       */
-/* ------------------------------------------------------------------ */
-
-// Branded placeholder shown when an event has no image (no fake stock photos).
-const NETSA_FALLBACK = require('@/../assets/netsa-logo-fallback.png');
+import { C, F, INK } from '@/components/events/board/theme';
+import { EventMarqueeCard } from '@/components/events/board/EventMarqueeCard';
+import { EventSortMenu } from '@/components/events/board/EventSortMenu';
+import { EventFilterSheet } from '@/components/events/board/EventFilterSheet';
 
 /**
  * Translate a "When" chip into an ISO [startsAfter, startsBefore] window over
  * the event's startsAt. Returns both undefined for 'any'/undefined.
- *   today        → start-of-today … end-of-today
- *   this_weekend → upcoming Sat 00:00 … that Sun 23:59:59
- *   next_7       → now … now + 7 days
- *   this_month   → now … last day of current month 23:59:59
  */
 function timeFrameWindow(
     tf?: 'today' | 'this_weekend' | 'next_7' | 'this_month',
 ): { startsAfter?: string; startsBefore?: string } {
     if (!tf) return {};
     const now = new Date();
-
     const startOfToday = new Date(now);
     startOfToday.setHours(0, 0, 0, 0);
     const endOfToday = new Date(now);
@@ -64,230 +73,121 @@ function timeFrameWindow(
     switch (tf) {
         case 'today':
             return { startsAfter: startOfToday.toISOString(), startsBefore: endOfToday.toISOString() };
-
         case 'this_weekend': {
-            // Upcoming Saturday (if today is Sat/Sun, use the current weekend).
             const day = now.getDay(); // 0=Sun … 6=Sat
             const sat = new Date(startOfToday);
-            if (day === 0) {
-                // Sunday → weekend started yesterday; anchor Saturday to -1 day.
-                sat.setDate(sat.getDate() - 1);
-            } else {
-                sat.setDate(sat.getDate() + ((6 - day + 7) % 7));
-            }
+            if (day === 0) sat.setDate(sat.getDate() - 1);
+            else sat.setDate(sat.getDate() + ((6 - day + 7) % 7));
             const sun = new Date(sat);
             sun.setDate(sat.getDate() + 1);
             sun.setHours(23, 59, 59, 999);
             return { startsAfter: sat.toISOString(), startsBefore: sun.toISOString() };
         }
-
         case 'next_7': {
             const in7 = new Date(now);
             in7.setDate(in7.getDate() + 7);
             return { startsAfter: now.toISOString(), startsBefore: in7.toISOString() };
         }
-
         case 'this_month': {
             const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
             return { startsAfter: now.toISOString(), startsBefore: endOfMonth.toISOString() };
         }
-
         default:
             return {};
     }
 }
 
-const VisualEventCard = ({ event, onPress }: { event: EventDoc; onPress: () => void }) => {
-    const hero =
-        (event.media && event.media.find((m) => m.isHero)) ||
-        (event.media && event.media[0]);
-    const imageUri = hero?.thumbnailUrl || hero?.url;
+/* ── small toolbar / tab chrome ─────────────────────────────────────────── */
 
-    const isPaid =
-        event.registrationMode === 'paid_ticket' && (event.pricing?.amount ?? 0) > 0;
-    const priceDisplay = isPaid ? `₹ ${event.pricing!.amount}` : 'Free';
-
-    const category = event.topicTags?.[0] ?? 'Event';
-
-    const startDate = event.startsAt ? new Date(event.startsAt) : null;
-    const dateDisplay = startDate
-        ? startDate.toLocaleDateString('en-IN', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-        })
-        : 'TBA';
-
-    const locationDisplay =
-        event.location?.kind === 'online'
-            ? 'Online'
-            : event.location?.venueName ||
-            event.location?.address?.split(',')[0] ||
-            'Location TBA';
-
-    const organizerName =
-        typeof event.organizerId === 'object' && event.organizerId !== null
-            ? (event.organizerId as any).name ?? 'Organizer'
-            : 'Organizer';
-
-    const attendees = event.capacity?.registeredCount ?? 0;
-
+// Funnel button in the toolbar (one of two entry points into the filter sheet).
+function FilterButton({ count, onPress }: { count: number; onPress: () => void }) {
     return (
-        <TouchableOpacity
-            onPress={onPress}
-            activeOpacity={0.9}
-            className="group bg-zinc-900/40 border border-white/10 rounded-2xl overflow-hidden flex-col mb-6"
-        >
-            {/* Image Section */}
-            <View className="relative w-full aspect-[4/3] overflow-hidden">
-                {imageUri ? (
-                    <Image
-                        source={{ uri: imageUri }}
-                        className="w-full h-full opacity-90"
-                        resizeMode="cover"
-                    />
-                ) : (
-                    // No image → centered NETSA logo, a bit blurred, on a dark panel.
-                    <View className="w-full h-full items-center justify-center bg-black">
-                        <Image
-                            source={NETSA_FALLBACK}
-                            style={{ width: '52%', height: '52%', opacity: 0.4 }}
-                            resizeMode="contain"
-                            blurRadius={3}
-                        />
-                    </View>
-                )}
-
-                {/* Category Badge (Top Left) */}
-                <View className="absolute top-4 left-4">
-                    <View className="bg-black/60 px-3 py-1 rounded-full border border-white/20">
-                        <Text className="text-white text-[10px] uppercase font-black tracking-widest">
-                            {category}
-                        </Text>
-                    </View>
+        <Pressable onPress={onPress} style={[s.iconBtn, count > 0 && s.iconBtnOn]} hitSlop={4} accessibilityLabel="Filters">
+            <Filter size={17} color={count > 0 ? C.orange : C.cream} />
+            {count > 0 ? (
+                <View style={s.fbBadge}>
+                    <Text style={s.fbBadgeTxt}>{count}</Text>
                 </View>
-
-                {/* Price Badge (Bottom Right) */}
-                <View className="absolute bottom-4 right-4">
-                    <View className="bg-white px-3 py-1 rounded-full">
-                        <Text className="text-black text-xs font-black">{priceDisplay}</Text>
-                    </View>
-                </View>
-            </View>
-
-            {/* Content Section */}
-            <View className="p-5 flex-1">
-                <View className="flex-row justify-between items-start mb-2">
-                    <Text
-                        numberOfLines={2}
-                        className="text-lg font-bold text-white leading-tight flex-1 mr-2"
-                    >
-                        {event.title}
-                    </Text>
-                </View>
-
-                <Text className="text-xs text-zinc-500 font-medium mb-4">{organizerName}</Text>
-
-                <View className="mt-auto space-y-3 gap-2">
-                    <View className="flex-row items-center gap-2">
-                        <Calendar size={14} color="#f43f5e" />
-                        <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-tighter">
-                            {dateDisplay}
-                        </Text>
-                    </View>
-                    <View className="flex-row items-center gap-2">
-                        <MapPin size={14} color="#f43f5e" />
-                        <Text
-                            numberOfLines={1}
-                            className="text-zinc-400 text-[10px] font-bold uppercase tracking-tighter flex-1"
-                        >
-                            {locationDisplay}
-                        </Text>
-                    </View>
-
-                    <View className="pt-4 mt-2 border-t border-white/5 flex-row items-center justify-end">
-                        <View className="flex-row items-center gap-1">
-                            <Users size={12} color="#71717a" />
-                            <Text className="text-[10px] font-bold text-zinc-500">{attendees}</Text>
-                        </View>
-                    </View>
-                </View>
-            </View>
-        </TouchableOpacity>
+            ) : null}
+        </Pressable>
     );
-};
+}
 
-/* ------------------------------------------------------------------ */
-/* Main Events page — Ask bar (universal) + Remote (mobile) / Rail     */
-/* (desktop). One EventFilterState drives all surfaces + the server.   */
-/* ------------------------------------------------------------------ */
+// "More" pill — the last craft tab (non-pinned, scrolls with the row); the
+// second entry point into the filter sheet.
+function MorePill({ count, onPress }: { count: number; onPress: () => void }) {
+    return (
+        <Pressable onPress={onPress} style={s.more} accessibilityLabel="More filters">
+            <SlidersHorizontal size={13} color={C.t2} />
+            <Text style={s.moreTxt}>MORE</Text>
+            {count > 0 ? (
+                <View style={s.moreBadge}>
+                    <Text style={s.moreBadgeTxt}>{count}</Text>
+                </View>
+            ) : null}
+        </Pressable>
+    );
+}
 
 export default function EventsPage() {
     const { isWeb } = usePlatform();
     const router = useRouter();
     const { width } = useWindowDimensions();
-    const userId = useAuthStore((s) => s.user?._id);
+    const userId = useAuthStore((state) => state.user?._id);
     const tabBarHeight = useMobileTabBarHeight();
+    const { setSelectedEventId } = useUiStore();
 
-    // Cross-platform breakpoint off measured width (works on web AND native —
-    // NativeWind `md:` only fires on web). < 768 → Ask bar + Remote (mobile,
-    // has the tab bar). ≥ 768 → Ask bar + Facet Rail (tablet/desktop, no tab bar).
     const isSm = width < 768;
-    const isWide = !isSm;
     // Card columns step 2 → 3 → 4 with width (native gets the same progression).
     const cols = width >= 1440 ? 4 : width >= 1024 ? 3 : 2;
 
-    const { setSelectedEventId } = useUiStore();
-
-    // Unified search state
-    const [searchState, setSearchState] = useState<{
-        q: string;
-        filters: EventFilterState | null;
-        page: number;
-    }>({
+    const [searchState, setSearchState] = useState<{ q: string; filters: EventFilterState; page: number }>({
         q: '',
         filters: INITIAL_EVENT_FILTERS,
         page: 1,
     });
+    const [showSheet, setShowSheet] = useState(false);
+    const [isPageReady, setIsPageReady] = useState(false);
 
-    const debouncedQuery = useDebounce(searchState.q, 500);
+    // Decouple the text field from the query key (smooth typing) — a local input
+    // state is debounced into searchState.q, so each keystroke doesn't rebuild the
+    // query. Combined with useEventsList's keepPreviousData, the list never tears
+    // down to a loader mid-search. Mirrors the gig board.
+    const [inputQuery, setInputQuery] = useState('');
+    const debouncedQuery = useDebounce(inputQuery, 500);
+    useEffect(() => {
+        setSearchState((prev) => ({ ...prev, q: debouncedQuery.trim(), page: 1 }));
+    }, [debouncedQuery]);
 
-    /**
-     * Map the EventFilterState onto the /v1/events list params.
-     * Backend supports: category (csv, any-of), city, format (location.kind),
-     * mode (registrationMode), startsAfter/startsBefore (windows startsAt),
-     * sort. price_low/popular stay client-side (see sortedEvents below).
-     */
+    const filters = searchState.filters;
+
+    // Map the EventFilterState onto the /v1/events list params. eventType is a
+    // true server facet now (comma-separated → $in, netsaa-backend#16);
+    // price_low/popular still sort client-side.
     const listParams = useMemo(() => {
-        const f = searchState.filters;
-        const adv = f?.advanced;
-
+        const adv = filters.advanced;
         const category =
-            adv?.category?.categories && adv.category.categories.length > 0
+            adv.category.categories && adv.category.categories.length > 0
                 ? adv.category.categories.map((c) => c.toLowerCase()).join(',')
                 : undefined;
-
-        const city = adv?.location?.city && adv.location.city !== 'any' ? adv.location.city : undefined;
-
+        const eventTypes = eventTypeValues(filters);
+        const eventType = eventTypes.length ? eventTypes.join(',') : undefined;
+        const city = adv.location.city && adv.location.city !== 'any' ? adv.location.city : undefined;
         const format =
-            adv?.location?.format === 'in_person' || adv?.location?.format === 'online'
-                ? adv.location.format
-                : undefined;
-
+            adv.location.format === 'in_person' || adv.location.format === 'online' ? adv.location.format : undefined;
         const mode =
-            adv?.pricing?.mode === 'free'
+            adv.pricing.mode === 'free'
                 ? ('free_rsvp' as const)
-                : adv?.pricing?.mode === 'paid'
+                : adv.pricing.mode === 'paid'
                     ? ('paid_ticket' as const)
                     : undefined;
-
-        const { startsAfter, startsBefore } = timeFrameWindow(adv?.timing?.timeFrame);
-
-        const sort = adv?.sorting?.sortBy === 'soonest' ? ('soonest' as const) : undefined;
+        const { startsAfter, startsBefore } = timeFrameWindow(adv.timing.timeFrame);
+        const sort = adv.sorting.sortBy === 'soonest' ? ('soonest' as const) : undefined;
 
         return {
-            q: debouncedQuery || undefined,
+            q: searchState.q || undefined,
             category,
+            eventType,
             city,
             format,
             mode,
@@ -297,242 +197,303 @@ export default function EventsPage() {
             page: searchState.page,
             limit: 20,
         };
-    }, [debouncedQuery, searchState.filters, searchState.page]);
+    }, [searchState.q, filters, searchState.page]);
 
-    const { data, isLoading: listLoading, error: listError } = useEventsList(listParams);
+    const { data, isLoading, error, isFetching } = useEventsList(listParams);
     const eventsList: EventDoc[] = data?.events ?? [];
 
-    // Client-side sort of the current page. `soonest` is already applied
-    // server-side via listParams.sort, so it (and `relevance`) returns as-is;
-    // only price_low / popular reorder here.
-    const sortedEvents = useMemo(() => {
-        const sortBy = searchState.filters?.advanced?.sorting?.sortBy;
-        const arr = [...eventsList];
-        switch (sortBy) {
-            case 'popular':
-                return arr.sort(
-                    (a, b) => (b.capacity?.registeredCount ?? 0) - (a.capacity?.registeredCount ?? 0)
-                );
-            case 'price_low':
-                return arr.sort(
-                    (a, b) => ((a as any).pricing?.amount ?? 0) - ((b as any).pricing?.amount ?? 0)
-                );
-            default:
-                return arr;
+    // First-load gate (fresh start on each mount), then the list stays mounted.
+    useEffect(() => {
+        if (!isLoading && !isPageReady && (data || error)) {
+            const t = setTimeout(() => setIsPageReady(true), 100);
+            return () => clearTimeout(t);
         }
-    }, [eventsList, searchState.filters]);
+    }, [isLoading, data, error, isPageReady]);
 
-    const filtersState = searchState.filters ?? INITIAL_EVENT_FILTERS;
+    // Client-side price_low/popular sort over the fetched page. Event type is a
+    // server facet now (sent in listParams), like category/city/format/when/price.
+    const visibleEvents = useMemo(() => {
+        const sortBy = filters.advanced.sorting.sortBy;
+        const arr = [...eventsList];
+        if (sortBy === 'popular') {
+            arr.sort((a, b) => (b.capacity?.registeredCount ?? 0) - (a.capacity?.registeredCount ?? 0));
+        } else if (sortBy === 'price_low') {
+            arr.sort((a, b) => (a.pricing?.amount ?? 0) - (b.pricing?.amount ?? 0));
+        }
+        return arr;
+    }, [eventsList, filters]);
+
+    // Options for the sheet's event-type multi-select, derived from the data.
+    const eventTypeOptions = useMemo(() => distinctEventTypeOptions(eventsList), [eventsList]);
+
+    const facetCount = countEventFacets(filters);
+    const activeCraft = craftValue(filters);
+    const sortV = sortValue(filters);
+
+    const updateFilters = useCallback(
+        (next: EventFilterState) => setSearchState((prev) => ({ ...prev, filters: next, page: 1 })),
+        [],
+    );
+    const onSelectSort = useCallback((v: string) => updateFilters(setSort(filters, v)), [filters, updateFilters]);
 
     const handleEventPress = (id: string) => {
-        if (isWeb) {
-            setSelectedEventId(id);
-            router.push(`/events/${id}`);
-        } else {
-            router.push(`/events/${id}`);
-        }
+        if (isWeb) setSelectedEventId(id);
+        router.push(`/events/${id}`);
     };
 
-    // Every surface (Remote · Rail · sort lenses) writes back through here.
-    const updateFilters = (next: EventFilterState) =>
-        setSearchState((prev) => ({ ...prev, filters: next, page: 1 }));
+    if (!isPageReady) return <AppLoadingScreen />;
 
-    // Desktop readout — the "one state" connective tissue under the Ask bar.
-    const readoutParts = describeFilters(filtersState);
-    const sortLabel = SORT_OPTIONS.find((s) => s.value === sortValue(filtersState))?.label ?? 'Relevant';
+    const n = visibleEvents.length;
+    const whenV = whenValue(filters);
+    const countSuffix =
+        whenV !== 'any' ? (WHEN_OPTIONS.find((w) => w.value === whenV)?.label ?? 'FOUND').toUpperCase() : 'FOUND';
 
     /* ------------------------------ grid ------------------------------ */
     const renderGrid = () => {
-        if (listLoading) {
+        if (error) {
             return (
-                <View className="py-20 items-center justify-center">
-                    <LoadingAnimation
-                        source="https://lottie.host/a9975e00-d157-4513-b40f-77f83c2039be/fJeNBIUK06.lottie"
-                        width={200}
-                        height={200}
-                    />
-                    <Text className="text-zinc-500 mt-4 text-xs font-medium">Loading events...</Text>
+                <View style={s.center}>
+                    <Text style={s.centerTitle}>Couldn't load events</Text>
+                    <Text style={s.centerSub}>Check your connection and try again.</Text>
                 </View>
             );
         }
-        if (listError) {
+        if (n === 0) {
+            const q = searchState.q.trim();
             return (
-                <View className="py-20 items-center justify-center">
-                    <Text className="text-red-500 font-bold">Unable to load events.</Text>
-                </View>
-            );
-        }
-        if (eventsList.length === 0) {
-            const activeQuery = debouncedQuery.trim();
-            return (
-                <View className="py-20 items-center justify-center">
-                    <Text className="text-zinc-500 text-xl font-bold mb-2">
-                        {activeQuery ? `No events for “${activeQuery}”` : 'No events found.'}
+                <View style={s.center}>
+                    <Text style={s.centerTitle}>
+                        {q ? `No events for “${q}”` : facetCount > 0 ? 'No events match your filters' : 'No events yet'}
                     </Text>
-                    <Text className="text-zinc-600 text-sm">
-                        {activeQuery ? 'Try a different search or clear your filters.' : 'Try adjusting your search or filters.'}
+                    <Text style={s.centerSub}>
+                        {q || facetCount > 0 ? 'Try a different search or clear your filters.' : 'Check back soon for new events.'}
                     </Text>
                 </View>
             );
         }
         return (
-            // Flex grid that works on web AND native. Each card sits in a width-%
-            // cell (50% → 2/row, 33.3% → 3/row); the -6 / +6 gutter keeps even
-            // spacing and left-aligns an incomplete last row.
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, marginBottom: 16 }}>
-                {sortedEvents.map((event) => (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, marginTop: 8 }}>
+                {visibleEvents.map((event) => (
                     <View key={event._id} style={{ width: `${100 / cols}%`, paddingHorizontal: 6 }}>
-                        <VisualEventCard event={event} onPress={() => handleEventPress(event._id)} />
+                        <EventMarqueeCard event={event} onPress={() => handleEventPress(event._id)} />
                     </View>
                 ))}
             </View>
         );
     };
 
-    /* ------------------------------ main column ------------------------------ */
-    const renderMain = () => (
-        <View
-            className="pt-10 pb-8"
-            style={{ width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: isSm ? 20 : 32 }}
-        >
-            {/* Hero Typography */}
-            <View className="mb-10">
-                <View className="flex-row items-center justify-between mb-8">
-                    <View className="self-start bg-white/5 border border-white/10 px-4 py-1.5 rounded-full">
-                        <Text className="text-zinc-400 text-[10px] uppercase tracking-[0.3em] font-bold">
-                            The Event Discovery
-                        </Text>
-                    </View>
-                    {userId ? (
-                        <TouchableOpacity
-                            onPress={() => router.push('/events/compose')}
-                            hitSlop={10}
-                            className="flex-row items-center gap-1.5 px-4 py-2 rounded-full bg-rose-500"
-                        >
-                            <Plus size={14} color="#fff" />
-                            <Text className="text-white text-xs font-black uppercase tracking-widest">Host</Text>
-                        </TouchableOpacity>
-                    ) : null}
-                </View>
-                <Text className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-[0.9] mb-4">
-                    EXPERIENCE THE
-                </Text>
-                <Text className="text-5xl md:text-7xl font-black text-rose-400 tracking-tighter leading-[0.9] mb-6">
-                    MAGIC LIVE.
-                </Text>
-                <Text className="text-lg md:text-xl text-zinc-400 font-light italic max-w-2xl">
-                    From underground jazz clubs to national stadiums. Discover and book tickets to the most
-                    exclusive artistic events across India.
-                </Text>
-            </View>
-
-            {/* Ask bar — the dominant, universal search */}
-            <View style={{ marginBottom: isWide ? 32 : 14 }}>
-                <View className="h-12 bg-zinc-900/50 border border-white/10 rounded-2xl flex-row items-center px-4">
-                    <Search size={20} color="#71717a" />
-                    <TextInput
-                        placeholder="Search events, cities..."
-                        placeholderTextColor="#71717a"
-                        className="flex-1 ml-3 text-white text-base font-light h-full"
-                        value={searchState.q}
-                        onChangeText={(text) => setSearchState((prev) => ({ ...prev, q: text, page: 1 }))}
-                        returnKeyType="search"
-                    />
-                    {searchState.q.length > 0 ? (
-                        <TouchableOpacity
-                            onPress={() => setSearchState((prev) => ({ ...prev, q: '', page: 1 }))}
-                            hitSlop={10}
-                            accessibilityLabel="Clear search"
-                            className="ml-2 w-6 h-6 items-center justify-center rounded-full"
-                        >
-                            <X size={16} color="#a1a1aa" />
-                        </TouchableOpacity>
-                    ) : null}
-                </View>
-
-                {/* Desktop: readout + sort lenses. Mobile: sort lives in the Remote. */}
-                {isWide && (
-                    <View className="flex-row items-center justify-between mt-5" style={{ gap: 12 }}>
-                        <Text className="text-zinc-500 text-xs flex-1" numberOfLines={1}>
-                            Showing {readoutParts.length ? readoutParts.join('  ·  ') : 'all events'}
-                            {'  ·  '}
-                            <Text style={{ color: ACTIVE_FG }}>{sortLabel.toLowerCase()}</Text>
-                        </Text>
-                        <View className="flex-row" style={{ gap: 6 }}>
-                            {SORT_OPTIONS.map((o) => {
-                                const active = sortValue(filtersState) === o.value;
-                                return (
-                                    <TouchableOpacity
-                                        key={o.value}
-                                        onPress={() => updateFilters(setSort(filtersState, o.value))}
-                                        className="h-8 px-3 rounded-lg items-center justify-center border"
-                                        style={
-                                            active
-                                                ? { backgroundColor: ACTIVE_BG, borderColor: ACTIVE_BORDER }
-                                                : { borderColor: 'rgba(255,255,255,0.08)' }
-                                        }
-                                    >
-                                        <Text
-                                            className="text-[11px] font-bold uppercase tracking-wider"
-                                            style={{ color: active ? ACTIVE_FG : '#71717a' }}
-                                        >
-                                            {o.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-                    </View>
-                )}
-            </View>
-
-            {/* Mobile: the Remote sits between the search and the grid, as a DIRECT
-                sibling of the grid — so its own zIndex + elevation (set while open)
-                lift the open overlay above the grid on iOS, Android, and web. */}
-            {!isWide && <EventRemote filters={filtersState} onChange={updateFilters} />}
-
-            {/* Events Grid — pinned explicitly below the Remote overlay (both
-                siblings need a zIndex for iOS/web ordering to be reliable). */}
-            <View style={{ zIndex: 0 }}>{renderGrid()}</View>
-        </View>
-    );
+    const craftTabs = [{ value: 'any', label: 'All' }, ...CRAFT_OPTIONS.filter((o) => o.value !== 'any')];
 
     return (
-        <View className="flex-1 bg-black overflow-hidden">
-            {/* Background ambient effects — clipped by the root's overflow-hidden so
-                the off-screen blobs don't extend the page (web: no horizontal
-                overflow → no zoom-out / white margin). */}
-            <View className="absolute top-[10%] -left-[10%] w-[600px] h-[600px] bg-rose-900/20 rounded-full opacity-50 blur-3xl pointer-events-none" />
-            <View className="absolute bottom-[10%] -right-[10%] w-[500px] h-[500px] bg-orange-900/10 rounded-full opacity-30 blur-3xl pointer-events-none" />
+        <View style={{ flex: 1, backgroundColor: C.canvas }}>
+            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+                <AppScrollView
+                    className="flex-1"
+                    contentContainerStyle={{ paddingBottom: isSm ? tabBarHeight + 24 : 100 }}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={[s.page, { paddingHorizontal: isSm ? 20 : 32 }]}>
+                        {/* Masthead */}
+                        <View style={s.header}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={s.eyebrow}>DISCOVER · EVENTS</Text>
+                                <Text style={s.title}>What's on</Text>
+                                <Text style={s.sub}>Workshops, shows &amp; auditions.</Text>
+                            </View>
+                            {userId ? (
+                                <Pressable onPress={() => router.push('/events/compose')} hitSlop={8} style={s.host}>
+                                    <Plus size={13} color={C.orange} />
+                                    <Text style={s.hostTxt}>HOST</Text>
+                                </Pressable>
+                            ) : null}
+                        </View>
 
-            <SafeAreaView className="flex-1" edges={['top']}>
-                {isWide ? (
-                    // Desktop / tablet — persistent Facet Rail + scrolling grid.
-                    <View style={{ flex: 1, flexDirection: 'row' }}>
-                        <EventFacetRail
-                            filters={filtersState}
-                            onChange={updateFilters}
-                            resultCount={data?.total}
-                        />
-                        <AppScrollView
-                            className="flex-1"
-                            contentContainerStyle={{ paddingBottom: 100 }}
-                            showsVerticalScrollIndicator={false}
+                        {/* Toolbar: search · sort · filter funnel */}
+                        <View style={s.toolbar}>
+                            <View style={s.search}>
+                                <Search size={18} color={isFetching && inputQuery ? C.orange : C.t3} />
+                                <TextInput
+                                    value={inputQuery}
+                                    onChangeText={setInputQuery}
+                                    placeholder="Search events, cities…"
+                                    placeholderTextColor={C.t3}
+                                    style={s.searchInput}
+                                    returnKeyType="search"
+                                />
+                                {inputQuery.length > 0 ? (
+                                    <Pressable onPress={() => setInputQuery('')} hitSlop={8} accessibilityLabel="Clear search">
+                                        <X size={16} color={C.t2} />
+                                    </Pressable>
+                                ) : null}
+                            </View>
+                            <EventSortMenu value={sortV} onSelect={onSelectSort} />
+                            <FilterButton count={facetCount} onPress={() => setShowSheet(true)} />
+                        </View>
+
+                        {/* Craft tabs + trailing More pill */}
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+                            style={s.craftRow}
                         >
-                            {renderMain()}
-                        </AppScrollView>
+                            {craftTabs.map((o) => {
+                                const active = activeCraft === o.value;
+                                return (
+                                    <Pressable
+                                        key={o.value}
+                                        onPress={() => updateFilters(setCraft(filters, o.value))}
+                                        style={[s.craft, active && s.craftOn]}
+                                    >
+                                        <Text style={[s.craftTxt, active && s.craftTxtOn]}>{o.label}</Text>
+                                    </Pressable>
+                                );
+                            })}
+                            <MorePill count={facetCount} onPress={() => setShowSheet(true)} />
+                        </ScrollView>
+
+                        {/* Count row */}
+                        <View style={s.countRow}>
+                            <Text style={s.count}>
+                                <Text style={s.countB}>{n}</Text>
+                                {` ${n === 1 ? 'EVENT' : 'EVENTS'} · ${countSuffix}`}
+                            </Text>
+                            <View style={s.live}>
+                                {isFetching ? (
+                                    <ActivityIndicator size="small" color={C.green} />
+                                ) : (
+                                    <>
+                                        <View style={s.dot} />
+                                        <Text style={s.liveTxt}>LIVE</Text>
+                                    </>
+                                )}
+                            </View>
+                        </View>
+
+                        {renderGrid()}
                     </View>
-                ) : (
-                    // Mobile — Ask bar + inline Remote (right-aligned under search).
-                    <AppScrollView
-                        className="flex-1"
-                        contentContainerStyle={{ paddingBottom: tabBarHeight + 24 }}
-                        showsVerticalScrollIndicator={false}
-                    >
-                        {renderMain()}
-                    </AppScrollView>
-                )}
+                </AppScrollView>
+
+                <EventFilterSheet
+                    visible={showSheet}
+                    onClose={() => setShowSheet(false)}
+                    filters={filters}
+                    onApplyFilters={updateFilters}
+                    eventTypeOptions={eventTypeOptions}
+                />
             </SafeAreaView>
         </View>
     );
 }
+
+const s = StyleSheet.create({
+    page: { width: '100%', maxWidth: 1100, alignSelf: 'center', paddingTop: 12 },
+
+    header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, paddingTop: 18 },
+    eyebrow: { fontFamily: F.mono, fontSize: 10, letterSpacing: 2, color: C.t3 },
+    title: { fontFamily: F.serif, fontSize: 26, letterSpacing: -0.4, color: C.cream, marginTop: 7 },
+    sub: { fontFamily: F.body, fontSize: 12.5, color: C.t2, marginTop: 6, lineHeight: 19 },
+    host: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        height: 34,
+        paddingHorizontal: 13,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: 'rgba(255,107,53,0.35)',
+        backgroundColor: 'rgba(255,107,53,0.08)',
+        marginTop: 2,
+    },
+    hostTxt: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.2, color: C.orange },
+
+    toolbar: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16 },
+    search: {
+        flex: 1,
+        height: 46,
+        backgroundColor: C.well,
+        borderWidth: 1,
+        borderColor: C.hair,
+        borderRadius: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 14,
+        gap: 10,
+    },
+    searchInput: { flex: 1, color: C.cream, fontFamily: F.body, fontSize: 14, padding: 0 },
+
+    iconBtn: {
+        width: 46,
+        height: 46,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: C.hair,
+        backgroundColor: C.card,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    iconBtnOn: { borderColor: 'rgba(255,107,53,0.35)' },
+    fbBadge: {
+        position: 'absolute',
+        top: -5,
+        right: -5,
+        minWidth: 17,
+        height: 17,
+        paddingHorizontal: 4,
+        borderRadius: 9,
+        backgroundColor: C.orange,
+        borderWidth: 2,
+        borderColor: C.canvas,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    fbBadgeTxt: { fontFamily: F.bold, fontSize: 9, color: INK },
+
+    craftRow: { marginTop: 16, flexGrow: 0 },
+    craft: {
+        height: 33,
+        paddingHorizontal: 14,
+        borderRadius: 11,
+        borderWidth: 1,
+        borderColor: C.hair,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    craftOn: { backgroundColor: C.orange, borderColor: C.orange },
+    craftTxt: { fontFamily: F.mono, fontSize: 10, letterSpacing: 1, color: C.t2 },
+    craftTxtOn: { color: INK, fontFamily: F.bold },
+
+    more: {
+        height: 33,
+        paddingHorizontal: 13,
+        borderRadius: 11,
+        borderWidth: 1,
+        borderColor: C.hair,
+        backgroundColor: C.chip,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 7,
+    },
+    moreTxt: { fontFamily: F.mono, fontSize: 10, letterSpacing: 1, color: C.t1 },
+    moreBadge: {
+        minWidth: 15,
+        height: 15,
+        paddingHorizontal: 4,
+        borderRadius: 8,
+        backgroundColor: C.orange,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    moreBadgeTxt: { fontFamily: F.bold, fontSize: 9, color: INK },
+
+    countRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, marginBottom: 2 },
+    count: { fontFamily: F.mono, fontSize: 10, letterSpacing: 1.6, color: C.t3 },
+    countB: { color: C.t1, fontFamily: F.bold },
+    live: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green },
+    liveTxt: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.4, color: C.green },
+
+    center: { paddingVertical: 60, alignItems: 'center', gap: 8 },
+    centerTitle: { fontFamily: F.serif, fontSize: 18, color: C.cream, textAlign: 'center' },
+    centerSub: { fontFamily: F.body, fontSize: 13, color: C.t2, textAlign: 'center' },
+});

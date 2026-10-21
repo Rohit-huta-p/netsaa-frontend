@@ -74,7 +74,8 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
           type: m.kind === 'photo' ? 'image' : 'video',
           muxPlaybackId: m.muxPlaybackId,
           aspectRatio: m.aspectRatio,
-          title: event.title,
+          // No per-slide title in the event viewer — the event name already
+          // owns the hero; a caption on every photo is redundant.
           location: galleryCity,
         }))
     : [];
@@ -157,7 +158,7 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
           items={galleryItems}
           index={mediaIndex}
           onClose={() => setMediaIndex(null)}
-          onShare={() => shareEvent(event)}
+          showShare={false}
         />
       ) : null}
     </View>

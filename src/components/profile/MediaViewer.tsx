@@ -44,12 +44,14 @@ type Props = {
     onDelete?: (index: number) => void;
     /** Overrides the default "share this profile" action (e.g. share an event). */
     onShare?: () => void;
+    /** Hide the Share action entirely (e.g. the event viewer shares from its hero instead). Default true. */
+    showShare?: boolean;
 };
 
 const TINT = 'rgba(6,4,9,0.70)';
 const VIOLET = '#8B5CF6';
 
-export default function MediaViewer({ items, index, onClose, artist, isOwner = false, onEdit, onDelete, onShare: onShareProp }: Props) {
+export default function MediaViewer({ items, index, onClose, artist, isOwner = false, onEdit, onDelete, onShare: onShareProp, showShare = true }: Props) {
     const insets = useSafeAreaInsets();
     const { width: winW, height: winH } = useWindowDimensions();
     const pagerRef = useRef<FlatList>(null);
@@ -114,6 +116,9 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
 
     const connected = connectionStatus === 'connected';
     const pending = connectionStatus === 'pending';
+    // Hide the whole actions row when it would be empty — e.g. the event viewer:
+    // no artist (no Connect), not owner (no Edit/Delete), Share hidden.
+    const hasActions = isOwner ? (!!onEdit || !!onDelete || showShare) : artist ? true : showShare;
 
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -180,6 +185,7 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
                     </View>
                 )}
 
+                {hasActions && (
                 <View style={styles.actions}>
                     {isOwner ? (
                         <>
@@ -193,9 +199,11 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
                                     <Trash2 size={15} color="#FCA5A5" /><Text style={[styles.pbtnGhostTxt, { color: '#FCA5A5' }]}>Delete</Text>
                                 </Pressable>
                             )}
-                            <Pressable onPress={onShare} style={[styles.pbtn, styles.pbtnGhost]}>
-                                <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
-                            </Pressable>
+                            {showShare && (
+                                <Pressable onPress={onShare} style={[styles.pbtn, styles.pbtnGhost]}>
+                                    <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
+                                </Pressable>
+                            )}
                         </>
                     ) : artist ? (
                         <>
@@ -205,16 +213,19 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
                                     {connected ? 'Connected' : pending ? 'Requested' : 'Connect'}
                                 </Text>
                             </Pressable>
-                            <Pressable onPress={onShare} style={[styles.pbtn, styles.pbtnGhost]}>
-                                <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
-                            </Pressable>
+                            {showShare && (
+                                <Pressable onPress={onShare} style={[styles.pbtn, styles.pbtnGhost]}>
+                                    <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
+                                </Pressable>
+                            )}
                         </>
-                    ) : (
+                    ) : showShare ? (
                         <Pressable onPress={onShare} style={[styles.pbtn, styles.pbtnGhost]}>
                             <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
                         </Pressable>
-                    )}
+                    ) : null}
                 </View>
+                )}
 
                 {items.length > 1 && (
                     <>

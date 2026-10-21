@@ -161,14 +161,17 @@ export default function EventsPage() {
 
     const filters = searchState.filters;
 
-    // Map the EventFilterState onto the /v1/events list params. eventType is NOT
-    // sent (client-side facet — see below); price_low/popular sort client-side.
+    // Map the EventFilterState onto the /v1/events list params. eventType is a
+    // true server facet now (comma-separated → $in, netsaa-backend#16);
+    // price_low/popular still sort client-side.
     const listParams = useMemo(() => {
         const adv = filters.advanced;
         const category =
             adv.category.categories && adv.category.categories.length > 0
                 ? adv.category.categories.map((c) => c.toLowerCase()).join(',')
                 : undefined;
+        const eventTypes = eventTypeValues(filters);
+        const eventType = eventTypes.length ? eventTypes.join(',') : undefined;
         const city = adv.location.city && adv.location.city !== 'any' ? adv.location.city : undefined;
         const format =
             adv.location.format === 'in_person' || adv.location.format === 'online' ? adv.location.format : undefined;
@@ -184,6 +187,7 @@ export default function EventsPage() {
         return {
             q: searchState.q || undefined,
             category,
+            eventType,
             city,
             format,
             mode,
@@ -206,15 +210,15 @@ export default function EventsPage() {
         }
     }, [isLoading, data, error, isPageReady]);
 
-    // Client-side: event-type any-of filter + price_low/popular sort over the page.
+    // Client-side price_low/popular sort over the fetched page. Event type is a
+    // server facet now (sent in listParams), like category/city/format/when/price.
     const visibleEvents = useMemo(() => {
-        const types = eventTypeValues(filters);
-        let arr = types.length ? eventsList.filter((e) => e.eventType && types.includes(e.eventType)) : eventsList;
         const sortBy = filters.advanced.sorting.sortBy;
+        const arr = [...eventsList];
         if (sortBy === 'popular') {
-            arr = [...arr].sort((a, b) => (b.capacity?.registeredCount ?? 0) - (a.capacity?.registeredCount ?? 0));
+            arr.sort((a, b) => (b.capacity?.registeredCount ?? 0) - (a.capacity?.registeredCount ?? 0));
         } else if (sortBy === 'price_low') {
-            arr = [...arr].sort((a, b) => (a.pricing?.amount ?? 0) - (b.pricing?.amount ?? 0));
+            arr.sort((a, b) => (a.pricing?.amount ?? 0) - (b.pricing?.amount ?? 0));
         }
         return arr;
     }, [eventsList, filters]);

@@ -8,12 +8,10 @@
 //
 // 2026-10-22 — eventType re-added for the A·Minimal board's searchable
 // multi-select (DOCS/04-design/mockups/event-board-aminimal.html). It is a
-// MULTI (any-of) facet applied CLIENT-SIDE over the loaded page: the backend
-// getEvents honours `eventType` only as a single exact match (events.ts:41 —
-// no CSV→$in split like `category`), so sending a multi-value CSV would match
-// nothing. Filtering the loaded list mirrors the screen's existing client-side
-// price_low/popular sorts. (Server-facet upgrade path: add `$in` to the
-// backend, mirroring `category`, then send it like `category`.)
+// MULTI (any-of) SERVER facet: sent comma-separated to GET /v1/events, which
+// splits it into a $in match (netsaa-backend#16, mirroring `category`). Requires
+// that backend deployed; until then a multi-value CSV matches nothing on the
+// old single-exact-match code (same rollout ordering as the search fix #13→#52).
 
 export interface CategoryFilters {
     categories?: string[]; // e.g. 'dance', 'music', 'theatre'

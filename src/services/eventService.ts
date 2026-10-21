@@ -154,6 +154,8 @@ export interface EventListParams {
   topicTag?: string;
   /** Comma-separated craft/category slugs → any-of match server-side. */
   category?: string;
+  /** Comma-separated eventType enum slugs → any-of ($in) match server-side (needs netsaa-backend#16). */
+  eventType?: string;
   city?: string;
   mode?: 'free_rsvp' | 'paid_ticket';
   /** location.kind filter. */

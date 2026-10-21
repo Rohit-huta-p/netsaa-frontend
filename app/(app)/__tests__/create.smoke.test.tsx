@@ -24,12 +24,6 @@ jest.mock('@/hooks/useStepBackGuard', () => ({
 // Native-only transitive imports in create.tsx — stub with plain strings so
 // the test never loads the untransformed ESM bundles from node_modules.
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
-// EventForm has its own deep transitive tree (DatePicker → PNG assets jest
-// can't parse). We're only asserting which gig-form module resolves, so a
-// dumb stub is enough.
-jest.mock('@/components/create/EventForm', () => ({
-  EventForm: () => null,
-}));
 
 describe('app/(app)/create.tsx — feature flag gate', () => {
   const ORIGINAL_ENV = process.env;

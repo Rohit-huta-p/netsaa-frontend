@@ -9,7 +9,7 @@ import {
     useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, MapPin, Calendar, Users, Plus } from 'lucide-react-native';
+import { Search, MapPin, Calendar, Users, Plus, X } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 import { useEventsList } from '@/hooks/useEvents';
@@ -363,10 +363,15 @@ export default function EventsPage() {
             );
         }
         if (eventsList.length === 0) {
+            const activeQuery = debouncedQuery.trim();
             return (
                 <View className="py-20 items-center justify-center">
-                    <Text className="text-zinc-500 text-xl font-bold mb-2">No events found.</Text>
-                    <Text className="text-zinc-600 text-sm">Try adjusting your search or filters.</Text>
+                    <Text className="text-zinc-500 text-xl font-bold mb-2">
+                        {activeQuery ? `No events for “${activeQuery}”` : 'No events found.'}
+                    </Text>
+                    <Text className="text-zinc-600 text-sm">
+                        {activeQuery ? 'Try a different search or clear your filters.' : 'Try adjusting your search or filters.'}
+                    </Text>
                 </View>
             );
         }
@@ -431,7 +436,18 @@ export default function EventsPage() {
                         className="flex-1 ml-3 text-white text-base font-light h-full"
                         value={searchState.q}
                         onChangeText={(text) => setSearchState((prev) => ({ ...prev, q: text, page: 1 }))}
+                        returnKeyType="search"
                     />
+                    {searchState.q.length > 0 ? (
+                        <TouchableOpacity
+                            onPress={() => setSearchState((prev) => ({ ...prev, q: '', page: 1 }))}
+                            hitSlop={10}
+                            accessibilityLabel="Clear search"
+                            className="ml-2 w-6 h-6 items-center justify-center rounded-full"
+                        >
+                            <X size={16} color="#a1a1aa" />
+                        </TouchableOpacity>
+                    ) : null}
                 </View>
 
                 {/* Desktop: readout + sort lenses. Mobile: sort lives in the Remote. */}

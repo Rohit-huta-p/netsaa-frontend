@@ -8,21 +8,20 @@ import AppScrollView from '@/components/AppScrollView';
 import { useAuthStore } from '@/stores/authStore';
 import authService from '@/services/authService';
 import {
-    User, BookOpen, Building2, Briefcase, MapPin, Sparkles, HelpCircle, PenLine, Check,
+    User, Clapperboard, Music2, Briefcase, BookOpen, HelpCircle, PenLine, Check,
 } from 'lucide-react-native';
+import { CL_ORG_TYPES, type CLOrgTypeValue } from '@/constants/orgTypes';
 
 /* ── Category data ── */
 const ORG_CATEGORIES = [
-    { id: 'individual', label: 'Individual', sub: 'Freelance organizer', icon: User },
-    { id: 'academy', label: 'Academy / Studio', sub: 'Classes, workshops & instructors', icon: BookOpen },
-    { id: 'registered_business', label: 'Registered Business', sub: 'Pvt Ltd / LLP / Proprietorship', icon: Building2 },
-    { id: 'agency', label: 'Agency', sub: 'Talent or event agency', icon: Briefcase },
-    { id: 'venue', label: 'Venue', sub: 'Hotels, clubs, halls', icon: MapPin },
-    { id: 'brand', label: 'Brand', sub: 'Campaigns & branded events', icon: Sparkles },
-    { id: 'corporate', label: 'Corporate', sub: 'Internal corporate events', icon: Building2 },
-] as const;
+    { id: 'individual',            label: 'Independent',          sub: 'Solo organizer or company of one',     icon: User },
+    { id: 'production_company',    label: 'Production company',   sub: 'Shows, events & content production',   icon: Clapperboard },
+    { id: 'performing_arts_group', label: 'Performing arts group',sub: 'Ensemble, troupe, sabha — any genre',  icon: Music2 },
+    { id: 'agency',                label: 'Agency',               sub: 'Talent booking, management & casting', icon: Briefcase },
+    { id: 'academy',               label: 'Training institute',   sub: 'Dance school, acting studio, academy', icon: BookOpen },
+] as const satisfies { id: CLOrgTypeValue; label: string; sub: string; icon: any }[];
 
-type CategoryId = (typeof ORG_CATEGORIES)[number]['id'];
+type CategoryId = CLOrgTypeValue;
 
 export default function OrganizerCategoryScreen() {
     const router = useRouter();

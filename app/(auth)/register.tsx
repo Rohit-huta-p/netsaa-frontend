@@ -143,6 +143,8 @@ export default function RegisterScreen() {
     const activeSteps = useMemo<StepId[]>(() => {
         const wantsHire = intentChoice === 'hire_artists' || intentChoice === 'both';
         return STEPS.filter((s) => {
+            // CL has its own onboarding after credentials — skip all profiling steps here.
+            if (presetRole === 'creative_lead') return !SOFT_STEPS.has(s) && s !== 'intent';
             if (s === 'hirerProfile') return wantsHire;
             if (s === 'intent') return presetRole === null;
             return true;

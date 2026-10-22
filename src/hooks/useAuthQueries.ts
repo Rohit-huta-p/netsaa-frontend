@@ -93,7 +93,9 @@ export const useRegister = () => {
         mutationFn: authService.register,
         onSuccess: async (data) => {
             if (data.token) {
-                const user = data.user || await authService.getMe();
+                let user = data.user || await authService.getMe();
+                // Ensure role is populated — register response may omit it.
+                if (!user?.role) user = await authService.getMe();
                 setAuth({
                     user,
                     accessToken: data.token,
@@ -105,6 +107,12 @@ export const useRegister = () => {
                     console.log("useRegister: Executing pending action");
                     await usePendingAuthActionStore.getState().executePendingAction();
                     router.back();
+                    return;
+                }
+
+                // Creative Lead → company setup onboarding before entering the app.
+                if (user?.role === 'creative_lead') {
+                    router.replace('/(auth)/cl-onboarding');
                     return;
                 }
 

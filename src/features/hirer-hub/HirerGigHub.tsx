@@ -26,6 +26,7 @@ import { HubApplicantsSection } from './components/HubApplicantsSection';
 import { HubEssentials } from './components/HubEssentials';
 import { HubStickyCTA } from './components/HubStickyCTA';
 import { ApplicantActionSheet } from './components/ApplicantActionSheet';
+import { RemoveHireSheet } from './components/RemoveHireSheet';
 // Discussion section — backed by GigComment model. Same component used on
 // Event detail screens. Pulls socket (live updates) + gigService for the
 // REST round-trip. No gating beyond auth: anyone signed in can read/post.
@@ -65,6 +66,8 @@ export function HirerGigHub({ gigId }: Props) {
     const [hireTarget, setHireTarget] = useState<any | null>(null);
     const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
     const [actionSheetTarget, setActionSheetTarget] = useState<any | null>(null);
+    // The hired artist the owner is about to remove — mounts the confirm sheet.
+    const [removeTarget, setRemoveTarget] = useState<any | null>(null);
     const updateStatusMutation = useUpdateApplicationStatus();
 
     const sticky = useMemo(
@@ -183,6 +186,34 @@ export function HirerGigHub({ gigId }: Props) {
         router.push(`/(app)/profile/${artistId}` as any);
     };
 
+    // Remove-hire cascade (B3). Removing a hire is a reversible DEMOTE, not a
+    // delete: the confirm sheet spells out the cascade, then the server flip is
+    // hired -> shortlisted (netsaa-backend B3), which reopens the freed slot and
+    // notifies the artist. The artist drops back onto the shortlist, never
+    // rejected.
+    const handleRemoveHire = (applicationId: string) => {
+        const app = findApplication(applicationId);
+        if (app) setRemoveTarget(app);
+    };
+
+    const confirmRemoveHire = (applicationId: string) => {
+        updateStatusMutation.mutate({ applicationId, status: 'shortlisted' });
+        setRemoveTarget(null);
+    };
+
+    // Tap a cast card → the artist's profile (hired members aren't re-triaged
+    // through the applicant action sheet, whose actions are Shortlist/Reject/Hire).
+    const handleViewTeamProfile = (applicationId: string) => {
+        const app = findApplication(applicationId);
+        const artistId = app ? (typeof app.artistId === 'object' ? app.artistId?._id : app.artistId) : null;
+        if (artistId) router.push(`/(app)/profile/${artistId}` as any);
+    };
+
+    // Fill an open slot → jump to the applicants list to hire someone.
+    const handleFillSlot = () => {
+        scrollRef.current?.scrollTo({ y: applicantsYRef.current, animated: true });
+    };
+
     return (
         <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
             {/* Warm spotlight wash behind the hero — matches gig-hub-redesign-v1.html. */}
@@ -255,17 +286,12 @@ export function HirerGigHub({ gigId }: Props) {
 
                 <HubTeamSection
                     teamRows={data.teamRows}
-                    gig={gig}
                     slotsTotal={data.kpis.slotsTotal}
-                    pendingApplicantsCount={data.pendingApplicantsCount}
-                    onRequestContact={(application) =>
-                        setContactTarget({
-                            artistId: application?.artistId ?? '',
-                            displayName: application?.artistSnapshot?.displayName ?? 'Artist',
-                            phoneNumber: application?.artistSnapshot?.phoneNumber,
-                            gigTitle: gig?.title,
-                        })
-                    }
+                    venueCity={gig.location?.city}
+                    onTapApplicant={handleViewTeamProfile}
+                    onMessage={handleMessageApplicant}
+                    onRemove={handleRemoveHire}
+                    onFillSlot={handleFillSlot}
                 />
 
                 {/* CONTRACTS-DISABLED: Booking-terms card + master-template
@@ -363,6 +389,14 @@ export function HirerGigHub({ gigId }: Props) {
                 visible={!!contactTarget}
                 onClose={() => setContactTarget(null)}
                 target={contactTarget}
+            />
+            <RemoveHireSheet
+                visible={!!removeTarget}
+                application={removeTarget}
+                hiredCount={data.kpis.hiredCount}
+                slotsTotal={data.kpis.slotsTotal}
+                onClose={() => setRemoveTarget(null)}
+                onConfirm={confirmRemoveHire}
             />
         </View>
     );

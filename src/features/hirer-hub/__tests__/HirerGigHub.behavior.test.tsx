@@ -69,7 +69,7 @@ describe('HirerGigHub', () => {
         // is restored. Restore the assertion when the gating is reverted.
         const { getByText } = render(<HirerGigHub gigId="g1" />);
         expect(getByText('Sangeet Choreography')).toBeTruthy();
-        expect(getByText('Your team')).toBeTruthy();
+        expect(getByText('The cast')).toBeTruthy();
         expect(getByText('Applicants')).toBeTruthy();
     });
 

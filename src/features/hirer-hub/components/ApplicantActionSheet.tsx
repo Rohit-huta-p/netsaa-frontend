@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView, Pressable } from 'react-native';
-import { X, Check, UserCheck, Eye, ExternalLink } from 'lucide-react-native';
+import { X, Check, UserCheck, Eye, ExternalLink, MessageSquare } from 'lucide-react-native';
 
 const COLORS = {
     text0: '#F3EFE8', text1: '#B8B1A6', text2: '#6B6878', text3: '#3F3D4A',
@@ -23,10 +23,13 @@ type Props = {
     onReject: (id: string) => void;
     onHire: (id: string) => void;
     onViewProfile: (artistId: string) => void;
+    // Net-new: open a conversation with the applicant. Optional so existing
+    // callers keep working; the Message button only renders when provided.
+    onMessage?: (id: string) => void;
 };
 
 export function ApplicantActionSheet({
-    visible, application, onClose, onShortlist, onReject, onHire, onViewProfile,
+    visible, application, onClose, onShortlist, onReject, onHire, onViewProfile, onMessage,
 }: Props) {
     if (!visible || !application) return null;
 
@@ -37,8 +40,13 @@ export function ApplicantActionSheet({
         application.artistSnapshot?.artistType,
         application.artistSnapshot?.rating ? `${application.artistSnapshot.rating}★` : null,
         application.artistSnapshot?.experience ? `${application.artistSnapshot.experience}y` : null,
-        application.artistSnapshot?.location,
+        // BE B1 denormalises the applicant's city onto the snapshot as
+        // `primaryCity`; fall back to the legacy `location` field.
+        application.artistSnapshot?.primaryCity ?? application.artistSnapshot?.location,
     ].filter(Boolean).join(' · ');
+    const specialities: string[] = Array.isArray(application.artistSnapshot?.specialities)
+        ? application.artistSnapshot.specialities.filter(Boolean)
+        : [];
     const portfolioLinks: string[] = application.portfolioLinks ?? [];
     const status = application.status ?? 'applied';
 
@@ -88,6 +96,27 @@ export function ApplicantActionSheet({
                                 <Text style={{ color: COLORS.text2, fontSize: 12, marginTop: 4 }}>{stats || '—'}</Text>
                             </View>
                         </View>
+
+                        {/* skills — uniform chips, full list (detail view shows all) */}
+                        {specialities.length > 0 && (
+                            <View style={{ marginBottom: 20 }}>
+                                <Text style={{ fontSize: 10, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>
+                                    Skills
+                                </Text>
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                                    {specialities.map((s, i) => (
+                                        <View
+                                            key={`${s}-${i}`}
+                                            style={{
+                                                paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+                                                backgroundColor: COLORS.bg2, borderWidth: 1, borderColor: COLORS.line2,
+                                            }}>
+                                            <Text style={{ color: COLORS.text1, fontSize: 11 }}>{s}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        )}
 
                         {/* cover note */}
                         {application.coverNote && (
@@ -162,6 +191,14 @@ export function ApplicantActionSheet({
                                 accent={COLORS.red}
                                 onPress={() => onReject(application._id)}
                             />
+                            {onMessage && (
+                                <ActionBtn
+                                    icon={MessageSquare}
+                                    label="Message"
+                                    accent={COLORS.blue}
+                                    onPress={() => onMessage(application._id)}
+                                />
+                            )}
                             <ActionBtn
                                 icon={Check}
                                 label="Hire"

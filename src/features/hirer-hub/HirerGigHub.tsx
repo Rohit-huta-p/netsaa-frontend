@@ -132,6 +132,31 @@ export function HirerGigHub({ gigId }: Props) {
         updateStatusMutation.mutate({ applicationId, status: 'rejected' });
     };
 
+    // Undo a Pass — return the applicant to the pool (needs netsaa-backend #15,
+    // which allows rejected -> applied). The section keeps the card on screen
+    // meanwhile, so this just flips the server state back.
+    const handleUndoPass = (applicationId: string) => {
+        updateStatusMutation.mutate({ applicationId, status: 'applied' });
+    };
+
+    const handleQuickShortlist = (applicationId: string) => {
+        updateStatusMutation.mutate({ applicationId, status: 'shortlisted' });
+    };
+
+    // Message an applicant — reuse the team ContactActionSheet (the only DM
+    // entry point today). artistId may be populated (object) or a raw id.
+    const handleMessageApplicant = (applicationId: string) => {
+        const app = findApplication(applicationId);
+        if (!app) return;
+        const artistId = typeof app.artistId === 'object' ? app.artistId?._id : app.artistId;
+        setContactTarget({
+            artistId: artistId ?? '',
+            displayName: app.artistSnapshot?.displayName ?? 'Artist',
+            phoneNumber: app.artistSnapshot?.phoneNumber,
+            gigTitle: gig?.title,
+        });
+    };
+
     const handleRowTap = (applicationId: string) => {
         const app = findApplication(applicationId);
         if (app) setActionSheetTarget(app);
@@ -215,9 +240,13 @@ export function HirerGigHub({ gigId }: Props) {
                     onLayout={(e) => { applicantsYRef.current = e.nativeEvent.layout.y - 16; }}>
                     <HubApplicantsSection
                         applicants={data.pendingApplicants}
+                        venueCity={gig.location?.city}
                         onTapApplicant={handleRowTap}
-                        onQuickHire={handleQuickHire}
-                        onQuickReject={handleQuickReject}
+                        onPass={handleQuickReject}
+                        onUndoPass={handleUndoPass}
+                        onShortlist={handleQuickShortlist}
+                        onHire={handleQuickHire}
+                        onMessage={handleMessageApplicant}
                         onSeeAll={() => router.push(`/(app)/gigs/${gigId}?tab=applicants` as any)}
                     />
                 </View>
@@ -318,6 +347,10 @@ export function HirerGigHub({ gigId }: Props) {
                 onReject={handleSheetReject}
                 onHire={handleSheetHire}
                 onViewProfile={handleSheetViewProfile}
+                onMessage={(applicationId) => {
+                    setActionSheetTarget(null);
+                    handleMessageApplicant(applicationId);
+                }}
             />
             <HireConfirmModal
                 visible={!!hireTarget}

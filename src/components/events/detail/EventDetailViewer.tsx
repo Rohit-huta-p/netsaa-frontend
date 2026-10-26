@@ -33,6 +33,7 @@ import MediaViewer, { type MediaViewerItem } from '@/components/profile/MediaVie
 import { muxPoster } from '@/components/media/NetsaVideoPlayer';
 
 const BG = '#0B0A0F'; // v2 bg-1
+const CANVAS_V3 = '#121216'; // A·Minimal C.canvas — E·9 page only
 
 interface Props {
   event: EventDoc;
@@ -103,7 +104,7 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
     : () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
+    <View style={{ flex: 1, backgroundColor: v3 ? CANVAS_V3 : BG }}>
       <ScrollView contentInsetAdjustmentBehavior="never" showsVerticalScrollIndicator={false}>
         {/* Hero owns the overlaid nav (back · share · save) */}
         {v3 ? (

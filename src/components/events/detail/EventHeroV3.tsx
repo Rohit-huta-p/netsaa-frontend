@@ -75,7 +75,7 @@ export default function EventHeroV3({ event, onBack, onShare, onSave, saved = fa
       <LinearGradient colors={['rgba(0,0,0,0.5)', 'transparent']} pointerEvents="none" style={styles.topFade} />
       {/* Bottom fade to the page background, carrying the headline */}
       <LinearGradient
-        colors={['transparent', 'rgba(9,9,11,0.35)', '#09090b']}
+        colors={['transparent', 'rgba(18,18,22,0.35)', '#121216']}
         locations={[0, 0.55, 1]}
         pointerEvents="none"
         style={styles.bottomFade}

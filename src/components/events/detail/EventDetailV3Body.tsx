@@ -18,8 +18,8 @@ import {
   metaParts, dateRange, timeLine, initials, featuringLabel, EVENT_TYPE_LABEL,
 } from '@/lib/eventDetailV3';
 
-/* ── v6 / E·9 palette ── */
-const BG = '#09090b';
+/* ── v6 / E·9 palette ── (canvas = A·Minimal C.canvas #121216) */
+const BG = '#121216';
 const SURFACE = 'rgba(255,255,255,0.04)';
 const HAIR = 'rgba(255,255,255,0.07)';
 const HAIR2 = 'rgba(255,255,255,0.10)';
@@ -408,7 +408,9 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   metaPill: {
-    backgroundColor: '#18181C',
+    backgroundColor: '#24242E', // A·Minimal chip — lifts off the #121216 canvas
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,

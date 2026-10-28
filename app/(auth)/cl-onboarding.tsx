@@ -3,8 +3,8 @@
 // Write-point: PATCH /organizers/me + PATCH /auth/me after all steps, before the done carousel.
 
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, StatusBar, Alert } from 'react-native';
-import { router } from 'expo-router';
+import { View, Text, StyleSheet, SafeAreaView, StatusBar, Alert, BackHandler } from 'react-native';
+import { router, Stack, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import authService from '@/services/authService';
 import Step1Identity from '@/components/auth/cl-onboarding/Step1Identity';
@@ -35,6 +35,17 @@ export default function CLOnboarding() {
   const [data, setData]     = useState<CLOFormData>(EMPTY);
   const [saving, setSaving] = useState(false);
   const queryClient         = useQueryClient();
+
+  // User is already registered — back should go to the app, not the auth stack.
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        router.replace('/(app)/dashboard');
+        return true;
+      });
+      return () => sub.remove();
+    }, []),
+  );
 
   const update = useCallback(
     (patch: Partial<CLOFormData>) => setData(prev => ({ ...prev, ...patch })),
@@ -80,6 +91,8 @@ export default function CLOnboarding() {
 
   return (
     <SafeAreaView style={s.root}>
+      {/* Disable swipe-back on iOS — user is already registered */}
+      <Stack.Screen options={{ gestureEnabled: false, headerShown: false }} />
       <StatusBar barStyle="light-content" backgroundColor="#121216" />
       <View style={s.hdr}>
         <View style={s.metaRow}>

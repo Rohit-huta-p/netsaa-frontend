@@ -2,8 +2,8 @@
 // "Set up your company" — 4-step wizard for creative_lead after registration.
 // Write-point: PATCH /organizers/me + PATCH /auth/me after all steps, before the done carousel.
 
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, StatusBar, Alert, BackHandler } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, StatusBar, Alert, BackHandler, Platform } from 'react-native';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import authService from '@/services/authService';
@@ -46,6 +46,18 @@ export default function CLOnboarding() {
       return () => sub.remove();
     }, []),
   );
+
+  // Web: intercept browser back button (popstate) — same logic.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    window.history.pushState(null, '', window.location.href);
+    const onPopState = () => {
+      window.history.pushState(null, '', window.location.href);
+      router.replace('/(app)/dashboard');
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   const update = useCallback(
     (patch: Partial<CLOFormData>) => setData(prev => ({ ...prev, ...patch })),

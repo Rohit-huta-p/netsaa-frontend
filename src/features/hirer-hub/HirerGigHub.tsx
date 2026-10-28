@@ -3,22 +3,25 @@
 // Hirer-side single-scroll project hub. Replaces the tab-based gig detail
 // when the current user is the gig owner. Public artist view of /gigs/[id]
 // stays untouched in app/(app)/gigs/[id].tsx.
+//
+// Overview + pipeline follow DOCS/04-design/mockups/applicant-card-D.html
+// (screens 1–3): a compact gig header, three tappable stage tabs (Applied /
+// Shortlisted / Hired) that swap the body, a slot bar, and the card-D rows.
 
 import React, { useMemo, useRef, useState } from 'react';
 import { View, ScrollView, ActivityIndicator, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, MoreHorizontal } from 'lucide-react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { useGigHubData } from './hooks/useGigHubData';
+import { useGigHubData, type HubStage } from './hooks/useGigHubData';
 import { computeStickyCTA } from './utils/computeStickyCTA';
 import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 import { HireConfirmModal } from '@/components/gigs/applications/HireConfirmModal';
 import { ContactActionSheet, type ContactTarget } from '@/features/team/ContactActionSheet';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 
-import { HubHero, STATUS_LABEL } from './components/HubHero';
-import { HubKPIs } from './components/HubKPIs';
+import { HubOverview } from './components/HubOverview';
 import { HubTeamSection } from './components/HubTeamSection';
 // CONTRACTS-DISABLED: HubBookingTermsCard hidden until contract artifact is restored.
 // import { HubBookingTermsCard } from './components/HubBookingTermsCard';
@@ -34,6 +37,32 @@ import DiscussionTab from '@/components/common/DiscussionTab';
 
 const COLORS = { bg: '#07070B', line: 'rgba(255,255,255,0.05)' };
 
+type SortKey = 'rating' | 'recent';
+
+const ratingOf = (a: any) =>
+    typeof a?.artistSnapshot?.rating === 'number' && a.artistSnapshot.rating > 0 ? a.artistSnapshot.rating : -1;
+const timeOf = (a: any) => {
+    const t = new Date(a?.appliedAt ?? 0).getTime();
+    return Number.isFinite(t) ? t : 0;
+};
+// Sort a stage list by the active key. Rating falls back to recency on ties so
+// the "New" (unrated) applicants keep a stable, most-recent-first order.
+function sortApplicants(list: any[], key: SortKey): any[] {
+    const arr = [...list];
+    if (key === 'rating') arr.sort((a, b) => (ratingOf(b) - ratingOf(a)) || (timeOf(b) - timeOf(a)));
+    else arr.sort((a, b) => timeOf(b) - timeOf(a));
+    return arr;
+}
+
+// "4 Dancers · The Westin, Pune" — headcount + craft + venue line for the ghead.
+function composeMetaLine(gig: any): string {
+    const headcount = gig?.headcount ?? gig?.maxApplications;
+    const discipline: string | undefined = gig?.artistTypes?.[0];
+    const craft = discipline ? (/s$/i.test(discipline) ? discipline : `${discipline}s`) : 'performers';
+    const venueLine = [gig?.location?.venueName, gig?.location?.city].filter(Boolean).join(', ');
+    return [headcount ? `${headcount} ${craft}` : null, venueLine || null].filter(Boolean).join(' · ');
+}
+
 type Props = {
     gigId: string;
 };
@@ -42,7 +71,7 @@ export function HirerGigHub({ gigId }: Props) {
     const router = useRouter();
     const data = useGigHubData(gigId);
     const scrollRef = useRef<ScrollView>(null);
-    const applicantsYRef = useRef<number>(0);
+    const overviewYRef = useRef<number>(0);
     // Tab-bar height — keeps the sticky CTA above the global bottom nav
     // on mobile. Returns 0 on tablet/desktop widths (no nav rendered).
     const tabBarHeight = useMobileTabBarHeight();
@@ -50,6 +79,11 @@ export function HirerGigHub({ gigId }: Props) {
     // app shell (Navbar) provides navigation, so this duplicate is hidden.
     const { width } = useWindowDimensions();
     const showMobileHeader = width < 768;
+
+    // Pipeline selection (lifted). The active stage drives which body renders;
+    // sort applies to the Applied / Shortlisted lists.
+    const [activeStage, setActiveStage] = useState<HubStage>('applied');
+    const [sortKey, setSortKey] = useState<SortKey>('rating');
 
     const handleBack = () => {
         // On the web, deep-linking to /gigs/[id] yields an empty history
@@ -78,6 +112,13 @@ export function HirerGigHub({ gigId }: Props) {
         }),
         [data.pendingApplicantsCount, data.urgentTeamRowCount, data.firstUrgentLabel]
     );
+
+    // The card list for the active stage, sorted. Hired renders via
+    // HubTeamSection (cast + open slots), not this list.
+    const activeList = useMemo(() => {
+        if (activeStage === 'shortlisted') return sortApplicants(data.shortlistedApplicants ?? [], sortKey);
+        return sortApplicants(data.appliedApplicants ?? [], sortKey);
+    }, [activeStage, sortKey, data.appliedApplicants, data.shortlistedApplicants]);
 
     // Commenter User id → their application, so the Discussion thread can show
     // an Applied/Shortlisted/Hired chip on askers who are in the pipeline and
@@ -109,13 +150,17 @@ export function HirerGigHub({ gigId }: Props) {
 
     const gig = data.gig;
 
+    const scrollToOverview = () => scrollRef.current?.scrollTo({ y: overviewYRef.current, animated: true });
+
     const handleSticky = () => {
         if (sticky.intent === 'review-applicants') {
-            scrollRef.current?.scrollTo({ y: applicantsYRef.current, animated: true });
+            setActiveStage('applied');
+            scrollToOverview();
             return;
         }
         if (sticky.intent === 'urgent-team') {
-            scrollRef.current?.scrollTo({ y: 0, animated: true });
+            setActiveStage('hired');
+            scrollToOverview();
             return;
         }
     };
@@ -209,15 +254,19 @@ export function HirerGigHub({ gigId }: Props) {
         if (artistId) router.push(`/(app)/profile/${artistId}` as any);
     };
 
-    // Fill an open slot → jump to the applicants list to hire someone.
+    // Fill an open slot → jump to the shortlist (your picks) to hire someone;
+    // fall back to the applied flood when there are no picks yet.
     const handleFillSlot = () => {
-        scrollRef.current?.scrollTo({ y: applicantsYRef.current, animated: true });
+        setActiveStage((data.stageCounts?.shortlisted ?? 0) > 0 ? 'shortlisted' : 'applied');
+        scrollToOverview();
     };
+
+    const toggleSort = () => setSortKey((k) => (k === 'rating' ? 'recent' : 'rating'));
 
     return (
         <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-            {/* Warm spotlight wash behind the hero — matches gig-hub-redesign-v1.html. */}
-            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 360 }}>
+            {/* Warm spotlight wash behind the header — matches the ghead radial. */}
+            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300 }}>
                 <LinearGradient
                     colors={['rgba(255,107,53,0.16)', 'rgba(255,107,53,0.04)', 'transparent']}
                     locations={[0, 0.45, 1]}
@@ -229,70 +278,59 @@ export function HirerGigHub({ gigId }: Props) {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: tabBarHeight + 100 }}
             >
-                {/* Mobile-only header. Desktop relies on the global Navbar
-                    for navigation; rendering this would duplicate the chrome. */}
+                {/* Mobile-only back affordance. Desktop relies on the global
+                    Navbar; the status pill + ⋯ live in the ghead below. */}
                 {showMobileHeader && (
-                    <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 2, flexDirection: 'row', alignItems: 'center' }}>
                         <TouchableOpacity onPress={handleBack} accessibilityLabel="Back" hitSlop={12}>
-                            <ChevronLeft size={20} color="#B8B1A6" />
-                        </TouchableOpacity>
-                        {(() => {
-                            const s = STATUS_LABEL[gig.status ?? ''] ?? STATUS_LABEL.published;
-                            return (
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, backgroundColor: `${s.color}1A`, borderWidth: 1, borderColor: `${s.color}38` }}>
-                                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: s.color }} />
-                                    <Text style={{ color: s.color, fontSize: 10, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' }}>{s.label}</Text>
-                                </View>
-                            );
-                        })()}
-                        <TouchableOpacity accessibilityLabel="More" hitSlop={12}>
-                            <MoreHorizontal size={18} color="#B8B1A6" />
+                            <ChevronLeft size={22} color="#B8B1A6" />
                         </TouchableOpacity>
                     </View>
                 )}
 
-                <HubHero
-                    title={gig.title}
-                    status={gig.status}
-                    eventFunction={gig.eventFunction}
-                    city={gig.location?.city}
-                    startDate={gig.schedule?.startDate ?? gig.startDate}
-                    schedule={gig.schedule}
-                    showStatus={!showMobileHeader}
-                />
+                <View onLayout={(e) => { overviewYRef.current = Math.max(0, e.nativeEvent.layout.y - 12); }}>
+                    <HubOverview
+                        title={gig.title}
+                        statusKey={gig.status}
+                        metaLine={composeMetaLine(gig)}
+                        counts={data.stageCounts}
+                        slotsTotal={data.kpis.slotsTotal}
+                        activeStage={activeStage}
+                        onSelectStage={setActiveStage}
+                        sortLabel={sortKey === 'rating' ? 'RATING' : 'RECENT'}
+                        onToggleSort={toggleSort}
+                        // ⋯ manage-gig menu is inert until B4.
+                        onMenu={undefined}
+                    />
+                </View>
 
-                <HubKPIs kpis={data.kpis} />
-
-                <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24 }} />
-
-                {/* Applicants FIRST — v1 "action-first": the owner's #1 job
-                    (review / hire) sits above the fold; the team roster follows. */}
-                <View
-                    onLayout={(e) => { applicantsYRef.current = e.nativeEvent.layout.y - 16; }}>
-                    <HubApplicantsSection
-                        applicants={data.pendingApplicants}
+                {/* Body — the active stage's list. Hired is the cast (card D +
+                    open slots); Applied / Shortlisted are the card-D flood/picks. */}
+                {activeStage === 'hired' ? (
+                    <HubTeamSection
+                        teamRows={data.teamRows}
+                        slotsTotal={data.kpis.slotsTotal}
                         venueCity={gig.location?.city}
+                        onTapApplicant={handleViewTeamProfile}
+                        onMessage={handleMessageApplicant}
+                        onRemove={handleRemoveHire}
+                        onFillSlot={handleFillSlot}
+                    />
+                ) : (
+                    <HubApplicantsSection
+                        applicants={activeList}
+                        venueCity={gig.location?.city}
+                        emptyLabel={activeStage === 'shortlisted'
+                            ? 'No picks yet — shortlist applicants to line up your hires.'
+                            : 'No new applicants right now.'}
                         onTapApplicant={handleRowTap}
                         onPass={handleQuickReject}
                         onUndoPass={handleUndoPass}
                         onShortlist={handleQuickShortlist}
                         onHire={handleQuickHire}
                         onMessage={handleMessageApplicant}
-                        onSeeAll={() => router.push(`/(app)/gigs/${gigId}?tab=applicants` as any)}
                     />
-                </View>
-
-                <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 32 }} />
-
-                <HubTeamSection
-                    teamRows={data.teamRows}
-                    slotsTotal={data.kpis.slotsTotal}
-                    venueCity={gig.location?.city}
-                    onTapApplicant={handleViewTeamProfile}
-                    onMessage={handleMessageApplicant}
-                    onRemove={handleRemoveHire}
-                    onFillSlot={handleFillSlot}
-                />
+                )}
 
                 {/* CONTRACTS-DISABLED: Booking-terms card + master-template
                     editor are hidden until the contract artifact is restored.
@@ -322,10 +360,8 @@ export function HirerGigHub({ gigId }: Props) {
 
                 {/* Discussion — open Q&A thread on the gig. Authenticated users
                     only (backend-enforced via `protect`). Optimistic posts +
-                    socket-pushed updates. Sits between Applicants and
-                    Essentials so the reactive surfaces stack together.
-                    ownerId enables pin + delete-any owner actions for the
-                    Hub viewer (who is always the gig owner here). */}
+                    socket-pushed updates. ownerId enables pin + delete-any owner
+                    actions for the Hub viewer (always the gig owner here). */}
                 <View style={{ paddingHorizontal: 16 }}>
                     <DiscussionTab
                         id={gigId}
@@ -348,6 +384,8 @@ export function HirerGigHub({ gigId }: Props) {
                     venue={gig.location?.venueName}
                     city={gig.location?.city}
                     scope={gig.description}
+                    payAmount={data.kpis.budgetAmount}
+                    daysLeft={data.kpis.daysLeft}
                     postedDate={gig.createdAt}
                     onEditGig={() => router.push(`/(app)/create?gigId=${gigId}` as any)}
                 />

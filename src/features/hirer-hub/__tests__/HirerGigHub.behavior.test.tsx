@@ -1,9 +1,11 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 const mockSampleGig = {
     _id: 'g1', title: 'Sangeet Choreography', status: 'published',
-    eventFunction: 'Sangeet', location: { city: 'Pune', venue: 'JW Marriott' },
+    eventFunction: 'Sangeet', location: { city: 'Pune', venueName: 'JW Marriott' },
+    artistTypes: ['Dancer'],
+    headcount: 6,
     schedule: { startDate: new Date(Date.now() + 30 * 86_400_000).toISOString() },
     compensation: { structure: 'advance_balance', amount: 50000, subArtistAmount: 15000 },
     requirements: { headcount: 6 },
@@ -30,15 +32,11 @@ jest.mock('@/hooks/useGigApplications', () => ({
 }));
 jest.mock('@/hooks/usePayments', () => ({
     useUserContracts: () => ({ data: { data: { contracts: mockSampleContracts } }, isLoading: false, error: null }),
-    // HubTeamRowPayment fetches per-row transactions via this hook (Phase 3B-skeleton).
     useApplicationTransactions: () => ({ data: [], isLoading: false }),
 }));
 jest.mock('@/components/gigs/applications/HireConfirmModal', () => ({
     HireConfirmModal: () => null,
 }));
-// Apr 29: RecordPaymentModal moved out of HubMount; ContactActionSheet
-// took its place. Stub it so the test runner doesn't drag in lucide
-// icons + Linking.
 jest.mock('@/features/team/ContactActionSheet', () => ({
     ContactActionSheet: () => null,
 }));
@@ -47,14 +45,8 @@ jest.mock('@/features/team/ContactActionSheet', () => ({
 jest.mock('@/components/MobileTabBar', () => ({
     useMobileTabBarHeight: () => 0,
 }));
-// Apr 30: HubTeamSection inlines TeamGroupContactCard (folded in from
-// the dropped TeamPage). Stub it so useUpdateGig + Linking don't pull in.
-jest.mock('@/features/team/components/TeamGroupContactCard', () => ({
-    TeamGroupContactCard: () => null,
-}));
-// Apr 30: Discussion section mounted on the Hub. The component pulls
-// socketService + gigService + lucide. Stub it to keep this behaviour
-// test focused on Hub structure.
+// Discussion section mounted on the Hub. The component pulls socketService +
+// gigService + lucide. Stub it to keep this behaviour test focused on the Hub.
 jest.mock('@/components/common/DiscussionTab', () => ({
     __esModule: true,
     default: () => null,
@@ -63,14 +55,27 @@ jest.mock('@/components/common/DiscussionTab', () => ({
 import { HirerGigHub } from '../HirerGigHub';
 
 describe('HirerGigHub', () => {
-    it('renders all main sections (post contract-rollback)', () => {
-        // CONTRACTS-DISABLED: "Booking terms" section assertion removed — the
-        // Hub no longer mounts HubBookingTermsCard until the contract artifact
-        // is restored. Restore the assertion when the gating is reverted.
+    it('renders the gig header and the three pipeline stage tabs', () => {
         const { getByText } = render(<HirerGigHub gigId="g1" />);
         expect(getByText('Sangeet Choreography')).toBeTruthy();
-        expect(getByText('The cast')).toBeTruthy();
-        expect(getByText('Applicants')).toBeTruthy();
+        expect(getByText('Applied')).toBeTruthy();
+        expect(getByText('Shortlisted')).toBeTruthy();
+        expect(getByText('Hired')).toBeTruthy();
+    });
+
+    it('defaults to the Applied stage and shows its applicant in the body', () => {
+        const { getByText, queryByText } = render(<HirerGigHub gigId="g1" />);
+        // Applied bucket (a2 Meera) is the untriaged flood; the hired (Priya)
+        // and shortlisted (Kavya) bodies are behind their own stage tabs.
+        expect(getByText('Meera')).toBeTruthy();
+        expect(queryByText('Priya')).toBeNull();
+    });
+
+    it('switching to the Hired stage reveals the cast', () => {
+        const { getByText, getByLabelText, queryByText } = render(<HirerGigHub gigId="g1" />);
+        fireEvent.press(getByLabelText('Hired stage'));
+        expect(getByText('Priya')).toBeTruthy();
+        expect(queryByText('Meera')).toBeNull();
     });
 
     it('sticky CTA reflects pending applicant count', () => {

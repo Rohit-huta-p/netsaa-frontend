@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Calendar, MapPin, FileText, Clock } from 'lucide-react-native';
+import { Calendar, MapPin, FileText, Clock, IndianRupee } from 'lucide-react-native';
 
 import { formatGigWhen, type GigScheduleInput } from '@/utils/gigSchedule';
 
@@ -20,9 +20,20 @@ type Props = {
     venue?: string;
     city?: string;
     scope?: string;
+    /** The gig's stated compensation — a plain Pay fact (pay-as-fact: allowed in
+     *  the detail, never on the card, no take-home math). Dropped from the top
+     *  KPI band when the overview moved to stage tabs; it lives here now. */
+    payAmount?: number;
+    /** Countdown to the event — shown alongside the "When" row. */
+    daysLeft?: number | null;
     postedDate?: string;
     onEditGig?: () => void;
 };
+
+function inrFull(amount?: number): string {
+    if (!amount || !Number.isFinite(amount) || amount <= 0) return '—';
+    return `₹${Math.round(amount).toLocaleString('en-IN')}`;
+}
 
 function fmtEvent(iso?: string): string {
     if (!iso) return '—';
@@ -62,9 +73,11 @@ function Row({ icon: Icon, label, value, sub, last }: { icon: any; label: string
     );
 }
 
-export function HubEssentials({ eventDate, schedule, venue, city, scope, postedDate, onEditGig }: Props) {
+export function HubEssentials({ eventDate, schedule, venue, city, scope, payAmount, daysLeft, postedDate, onEditGig }: Props) {
     // v2.2 — real range / specific-dates; fall back to the single eventDate.
     const when = schedule ? formatGigWhen(schedule) : { value: fmtEvent(eventDate) };
+    const daysSub = (daysLeft != null && daysLeft >= 0) ? `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} to go` : undefined;
+    const whenSub = [when.sub, daysSub].filter(Boolean).join('   ·   ') || undefined;
     return (
         <View style={{ paddingTop: 28, paddingHorizontal: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -79,13 +92,14 @@ export function HubEssentials({ eventDate, schedule, venue, city, scope, postedD
             </View>
 
             <View>
-                <Row icon={Calendar} label="When" value={when.value} sub={when.sub} />
+                <Row icon={Calendar} label="When" value={when.value} sub={whenSub} />
                 <Row
                     icon={MapPin}
                     label="Where"
                     value={venue || city || '—'}
                     sub={venue && city ? `· ${city}` : undefined}
                 />
+                {payAmount && payAmount > 0 ? <Row icon={IndianRupee} label="Pay" value={inrFull(payAmount)} /> : null}
                 {scope ? <Row icon={FileText} label="Scope" value={scope} /> : null}
                 <Row icon={Clock} label="Posted" value={fmtPosted(postedDate)} last />
             </View>

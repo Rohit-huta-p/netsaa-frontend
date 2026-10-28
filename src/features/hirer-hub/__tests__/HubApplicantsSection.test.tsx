@@ -2,7 +2,10 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { HubApplicantsSection } from '../components/HubApplicantsSection';
 
-// Card D footer per stage: applied -> Pass · Shortlist, shortlisted -> Hire.
+// The section is now a header-less body renderer: the stage filter, list header
+// and counts live in HubOverview. It renders the card-D rows it's handed (the
+// hub filters + sorts by stage) and owns the reversible-Pass session logic.
+// Card D footer per status: applied -> Pass · Shortlist, shortlisted -> Hire.
 const apps = [
     { _id: '1', status: 'applied', appliedAt: '2026-10-20T10:00:00Z', artistSnapshot: { displayName: 'Meera D', primaryCity: 'Pune' } },
     { _id: '2', status: 'shortlisted', artistSnapshot: { displayName: 'Kavya P', primaryCity: 'Pune' } },
@@ -11,18 +14,17 @@ const apps = [
 ];
 
 describe('HubApplicantsSection', () => {
-    it('renders preview rows + see-all link', () => {
+    it('renders every row it is handed (no header, no cap)', () => {
         const { getByText } = render(<HubApplicantsSection applicants={apps} />);
-        expect(getByText('Applicants')).toBeTruthy();
         expect(getByText('Meera D')).toBeTruthy();
-        expect(getByText(/See all 4 →/)).toBeTruthy();
+        expect(getByText('Kavya P')).toBeTruthy();
+        expect(getByText('Vihaan N')).toBeTruthy();
+        expect(getByText('Asha R')).toBeTruthy();
     });
 
-    it('filter chip narrows the list', () => {
-        const { getByText, queryByText } = render(<HubApplicantsSection applicants={apps} />);
-        fireEvent.press(getByText(/Shortlisted · 1/));
-        expect(getByText('Kavya P')).toBeTruthy();
-        expect(queryByText('Meera D')).toBeNull();
+    it('shows the empty-state label when handed no applicants', () => {
+        const { getByText } = render(<HubApplicantsSection applicants={[]} emptyLabel="No new applicants right now." />);
+        expect(getByText('No new applicants right now.')).toBeTruthy();
     });
 
     it('applied card shows Pass + Shortlist; shortlisted card shows Hire', () => {
@@ -46,10 +48,10 @@ describe('HubApplicantsSection', () => {
         expect(onHire).toHaveBeenCalledWith('2');
     });
 
-    it('Pass is reversible: fires onPass, dims the card, and offers Undo (count drops)', () => {
+    it('Pass is reversible: fires onPass, dims the card, and offers Undo', () => {
         const onPass = jest.fn();
         const onUndoPass = jest.fn();
-        const { getByLabelText, queryByLabelText, getByText } = render(
+        const { getByLabelText, queryByLabelText } = render(
             <HubApplicantsSection applicants={apps} onPass={onPass} onUndoPass={onUndoPass} />
         );
 
@@ -59,8 +61,6 @@ describe('HubApplicantsSection', () => {
         // Card stays on screen but swaps to the Undo affordance.
         expect(queryByLabelText('Pass Meera D')).toBeNull();
         expect(getByLabelText('Undo pass for Meera D')).toBeTruthy();
-        // Pending count drops the passed applicant immediately (4 -> 3).
-        expect(getByText(/3 pending/)).toBeTruthy();
 
         fireEvent.press(getByLabelText('Undo pass for Meera D'));
         expect(onUndoPass).toHaveBeenCalledWith('1');

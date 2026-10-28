@@ -14,6 +14,7 @@ import { computeTeamRowAction } from '../utils/computeTeamRowAction';
 export type HubKPIs = {
     appliedCount: number;
     newCount: number;
+    shortlistedCount: number;
     hiredCount: number;
     slotsTotal: number;
     budgetAmount: number;
@@ -21,6 +22,9 @@ export type HubKPIs = {
     paidAmount: number;
     dueAmount: number;
 };
+
+/** The owner hub pipeline stages (applicant-card-D.html screens 1–3). */
+export type HubStage = 'applied' | 'shortlisted' | 'hired';
 
 export type TeamRowData = {
     application: any;
@@ -55,16 +59,39 @@ export function useGigHubData(gigId: string) {
         return applications.filter((a) => a.status !== 'hired' && a.status !== 'rejected');
     }, [applications]);
 
+    // Pipeline stage buckets — the 3 tappable stage tabs on the hub overview
+    // (applicant-card-D.html screens 1–3). The active stage swaps the body:
+    //   applied      → the untriaged "flood" (pending, not yet a pick)
+    //   shortlisted  → the owner's picks (Hire from here)
+    //   hired        → the cast (teamRows + open slots)
+    const shortlistedApplicants = useMemo(
+        () => applications.filter((a) => a.status === 'shortlisted'),
+        [applications]
+    );
+    const appliedApplicants = useMemo(
+        () => pendingApplicants.filter((a) => a.status !== 'shortlisted'),
+        [pendingApplicants]
+    );
+    const stageCounts = useMemo(
+        () => ({
+            applied: appliedApplicants.length,
+            shortlisted: shortlistedApplicants.length,
+            hired: teamRows.length,
+        }),
+        [appliedApplicants, shortlistedApplicants, teamRows]
+    );
+
     const kpis: HubKPIs = useMemo(() => {
         const appliedCount = applications.length;
         const newCount = applications.filter((a) => a.status === 'applied').length;
+        const shortlistedCount = applications.filter((a) => a.status === 'shortlisted').length;
         const hiredCount = applications.filter((a) => a.status === 'hired').length;
         const g = gig as any;
         // `slotsTotal` = how many artists this gig is hiring. Prefer the gig's stated
-        // count (maxApplications — the same value shown as "slots" on the artist
-        // side); fall back to the number already hired (or 1) so the "x / y" never
-        // shows a misleading zero total.
-        const headcount = g?.maxApplications;
+        // headcount (GigForm v2.2 — the same value shown as "slots" on the artist
+        // side; `maxApplications` kept only as a legacy fallback); then the number
+        // already hired (or 1) so the "x / y" never shows a misleading zero total.
+        const headcount = g?.headcount ?? g?.maxApplications;
         const slotsTotal = typeof headcount === 'number' && headcount > 0 ? headcount : (hiredCount || 1);
         // Budget = the gig's stated compensation (a number, not a transaction) so it
         // is safe to show under PAYMENTS-DISABLED. Days left = countdown to the event.
@@ -78,7 +105,7 @@ export function useGigHubData(gigId: string) {
         const paidAmount = contracts.reduce((s: number, c: any) => s + (c.paidAmount ?? 0), 0);
         const totalAmount = contracts.reduce((s: number, c: any) => s + (c.terms?.amount ?? 0), 0);
         const dueAmount = Math.max(0, totalAmount - paidAmount);
-        return { appliedCount, newCount, hiredCount, slotsTotal, budgetAmount, daysLeft, paidAmount, dueAmount };
+        return { appliedCount, newCount, shortlistedCount, hiredCount, slotsTotal, budgetAmount, daysLeft, paidAmount, dueAmount };
     }, [applications, contracts, gig]);
 
     const urgentTeamRowCount = useMemo(() => {
@@ -107,6 +134,10 @@ export function useGigHubData(gigId: string) {
         teamRows,
         pendingApplicants,
         pendingApplicantsCount: pendingApplicants.length,
+        // Pipeline stage buckets + counts for the hub overview stage tabs.
+        appliedApplicants,
+        shortlistedApplicants,
+        stageCounts,
         urgentTeamRowCount,
         firstUrgentLabel,
         kpis,

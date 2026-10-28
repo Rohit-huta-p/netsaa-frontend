@@ -1,18 +1,28 @@
+// src/features/hirer-hub/components/HubApplicantsSection.tsx
+//
+// The body list for the owner hub's "Applied · the flood" and "Shortlisted ·
+// your picks" stages (applicant-card-D.html). The stage filter + the list
+// header ("New applicants · N" / "Your picks · N" + sort) now live in
+// HubOverview; this component just renders the card-D rows for the applicants
+// it's handed, already filtered and sorted by the stage selection.
+//
+// Reversible Pass: passing an applicant flips them to `rejected` server-side,
+// which drops them out of the hub's pending set. To keep Undo reachable for the
+// session, we snapshot the passed card here and keep rendering it (dimmed) until
+// the owner leaves — HubApplicantRow shows the "Passed" tag + Undo while dimmed.
+
 import React, { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text } from 'react-native';
 import { HubApplicantRow } from './HubApplicantRow';
 
-const COLORS = {
-    text0: '#F3EFE8', text2: '#6B6878', orange: '#FF6B35',
-    bg: 'rgba(255,255,255,0.04)', text1: '#B8B1A6',
-};
-
-type FilterKey = 'all' | 'new' | 'shortlisted' | 'reviewed';
+const COLORS = { text2: '#6B6878' };
 
 type Props = {
     applicants: any[];
-    // Venue city drives the card's amber "out of town" pin.
+    /** Venue city drives the card's amber "out of town" pin. */
     venueCity?: string;
+    /** Empty-state copy for the active stage. */
+    emptyLabel?: string;
     onTapApplicant?: (applicationId: string) => void;
     // Pass is reversible: onPass flips applied -> rejected; the card then stays
     // on screen dimmed with Undo (onUndoPass -> applied) for the session.
@@ -21,25 +31,14 @@ type Props = {
     onShortlist?: (applicationId: string) => void;
     onHire?: (applicationId: string) => void;
     onMessage?: (applicationId: string) => void;
-    onSeeAll?: () => void;
 };
-
-const FILTER_PREDICATES: Record<FilterKey, (a: any) => boolean> = {
-    all: () => true,
-    new: (a) => a.status === 'applied',
-    shortlisted: (a) => a.status === 'shortlisted',
-    reviewed: (a) => a.status === 'reviewed' || a.status === 'viewed',
-};
-
-const PREVIEW_COUNT = 3;
 
 export function HubApplicantsSection({
-    applicants, venueCity, onTapApplicant, onPass, onUndoPass, onShortlist, onHire, onMessage, onSeeAll,
+    applicants, venueCity, emptyLabel = 'No applicants in this stage yet.',
+    onTapApplicant, onPass, onUndoPass, onShortlist, onHire, onMessage,
 }: Props) {
-    const [filter, setFilter] = useState<FilterKey>('all');
     // Applicants the owner just passed, kept here (by id -> snapshot) so the
-    // card survives the reject round-trip and keeps offering Undo. The snapshot
-    // retains its ORIGINAL status so it stays in its filter bucket while dimmed.
+    // card survives the reject round-trip and keeps offering Undo.
     const [passedById, setPassedById] = useState<Record<string, any>>({});
 
     const handlePass = (applicationId: string) => {
@@ -57,92 +56,37 @@ export function HubApplicantsSection({
         onUndoPass?.(applicationId);
     };
 
-    // Active = everything not currently passed. Counts + the "See all" total
-    // follow the active set, so a pass immediately drops the headline numbers.
+    // Active = everything handed in that isn't currently passed. Passed
+    // snapshots are appended after so Undo stays reachable even once the server
+    // has dropped them from the pending set.
     const activeApplicants = useMemo(
         () => applicants.filter((a) => !passedById[a._id]),
         [applicants, passedById]
     );
-
-    const counts = useMemo(() => ({
-        all: activeApplicants.length,
-        new: activeApplicants.filter(FILTER_PREDICATES.new).length,
-        shortlisted: activeApplicants.filter(FILTER_PREDICATES.shortlisted).length,
-        reviewed: activeApplicants.filter(FILTER_PREDICATES.reviewed).length,
-    }), [activeApplicants]);
-
-    const filteredActive = useMemo(
-        () => activeApplicants.filter(FILTER_PREDICATES[filter]),
-        [activeApplicants, filter]
-    );
-
-    // Passed snapshots matching the current filter are always appended (not
-    // capped by the preview) so Undo stays reachable in the hub preview.
-    const passedForFilter = useMemo(
-        () => Object.values(passedById).filter(FILTER_PREDICATES[filter]),
-        [passedById, filter]
-    );
-
-    const previewActive = filteredActive.slice(0, PREVIEW_COUNT);
-    const displayed = [...previewActive, ...passedForFilter];
+    const passedApplicants = useMemo(() => Object.values(passedById), [passedById]);
+    const displayed = [...activeApplicants, ...passedApplicants];
 
     return (
-        <View style={{ paddingTop: 36, paddingHorizontal: 24 }}>
-            <View style={{ marginBottom: 20, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: COLORS.text0, letterSpacing: -0.4 }}>Applicants</Text>
-                <Text style={{ fontSize: 10, color: COLORS.text2, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                    {counts.all} pending{counts.new > 0 ? <Text style={{ color: COLORS.orange }}>  ·  {counts.new} new</Text> : null}
+        <View style={{ paddingTop: 14, paddingBottom: 8, paddingHorizontal: 24 }}>
+            {displayed.length === 0 ? (
+                <Text style={{ color: COLORS.text2, fontSize: 13, textAlign: 'center', paddingVertical: 28 }}>
+                    {emptyLabel}
                 </Text>
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                {(['all', 'new', 'shortlisted', 'reviewed'] as FilterKey[]).map((k) => (
-                    <TouchableOpacity
-                        key={k}
-                        onPress={() => setFilter(k)}
-                        style={{
-                            paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999,
-                            backgroundColor: filter === k ? COLORS.text0 : COLORS.bg,
-                        }}>
-                        <Text style={{
-                            color: filter === k ? '#0A0A0F' : COLORS.text1,
-                            fontSize: 10, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase',
-                        }}>
-                            {k.charAt(0).toUpperCase() + k.slice(1)} · {counts[k]}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-
-            <View>
-                {displayed.length === 0 ? (
-                    <Text style={{ color: COLORS.text2, fontSize: 13, textAlign: 'center', paddingVertical: 24 }}>
-                        No applicants in this filter.
-                    </Text>
-                ) : (
-                    displayed.map((a) => (
-                        <HubApplicantRow
-                            key={a._id}
-                            application={a}
-                            venueCity={venueCity}
-                            isPassed={!!passedById[a._id]}
-                            onTap={onTapApplicant}
-                            onPass={handlePass}
-                            onUndoPass={handleUndo}
-                            onShortlist={onShortlist}
-                            onHire={onHire}
-                            onMessage={onMessage}
-                        />
-                    ))
-                )}
-            </View>
-
-            {filteredActive.length > PREVIEW_COUNT && (
-                <TouchableOpacity onPress={onSeeAll} style={{ paddingVertical: 12 }}>
-                    <Text style={{ textAlign: 'center', fontSize: 12, color: COLORS.text1, fontWeight: '700' }}>
-                        See all {filteredActive.length} →
-                    </Text>
-                </TouchableOpacity>
+            ) : (
+                displayed.map((a) => (
+                    <HubApplicantRow
+                        key={a._id}
+                        application={a}
+                        venueCity={venueCity}
+                        isPassed={!!passedById[a._id]}
+                        onTap={onTapApplicant}
+                        onPass={handlePass}
+                        onUndoPass={handleUndo}
+                        onShortlist={onShortlist}
+                        onHire={onHire}
+                        onMessage={onMessage}
+                    />
+                ))
             )}
         </View>
     );

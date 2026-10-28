@@ -1,8 +1,12 @@
 // src/features/hirer-hub/__tests__/HubTeamSection.test.tsx
 //
-// "The cast": hired artists render as card D (hired state), framed by a slot
-// bar, with a row per still-open slot (Fill → applicants). Message/Remove on a
-// cast card fire the Hub handlers; Remove opens the Remove-hire confirm sheet.
+// "The cast" body: hired artists render as card D (hired state); every still-
+// open slot gets its own row with a Fill shortcut, closed off by a "Fill from
+// shortlist" button. Message/Remove on a cast card fire the Hub handlers;
+// Remove opens the Remove-hire confirm sheet upstream.
+//
+// The slot bar + "N of M" header that used to live here now sit in HubOverview
+// (see HubOverview.test.tsx) — this section is just the cast body.
 
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
@@ -16,9 +20,9 @@ const sampleApp = {
 };
 const sampleTeamRow = { application: sampleApp, contract: null };
 
-describe('HubTeamSection — the cast', () => {
-    it('renders the cast header, a card per hire, the slot bar note, and open-slot rows', () => {
-        const { getByText, getAllByText, getByLabelText } = render(
+describe('HubTeamSection — the cast body', () => {
+    it('renders a card per hire and a row per still-open slot', () => {
+        const { getByText, getAllByText } = render(
             <HubTeamSection
                 teamRows={[sampleTeamRow as any]}
                 slotsTotal={3}
@@ -26,13 +30,12 @@ describe('HubTeamSection — the cast', () => {
                 onFillSlot={jest.fn()}
             />
         );
-        expect(getByText('The cast')).toBeTruthy();
         expect(getByText('Priya Sharma')).toBeTruthy();
-        expect(getByText(/1 of 3 slots filled · 2 open/i)).toBeTruthy();
-        // two open slots → two "Open slot" rows
+        // 1 filled of 3 → two open slots
         expect(getAllByText('Open slot')).toHaveLength(2);
         expect(getByText('Slot 2 of 3')).toBeTruthy();
         expect(getByText('Slot 3 of 3')).toBeTruthy();
+        expect(getByText('Fill from shortlist')).toBeTruthy();
     });
 
     it('Fill on an open slot fires onFillSlot', () => {
@@ -65,8 +68,8 @@ describe('HubTeamSection — the cast', () => {
         expect(onRemove).toHaveBeenCalledWith('a1');
     });
 
-    it('hides open-slot rows when the cast is full', () => {
-        const { queryByText, getByText } = render(
+    it('hides open-slot rows and the fill button when the cast is full', () => {
+        const { queryByText } = render(
             <HubTeamSection
                 teamRows={[sampleTeamRow as any]}
                 slotsTotal={1}
@@ -74,6 +77,6 @@ describe('HubTeamSection — the cast', () => {
             />
         );
         expect(queryByText('Open slot')).toBeNull();
-        expect(getByText(/1 of 1 slots filled/i)).toBeTruthy();
+        expect(queryByText('Fill from shortlist')).toBeNull();
     });
 });

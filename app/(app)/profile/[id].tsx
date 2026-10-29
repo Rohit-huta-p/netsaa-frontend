@@ -10,12 +10,13 @@ import {
 } from '@/features/profile/ClientPublicProfile';
 import { PerformerProfile } from '@/features/profile/PerformerProfile';
 import { SpotlightProfile } from '@/features/profile/SpotlightProfile';
+import { CreativeLeadProfile } from '@/features/profile/CreativeLeadProfile';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 export default function UserProfile() {
     const { user } = useAuthStore();
     const viewerRole = useAuthStore((s) => s.role);
-    const { spotlightProfile } = useFeatureFlags();
+    const { spotlightProfile, creativeLeadProfile } = useFeatureFlags();
     const { id: paramId, gigId, applicationId, fromGig } = useLocalSearchParams<{
         id: string;
         gigId?: string;
@@ -51,6 +52,19 @@ export default function UserProfile() {
         return (
             <ClientPublicProfile
                 data={fetched as unknown as ClientPublicData}
+                viewerIsClientOrCL={viewerIsClientOrCL}
+            />
+        );
+    }
+
+    // Creative Lead / organizer target → the company/org profile page. One common
+    // page for every viewer (artist to apply, client to size up). Flag-gated; when
+    // off, falls through to the prior performer / legacy behavior.
+    if (creativeLeadProfile && (targetRole === 'creative_lead' || targetRole === 'organizer')) {
+        return (
+            <CreativeLeadProfile
+                userId={resolvedId || ''}
+                isOwner={isOwner}
                 viewerIsClientOrCL={viewerIsClientOrCL}
             />
         );

@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { useGigHubData, type HubStage } from './hooks/useGigHubData';
 import { computeStickyCTA } from './utils/computeStickyCTA';
+import { formatGigWhenCompact } from '@/utils/gigSchedule';
 import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 import { HireConfirmModal } from '@/components/gigs/applications/HireConfirmModal';
 import { ContactActionSheet, type ContactTarget } from '@/features/team/ContactActionSheet';
@@ -28,7 +29,7 @@ import { HubTeamSection } from './components/HubTeamSection';
 import { HubApplicantsSection } from './components/HubApplicantsSection';
 import { HubEssentials } from './components/HubEssentials';
 import { HubStickyCTA } from './components/HubStickyCTA';
-import { ApplicantActionSheet } from './components/ApplicantActionSheet';
+import { ApplicantDetailScreen } from './components/ApplicantDetailScreen';
 import { RemoveHireSheet } from './components/RemoveHireSheet';
 // Discussion section — backed by GigComment model. Same component used on
 // Event detail screens. Pulls socket (live updates) + gigService for the
@@ -57,13 +58,21 @@ function sortApplicants(list: any[], key: SortKey): any[] {
     return arr;
 }
 
+// Pluralised craft noun, e.g. "Dancers" (artistTypes[0]), else "performers".
+function craftLabel(gig: any): string {
+    const d: string | undefined = gig?.artistTypes?.[0];
+    return d ? (/s$/i.test(d) ? d : `${d}s`) : 'performers';
+}
 // "4 Dancers · The Westin, Pune" — headcount + craft + venue line for the ghead.
 function composeMetaLine(gig: any): string {
     const headcount = gig?.headcount ?? gig?.maxApplications;
-    const discipline: string | undefined = gig?.artistTypes?.[0];
-    const craft = discipline ? (/s$/i.test(discipline) ? discipline : `${discipline}s`) : 'performers';
     const venueLine = [gig?.location?.venueName, gig?.location?.city].filter(Boolean).join(', ');
-    return [headcount ? `${headcount} ${craft}` : null, venueLine || null].filter(Boolean).join(' · ');
+    return [headcount ? `${headcount} ${craftLabel(gig)}` : null, venueLine || null].filter(Boolean).join(' · ');
+}
+// "Sangeet night · 4 dancers" — the applicant-detail "Applying for" row.
+function composeApplyingFor(gig: any): string {
+    const headcount = gig?.headcount ?? gig?.maxApplications;
+    return [gig?.title, headcount ? `${headcount} ${craftLabel(gig)}` : null].filter(Boolean).join(' · ');
 }
 
 type Props = {
@@ -406,9 +415,13 @@ export function HirerGigHub({ gigId }: Props) {
                 <HubStickyCTA cta={sticky} onPress={handleSticky} />
             </View>
 
-            <ApplicantActionSheet
+            <ApplicantDetailScreen
                 visible={!!actionSheetTarget}
                 application={actionSheetTarget}
+                venueCity={gig.location?.city}
+                applyingForLabel={composeApplyingFor(gig)}
+                datesLabel={formatGigWhenCompact(gig.schedule) || undefined}
+                payLabel={data.kpis.budgetAmount > 0 ? `₹${Math.round(data.kpis.budgetAmount).toLocaleString('en-IN')} per performer` : undefined}
                 onClose={() => setActionSheetTarget(null)}
                 onShortlist={handleSheetShortlist}
                 onReject={handleSheetReject}
@@ -417,6 +430,10 @@ export function HirerGigHub({ gigId }: Props) {
                 onMessage={(applicationId) => {
                     setActionSheetTarget(null);
                     handleMessageApplicant(applicationId);
+                }}
+                onRemove={(applicationId) => {
+                    setActionSheetTarget(null);
+                    handleRemoveHire(applicationId);
                 }}
             />
             <HireConfirmModal

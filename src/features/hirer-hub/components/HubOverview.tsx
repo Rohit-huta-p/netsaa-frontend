@@ -27,7 +27,7 @@ import type { HubStage } from '../hooks/useGigHubData';
 const COLORS = {
     text0: '#F3EFE8', text1: '#B8B1A6', text2: '#6B6878', text3: '#5C5A66', text4: '#3F3D4A',
     orange: '#FF6B35', orangeTint: '#FFCBB2', green: '#22C55E',
-    card: '#0D0B12', cardLine: 'rgba(243,239,232,0.07)',
+    card: '#1C1C23', cardLine: 'rgba(243,239,232,0.07)',
     stageOnBg: 'rgba(255,107,53,0.10)', stageOnLine: 'rgba(255,107,53,0.5)',
     slotOff: '#2A2A35',
     menuLine: 'rgba(255,255,255,0.12)',

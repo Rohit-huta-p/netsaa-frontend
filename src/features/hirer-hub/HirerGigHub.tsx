@@ -9,7 +9,7 @@
 // Shortlisted / Hired) that swap the body, a slot bar, and the card-D rows.
 
 import React, { useMemo, useRef, useState } from 'react';
-import { View, ScrollView, ActivityIndicator, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Text, TouchableOpacity, useWindowDimensions, Share, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +18,7 @@ import { useGigHubData, type HubStage } from './hooks/useGigHubData';
 import { computeStickyCTA } from './utils/computeStickyCTA';
 import { formatGigWhenCompact } from '@/utils/gigSchedule';
 import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
+import { useUpdateGig } from '@/hooks/useGigs';
 import { HireConfirmModal } from '@/components/gigs/applications/HireConfirmModal';
 import { ContactActionSheet, type ContactTarget } from '@/features/team/ContactActionSheet';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
@@ -31,6 +32,7 @@ import { HubEssentials } from './components/HubEssentials';
 import { HubStickyCTA } from './components/HubStickyCTA';
 import { ApplicantDetailScreen } from './components/ApplicantDetailScreen';
 import { RemoveHireSheet } from './components/RemoveHireSheet';
+import { GigActionsSheet } from './components/GigActionsSheet';
 // Discussion section — backed by GigComment model. Same component used on
 // Event detail screens. Pulls socket (live updates) + gigService for the
 // REST round-trip. No gating beyond auth: anyone signed in can read/post.
@@ -96,6 +98,7 @@ export function HirerGigHub({ gigId }: Props) {
     // sort applies to the Applied / Shortlisted lists.
     const [activeStage, setActiveStage] = useState<HubStage>('applied');
     const [sortKey, setSortKey] = useState<SortKey>('rating');
+    const [menuOpen, setMenuOpen] = useState(false);
 
     const handleBack = () => {
         // On the web, deep-linking to /gigs/[id] yields an empty history
@@ -115,6 +118,7 @@ export function HirerGigHub({ gigId }: Props) {
     // The hired artist the owner is about to remove — mounts the confirm sheet.
     const [removeTarget, setRemoveTarget] = useState<any | null>(null);
     const updateStatusMutation = useUpdateApplicationStatus();
+    const updateGigMutation = useUpdateGig();
 
     const sticky = useMemo(
         () => computeStickyCTA({
@@ -275,6 +279,35 @@ export function HirerGigHub({ gigId }: Props) {
 
     const toggleSort = () => setSortKey((k) => (k === 'rating' ? 'recent' : 'rating'));
 
+    // ⋯ "Manage gig" actions (B4). The toggles PATCH the gig via useUpdateGig,
+    // which invalidates the useGig query so the overview + sheet reflect the
+    // new state. Close sets status -> 'closed' (applyToGig already blocks a
+    // non-published gig, so new applications stop; the pipeline is kept).
+    const handleEditGig = () => {
+        setMenuOpen(false);
+        router.push(`/(app)/create?gigId=${gigId}` as any);
+    };
+    const handleShareGig = async () => {
+        setMenuOpen(false);
+        const link = Platform.OS === 'web' && typeof window !== 'undefined'
+            ? `${window.location.origin}/gigs/${gigId}`
+            : undefined;
+        const message = `${gig.title} — see this gig on NETSA${link ? `: ${link}` : ''}`;
+        try {
+            await Share.share(link ? { message, url: link } : { message });
+        } catch {
+            // user dismissed the share sheet — no-op
+        }
+    };
+    const handleTogglePause = (next: boolean) =>
+        updateGigMutation.mutate({ id: gigId, payload: { applicationsPaused: next } });
+    const handleToggleAutoClose = (next: boolean) =>
+        updateGigMutation.mutate({ id: gigId, payload: { autoCloseWhenFilled: next } });
+    const handleCloseGig = () => {
+        updateGigMutation.mutate({ id: gigId, payload: { status: 'closed' } });
+        setMenuOpen(false);
+    };
+
     return (
         <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
             {/* Warm spotlight wash behind the header — matches the ghead radial. */}
@@ -312,7 +345,7 @@ export function HirerGigHub({ gigId }: Props) {
                         sortLabel={sortKey === 'rating' ? 'RATING' : 'RECENT'}
                         onToggleSort={toggleSort}
                         // ⋯ manage-gig menu is inert until B4.
-                        onMenu={undefined}
+                        onMenu={() => setMenuOpen(true)}
                     />
                 </View>
 
@@ -455,6 +488,19 @@ export function HirerGigHub({ gigId }: Props) {
                 slotsTotal={data.kpis.slotsTotal}
                 onClose={() => setRemoveTarget(null)}
                 onConfirm={confirmRemoveHire}
+            />
+            <GigActionsSheet
+                visible={menuOpen}
+                slotsTotal={data.kpis.slotsTotal}
+                applicationsPaused={!!gig.applicationsPaused}
+                autoCloseWhenFilled={gig.autoCloseWhenFilled !== false}
+                status={gig.status}
+                onClose={() => setMenuOpen(false)}
+                onEdit={handleEditGig}
+                onShare={handleShareGig}
+                onTogglePause={handleTogglePause}
+                onToggleAutoClose={handleToggleAutoClose}
+                onCloseGig={handleCloseGig}
             />
         </View>
     );

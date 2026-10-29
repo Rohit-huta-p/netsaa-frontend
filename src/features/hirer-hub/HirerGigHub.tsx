@@ -35,7 +35,10 @@ import { RemoveHireSheet } from './components/RemoveHireSheet';
 // REST round-trip. No gating beyond auth: anyone signed in can read/post.
 import DiscussionTab from '@/components/common/DiscussionTab';
 
-const COLORS = { bg: '#07070B', line: 'rgba(255,255,255,0.05)' };
+// A·Minimal canvas (#121216) — matches gig detail / artist home / apply modal
+// and the applicant-card-D.html --canvas. Cards lift off it (see HubApplicantRow
+// / HubOverview surfaces) rather than camouflaging.
+const COLORS = { bg: '#121216', line: 'rgba(255,255,255,0.05)' };
 
 type SortKey = 'rating' | 'recent';
 

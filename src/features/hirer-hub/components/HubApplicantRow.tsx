@@ -26,7 +26,7 @@ const COLORS = {
     text0: '#F3EFE8', text1: '#B8B1A6', text2: '#6B6878', text3: '#5C5A66',
     gold: '#F59E0B', orange: '#FF6B35', orangeTint: '#FFCBB2', amber: '#F0B65A',
     blue: '#8DC0FB', red: '#F0858A',
-    surface: '#0D0B12', line: 'rgba(243,239,232,0.07)', freshBorder: 'rgba(255,107,53,0.28)',
+    surface: '#1C1C23', line: 'rgba(243,239,232,0.07)', freshBorder: 'rgba(255,107,53,0.28)',
     avatarIdle: '#26222C',
     chipBg: 'rgba(255,255,255,0.04)', chipLine: 'rgba(255,255,255,0.09)',
 };

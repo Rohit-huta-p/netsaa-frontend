@@ -70,6 +70,11 @@ export function HubApplicantRow({
     const initial = (displayName[0] || 'A').toUpperCase();
     const status: string = application.status ?? 'applied';
     const isFresh = status === 'applied' && !isPassed;
+    // Mockup `.skill.primary` — the lead (first) skill chip is tinted orange on
+    // the applied "flood" cards, where the owner triages, but not on the
+    // shortlisted / hired / cast cards (matching applicant-card-D.html, which
+    // tags `skill primary` only on the Applied frame's first chip).
+    const highlightPrimary = status !== 'shortlisted' && status !== 'hired';
 
     const artistType: string | undefined = snap.artistType;
     const city: string | undefined = snap.primaryCity ?? snap.location;
@@ -174,14 +179,18 @@ export function HubApplicantRow({
 
                 {shownSkills.length > 0 ? (
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 11 }}>
-                        {shownSkills.map((s, i) => (
-                            <View key={`${s}-${i}`} style={{
-                                paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7,
-                                backgroundColor: COLORS.chipBg, borderWidth: 1, borderColor: COLORS.chipLine,
-                            }}>
-                                <Text style={{ fontSize: 10, color: '#A1A1AA' }}>{s}</Text>
-                            </View>
-                        ))}
+                        {shownSkills.map((s, i) => {
+                            const primary = i === 0 && highlightPrimary;
+                            return (
+                                <View key={`${s}-${i}`} style={{
+                                    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7,
+                                    backgroundColor: primary ? 'rgba(255,107,53,0.14)' : COLORS.chipBg,
+                                    borderWidth: 1, borderColor: primary ? 'rgba(255,107,53,0.28)' : COLORS.chipLine,
+                                }}>
+                                    <Text style={{ fontSize: 10, color: primary ? COLORS.orangeTint : '#A1A1AA' }}>{s}</Text>
+                                </View>
+                            );
+                        })}
                         {extraSkills > 0 ? (
                             <View style={{
                                 paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7,

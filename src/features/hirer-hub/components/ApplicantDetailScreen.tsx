@@ -140,10 +140,9 @@ export function ApplicantDetailScreen({
         <Modal visible animationType="slide" onRequestClose={onClose}>
             <View style={{ flex: 1, backgroundColor: COLORS.canvas }}>
                 {/* warm wash behind the header — mirrors the mockup .dhd radial */}
-                <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 220 }}>
+                <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 150 }}>
                     <LinearGradient
-                        colors={['rgba(255,107,53,0.12)', 'rgba(255,107,53,0.03)', 'transparent']}
-                        locations={[0, 0.5, 1]}
+                        colors={['rgba(255,107,53,0.06)', 'transparent']}
                         style={{ flex: 1 }}
                     />
                 </View>

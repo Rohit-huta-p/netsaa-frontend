@@ -310,11 +310,13 @@ export function HirerGigHub({ gigId }: Props) {
 
     return (
         <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-            {/* Warm spotlight wash behind the header — matches the ghead radial. */}
-            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300 }}>
+            {/* Warm glow behind the header — matched to applicant-card-D.html's
+                .ghead radial (rgba(255,107,53,.07)). The mockup screen is otherwise
+                flat #121216, so this stays a whisper at the very top, not an orange
+                band across the upper third. */}
+            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 150 }}>
                 <LinearGradient
-                    colors={['rgba(255,107,53,0.16)', 'rgba(255,107,53,0.04)', 'transparent']}
-                    locations={[0, 0.45, 1]}
+                    colors={['rgba(255,107,53,0.07)', 'transparent']}
                     style={{ flex: 1 }}
                 />
             </View>

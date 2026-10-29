@@ -172,6 +172,11 @@ export interface Gig {
     status: 'draft' | 'published' | 'paused' | 'closed' | 'expired';
     isUrgent?: boolean;
     isFeatured?: boolean;
+    // B4 — owner "Manage gig" (⋯) toggles. applicationsPaused stops new
+    // applications while keeping the gig live + pipeline; autoCloseWhenFilled
+    // closes the gig once every slot is hired (default on).
+    applicationsPaused?: boolean;
+    autoCloseWhenFilled?: boolean;
 
     stats?: {
         views: number;

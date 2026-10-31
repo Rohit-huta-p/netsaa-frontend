@@ -23,8 +23,8 @@ type Props = {
 
 export const NetworkIcon: React.FC<Props> = ({
     size = 20,
-    color = '#F0ECE6',
-    badgeColor = '#EC4899',
+    color = '#FFFFFF',
+    badgeColor = '#EC4899', // pink = pending-invite semantic (distinct from the bell's orange)
     hitSlop = 10,
     onPress,
 }) => {
@@ -94,7 +94,7 @@ const s = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 2,
-        borderColor: '#0A0A10',
+        borderColor: '#121216', // A·Minimal canvas — NetworkIcon only renders in the TopRightIcons overlay over #121216
     },
     badgeText: {
         color: '#fff',

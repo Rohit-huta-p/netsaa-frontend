@@ -2,10 +2,12 @@
 //
 // Section 4 — Discover. Two faces over a horizontal peek rail (card 1 fills,
 // card 2 peeks ~20% to signal swipe), mirroring ArtistDiscover's grammar:
-//   Client briefs → open client requirements the CL can pitch on (LIVE, the
-//                   apply-up face) — requirementService.feed (GET /requirements)
+//   Client briefs → open client requirements the CL can pitch on — DISABLED for
+//                   now (CLIENT_BRIEFS_ENABLED=false): the client role is
+//                   deferred app-wide, so there are no briefs to pitch on. Flip
+//                   the flag to restore the tab + its live feed + card rail.
 //   Talent        → artist discovery / invite (P2 — no backend hook yet, so a
-//                   tasteful "coming soon" peek)
+//                   tasteful "coming soon" peek). The only face shown for now.
 // Design: DOCS/04-design/mockups/creative-lead-home-v2.html discover() (~L278-292).
 
 import React, { useMemo, useState } from 'react';
@@ -15,6 +17,11 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowRight } from 'lucide-react-native';
 import { requirementService } from '@/services/requirementService';
 import { HC, HF, SectionTitle, SegTabs, fmtRupees, fmtShortDate } from '@/components/dashboard/artist/home/ui';
+
+// Client briefs are hidden while the client role is deferred (no clients posting
+// briefs → nothing to pitch on). Gated off here rather than deleted; set this to
+// true to bring the "Client briefs" tab, its live feed and card rail straight back.
+const CLIENT_BRIEFS_ENABLED = false;
 
 type Tab = 'briefs' | 'talent';
 
@@ -34,28 +41,32 @@ const briefBudget = (r: any): string => {
 
 export default function CreativeLeadDiscover() {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>('briefs');
+  const [tab, setTab] = useState<Tab>(CLIENT_BRIEFS_ENABLED ? 'briefs' : 'talent');
 
   // Public feed of open client requirements — no existing hook, so query directly.
+  // Disabled while CLIENT_BRIEFS_ENABLED is off so it never hits the API.
   const briefsQ = useQuery({
     queryKey: ['creativeLead', 'briefs'],
     queryFn: () => requirementService.feed({ pageSize: 8 }),
     staleTime: 60_000,
+    enabled: CLIENT_BRIEFS_ENABLED,
   });
   const briefs = useMemo(() => (briefsQ.data?.requirements ?? []).slice(0, MAX), [briefsQ.data]);
 
   return (
     <View style={styles.root}>
       <View style={styles.head}>
-        <SectionTitle hint="swipe →">Discover</SectionTitle>
-        <SegTabs
-          value={tab}
-          onChange={setTab}
-          options={[
-            { key: 'briefs', label: 'Client briefs' },
-            { key: 'talent', label: 'Talent' },
-          ]}
-        />
+        <SectionTitle hint={CLIENT_BRIEFS_ENABLED ? 'swipe →' : undefined}>Discover</SectionTitle>
+        {CLIENT_BRIEFS_ENABLED ? (
+          <SegTabs
+            value={tab}
+            onChange={setTab}
+            options={[
+              { key: 'briefs', label: 'Client briefs' },
+              { key: 'talent', label: 'Talent' },
+            ]}
+          />
+        ) : null}
       </View>
 
       {tab === 'talent' ? (

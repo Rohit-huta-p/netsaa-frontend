@@ -23,8 +23,8 @@ describe('ApplicantDetailScreen', () => {
         expect(toJSON()).toBeNull();
     });
 
-    it('renders identity, status tag, full skills, quote, named portfolio and gig-context rows', () => {
-        const { getByText } = render(
+    it('renders identity, status tag, styles line, quote, named portfolio and gig-context rows', () => {
+        const { getByText, queryByText } = render(
             <ApplicantDetailScreen
                 visible
                 application={base}
@@ -37,8 +37,13 @@ describe('ApplicantDetailScreen', () => {
         expect(getByText('Meera Desai')).toBeTruthy();
         expect(getByText('Applied')).toBeTruthy();        // status tag
         expect(getByText(/APPLIED 2H AGO/)).toBeTruthy();  // applied-ago line
-        expect(getByText('Kathak')).toBeTruthy();
-        expect(getByText('Folk')).toBeTruthy();            // full skill list (not capped)
+        // Styles — crisp middot line (lead + muted rest), not skill pills
+        expect(getByText('Styles')).toBeTruthy();
+        expect(getByText('Kathak')).toBeTruthy();          // lead style (orange)
+        expect(getByText(/· Contemporary · Folk/)).toBeTruthy();  // the rest, not capped
+        // the crisp detail drops the ★ rating and the "Dancer" craft chip
+        expect(queryByText('4.8')).toBeNull();
+        expect(queryByText('Dancer')).toBeNull();
         expect(getByText(/I would love/)).toBeTruthy();
         // portfolio links carry a host-derived name, not "Link N"
         expect(getByText('Instagram ↗')).toBeTruthy();

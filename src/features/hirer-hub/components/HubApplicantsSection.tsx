@@ -31,11 +31,13 @@ type Props = {
     onShortlist?: (applicationId: string) => void;
     onHire?: (applicationId: string) => void;
     onMessage?: (applicationId: string) => void;
+    /** Share an applicant — Hub opens the native share sheet. */
+    onShare?: (applicationId: string) => void;
 };
 
 export function HubApplicantsSection({
     applicants, venueCity, emptyLabel = 'No applicants in this stage yet.',
-    onTapApplicant, onPass, onUndoPass, onShortlist, onHire, onMessage,
+    onTapApplicant, onPass, onUndoPass, onShortlist, onHire, onMessage, onShare,
 }: Props) {
     // Applicants the owner just passed, kept here (by id -> snapshot) so the
     // card survives the reject round-trip and keeps offering Undo.
@@ -85,6 +87,7 @@ export function HubApplicantsSection({
                         onShortlist={onShortlist}
                         onHire={onHire}
                         onMessage={onMessage}
+                        onShare={onShare}
                     />
                 ))
             )}

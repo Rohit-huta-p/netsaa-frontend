@@ -9,16 +9,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import InboxLauncher from '@/components/inbox/InboxLauncher';
 import { ChatWindow } from '@/components/connections/ChatWindow';
+import { Inbox } from 'lucide-react-native';
 
 const DESKTOP_BREAKPOINT = 900;
 
-// Desktop right-pane empty state, in the inbox design system.
+// Desktop right-pane empty state, in the A·Minimal inbox design system — a real inbox icon
+// in a tokened tile (replaces the old stray ✦ glyph), serif headline, muted sub-copy.
 function EmptyChat() {
     return (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#09090b', paddingHorizontal: 24 }}>
-            <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', color: '#3f3f46', fontSize: 44, marginBottom: 14 }}>✦</Text>
-            <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', color: '#f4f4f5', fontSize: 21, marginBottom: 6 }}>Pick a conversation</Text>
-            <Text style={{ fontFamily: 'Outfit-Regular', color: '#71717a', fontSize: 13, textAlign: 'center' }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#121216', paddingHorizontal: 34 }}>
+            <View style={{ width: 54, height: 54, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                <Inbox size={24} color="#8B8B99" />
+            </View>
+            <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', color: '#D4D4D8', fontSize: 21, marginBottom: 7 }}>Pick a conversation</Text>
+            <Text style={{ fontFamily: 'Outfit-Regular', color: '#A1A1AA', fontSize: 13, textAlign: 'center', lineHeight: 20 }}>
                 Choose a message on the left to start chatting.
             </Text>
         </View>
@@ -41,7 +45,7 @@ export default function InboxScreen() {
 
             {isDesktop ? (
                 // ── Desktop: 2-pane frame ──
-                <View style={{ flex: 1, minHeight: 0, backgroundColor: '#09090b' }}>
+                <View style={{ flex: 1, minHeight: 0, backgroundColor: '#121216' }}>
                     <SafeAreaView edges={['top']} style={{ flex: 1, minHeight: 0 }}>
                         <View
                             style={{
@@ -62,7 +66,7 @@ export default function InboxScreen() {
                             <View style={{ width: 360, borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.08)' }}>
                                 <InboxLauncher activeId={activeId} onSelectConversation={openConversation} hideBack />
                             </View>
-                            <View style={{ flex: 1, minHeight: 0, backgroundColor: '#09090b' }}>
+                            <View style={{ flex: 1, minHeight: 0, backgroundColor: '#121216' }}>
                                 {activeId ? (
                                     <ChatWindow conversationId={activeId} onClose={closeChat} hideClose />
                                 ) : (
@@ -74,7 +78,7 @@ export default function InboxScreen() {
                 </View>
             ) : activeId ? (
                 // ── Mobile: full-screen chat ──
-                <SafeAreaView edges={['top']} style={{ flex: 1, minHeight: 0, backgroundColor: '#09090b' }}>
+                <SafeAreaView edges={['top']} style={{ flex: 1, minHeight: 0, backgroundColor: '#121216' }}>
                     <ChatWindow conversationId={activeId} onClose={closeChat} />
                 </SafeAreaView>
             ) : (

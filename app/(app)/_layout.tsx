@@ -1,7 +1,6 @@
 import { Stack, useRouter, usePathname, useGlobalSearchParams } from "expo-router";
 import { View } from "react-native";
 import useAuthStore from "@/stores/authStore";
-import { ProfilePlaybillCard } from "@/components/profile/completion";
 import AccountDeletionScheduledModal from "@/components/settings/AccountDeletionScheduledModal";
 import BottomNav from "@/components/nav/BottomNav";
 import { useModeStore } from "@/stores/modeStore";
@@ -98,21 +97,6 @@ export default function AppLayout() {
             <Stack screenOptions={{ headerShown: false }} />
 
             {!hideBottomNav && <BottomNav />}
-
-            {/* Profile completion — ambient Playbill nudge, floats above the tab bar
-                on the HOME/dashboard only (not on every route — it'd nag over chat,
-                settings, the profile editor, etc). box-none lets taps outside the
-                card fall through.
-
-                Artists now get the inline "Segments" completion card on the artist
-                home (ArtistProfileCompletion) instead of this overlay, so this is
-                gated to Creative Leads only. Clients never had it (no artist
-                profile). Retiring the Playbill for CL too is a separate follow-up. */}
-            {user?.role === 'creative_lead' && pathname === '/dashboard' && (
-                <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 64, zIndex: 20 }}>
-                    <ProfilePlaybillCard />
-                </View>
-            )}
 
             {/* Deletion scheduled warning modal */}
             {showDeletionModal && (

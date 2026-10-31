@@ -8,21 +8,23 @@
 // Reuses the artist home's ui.tsx atoms (SegTabs/SubTabs/Row/SeeAll/EmptyState).
 
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  SectionTitle,
   SegTabs,
   SubTabs,
   SeeAll,
   Row,
   EmptyState,
   fmtRupees,
+  HC,
+  HF,
   type PillTone,
 } from '@/components/dashboard/artist/home/ui';
 import type { PostRow } from '@/hooks/useOrganizerPosts';
 import type { SentProposal } from '@/services/requirementService';
 import useCreativeLeadInvolvement from './useCreativeLeadInvolvement';
+import PostDial from './PostDial';
 
 type Face = 'hiring' | 'hosting' | 'pitching';
 type HireSub = 'live' | 'draft' | 'closed';
@@ -47,6 +49,13 @@ export default function CreativeLeadWork() {
   const [hireSub, setHireSub] = useState<HireSub>('live');
   const [hostSub, setHostSub] = useState<HostSub>('upcoming');
   const [pitchSub, setPitchSub] = useState<PitchSub>('sent');
+
+  // ＋Post rides the focus-card state: hidden for a brand-new CL (the focus card
+  // then carries the dual Post CTAs) and returns once applicants are waiting —
+  // kept in lockstep with CreativeLeadFocusCard's all-clear condition so exactly
+  // one create affordance ever shows.
+  const liveApplicants = inv.hiring.live.reduce((a, g) => a + (g.applicants ?? 0), 0);
+  const showPost = liveApplicants > 0;
 
   // ── Hiring rows (gigs — surface applicants) ───────────────────────────────
   const hiringRow = (p: PostRow, sub: HireSub) => {
@@ -200,7 +209,10 @@ export default function CreativeLeadWork() {
 
   return (
     <View style={styles.root}>
-      <SectionTitle>Your work</SectionTitle>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Your work</Text>
+        {showPost ? <PostDial /> : null}
+      </View>
       <SegTabs
         value={face}
         onChange={setFace}
@@ -219,4 +231,6 @@ export default function CreativeLeadWork() {
 
 const styles = StyleSheet.create({
   root: { paddingHorizontal: 20, marginTop: 4 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 13 },
+  headerTitle: { fontFamily: HF.serif, fontSize: 24, letterSpacing: -0.5, color: HC.cream },
 });

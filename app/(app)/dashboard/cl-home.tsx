@@ -19,6 +19,7 @@ import { useBottomNavScroll, NAV_SCROLL_EVENT_THROTTLE } from '@/components/nav/
 import CreativeLeadGreet from '@/components/dashboard/creativeLead/home/CreativeLeadGreet';
 import CreativeLeadFocusCard from '@/components/dashboard/creativeLead/home/CreativeLeadFocusCard';
 import CreativeLeadWork from '@/components/dashboard/creativeLead/home/CreativeLeadWork';
+import CreativeLeadCompanyCard from '@/components/dashboard/creativeLead/home/CreativeLeadCompanyCard';
 import { HC, HF } from '@/components/dashboard/artist/home/ui';
 
 export default function CreativeLeadHome() {
@@ -53,6 +54,8 @@ export default function CreativeLeadHome() {
         <View style={styles.divider} />
 
         <CreativeLeadWork />
+
+        <CreativeLeadCompanyCard />
 
         <View style={styles.footer}>
           <View style={styles.footerRule} />

@@ -1,4 +1,13 @@
 // src/mobile/connections/ChatWindow
+//
+// A·Minimal reskin (2026-10): #121216 canvas, lifted #1C1C23 "their" bubbles, orange "mine",
+// SpaceMono timestamps. Tokens + layout only — the realtime wiring (socket join/leave,
+// message:new, typing, seen, presence), optimistic send + reconcile + failed/Retry, and the
+// web Enter-to-send are all unchanged. Shared by /inbox and /connections.
+//
+// Two elements were removed per the inbox redesign: the header "Mark booked" pill and the
+// requirement context chip (and their now-orphaned handlers/state). A requirement-linked
+// thread is still marked by the opening system pill + the purple "payment coming soon" footer.
 import React, { useState, useEffect, useRef } from "react";
 import {
     View,
@@ -17,16 +26,12 @@ import {
     Send,
     AlertCircle,
     ChevronLeft,
-    FileText,
-    CheckCircle,
 } from "lucide-react-native";
 import { useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from "@/stores/authStore";
 
 import messageService from "@/services/messageService";
 import { socketService } from "@/services/socketService";
-import { requirementService } from "@/services/requirementService";
 import { Message } from "@/types/chat";
 import { generateId } from "@/utils/idGenerator";
 
@@ -96,8 +101,8 @@ const SystemPill = ({ text }: { text: string }) => (
         >
             <Text
                 style={{
-                    color: 'rgba(255,255,255,0.45)',
-                    fontSize: 12,
+                    color: '#8B8B99',
+                    fontSize: 11.5,
                     fontFamily: 'Outfit-Regular',
                     textAlign: 'center',
                 }}
@@ -108,54 +113,8 @@ const SystemPill = ({ text }: { text: string }) => (
     </View>
 );
 
-// ── Context chip under the header (booking threads only) ──
-const ContextChip = ({
-    label,
-    requirementId,
-    proposalId,
-}: {
-    label: string;
-    requirementId: string;
-    proposalId: string;
-}) => {
-    const router = useRouter();
-    return (
-        <TouchableOpacity
-            onPress={() => router.push(`/(app)/client/${requirementId}?proposal=${proposalId}` as any)}
-            style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                paddingHorizontal: 14,
-                paddingVertical: 6,
-                backgroundColor: 'rgba(255,107,53,0.08)',
-                borderBottomWidth: 1,
-                borderBottomColor: 'rgba(255,107,53,0.15)',
-            }}
-        >
-            <FileText size={12} color="#FF6B35" />
-            <Text
-                style={{
-                    color: '#FF6B35',
-                    fontSize: 12,
-                    fontFamily: 'Outfit-Regular',
-                    flex: 1,
-                }}
-                numberOfLines={1}
-            >
-                {label}
-            </Text>
-        </TouchableOpacity>
-    );
-};
-
-// ── Mark-as-booked inline confirm state ──
-type BookState = 'idle' | 'confirming' | 'loading' | 'booked';
-
 export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClose, hideClose }: ChatWindowProps) => {
     const currentUserId = useAuthStore.getState().user?._id || "me";
-    const currentUserRole = useAuthStore.getState().user?.role;
-    const queryClient = useQueryClient();
     const router = useRouter();
 
     // State
@@ -168,18 +127,14 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
     const [isOnline, setIsOnline] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Mark-as-booked state
-    const [bookState, setBookState] = useState<BookState>('idle');
-    const [bookError, setBookError] = useState<string | null>(null);
-
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const remoteTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const isTypingRef = useRef(false);
 
-    // Derived: is this a booking thread (has context) + is viewer the client?
+    // Derived: is this a booking thread (requirement-linked)? Still used to show the
+    // purple "payment coming soon" footer — the Mark-booked action itself was removed.
     const ctx = conversation?.context;
     const isBookingThread = !!ctx?.requirementId;
-    const isClient = currentUserRole === 'client';
 
     // Initial Fetch Effect
     useEffect(() => {
@@ -499,36 +454,10 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
         }
     };
 
-    // ── Mark as booked ──
-    const handleMarkBooked = async () => {
-        if (!ctx?.requirementId) return;
-        if (bookState === 'confirming') {
-            // Confirmed — proceed
-            setBookState('loading');
-            setBookError(null);
-            try {
-                await requirementService.changeStatus(ctx.requirementId, 'book');
-                queryClient.invalidateQueries({ queryKey: ['client', 'requirements'] });
-                setBookState('booked');
-            } catch (e: any) {
-                const msg = e?.response?.data?.meta?.message || e?.message || 'Could not mark as booked';
-                setBookError(msg);
-                setBookState('idle');
-            }
-        } else if (bookState === 'idle') {
-            setBookState('confirming');
-        }
-    };
-
-    const handleCancelBook = () => {
-        setBookState('idle');
-        setBookError(null);
-    };
-
     // If we have neither ID nor recipient, we can't do anything
     if (!conversationId && !loading) {
         return (
-            <View className="flex-1 bg-[#09090b] border-l border-white/10 items-center justify-center p-6">
+            <View className="flex-1 bg-[#121216] border-l border-white/[0.08] items-center justify-center p-6">
                 <View className="absolute top-4 right-4">
                     <TouchableOpacity onPress={onClose} className="bg-white/10 p-2 rounded-full">
                         <X size={20} color="white" />
@@ -547,23 +476,19 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
     const displayName = composeName(displayUser as any);
     const avatarUri = (displayUser as any).profilePicture || (displayUser as any).profileImageUrl;
 
-    // Context chip label
-    const chipLabel = ctx?.label || 'View requirement';
-
     return (
-        <View style={{ flex: 1, minHeight: 0 }} className="bg-[#09090b] border-l border-white/10">
-            {/* Chat Header */}
-            <View style={{ flexShrink: 0 }} className="border-b border-white/10 bg-white/5">
-                <View className="px-4 py-3 flex-row items-center justify-between">
+        <View style={{ flex: 1, minHeight: 0 }} className="bg-[#121216] border-l border-white/[0.08]">
+            {/* Chat Header — back · avatar · name · presence (Mark-booked pill + context chip removed). */}
+            <View style={{ flexShrink: 0, backgroundColor: 'rgba(255,255,255,0.02)' }} className="border-b border-white/[0.08]">
+                <View className="px-4 py-3 flex-row items-center">
                     <View className="flex-row items-center" style={{ flex: 1, minWidth: 0 }}>
                         {!hideClose ? (
                             <TouchableOpacity
                                 onPress={onClose}
                                 accessibilityLabel="Back"
-                                className="mr-1 p-1.5 rounded-full"
-                                style={{ marginLeft: -6 }}
+                                style={{ width: 30, height: 30, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}
                             >
-                                <ChevronLeft size={24} color="white" />
+                                <ChevronLeft size={18} color="#D4D4D8" />
                             </TouchableOpacity>
                         ) : null}
                         <TouchableOpacity
@@ -572,111 +497,39 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                             className="flex-row items-center"
                             style={{ flex: 1, minWidth: 0 }}
                         >
-                            <View className="relative w-10 h-10 mr-3">
+                            <View style={{ position: 'relative', width: 40, height: 40, marginRight: 12 }}>
                                 {avatarUri ? (
                                     <Image
                                         source={{ uri: avatarUri }}
-                                        className="w-10 h-10 rounded-full bg-gray-800"
+                                        style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#1C1C23' }}
                                     />
                                 ) : (
-                                    <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,107,53,0.15)' }}>
+                                    <View style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,107,53,0.14)' }}>
                                         <Text style={{ fontFamily: 'Outfit-SemiBold', color: '#FF6B35', fontSize: 14 }}>{initialsOf(displayName)}</Text>
                                     </View>
                                 )}
                                 {isOnline && (
                                     <View
-                                        className="absolute w-3 h-3 bg-green-500 rounded-full border-2 border-[#09090b]"
-                                        style={{ bottom: 0, right: 0 }}
+                                        style={{ position: 'absolute', right: -1, bottom: -1, width: 11, height: 11, borderRadius: 6, backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#121216' }}
                                     />
                                 )}
                             </View>
                             <View style={{ flexShrink: 1 }}>
-                                <Text className="text-white" style={{ fontFamily: 'Outfit-SemiBold' }} numberOfLines={1}>{displayName}</Text>
+                                <Text style={{ fontFamily: 'Outfit-SemiBold', color: '#FFFFFF', fontSize: 14.5 }} numberOfLines={1}>{displayName}</Text>
                                 {isOnline ? (
-                                    <Text className="text-green-400 text-[11px]">Active now</Text>
+                                    <Text style={{ fontFamily: 'Outfit-Regular', color: '#22C55E', fontSize: 11, marginTop: 1 }}>Active now</Text>
                                 ) : null}
                             </View>
                         </TouchableOpacity>
                     </View>
-                    <View className="flex-row items-center gap-3">
-                        {/* Mark as booked — client only, booking thread only, not already booked */}
-                        {isBookingThread && isClient && bookState !== 'booked' ? (
-                            bookState === 'confirming' ? (
-                                <View style={{ flexDirection: 'row', gap: 6 }}>
-                                    <TouchableOpacity
-                                        onPress={handleMarkBooked}
-                                        style={{
-                                            backgroundColor: 'rgba(34,197,94,0.15)',
-                                            paddingHorizontal: 10,
-                                            paddingVertical: 5,
-                                            borderRadius: 8,
-                                            borderWidth: 1,
-                                            borderColor: 'rgba(34,197,94,0.4)',
-                                        }}
-                                    >
-                                        <Text style={{ color: '#22c55e', fontSize: 12, fontFamily: 'Outfit-SemiBold' }}>
-                                            Confirm
-                                        </Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        onPress={handleCancelBook}
-                                        style={{
-                                            backgroundColor: 'rgba(255,255,255,0.06)',
-                                            paddingHorizontal: 10,
-                                            paddingVertical: 5,
-                                            borderRadius: 8,
-                                        }}
-                                    >
-                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontFamily: 'Outfit-Regular' }}>
-                                            Cancel
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-                            ) : bookState === 'loading' ? (
-                                <ActivityIndicator size="small" color="#22c55e" />
-                            ) : (
-                                <TouchableOpacity
-                                    onPress={handleMarkBooked}
-                                    style={{
-                                        backgroundColor: 'rgba(34,197,94,0.1)',
-                                        paddingHorizontal: 10,
-                                        paddingVertical: 5,
-                                        borderRadius: 8,
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(34,197,94,0.25)',
-                                    }}
-                                >
-                                    <Text style={{ color: '#22c55e', fontSize: 12, fontFamily: 'Outfit-SemiBold' }}>
-                                        Mark booked
-                                    </Text>
-                                </TouchableOpacity>
-                            )
-                        ) : null}
-                    </View>
                 </View>
-
-                {/* Context chip — booking threads only (requirementId guaranteed by isBookingThread gate) */}
-                {isBookingThread && ctx ? (
-                    <ContextChip
-                        label={chipLabel}
-                        requirementId={ctx.requirementId!}
-                        proposalId={ctx.proposalId!}
-                    />
-                ) : null}
             </View>
-
-            {/* Book error banner */}
-            {bookError ? (
-                <View style={{ backgroundColor: 'rgba(239,68,68,0.1)', paddingHorizontal: 14, paddingVertical: 6 }}>
-                    <Text style={{ color: '#f87171', fontSize: 12, fontFamily: 'Outfit-Regular' }}>{bookError}</Text>
-                </View>
-            ) : null}
 
             {/* Messages Area */}
             <FlatList
                 data={messages}
                 keyExtractor={item => item._id || item.clientMessageId || Math.random().toString()}
-                contentContainerStyle={{ padding: 16, gap: 12, flexGrow: 1 }}
+                contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 16, gap: 11, flexGrow: 1 }}
                 style={{ flex: 1, minHeight: 0 }}
                 refreshing={loading}
                 onRefresh={() => {
@@ -698,18 +551,21 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                     }
                 }}
                 ListEmptyComponent={() => (
-                    <View className="flex-1 items-center justify-center py-10">
+                    <View className="flex-1 items-center justify-center py-10" style={{ paddingHorizontal: 40 }}>
                         {loading ? (
-                            <ActivityIndicator size="large" color="white" />
+                            <ActivityIndicator size="large" color="#FF6B35" />
                         ) : error ? (
                             <View className="items-center">
-                                <Text className="text-red-500 mb-2">{error}</Text>
-                                <TouchableOpacity onPress={() => setLoading(true)} className="bg-white/10 px-4 py-2 rounded-full">
-                                    <Text className="text-white">Retry Loading</Text>
+                                <Text style={{ color: '#f87171', fontFamily: 'Outfit-Regular', marginBottom: 8 }}>{error}</Text>
+                                <TouchableOpacity onPress={() => setLoading(true)} style={{ backgroundColor: 'rgba(255,255,255,0.06)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999 }}>
+                                    <Text style={{ color: '#D4D4D8', fontFamily: 'Outfit-SemiBold' }}>Retry Loading</Text>
                                 </TouchableOpacity>
                             </View>
                         ) : (
-                            <Text className="text-gray-500 italic">No messages yet. Say hello!</Text>
+                            <View style={{ alignItems: 'center', gap: 8 }}>
+                                <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', color: '#D4D4D8', fontSize: 20 }}>No messages yet</Text>
+                                <Text style={{ fontFamily: 'Outfit-Regular', color: '#8B8B99', fontSize: 12.5 }}>Say hello 👋</Text>
+                            </View>
                         )}
                     </View>
                 )}
@@ -725,8 +581,8 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                     return (
                         <View className={`max-w-[80%] rounded-2xl ${isMe
                             ? 'bg-[#FF6B35] self-end rounded-tr-none'
-                            : 'bg-[#17151d] border border-white/[0.06] self-start rounded-tl-none'
-                            } ${item.optimistic ? 'opacity-70' : ''} ${item.failed ? 'border border-red-500' : ''}`}>
+                            : 'bg-[#1C1C23] border border-white/[0.08] self-start rounded-tl-none'
+                            } ${item.optimistic ? 'opacity-60' : ''} ${item.failed ? 'border border-red-500' : ''}`}>
 
                             {/* Image attachments */}
                             {item.attachments && item.attachments.length > 0 ? (
@@ -739,7 +595,7 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                                                 style={{
                                                     width: 200,
                                                     height: 150,
-                                                    borderRadius: 10,
+                                                    borderRadius: 12,
                                                     backgroundColor: 'rgba(255,255,255,0.05)',
                                                 }}
                                                 resizeMode="cover"
@@ -751,24 +607,24 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
 
                             {/* Message text (only if non-empty) */}
                             {item.text ? (
-                                <View style={{ paddingHorizontal: 12, paddingTop: item.attachments?.length ? 2 : 12, paddingBottom: 8 }}>
-                                    <Text style={{ fontFamily: 'Outfit-Regular' }} className={`text-base ${isMe ? 'text-[#1A0D06]' : 'text-[#e8e4ea]'}`}>{item.text}</Text>
+                                <View style={{ paddingHorizontal: 13, paddingTop: item.attachments?.length ? 2 : 9, paddingBottom: 7 }}>
+                                    <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 14, lineHeight: 20, color: isMe ? '#190B05' : '#D4D4D8' }}>{item.text}</Text>
                                 </View>
                             ) : null}
 
-                            <View className="flex-row items-center justify-end px-3 pb-2 gap-1">
-                                <Text className={`text-[10px] ${isMe ? 'text-black/45' : 'text-white/40'}`}>
+                            <View className="flex-row items-center justify-end" style={{ paddingHorizontal: 13, paddingBottom: 7, gap: 5 }}>
+                                <Text style={{ fontFamily: 'SpaceMono-Regular', fontSize: 9, color: isMe ? 'rgba(25,11,5,0.5)' : '#6B6B78' }}>
                                     {timeString}
                                     {isMe && item.seenBy.length > 1 && (
-                                        <Text className="font-bold ml-1"> • Seen</Text>
+                                        <Text style={{ fontFamily: 'Outfit-Bold', color: 'rgba(25,11,5,0.6)' }}>  Seen</Text>
                                     )}
                                 </Text>
                                 {item.failed && (
                                     <TouchableOpacity
                                         onPress={() => handleRetry(item)}
-                                        className="ml-2 bg-red-500/20 px-2 py-0.5 rounded"
+                                        style={{ marginLeft: 6, backgroundColor: 'rgba(239,68,68,0.16)', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}
                                     >
-                                        <Text className="text-red-400 text-[10px] font-bold">Retry</Text>
+                                        <Text style={{ color: '#f87171', fontFamily: 'Outfit-Bold', fontSize: 9 }}>Retry</Text>
                                     </TouchableOpacity>
                                 )}
                             </View>
@@ -779,56 +635,35 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
 
             {/* Typing Indicator */}
             {remoteIsTyping && (
-                <View style={{ flexShrink: 0 }} className="px-4 py-2 bg-[#09090b]">
-                    <Text className="text-gray-400 text-xs italic">
-                        {displayName} is typing...
+                <View style={{ flexShrink: 0, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#121216' }}>
+                    <Text style={{ fontFamily: 'Outfit-Regular', fontStyle: 'italic', color: '#8B8B99', fontSize: 11 }}>
+                        {displayName} is typing…
                     </Text>
                 </View>
             )}
 
-            {/* Booking footer */}
+            {/* Requirement-linked footer — the Mark-booked action is gone; this just signals
+                that secure booking/payment is still on the way for threads tied to a requirement. */}
             {isBookingThread ? (
-                bookState === 'booked' ? (
-                    <View
-                        style={{
-                            flexShrink: 0,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 6,
-                            paddingVertical: 8,
-                            paddingHorizontal: 14,
-                            backgroundColor: 'rgba(34,197,94,0.08)',
-                            borderTopWidth: 1,
-                            borderTopColor: 'rgba(34,197,94,0.2)',
-                        }}
-                    >
-                        <CheckCircle size={14} color="#22c55e" />
-                        <Text style={{ color: '#22c55e', fontSize: 12, fontFamily: 'Outfit-SemiBold' }}>
-                            Booked
-                        </Text>
-                    </View>
-                ) : (
-                    <View
-                        style={{
-                            flexShrink: 0,
-                            alignItems: 'center',
-                            paddingVertical: 6,
-                            backgroundColor: 'rgba(139,92,246,0.05)',
-                            borderTopWidth: 1,
-                            borderTopColor: 'rgba(139,92,246,0.12)',
-                        }}
-                    >
-                        <Text style={{ color: 'rgba(139,92,246,0.6)', fontSize: 11, fontFamily: 'Outfit-Regular' }}>
-                            Secure booking & payment — coming soon
-                        </Text>
-                    </View>
-                )
+                <View
+                    style={{
+                        flexShrink: 0,
+                        alignItems: 'center',
+                        paddingVertical: 7,
+                        backgroundColor: 'rgba(139,92,246,0.06)',
+                        borderTopWidth: 1,
+                        borderTopColor: 'rgba(139,92,246,0.14)',
+                    }}
+                >
+                    <Text style={{ color: 'rgba(139,92,246,0.75)', fontSize: 11, fontFamily: 'Outfit-Regular' }}>
+                        Secure booking & payment — coming soon
+                    </Text>
+                </View>
             ) : null}
 
             {/* Input Area */}
             {Platform.OS === 'web' ? (
-                <View style={{ flexShrink: 0 }} className="p-4 border-t border-white/10 bg-[#09090b] flex-row items-center gap-3">
+                <View style={{ flexShrink: 0, backgroundColor: '#121216' }} className="p-4 border-t border-white/[0.08] flex-row items-center gap-3">
                     <TextInput
                         nativeID="chatMsgInput"
                         value={msgText}
@@ -836,45 +671,47 @@ export const ChatWindow = ({ conversationId, recipient: initialRecipient, onClos
                         onBlur={handleBlur}
                         onKeyPress={handleInputKeyPress}
                         onSubmitEditing={handleSend}
-                        placeholder="Write a message..."
-                        placeholderTextColor="#6b7280"
+                        placeholder="Write a message…"
+                        placeholderTextColor="#8B8B99"
                         selectionColor="#FF6B35"
-                        className="flex-1 bg-white/10 text-white rounded-full px-4 max-h-24"
+                        className="flex-1 rounded-full px-4 max-h-24"
                         multiline
                         numberOfLines={1}
-                        style={{ outlineStyle: 'none', paddingTop: 10, paddingBottom: 10, textAlignVertical: 'center', fontFamily: 'Outfit-Regular' } as any}
+                        style={{ outlineStyle: 'none', backgroundColor: '#212129', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', color: '#FFFFFF', paddingTop: 10, paddingBottom: 10, textAlignVertical: 'center', fontFamily: 'Outfit-Regular' } as any}
                     />
                     <TouchableOpacity
                         onPress={handleSend}
                         disabled={!msgText.trim()}
-                        className={`p-3 rounded-full ${!msgText.trim() ? 'bg-white/10' : 'bg-[#FF6B35]'}`}
+                        className="p-3 rounded-full"
+                        style={{ backgroundColor: msgText.trim() ? '#FF6B35' : 'rgba(255,255,255,0.08)' }}
                     >
-                        <Send size={20} color="#1A0D06" />
+                        <Send size={20} color={msgText.trim() ? '#190B05' : '#6B6B78'} />
                     </TouchableOpacity>
                 </View>
             ) : (
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flexShrink: 0 }}>
-                    <View className="p-4 border-t border-white/10 bg-[#09090b] flex-row items-center gap-3">
+                    <View style={{ backgroundColor: '#121216' }} className="p-4 border-t border-white/[0.08] flex-row items-center gap-3">
                         <TextInput
                             value={msgText}
                             onChangeText={handleTextChange}
                             onBlur={handleBlur}
                             onSubmitEditing={handleSend}
                             blurOnSubmit={false}
-                            placeholder="Write a message..."
-                            placeholderTextColor="#6b7280"
+                            placeholder="Write a message…"
+                            placeholderTextColor="#8B8B99"
                             selectionColor="#FF6B35"
-                            className="flex-1 bg-white/10 text-white rounded-full px-4 max-h-24"
+                            className="flex-1 rounded-full px-4 max-h-24"
                             multiline
                             numberOfLines={1}
-                            style={{ paddingTop: 10, paddingBottom: 10, textAlignVertical: 'center', fontFamily: 'Outfit-Regular' }}
+                            style={{ backgroundColor: '#212129', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', color: '#FFFFFF', paddingTop: 10, paddingBottom: 10, textAlignVertical: 'center', fontFamily: 'Outfit-Regular' }}
                         />
                         <TouchableOpacity
                             onPress={handleSend}
                             disabled={!msgText.trim()}
-                            className={`p-3 rounded-full ${!msgText.trim() ? 'bg-white/10' : 'bg-[#FF6B35]'}`}
+                            className="p-3 rounded-full"
+                            style={{ backgroundColor: msgText.trim() ? '#FF6B35' : 'rgba(255,255,255,0.08)' }}
                         >
-                            <Send size={20} color="#1A0D06" />
+                            <Send size={20} color={msgText.trim() ? '#190B05' : '#6B6B78'} />
                         </TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>

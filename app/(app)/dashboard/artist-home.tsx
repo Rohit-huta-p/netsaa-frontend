@@ -18,6 +18,7 @@ import { useBottomNavScroll, NAV_SCROLL_EVENT_THROTTLE } from '@/components/nav/
 import { useQueryClient } from '@tanstack/react-query';
 
 import ArtistGreet from '../../../src/components/dashboard/artist/home/ArtistGreet';
+import ArtistProfileCompletion from '../../../src/components/dashboard/artist/home/ArtistProfileCompletion';
 import ArtistDiscover from '../../../src/components/dashboard/artist/home/ArtistDiscover';
 import ArtistWhatYoureIn from '../../../src/components/dashboard/artist/home/ArtistWhatYoureIn';
 import { HC, HF } from '../../../src/components/dashboard/artist/home/ui';
@@ -52,6 +53,7 @@ export default function ArtistHome() {
         }
       >
         <ArtistGreet />
+        <ArtistProfileCompletion />
         <ArtistDiscover />
 
         <View style={styles.divider} />

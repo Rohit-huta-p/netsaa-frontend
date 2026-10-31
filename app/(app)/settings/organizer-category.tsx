@@ -10,7 +10,7 @@ import authService from '@/services/authService';
 import {
     User, Clapperboard, Music2, Briefcase, BookOpen, HelpCircle, PenLine, Check,
 } from 'lucide-react-native';
-import { CL_ORG_TYPES, type CLOrgTypeValue } from '@/constants/orgTypes';
+import { CL_ORG_TYPES, normalizeOrgType, type CLOrgTypeValue } from '@/constants/orgTypes';
 
 /* ── Category data ── */
 const ORG_CATEGORIES = [
@@ -31,7 +31,8 @@ export default function OrganizerCategoryScreen() {
     const isOrganizer = user?.role === 'organizer' || user?.roles?.includes('organizer');
 
     // Current values from user data
-    const currentCategory = (user as any)?.organizerTypeCategory as CategoryId | undefined;
+    // Fold any legacy stored value forward so it preselects the right canonical card.
+    const currentCategory = (normalizeOrgType((user as any)?.organizerTypeCategory) || undefined) as CategoryId | undefined;
     const currentIsCustom = (user as any)?.isCustomCategory as boolean | undefined;
     const currentCustomLabel = (user as any)?.customCategoryLabel as string | undefined;
 

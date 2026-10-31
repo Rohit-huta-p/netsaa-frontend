@@ -53,7 +53,7 @@ import { usePickAndCrop } from '@/hooks/usePickAndCrop';
 import MediaCropper from '@/components/media/MediaCropper';
 import { uploadMediaFlow, validateMediaFile } from '@/utils/upload';
 import { SearchableMultiSelect } from '@/components/inputs/SearchableMultiSelect';
-import { CL_ORG_TYPES } from '@/constants/orgTypes';
+import { CL_ORG_TYPES, normalizeOrgType } from '@/constants/orgTypes';
 
 // ── A·Minimal palette (shared with CreativeLeadProfile / the app) ──
 const C = {
@@ -155,7 +155,7 @@ export function CreativeLeadCompanyEdit() {
         const o: any = organizer || {};
         setLogoUrl(o.logoUrl || '');
         setName(o.organizationName || user?.organizationName || user?.displayName || '');
-        setOrgType(o.organizerTypeCategory || user?.organizerTypeCategory || '');
+        setOrgType(normalizeOrgType(o.organizerTypeCategory || user?.organizerTypeCategory));
         setBio(o.bio || '');
         setWebsite(o.organizationWebsite || '');
         setServices(Array.isArray(o.services) ? o.services : []);

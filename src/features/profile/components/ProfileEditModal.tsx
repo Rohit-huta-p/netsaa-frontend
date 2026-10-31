@@ -12,6 +12,7 @@ import {
     Users, Home, Landmark, Tag,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { CL_ORG_TYPES, normalizeOrgType } from '@/constants/orgTypes';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { uploadMediaFlow, uploadVideoFlow, validateMediaFile, isLargeFile } from "@/utils/upload";
@@ -360,7 +361,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         setSkinTone(profileData.skinTone || ''); setSkinToneHex(profileData.skinToneHex || '');
         setSkills(profileData.skills || []); setShowSkillDropdown(false);
         setSocials({ instagramHandle: profileData.instagramHandle || '', youtubeUrl: profileData.youtubeUrl || '', spotifyUrl: profileData.spotifyUrl || '', soundcloudUrl: profileData.soundcloudUrl || '' });
-        setOrgType(profileData.organizerTypeCategory || 'individual'); setOrgWebsite(profileData.organizationWebsite || '');
+        setOrgType(normalizeOrgType(profileData.organizerTypeCategory) || 'individual'); setOrgWebsite(profileData.organizationWebsite || '');
         setProfileImageUrl(profileData.profileImageUrl || '');
         setGalleryUrls([...(profileData.galleryUrls || []), '', '', '', '', ''].slice(0, 5));
         setVideoReels((profileData.videoReels || []).slice(0, 3));
@@ -1001,15 +1002,15 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     );
 
     // ── TAB 7: ORGANIZATION — Business Card Selector ──
-    const ORG_TYPES = [
-        { label: 'Individual', value: 'individual', icon: UserIcon },
-        { label: 'Academy', value: 'academy', icon: Home },
-        { label: 'Business', value: 'registered_business', icon: Building2 },
-        { label: 'Agency', value: 'agency', icon: Users },
-        { label: 'Venue', value: 'venue', icon: Landmark },
-        { label: 'Brand', value: 'brand', icon: Tag },
-        { label: 'Corporate', value: 'corporate', icon: Briefcase },
-    ];
+    // Canonical CL org types (single source of truth) with per-type icons.
+    const ORG_TYPE_ICONS: Record<string, any> = {
+        individual: UserIcon,
+        production_company: Building2,
+        performing_arts_group: Users,
+        agency: Briefcase,
+        academy: Home,
+    };
+    const ORG_TYPES = CL_ORG_TYPES.map((t) => ({ label: t.label, value: t.value, icon: ORG_TYPE_ICONS[t.value] }));
     const renderOrganization = () => {
         const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('organization'); };
         return (

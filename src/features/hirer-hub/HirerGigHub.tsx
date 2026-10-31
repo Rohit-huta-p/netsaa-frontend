@@ -299,6 +299,16 @@ export function HirerGigHub({ gigId }: Props) {
             // user dismissed the share sheet — no-op
         }
     };
+    const handleShareApplicant = async (applicationId: string) => {
+        const app = (data.applications as any[]).find((a) => a._id === applicationId);
+        const name = (app?.artistSnapshot?.displayName ?? '').trim() || 'This applicant';
+        const message = `${name} applied to “${gig.title}” on NETSA`;
+        try {
+            await Share.share({ message });
+        } catch {
+            // user dismissed the share sheet — no-op
+        }
+    };
     const handleTogglePause = (next: boolean) =>
         updateGigMutation.mutate({ id: gigId, payload: { applicationsPaused: next } });
     const handleToggleAutoClose = (next: boolean) =>
@@ -359,6 +369,7 @@ export function HirerGigHub({ gigId }: Props) {
                         slotsTotal={data.kpis.slotsTotal}
                         venueCity={gig.location?.city}
                         onTapApplicant={handleViewTeamProfile}
+                        onShare={handleShareApplicant}
                         onMessage={handleMessageApplicant}
                         onRemove={handleRemoveHire}
                         onFillSlot={handleFillSlot}
@@ -371,6 +382,7 @@ export function HirerGigHub({ gigId }: Props) {
                             ? 'No picks yet — shortlist applicants to line up your hires.'
                             : 'No new applicants right now.'}
                         onTapApplicant={handleRowTap}
+                        onShare={handleShareApplicant}
                         onPass={handleQuickReject}
                         onUndoPass={handleUndoPass}
                         onShortlist={handleQuickShortlist}

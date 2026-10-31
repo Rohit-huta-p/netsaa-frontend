@@ -36,6 +36,8 @@ type Props = {
     venueCity?: string;
     /** Tap a cast card body — Hub opens the artist's profile. */
     onTapApplicant?: (applicationId: string) => void;
+    /** Share a cast member — Hub opens the native share sheet. */
+    onShare?: (applicationId: string) => void;
     /** Message a cast member — Hub opens the contact sheet. */
     onMessage?: (applicationId: string) => void;
     /** Remove a hire — Hub opens the Remove-hire confirm sheet. */
@@ -47,7 +49,7 @@ type Props = {
 };
 
 export function HubTeamSection({
-    teamRows, slotsTotal, venueCity, onTapApplicant, onMessage, onRemove, onFillSlot,
+    teamRows, slotsTotal, venueCity, onTapApplicant, onShare, onMessage, onRemove, onFillSlot,
     emptyLabel = 'No one hired yet — hire from your shortlist to fill the cast.',
 }: Props) {
     const filled = teamRows.length;
@@ -69,6 +71,7 @@ export function HubTeamSection({
                     application={row.application}
                     venueCity={venueCity}
                     onTap={onTapApplicant}
+                    onShare={onShare}
                     onMessage={onMessage}
                     onRemove={onRemove}
                 />

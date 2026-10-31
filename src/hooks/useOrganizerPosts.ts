@@ -119,7 +119,10 @@ function normalizeGig(g: any): PostRow {
     title: g.title ?? 'Untitled gig',
     category: readCategory(g),
     price: readGigPrice(g),
-    date: readDate(g.startsAt ?? g.gigDate ?? g.dates?.start ?? g.createdAt),
+    // Gig start date — the gig schema stores it at schedule.startDate (older
+    // shapes used startsAt/gigDate/dates.start). createdAt is only a last resort
+    // so the card shows the gig date, never the post date.
+    date: readDate(g.schedule?.startDate ?? g.startsAt ?? g.gigDate ?? g.dates?.start ?? g.createdAt),
     applicants: g.stats?.applicationsCount ?? 0,
     views: g.stats?.viewsCount ?? 0,
     status: g.status ?? 'unknown',

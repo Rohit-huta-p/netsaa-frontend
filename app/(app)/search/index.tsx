@@ -1,300 +1,265 @@
 // app/(app)/search/index.tsx
-import React, { useState, useEffect } from "react";
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    ActivityIndicator,
-    Platform,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useSearchPreview, useSearchPeople, useSearchGigs, useSearchEvents } from "@/hooks/useSearchQueries";
-import connectionService from "@/services/connectionService";
-import AppScrollView from "@/components/AppScrollView";
-import { PersonItem } from "@/components/search/items/PersonItem";
-import { GigItem } from "@/components/search/items/GigItem";
-import { EventItem } from "@/components/search/items/EventItem";
+//
+// The full search surface (A·Minimal — DOCS/04-design/mockups/search-aminimal.html).
+// Owns the input, the idle zero-state, live results as you type, and the
+// sectioned / scoped results. One UI (the top-bar magnifier just routes here).
+//
+// Driven by a controlled, debounced query:
+//   • idle   (< 2 chars) → IdleState (recent · browse · cities · PYMK)
+//   • active (≥ 2 chars) → ScopeTabs + body { skeleton | error | empty | data }
+//       - All    → top-3 per type under a SectionHeader + "See all"
+//       - scoped → the full list for that type
+// Counts come from each type's meta.total (fixes the old always-"00" counts);
+// the three typed hooks are the single data path (fixes the two-UI split).
 
-type Category = "All" | "People" | "Gigs" | "Events";
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import AppScrollView from '@/components/AppScrollView';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useSearchPeople, useSearchGigs, useSearchEvents } from '@/hooks/useSearchQueries';
+import connectionService from '@/services/connectionService';
 
-const GOLD = "#D4A155";          // muted verified-gold for hairlines + counts
-const ORANGE = "#FF6B35";        // brand orange — active accent
-const PAPER_TINT = "rgba(255, 200, 140, 0.04)";
+import { C } from '@/components/search/board/theme';
+import { SearchField } from '@/components/search/board/SearchField';
+import { ScopeTabs, Scope } from '@/components/search/board/ScopeTabs';
+import { SectionHeader } from '@/components/search/board/SectionHeader';
+import { PersonRow, GigRow, EventRow, ConnectionStatus } from '@/components/search/board/ResultRows';
+import { IdleState } from '@/components/search/board/IdleState';
+import { SearchSkeleton } from '@/components/search/board/SearchSkeleton';
+import { EmptyState } from '@/components/search/board/EmptyState';
+import { ErrorState } from '@/components/search/board/ErrorState';
+import { Flourish } from '@/components/search/board/Flourish';
+import { getRecent, addRecent, removeRecent, clearRecent } from '@/components/search/board/RecentSearches';
 
-// ── Tab: editorial underline (active = orange rule, no fill) ──
-const Tab = ({ label, isActive, onPress }: { label: string; isActive: boolean; onPress: () => void }) => (
-    <TouchableOpacity onPress={onPress} className="mr-6 pb-2">
-        <Text
-            className={`font-outfit-semibold text-[13px] tracking-wide ${
-                isActive ? "text-white" : "text-zinc-500"
-            }`}
-        >
-            {label}
-        </Text>
-        {isActive ? (
-            <View style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: 1.5, backgroundColor: ORANGE }} />
-        ) : null}
-    </TouchableOpacity>
-);
-
-// ── Section header: hairline + serif title + mono count ──
-const SectionHeader = ({ title, count, onSeeAll }: { title: string; count?: number; onSeeAll?: () => void }) => (
-    <View className="mt-10 mb-3">
-        <View className="flex-row items-center">
-            <View style={{ flex: 1, height: 1, backgroundColor: GOLD, opacity: 0.25 }} />
-            <Text
-                className="font-serif text-white text-2xl px-4"
-                style={Platform.OS === "web" ? ({ fontStyle: "italic" as any } as any) : undefined}
-            >
-                {title}
-            </Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: GOLD, opacity: 0.25 }} />
-        </View>
-        <View className="flex-row items-center justify-between mt-2">
-            <Text className="font-mono text-[10px] tracking-widest" style={{ color: GOLD }}>
-                {typeof count === "number" ? String(count).padStart(2, "0") : ""}
-                {typeof count === "number" ? "  ENTRIES" : ""}
-            </Text>
-            {onSeeAll ? (
-                <TouchableOpacity onPress={onSeeAll}>
-                    <Text className="font-outfit-medium text-[11px] uppercase tracking-widest" style={{ color: GOLD }}>
-                        See all →
-                    </Text>
-                </TouchableOpacity>
-            ) : null}
-        </View>
-    </View>
-);
-
-const EmptyState = ({ query }: { query: string }) => (
-    <View className="mt-24 items-center">
-        <Text className="font-serif text-zinc-500 text-2xl mb-3" style={{ fontStyle: "italic" as any }}>
-            ⋄
-        </Text>
-        <Text className="font-outfit text-zinc-500 text-sm">
-            Nothing found for{" "}
-            <Text className="font-serif text-zinc-300" style={{ fontStyle: "italic" as any }}>
-                "{query}"
-            </Text>
-        </Text>
-        <Text className="font-mono text-[10px] text-zinc-700 mt-3 tracking-widest">TRY ANOTHER NAME</Text>
-    </View>
-);
-
-const QueryHeader = ({ query }: { query: string }) => (
-    <View className="px-5 pt-4 pb-3">
-        <Text className="font-mono text-[10px] text-zinc-500 tracking-[0.3em] mb-1">DIRECTORY</Text>
-        <View className="flex-row items-baseline">
-            <Text className="font-outfit text-zinc-500 text-sm mr-2">searching</Text>
-            <Text
-                className="font-serif text-white text-2xl"
-                style={{ fontStyle: "italic" as any }}
-                numberOfLines={1}
-            >
-                "{query}"
-            </Text>
-        </View>
-    </View>
-);
+const PREVIEW_COUNT = 3;
 
 export default function SearchScreen() {
-    const params = useLocalSearchParams();
-    const router = useRouter();
+  const params = useLocalSearchParams<{ q?: string }>();
+  const router = useRouter();
 
-    const [searchQuery] = useState((params.q as string) || "");
-    const [activeTab, setActiveTab] = useState<Category>("All");
+  const [query, setQuery] = useState((params.q as string) || '');
+  const [scope, setScope] = useState<Scope>('All');
+  const [recent, setRecent] = useState<string[]>([]);
 
-    const [sentRequests, setSentRequests] = useState<string[]>([]);
-    const [connectedUsers, setConnectedUsers] = useState<string[]>([]);
+  const dq = useDebouncedValue(query.trim(), 250);
+  const active = dq.length >= 2;
 
-    useEffect(() => {
-        const fetchStatusData = async () => {
-            try {
-                const [sent, connected] = await Promise.all([
-                    connectionService.getSentConnectionRequests(),
-                    connectionService.getConnections(),
-                ]);
-                const sentIds = sent.map((r: any) => r.recipientId?._id || r.recipientId);
-                const connectedIds = connected.flatMap((c: any) => [c.requesterId?._id, c.recipientId?._id].filter(Boolean));
-                setSentRequests(sentIds);
-                setConnectedUsers(connectedIds);
-            } catch (error) {
-                console.error("Failed to fetch connection status", error);
-            }
-        };
-        fetchStatusData();
-    }, []);
+  // ─── recent searches (AsyncStorage) ──────────────────────────────────────
+  useEffect(() => {
+    getRecent().then(setRecent);
+  }, []);
 
-    const getPersonStatus = (userId: string): "none" | "pending" | "connected" => {
-        if (connectedUsers.includes(userId)) return "connected";
-        if (sentRequests.includes(userId)) return "pending";
-        return "none";
+  const remember = (q: string) => addRecent(q).then(setRecent);
+
+  // ─── connection status for People rows ───────────────────────────────────
+  const [sent, setSent] = useState<string[]>([]);
+  const [connected, setConnected] = useState<string[]>([]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const [s, c] = await Promise.all([
+          connectionService.getSentConnectionRequests(),
+          connectionService.getConnections(),
+        ]);
+        setSent(s.map((r: any) => r.recipientId?._id || r.recipientId).filter(Boolean));
+        setConnected(
+          c.flatMap((x: any) => [x.requesterId?._id, x.recipientId?._id].filter(Boolean)),
+        );
+      } catch {
+        /* status is best-effort — rows just default to "none" */
+      }
+    })();
+  }, []);
+  const statusOf = (id: string): ConnectionStatus =>
+    connected.includes(id) ? 'connected' : sent.includes(id) ? 'pending' : 'none';
+
+  // ─── data (three typed hooks; gated ≥2 chars via `enabled` in the hooks) ──
+  const peopleQ = useSearchPeople(dq);
+  const gigsQ = useSearchGigs(dq);
+  const eventsQ = useSearchEvents(dq);
+
+  const people = peopleQ.data?.results ?? [];
+  const gigs = gigsQ.data?.results ?? [];
+  const events = eventsQ.data?.results ?? [];
+
+  const peopleTotal = peopleQ.data?.meta?.total ?? (peopleQ.data ? people.length : undefined);
+  const gigsTotal = gigsQ.data?.meta?.total ?? (gigsQ.data ? gigs.length : undefined);
+  const eventsTotal = eventsQ.data?.meta?.total ?? (eventsQ.data ? events.length : undefined);
+
+  const counts = useMemo(() => {
+    const sum = [peopleTotal, gigsTotal, eventsTotal].filter((n): n is number => typeof n === 'number');
+    return {
+      All: sum.length ? sum.reduce((a, b) => a + b, 0) : undefined,
+      People: peopleTotal,
+      Gigs: gigsTotal,
+      Events: eventsTotal,
     };
+  }, [peopleTotal, gigsTotal, eventsTotal]);
 
-    const { data: previewData, isLoading: isLoadingPreview } = useSearchPreview(searchQuery);
-    const { data: peopleData, isLoading: isLoadingPeople } = useSearchPeople(searchQuery);
-    const { data: gigsData,   isLoading: isLoadingGigs }   = useSearchGigs(searchQuery);
-    const { data: eventsData, isLoading: isLoadingEvents } = useSearchEvents(searchQuery);
+  const anyResults = people.length + gigs.length + events.length > 0;
+  const loading =
+    (peopleQ.isLoading || gigsQ.isLoading || eventsQ.isLoading) && !anyResults;
+  const errored =
+    peopleQ.isError && gigsQ.isError && eventsQ.isError && !anyResults;
+  const empty = !loading && !errored && peopleQ.data && gigsQ.data && eventsQ.data && !anyResults;
 
-    const loading =
-        (isLoadingPreview && activeTab === "All") ||
-        (isLoadingPeople && activeTab === "People") ||
-        (isLoadingGigs && activeTab === "Gigs") ||
-        (isLoadingEvents && activeTab === "Events");
+  const retry = () => {
+    peopleQ.refetch();
+    gigsQ.refetch();
+    eventsQ.refetch();
+  };
 
-    const hasAny =
-        previewData &&
-        (previewData.people?.length || previewData.gigs?.length || previewData.events?.length);
+  // ─── navigation helpers ───────────────────────────────────────────────────
+  const openProfile = (id: string) => router.push(`/(app)/profile/${id}` as any);
+  const openGig = (id: string) => router.push(`/(app)/gigs/${id}` as any);
+  const openEvent = (id: string) => router.push(`/(app)/events/${id}` as any);
 
-    return (
-        <View className="flex-1 bg-[#0a0807]">
-            {/* Warm-tinted radial glow on top — adds atmosphere vs flat black */}
-            <LinearGradient
-                colors={[PAPER_TINT, "rgba(255, 107, 53, 0.025)", "transparent"]}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 0.5 }}
-                style={{ position: "absolute", top: 0, left: 0, right: 0, height: 320 }}
+  const runQuery = (q: string) => {
+    setQuery(q);
+    setScope('All');
+    remember(q);
+  };
+
+  // ─── body ─────────────────────────────────────────────────────────────────
+  const renderActiveBody = () => {
+    if (loading) return <SearchSkeleton />;
+    if (errored) return <ErrorState onRetry={retry} />;
+    if (empty) return <EmptyState query={dq} onCraft={runQuery} onCity={runQuery} />;
+
+    if (scope === 'All') {
+      const sections: React.ReactNode[] = [];
+      if (people.length > 0)
+        sections.push(
+          <View key="people">
+            <SectionHeader
+              title="People"
+              entries={peopleTotal}
+              onSeeAll={() => setScope('People')}
+              first={sections.length === 0}
             />
+            {people.slice(0, PREVIEW_COUNT).map((p: any) => (
+              <PersonRow
+                key={p._id || p.id}
+                item={p}
+                status={statusOf(p._id || p.id)}
+                onPress={() => openProfile(p._id || p.id)}
+              />
+            ))}
+          </View>,
+        );
+      if (gigs.length > 0)
+        sections.push(
+          <View key="gigs">
+            <SectionHeader
+              title="Gigs"
+              entries={gigsTotal}
+              onSeeAll={() => setScope('Gigs')}
+              first={sections.length === 0}
+            />
+            {gigs.slice(0, PREVIEW_COUNT).map((g: any) => (
+              <GigRow key={g._id || g.id} item={g} onPress={() => openGig(g._id || g.id)} />
+            ))}
+          </View>,
+        );
+      if (events.length > 0)
+        sections.push(
+          <View key="events">
+            <SectionHeader
+              title="Events"
+              entries={eventsTotal}
+              onSeeAll={() => setScope('Events')}
+              first={sections.length === 0}
+            />
+            {events.slice(0, PREVIEW_COUNT).map((e: any) => (
+              <EventRow key={e._id || e.id} item={e} onPress={() => openEvent(e._id || e.id)} />
+            ))}
+          </View>,
+        );
+      return (
+        <>
+          {sections}
+          <Flourish />
+        </>
+      );
+    }
 
-            <SafeAreaView edges={["top"]} className="flex-1">
-                {/* Query header — editorial */}
-                <QueryHeader query={searchQuery} />
-
-                {/* Tab strip — minimal underlined */}
-                <View className="px-5 flex-row border-b border-white/[0.06]">
-                    {(["All", "People", "Gigs", "Events"] as Category[]).map((t) => (
-                        <Tab key={t} label={t} isActive={activeTab === t} onPress={() => setActiveTab(t)} />
-                    ))}
-                </View>
-
-                {/* Content */}
-                <AppScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
-                    {loading ? (
-                        <View className="mt-24 items-center justify-center">
-                            <ActivityIndicator size="small" color={GOLD} />
-                            <Text className="font-mono text-[10px] tracking-widest mt-3" style={{ color: GOLD, opacity: 0.5 }}>
-                                FETCHING
-                            </Text>
-                        </View>
-                    ) : (
-                        <>
-                            {/* All */}
-                            {activeTab === "All" && previewData && (
-                                <>
-                                    {previewData.people?.length > 0 && (
-                                        <>
-                                            <SectionHeader
-                                                title="People"
-                                                count={previewData.people.length}
-                                                onSeeAll={() => setActiveTab("People")}
-                                            />
-                                            {previewData.people.slice(0, 3).map((person: any) => (
-                                                <PersonItem
-                                                    key={person._id || person.id}
-                                                    item={person}
-                                                    status={getPersonStatus(person._id || person.id)}
-                                                    onPress={() => router.push(`/profile/${person._id || person.id}`)}
-                                                />
-                                            ))}
-                                        </>
-                                    )}
-
-                                    {previewData.gigs?.length > 0 && (
-                                        <>
-                                            <SectionHeader
-                                                title="Gigs"
-                                                count={previewData.gigs.length}
-                                                onSeeAll={() => setActiveTab("Gigs")}
-                                            />
-                                            {previewData.gigs.slice(0, 3).map((gig: any) => (
-                                                <GigItem
-                                                    key={gig._id}
-                                                    item={gig}
-                                                    onPress={() => router.push(`/gigs/${gig._id}`)}
-                                                />
-                                            ))}
-                                        </>
-                                    )}
-
-                                    {previewData.events?.length > 0 && (
-                                        <>
-                                            <SectionHeader
-                                                title="Events"
-                                                count={previewData.events.length}
-                                                onSeeAll={() => setActiveTab("Events")}
-                                            />
-                                            {previewData.events.slice(0, 3).map((event: any) => (
-                                                <EventItem
-                                                    key={event._id}
-                                                    item={event}
-                                                    onPress={() => router.push(`/events/${event._id}`)}
-                                                />
-                                            ))}
-                                        </>
-                                    )}
-
-                                    {!hasAny && <EmptyState query={searchQuery} />}
-                                </>
-                            )}
-
-                            {/* People */}
-                            {activeTab === "People" && peopleData && (
-                                <View>
-                                    <SectionHeader title="People" count={peopleData.total || 0} />
-                                    {peopleData.results?.map((person: any) => (
-                                        <PersonItem
-                                            key={person._id || person.id}
-                                            item={person}
-                                            status={getPersonStatus(person._id || person.id)}
-                                            onPress={() => router.push(`/profile/${person._id || person.id}`)}
-                                        />
-                                    ))}
-                                    {(peopleData.results?.length ?? 0) === 0 && <EmptyState query={searchQuery} />}
-                                </View>
-                            )}
-
-                            {/* Gigs */}
-                            {activeTab === "Gigs" && gigsData && (
-                                <View>
-                                    <SectionHeader title="Gigs" count={gigsData.total || 0} />
-                                    {gigsData.results?.map((gig: any) => (
-                                        <GigItem
-                                            key={gig._id}
-                                            item={gig}
-                                            onPress={() => router.push(`/gigs/${gig._id}`)}
-                                        />
-                                    ))}
-                                    {(gigsData.results?.length ?? 0) === 0 && <EmptyState query={searchQuery} />}
-                                </View>
-                            )}
-
-                            {/* Events */}
-                            {activeTab === "Events" && eventsData && (
-                                <View>
-                                    <SectionHeader title="Events" count={eventsData.total || 0} />
-                                    {eventsData.results?.map((event: any) => (
-                                        <EventItem
-                                            key={event._id}
-                                            item={event}
-                                            onPress={() => router.push(`/events/${event._id}`)}
-                                        />
-                                    ))}
-                                    {(eventsData.results?.length ?? 0) === 0 && <EmptyState query={searchQuery} />}
-                                </View>
-                            )}
-
-                            {/* Bottom flourish */}
-                            <View className="items-center py-12">
-                                <Text className="font-serif text-zinc-700 text-2xl" style={{ fontStyle: "italic" as any }}>
-                                    ✦
-                                </Text>
-                            </View>
-                        </>
-                    )}
-                </AppScrollView>
-            </SafeAreaView>
-        </View>
+    const note = dq.toUpperCase();
+    if (scope === 'People')
+      return (
+        <>
+          <SectionHeader title={`${peopleTotal ?? people.length} people`} note={note} first />
+          {people.map((p: any) => (
+            <PersonRow
+              key={p._id || p.id}
+              item={p}
+              status={statusOf(p._id || p.id)}
+              onPress={() => openProfile(p._id || p.id)}
+            />
+          ))}
+          <Flourish />
+        </>
+      );
+    if (scope === 'Gigs')
+      return (
+        <>
+          <SectionHeader title={`${gigsTotal ?? gigs.length} gigs`} note={note} first />
+          {gigs.map((g: any) => (
+            <GigRow key={g._id || g.id} item={g} onPress={() => openGig(g._id || g.id)} />
+          ))}
+          <Flourish />
+        </>
+      );
+    return (
+      <>
+        <SectionHeader title={`${eventsTotal ?? events.length} events`} note={note} first />
+        {events.map((e: any) => (
+          <EventRow key={e._id || e.id} item={e} onPress={() => openEvent(e._id || e.id)} />
+        ))}
+        <Flourish />
+      </>
     );
+  };
+
+  return (
+    <View style={s.screen}>
+      <SafeAreaView edges={['top']} style={s.flex}>
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          onClear={() => setQuery('')}
+          onBack={() => router.back()}
+          onSubmit={() => dq.length >= 2 && remember(dq)}
+        />
+
+        {active ? (
+          <>
+            <ScopeTabs value={scope} counts={counts} onChange={setScope} />
+            <AppScrollView style={s.flex} contentContainerStyle={s.pad} showsVerticalScrollIndicator={false}>
+              {renderActiveBody()}
+            </AppScrollView>
+          </>
+        ) : (
+          <AppScrollView style={s.flex} contentContainerStyle={s.pad} showsVerticalScrollIndicator={false}>
+            <IdleState
+              recent={recent}
+              onRecentPress={runQuery}
+              onRecentRemove={(q) => removeRecent(q).then(setRecent)}
+              onClearRecent={() => clearRecent().then(() => setRecent([]))}
+              onCraft={runQuery}
+              onCity={runQuery}
+              onOpenProfile={openProfile}
+            />
+          </AppScrollView>
+        )}
+      </SafeAreaView>
+    </View>
+  );
 }
+
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.canvas },
+  flex: { flex: 1 },
+  pad: { paddingHorizontal: 18, paddingBottom: 40 },
+});

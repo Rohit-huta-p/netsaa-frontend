@@ -17,6 +17,8 @@ export interface FeatureFlags {
   newGigForm: boolean;
   /** Spotlight — editorial artist profile (SpotlightProfile) vs legacy ProfileScreen. */
   spotlightProfile: boolean;
+  /** Creative Lead — company/org profile page (CreativeLeadProfile) vs the artist/performer fallback. */
+  creativeLeadProfile: boolean;
   /** Events — v4 "one form for every event" composer vs legacy ComposerShell. */
   eventComposerV4: boolean;
   /** Media — in-app pan/zoom cropper (MediaCropper) for avatar/cover/event-poster/logo uploads. */
@@ -28,6 +30,7 @@ export function useFeatureFlags(): FeatureFlags {
     () => ({
       newGigForm: process.env.EXPO_PUBLIC_FEATURE_NEW_GIG_FORM === 'true',
       spotlightProfile: process.env.EXPO_PUBLIC_FEATURE_SPOTLIGHT_PROFILE === 'true',
+      creativeLeadProfile: process.env.EXPO_PUBLIC_FEATURE_CL_PROFILE === 'true',
       eventComposerV4: process.env.EXPO_PUBLIC_FEATURE_EVENT_V4 === 'true',
       mediaCropper: process.env.EXPO_PUBLIC_FEATURE_MEDIA_CROPPER === 'true',
     }),

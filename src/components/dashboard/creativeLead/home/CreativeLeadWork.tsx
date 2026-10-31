@@ -64,6 +64,8 @@ export default function CreativeLeadWork() {
       : sub === 'draft' ? { label: 'Draft', tone: 'muted' }
       : { label: 'Closed', tone: 'muted' };
     const showCount = sub !== 'draft';
+    const rawId = p.id.startsWith('gig:') ? p.id.slice(4) : p.id;
+    const newCount = sub === 'live' ? inv.newByGig[rawId] ?? 0 : 0;
     return (
       <Row
         key={p.id}
@@ -73,6 +75,7 @@ export default function CreativeLeadWork() {
         pill={pill}
         meta={metaLine(p)}
         right={showCount ? String(p.applicants ?? 0) : undefined}
+        accent={newCount > 0 ? `${newCount} NEW` : undefined}
         rightSub={showCount ? 'APPLICANTS' : undefined}
         muted={sub !== 'live'}
         onPress={() =>
@@ -123,7 +126,7 @@ export default function CreativeLeadWork() {
         key={p._id}
         title={title}
         initial={initialOf(title)}
-        kind="gig"
+        kind="brief"
         pill={pill}
         meta={meta}
         right={fmtRupees(amount)}

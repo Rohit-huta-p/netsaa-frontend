@@ -24,6 +24,13 @@ export interface CLInvolvement {
   pitching: { sent: SentProposal[]; won: SentProposal[]; closed: SentProposal[] };
   /** New (unreviewed, status='applied') applicants — the focus-card signal. */
   newApplicants: number;
+  /**
+   * New applicants per raw gig id, for the row "N NEW" accent. Grouped from the
+   * applicants inbox, so it's capped at that query's limit (5) — a lower bound,
+   * good enough for the common few-at-a-time case. A per-gig unreviewed count on
+   * gig.stats would make this exact.
+   */
+  newByGig: Record<string, number>;
   isLoading: boolean;
 }
 
@@ -60,6 +67,14 @@ export function useCreativeLeadInvolvement(): CLInvolvement {
     const inStatus = (set: SentProposal['status'][]) =>
       proposals.filter((p) => set.includes(p.status));
 
+    // Group the (new/applied) inbox by gig so each Hiring row can show "N NEW".
+    const apps = unwrapApplicants(appData);
+    const newByGig: Record<string, number> = {};
+    for (const a of apps) {
+      const gid = a?.gigId ?? a?.gig?._id ?? a?.gig;
+      if (gid) newByGig[String(gid)] = (newByGig[String(gid)] ?? 0) + 1;
+    }
+
     return {
       hiring: {
         live: gigs(active.allItems),
@@ -76,7 +91,8 @@ export function useCreativeLeadInvolvement(): CLInvolvement {
         won: inStatus(['accepted']),
         closed: inStatus(['declined', 'withdrawn']),
       },
-      newApplicants: unwrapApplicants(appData).length,
+      newApplicants: apps.length,
+      newByGig,
       isLoading: active.isLoading || drafts.isLoading || past.isLoading || appsLoading,
     };
   }, [active, drafts, past, appData, appsLoading, proposalsQ.data]);

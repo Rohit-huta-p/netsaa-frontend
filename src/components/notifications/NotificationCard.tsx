@@ -139,7 +139,7 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
         borderWidth: 1, borderColor: N.hairline2,
     },
-    avatar: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#2E2B36', alignItems: 'center', justifyContent: 'center' },
+    avatar: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#2A2A33', alignItems: 'center', justifyContent: 'center' }, // A·Minimal avatar well
     avatarImg: { width: 40, height: 40, borderRadius: 12 },
     avatarInitials: { fontFamily: FONT.bold, fontSize: 15, color: N.text0, letterSpacing: -0.2 },
     badge: {

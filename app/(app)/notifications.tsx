@@ -77,7 +77,8 @@ export default function NotificationsScreen() {
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Header */}
                 <View style={s.header}>
-                    <Text style={s.eyebrow}>INBOX</Text>
+                    {/* "INBOX" eyebrow dropped per design — header opens on the serif title. Uncomment to restore. */}
+                    {/* <Text style={s.eyebrow}>INBOX</Text> */}
                     <Text style={s.title}>Notifications</Text>
                     <View style={s.meta}>
                         <Text style={s.metaCount}>

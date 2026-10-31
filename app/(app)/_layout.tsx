@@ -86,11 +86,13 @@ export default function AppLayout() {
 
     // Hide the global BottomNav where it gets in the way of bottom affordances.
     // The /inbox launcher keeps the nav; only an open conversation (?c=<id>,
-    // i.e. the full-screen chat on mobile) hides it. The /create flow has its
-    // own pinned "Next" footer, so the nav would collide with it — hide it too.
+    // i.e. the full-screen chat on mobile) hides it. The /create flow and the
+    // company profile editor both have their own pinned footer, so the nav would
+    // collide with it — hide it on those too.
     const hideBottomNav =
         ((pathname?.startsWith('/inbox') ?? false) && !!openConversationId) ||
-        pathname === '/create';
+        pathname === '/create' ||
+        (pathname?.startsWith('/client/agency-profile') ?? false);
 
     return (
         <View className="flex-1">

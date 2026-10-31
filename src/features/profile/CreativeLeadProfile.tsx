@@ -40,6 +40,7 @@ import { ChevronLeft, MoreHorizontal, Check, Play } from 'lucide-react-native';
 import { useUser } from '@/hooks/useUser';
 import { useOrganizer } from '@/hooks/useOrganizer';
 import { useEventsByOrganizer } from '@/hooks/useEventsByOrganizer';
+import { useOrganizerGigsPublic } from '@/hooks/useOrganizerGigsPublic';
 import { orgTypeLabel } from '@/constants/orgTypes';
 import MediaViewer, { type MediaViewerItem } from '@/components/profile/MediaViewer';
 
@@ -134,6 +135,7 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     // Owner gets the complete, me-scoped organizer doc merged over the public DTO.
     const { organizer } = useOrganizer();
     const { data: eventsData } = useEventsByOrganizer(userId);
+    const { data: gigsData } = useOrganizerGigsPublic(userId);
 
     const [following, setFollowing] = useState(false);
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
@@ -158,6 +160,8 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     const photos = (d.photos ?? []).filter(Boolean);
     const website = (d.organizationWebsite || '').trim();
     const events = eventsData?.events ?? [];
+    const gigs = gigsData?.gigs ?? [];
+    const gigsTotal = gigsData?.total ?? 0;
 
     // Stat strip (A·Editorial) — only cells that have data.
     const st = d.organizerStats;
@@ -369,7 +373,21 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                         </>
                     )}
 
-                    {/* ═══ NOW HIRING — Phase 2 (needs a public organizerId gig endpoint) ═══ */}
+                    {/* ═══ NOW HIRING — public open roles (GET /organizers/:id/gigs) ═══ */}
+                    {gigs.length > 0 && (
+                        <>
+                            <View style={s.divsec} />
+                            <View style={s.shead}>
+                                <Text style={s.stitle}>Now hiring</Text>
+                                {gigsTotal > gigs.length && (
+                                    <Text style={s.seeall}>See all {gigsTotal} →</Text>
+                                )}
+                            </View>
+                            {gigs.map((g: any) => (
+                                <RoleCard key={g._id} g={g} />
+                            ))}
+                        </>
+                    )}
 
                     {/* ═══ EVENTS THEY HOST — public ═══ */}
                     {events.length > 0 && (
@@ -443,6 +461,61 @@ function fmtDay(iso?: string): { d: string; m: string } {
     } catch {
         return { d: '', m: '' };
     }
+}
+
+// Compact "role" card for Now hiring — serif title + ₹pay fact, facet pills,
+// footer (schedule date · closes-in). Pay is a plain fact (no take-home math).
+function payLabel(c?: any): string {
+    if (!c) return '';
+    const suffix: Record<string, string> = { hourly: '/hr', 'per-day': '/day', 'per-track': '/track', 'per-shoot': '/shoot' };
+    const sfx = suffix[c.model] || '';
+    if (typeof c.amount === 'number' && c.amount > 0) return `₹${c.amount.toLocaleString('en-IN')}${sfx}`;
+    if (typeof c.minAmount === 'number' && typeof c.maxAmount === 'number') {
+        return `₹${c.minAmount.toLocaleString('en-IN')}–${c.maxAmount.toLocaleString('en-IN')}${sfx}`;
+    }
+    if (c.negotiable) return 'Negotiable';
+    return '';
+}
+
+function closesLabel(deadline?: string): string {
+    if (!deadline) return '';
+    const days = Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
+    if (isNaN(days)) return '';
+    if (days < 0) return 'Closed';
+    if (days === 0) return 'Closes today';
+    if (days === 1) return 'Closes in 1 day';
+    return `Closes in ${days} days`;
+}
+
+function RoleCard({ g }: { g: any }) {
+    const pay = payLabel(g.compensation);
+    const type = (g.artistTypes?.[0] || g.category || '').toString();
+    const loc = g.location?.isRemote ? 'Remote' : (g.location?.city ? `On-site · ${g.location.city}` : '');
+    const start = fmtDay(g.schedule?.startDate || g.startDate);
+    const when = start.d ? `${start.m} ${start.d}` : '';
+    const closes = closesLabel(g.applicationDeadline);
+    const foot = [when, closes].filter(Boolean).join(' · ');
+    const facets = [type, loc].filter(Boolean);
+
+    return (
+        <Pressable style={s.gcard} onPress={() => router.push(`/gigs/${g._id}` as any)}>
+            <View style={s.gtop}>
+                <Text style={s.gtitle} numberOfLines={2}>{g.title || 'Open role'}</Text>
+                {!!pay && <Text style={s.gpay}>{pay}</Text>}
+            </View>
+            {facets.length > 0 && (
+                <View style={s.gfacets}>
+                    {facets.map((f, i) => (
+                        <View key={`${f}-${i}`} style={s.gf}><Text style={s.gfText}>{f}</Text></View>
+                    ))}
+                </View>
+            )}
+            <View style={s.gfoot}>
+                {!!foot && <Text style={s.gmeta}>{foot}</Text>}
+                <Text style={s.gapply}>APPLY →</Text>
+            </View>
+        </Pressable>
+    );
 }
 
 function EventCard({ e }: { e: any }) {
@@ -552,6 +625,18 @@ const s = StyleSheet.create({
     mmore: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(10,10,12,0.5)' },
     mmoreText: { fontFamily: F.mono, fontSize: 12, color: C.t1 },
     workedTxt: { fontFamily: F.mono, fontSize: 10, letterSpacing: 0.3, color: C.t2, marginTop: 12 },
+
+    // now hiring — role cards
+    gcard: { backgroundColor: C.card, borderWidth: 1, borderColor: C.hair, borderRadius: 15, padding: 14, marginBottom: 9 },
+    gtop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
+    gtitle: { flex: 1, fontFamily: F.serif, fontSize: 17, letterSpacing: -0.3, color: C.cream, lineHeight: 20 },
+    gpay: { fontFamily: F.serif, fontSize: 16, color: C.cream },
+    gfacets: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+    gf: { backgroundColor: C.chip, borderWidth: 1, borderColor: C.chipB, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+    gfText: { fontFamily: F.mono, fontSize: 9, letterSpacing: 0.3, color: C.t2 },
+    gfoot: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 11, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.hairSoft },
+    gmeta: { fontFamily: F.mono, fontSize: 9, letterSpacing: 0.3, color: C.t3 },
+    gapply: { marginLeft: 'auto', fontFamily: F.mono, fontSize: 9, letterSpacing: 1, color: C.orange },
 
     // events rail
     ecard: { width: 208, borderRadius: 14, borderWidth: 1, borderColor: C.hair, overflow: 'hidden', backgroundColor: C.card },

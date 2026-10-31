@@ -8,11 +8,15 @@ import React from 'react';
 // Mutable fixtures the mocked hooks read at render time (jest allows `mock*` names).
 let mockUser: any;
 let mockEvents: any[];
+let mockGigs: any[];
 
 jest.mock('@/hooks/useUser', () => ({ useUser: () => ({ data: mockUser }) }));
 jest.mock('@/hooks/useOrganizer', () => ({ useOrganizer: () => ({ organizer: undefined }) }));
 jest.mock('@/hooks/useEventsByOrganizer', () => ({
     useEventsByOrganizer: () => ({ data: { events: mockEvents, total: mockEvents.length } }),
+}));
+jest.mock('@/hooks/useOrganizerGigsPublic', () => ({
+    useOrganizerGigsPublic: () => ({ data: { gigs: mockGigs, total: mockGigs.length } }),
 }));
 jest.mock('@/components/profile/MediaViewer', () => ({ __esModule: true, default: () => null }));
 jest.mock('expo-router', () => ({ router: { back: jest.fn(), push: jest.fn() } }));
@@ -57,6 +61,10 @@ describe('CreativeLeadProfile smoke', () => {
             organizerStats: { gigsPosted: 48, averageRating: 4.8, artistsHired: 120, avgReplyMinutes: 120 },
         };
         mockEvents = [{ _id: 'e1', title: 'Kathak masterclass', eventType: 'workshop', city: 'Pune', startDate: '2026-11-22', price: 500 }];
+        mockGigs = [
+            { _id: 'g1', title: 'Lead dancer — Diwali gala', artistTypes: ['Bollywood'], location: { city: 'Pune', isRemote: false }, compensation: { model: 'fixed', amount: 32000 }, schedule: { startDate: '2026-11-07' }, applicationDeadline: '2099-11-05' },
+            { _id: 'g2', title: 'Sangeet choreographer', artistTypes: ['Choreography'], location: { city: 'Pune', isRemote: false }, compensation: { model: 'fixed', amount: 15000 }, schedule: { startDate: '2026-11-02' }, applicationDeadline: '2099-11-01' },
+        ];
 
         const txt = renderText();
         expect(txt).toContain('Mehfil Collective');
@@ -64,12 +72,15 @@ describe('CreativeLeadProfile smoke', () => {
         expect(txt).toContain('Productions');
         expect(txt).toContain('Gigs hosted');
         expect(txt).toContain('TRUSTED');
+        expect(txt).toContain('Now hiring');
+        expect(txt).toContain('Lead dancer — Diwali gala');
         expect(txt).toContain('Events they host');
     });
 
     it('renders a cold-start organizer without crashing', () => {
         mockUser = { _id: 'org1', role: 'creative_lead' };
         mockEvents = [];
+        mockGigs = [];
         const txt = renderText();
         expect(txt).toContain('Creative Lead'); // fallback name
     });

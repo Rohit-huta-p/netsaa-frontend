@@ -65,6 +65,21 @@ const gigService = {
         return res.data;
     },
 
+    /**
+     * PUBLIC list of an organizer's gigs by id — powers the "Now hiring"
+     * section on a Creative Lead's company profile. Unlike getAllGigs this is
+     * NOT role-walled, and unlike getOrganizerGigs it needs no auth and returns
+     * published-only by default (drafts/paused never exposed). Backend:
+     * gigs-service GET /v1/organizers/:organizerId/gigs (netsaa-backend #20).
+     */
+    getPublicOrganizerGigs: async (
+        organizerId: string,
+        params?: { status?: 'published' | 'closed' | 'expired'; page?: number; pageSize?: number }
+    ): Promise<GigsListResponse> => {
+        const res = await API.get(`/organizers/${organizerId}/gigs`, { params });
+        return res.data;
+    },
+
     getOrganizerApplicants: async (params?: {
         status?: 'applied' | 'shortlisted' | 'hired' | 'rejected' | 'withdrawn';
         gigId?: string;

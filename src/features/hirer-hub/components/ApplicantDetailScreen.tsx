@@ -5,11 +5,13 @@
 // applicant card body or a Discussion asker's ↗ chip. Shows the full pitch,
 // every skill, the portfolio, and the gig context, then the decision bar.
 //
-// Anatomy (mockup .dhd / .dsec / .quote / .drow / .dbar):
-//   .dhd  — back chevron + hero (avatar, name, status tag, ★rating, craft chip,
-//           location pin, "APPLIED Xh AGO")
-//   body  — Skills (full list) · cover-note quote · Portfolio (named links) ·
-//           Applying-for / Dates / Pay rows · "View full profile →"
+// Anatomy (mockup .dhd / .dsec / .quote / .drow / .dbar) — the crisp detail,
+// matching the crisp list card (manage-gig.html screen 6):
+//   .dhd  — back chevron + hero (initials avatar on a stable tint, name, status
+//           tag, location pin, "APPLIED Xh AGO"). NO rating, NO craft chip.
+//   body  — Styles (lead in orange, middot line — not pills) · cover-note quote ·
+//           Portfolio (named links) · Applying-for / Dates / Pay rows ·
+//           "View full profile →"
 //   .dbar — decision bar, status-aware:
 //             applied/reviewed → Reject · Message · Shortlist
 //             shortlisted      → Reject · Message · Hire
@@ -25,7 +27,7 @@ import React from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, MapPin, Star, Link2, MessageSquare, X, Check, ArrowRight } from 'lucide-react-native';
+import { ChevronLeft, MapPin, Link2, MessageSquare, X, Check, ArrowRight } from 'lucide-react-native';
 
 const COLORS = {
     text0: '#F3EFE8', text1: '#B8B1A6', text2: '#6B6878', text3: '#5C5A66', text4: '#3F3D4A',
@@ -46,6 +48,20 @@ const STATUS_TAG: Record<string, { label: string; color: string }> = {
 
 const sameCity = (a?: string, b?: string) =>
     !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+
+// Avatar — initials on a stable muted tint, matching the crisp list card.
+const AVATAR_TINTS = ['#3A2A1F', '#2A2340', '#1F3328', '#332A1F', '#24303F', '#331F2B', '#1F2A33', '#2E2A1F'];
+function tintFor(name: string): string {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return AVATAR_TINTS[h % AVATAR_TINTS.length];
+}
+function initialsOf(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'A';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 // "APPLIED 2H AGO" from the application's appliedAt.
 function appliedAgo(iso?: string): string {
@@ -112,17 +128,17 @@ export function ApplicantDetailScreen({
 
     const snap = application.artistSnapshot ?? {};
     const displayName = ((snap.displayName ?? '') as string).trim() || 'Anonymous';
-    const initial = (displayName[0] || 'A').toUpperCase();
     const status: string = application.status ?? 'applied';
     const tag = STATUS_TAG[status] ?? STATUS_TAG.applied;
 
-    const artistType: string | undefined = snap.artistType;
     const city: string | undefined = snap.primaryCity ?? snap.location;
     const outOfTown = !!city && !!venueCity && !sameCity(city, venueCity);
-    const rating: number | undefined =
-        typeof snap.rating === 'number' && snap.rating > 0 ? snap.rating : undefined;
 
+    // Styles = the applicant's specialities (lead in orange, full list); fall
+    // back to the single artistType only when none were captured.
     const specialities: string[] = Array.isArray(snap.specialities) ? snap.specialities.filter(Boolean) : [];
+    let roles = specialities.slice();
+    if (roles.length === 0 && snap.artistType) roles = [snap.artistType];
     const coverNote: string = (application.coverNote ?? '').trim();
     const portfolioLinks: string[] = Array.isArray(application.portfolioLinks)
         ? application.portfolioLinks.filter((l: any) => typeof l === 'string' && l.trim())
@@ -158,8 +174,8 @@ export function ApplicantDetailScreen({
                     </TouchableOpacity>
 
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
-                        <View style={{ width: 50, height: 50, borderRadius: 16, backgroundColor: COLORS.avatarIdle, alignItems: 'center', justifyContent: 'center' }}>
-                            <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 20, color: COLORS.text0 }}>{initial}</Text>
+                        <View style={{ width: 50, height: 50, borderRadius: 16, backgroundColor: tintFor(displayName), alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 17, color: '#FFFFFF' }}>{initialsOf(displayName)}</Text>
                         </View>
                         <View style={{ flex: 1, minWidth: 0 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -170,27 +186,14 @@ export function ApplicantDetailScreen({
                                     <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 8, letterSpacing: 0.8, color: tag.color, textTransform: 'uppercase' }}>{tag.label}</Text>
                                 </View>
                             </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 7 }}>
-                                {rating != null ? (
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                                        <Star size={12} color={COLORS.gold} fill={COLORS.gold} strokeWidth={0} />
-                                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 13, color: COLORS.gold }}>{rating}</Text>
-                                    </View>
-                                ) : null}
-                                {artistType ? (
-                                    <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: 'rgba(255,107,53,0.14)', borderWidth: 1, borderColor: 'rgba(255,107,53,0.28)' }}>
-                                        <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 8, letterSpacing: 0.8, color: COLORS.orangeTint, textTransform: 'uppercase' }}>{artistType}</Text>
-                                    </View>
-                                ) : null}
-                                {city ? (
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, minWidth: 0 }}>
-                                        <MapPin size={11} color={outOfTown ? COLORS.amber : COLORS.text3} strokeWidth={1.8} />
-                                        <Text style={{ fontSize: 10.5, color: outOfTown ? COLORS.amber : COLORS.text2 }} numberOfLines={1}>
-                                            {outOfTown ? `${city} · out of town` : city}
-                                        </Text>
-                                    </View>
-                                ) : null}
-                            </View>
+                            {city ? (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 7, minWidth: 0 }}>
+                                    <MapPin size={12} color={outOfTown ? COLORS.amber : COLORS.text3} strokeWidth={1.8} />
+                                    <Text style={{ fontSize: 11, color: outOfTown ? COLORS.amber : COLORS.text2 }} numberOfLines={1}>
+                                        {outOfTown ? `${city} · out of town` : city}
+                                    </Text>
+                                </View>
+                            ) : null}
                             {applied ? (
                                 <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 8.5, letterSpacing: 0.8, color: COLORS.text4, marginTop: 7 }}>{applied}</Text>
                             ) : null}
@@ -200,17 +203,14 @@ export function ApplicantDetailScreen({
 
                 {/* body */}
                 <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
-                    {/* Skills — full list */}
-                    {specialities.length > 0 ? (
+                    {/* Styles — lead in orange, middot line (crisp; was skill pills) */}
+                    {roles.length > 0 ? (
                         <View style={{ paddingHorizontal: 18, paddingTop: 16 }}>
-                            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 9, letterSpacing: 1.4, textTransform: 'uppercase', color: COLORS.text3 }}>Skills</Text>
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                                {specialities.map((s, i) => (
-                                    <View key={`${s}-${i}`} style={{ paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, backgroundColor: COLORS.chipBg, borderWidth: 1, borderColor: COLORS.chipLine }}>
-                                        <Text style={{ fontSize: 11, color: '#A1A1AA' }}>{s}</Text>
-                                    </View>
-                                ))}
-                            </View>
+                            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 9, letterSpacing: 1.4, textTransform: 'uppercase', color: COLORS.text3 }}>Styles</Text>
+                            <Text style={{ fontSize: 13, lineHeight: 21, marginTop: 6 }}>
+                                <Text style={{ color: COLORS.orangeTint, fontWeight: '500' }}>{roles[0]}</Text>
+                                <Text style={{ color: '#A1A1AA' }}>{roles.slice(1).map((r) => ` · ${r}`).join('')}</Text>
+                            </Text>
                         </View>
                     ) : null}
 

@@ -3,6 +3,7 @@ import React from 'react';
 import { Redirect } from 'expo-router';
 import { useAuthStore } from '../../../src/stores/authStore';
 import ArtistHome from './artist-home';
+import CreativeLeadHome from './cl-home';
 import HirerHome from './hirer-home';
 
 /**
@@ -23,5 +24,6 @@ export default function DashboardHome() {
   // Home is always the hire-down dashboard — there is no artist-home for CLs.
   if (role === 'client') return <Redirect href="/(app)/client" />;
   if (role === 'artist') return <ArtistHome />;
+  if (role === 'creative_lead') return <CreativeLeadHome />;
   return <HirerHome />;
 }

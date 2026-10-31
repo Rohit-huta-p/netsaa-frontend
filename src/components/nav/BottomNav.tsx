@@ -14,11 +14,13 @@ import { useBottomNavVisibilityStyle, resetBottomNavVisibility } from './navVisi
 /**
  * Role-aware bottom nav. Spec §3.1. One static nav per role (no mode toggle).
  * Artist:        Home · Gigs · [Post FAB] · Events · Profile
- * Creative Lead: Home · Find Work · [Post FAB] · Events · Talent
- *   Agency-style: both market faces are first-class tabs — Talent + Post FAB
- *   hire DOWN (a CL's gig is stamped posterRole 'creative_lead' server-side, so
- *   only Artists see/apply); Find Work applies UP (browse open client
- *   requirements). Profile is reachable from the top-avatar menu (Navbar).
+ * Creative Lead: Home · Find Work · Events · Talent   (4 even tabs, NO center FAB)
+ *   Agency-style: both market faces are first-class tabs. Talent hires DOWN (a
+ *   CL's gig is stamped posterRole 'creative_lead' server-side, so only Artists
+ *   see/apply); Find Work applies UP (browse open client requirements). Creating
+ *   is home-only — the "＋ Post" dial in the dashboard's Your-work header — so the
+ *   CL nav drops the center Post FAB and spreads its four tabs evenly. Profile is
+ *   reachable from the top-avatar menu (Navbar).
  * Client:        Home · Talent · [Post FAB] · Events · Profile  (single-face role)
  * Agency client: Home · Find Work · [Post FAB] · Events · Talent
  */
@@ -114,23 +116,36 @@ export default function BottomNav() {
         ? ARTIST_TABS
         : CREATIVE_LEAD_TABS;
 
+  // Creative Lead has no center Post FAB — create is home-only now, via the
+  // "＋ Post" dial in the dashboard's Your-work header — so its four tabs sit
+  // evenly with no FAB gap. Artist/client (and agency clients) keep the FAB.
+  const isCreativeLead = role === 'creative_lead';
+
   return (
     <Animated.View style={[styles.container, navVisibilityStyle]} pointerEvents="box-none">
       <BlurView intensity={40} tint="dark" style={styles.bar}>
         <View style={styles.tabRow}>
-          {/* Left 2 tabs */}
-          {tabs.slice(0, 2).map((t) => (
-            <NavButton key={t.id} tab={t} currentPath={pathname} onPress={() => router.push(t.route as any)} />
-          ))}
-          {/* Spacer for Post FAB */}
-          <View style={styles.fabSpacer} />
-          {/* Right 2 tabs */}
-          {tabs.slice(2).map((t) => (
-            <NavButton key={t.id} tab={t} currentPath={pathname} onPress={() => router.push(t.route as any)} />
-          ))}
+          {isCreativeLead ? (
+            tabs.map((t) => (
+              <NavButton key={t.id} tab={t} currentPath={pathname} onPress={() => router.push(t.route as any)} />
+            ))
+          ) : (
+            <>
+              {/* Left 2 tabs */}
+              {tabs.slice(0, 2).map((t) => (
+                <NavButton key={t.id} tab={t} currentPath={pathname} onPress={() => router.push(t.route as any)} />
+              ))}
+              {/* Spacer for Post FAB */}
+              <View style={styles.fabSpacer} />
+              {/* Right 2 tabs */}
+              {tabs.slice(2).map((t) => (
+                <NavButton key={t.id} tab={t} currentPath={pathname} onPress={() => router.push(t.route as any)} />
+              ))}
+            </>
+          )}
         </View>
       </BlurView>
-      <PostFAB />
+      {!isCreativeLead && <PostFAB />}
     </Animated.View>
   );
 }

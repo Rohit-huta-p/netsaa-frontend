@@ -153,6 +153,7 @@ export function Row({
   pill,
   meta,
   right,
+  accent,
   rightSub,
   saved,
   muted,
@@ -160,10 +161,13 @@ export function Row({
 }: {
   title: string;
   initial: string;
-  kind?: 'gig' | 'event';
+  // 'brief' = a client brief the CL pitches on (blue thumb — the Pitching face).
+  kind?: 'gig' | 'event' | 'brief';
   pill?: { label: string; tone?: PillTone };
   meta?: string;
   right?: string;
+  /** Optional orange accent above rightSub, e.g. "2 NEW" applicants. */
+  accent?: string;
   rightSub?: string;
   saved?: boolean;
   muted?: boolean;
@@ -171,8 +175,8 @@ export function Row({
 }) {
   return (
     <Pressable onPress={onPress} style={s.row}>
-      <View style={[s.thumb, kind === 'event' && s.thumbEv, muted && { opacity: 0.6 }]}>
-        <Text style={[s.thumbTxt, kind === 'event' && { color: HC.purple }]}>{initial}</Text>
+      <View style={[s.thumb, kind === 'event' && s.thumbEv, kind === 'brief' && s.thumbBrief, muted && { opacity: 0.6 }]}>
+        <Text style={[s.thumbTxt, kind === 'event' && { color: HC.purple }, kind === 'brief' && { color: HC.blue }]}>{initial}</Text>
       </View>
       <View style={s.rb}>
         <Text style={[s.rt, muted && { color: HC.t1 }]} numberOfLines={1}>
@@ -185,6 +189,7 @@ export function Row({
       </View>
       <View style={s.rside}>
         {right ? <Text style={s.rpay}>{right}</Text> : null}
+        {accent ? <Text style={s.raccent}>{accent}</Text> : null}
         {saved ? (
           <View style={s.savedRow}>
             <Bookmark size={9} color={HC.orange} fill={HC.orange} />
@@ -246,6 +251,7 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: HC.hairSoft },
   thumb: { width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(255,107,53,0.13)', alignItems: 'center', justifyContent: 'center' },
   thumbEv: { backgroundColor: 'rgba(139,92,246,0.14)' },
+  thumbBrief: { backgroundColor: 'rgba(59,130,246,0.14)' },
   thumbTxt: { fontFamily: HF.serif, fontSize: 17, color: HC.orange },
   rb: { flex: 1, minWidth: 0 },
   rt: { fontFamily: HF.body, fontSize: 14, color: HC.cream },
@@ -253,6 +259,7 @@ const s = StyleSheet.create({
   rmeta: { fontFamily: HF.mono, fontSize: 9.5, letterSpacing: 0.4, color: HC.t2, flexShrink: 1 },
   rside: { alignItems: 'flex-end' },
   rpay: { fontFamily: HF.serif, fontSize: 15, color: HC.cream },
+  raccent: { fontFamily: HF.mono, fontSize: 8.5, letterSpacing: 0.8, color: HC.orange, marginTop: 3 },
   rsub: { fontFamily: HF.mono, fontSize: 8.5, letterSpacing: 0.8, color: HC.t3, marginTop: 3 },
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
 

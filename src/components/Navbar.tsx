@@ -764,7 +764,10 @@ export default function Navbar() {
                             {isMobile ? (
                                 <>
                                     <TouchableOpacity
-                                        onPress={openFullSearch}
+                                        // The magnifier now routes to the full /search surface (it owns the
+                                        // input + idle + results). The old full-screen overlay below is
+                                        // superseded and no longer opened.
+                                        onPress={() => { setSearchQuery(''); router.push('/(app)/search'); }}
                                         style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#1a1a24', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
                                     >
                                         <Search size={17} color="#A855F7" />

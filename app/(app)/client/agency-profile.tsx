@@ -13,6 +13,7 @@ import { uploadMediaFlow, validateMediaFile } from '@/utils/upload';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import { usePickAndCrop } from '@/hooks/usePickAndCrop';
 import MediaCropper from '@/components/media/MediaCropper';
+import CreativeLeadCompanyEdit from '@/features/profile/CreativeLeadCompanyEdit';
 
 /**
  * Agency profile edit (Client Experience spec Part D / D.1, agency tier).
@@ -32,7 +33,20 @@ const SERVICE_OPTIONS = [
 const MAX_PHOTOS = 8;
 const BIO_MAX = 600;
 
-export default function AgencyProfile() {
+/**
+ * Route dispatcher. Creative Leads get the new A·Minimal company editor
+ * (CreativeLeadCompanyEdit); agency-tier *clients* keep the classic supplier form
+ * below. The Client role launches later — revisit the client branch then.
+ * Split into two components so each keeps a stable hook order.
+ */
+export default function AgencyProfileRoute() {
+    const role = useAuthStore((s) => s.role);
+    // authStore normalizes the legacy 'organizer' role → 'creative_lead'.
+    if (role === 'creative_lead') return <CreativeLeadCompanyEdit />;
+    return <AgencyProfileForm />;
+}
+
+function AgencyProfileForm() {
     const router = useRouter();
     const queryClient = useQueryClient();
     const navClearance = (useMobileTabBarHeight() || 64) + 56;

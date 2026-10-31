@@ -19,6 +19,7 @@ import { ChevronLeft, ArrowUpDown } from 'lucide-react-native';
 import { HC, HF, SegTabs, SubTabs, EmptyState } from '@/components/dashboard/artist/home/ui';
 import useCreativeLeadInvolvement from '@/components/dashboard/creativeLead/home/useCreativeLeadInvolvement';
 import { hiringRow, hostingRow, type HireSub, type HostSub } from '@/components/dashboard/creativeLead/home/clWorkRows';
+import PitchingComingSoon from '@/components/dashboard/creativeLead/home/PitchingComingSoon';
 
 type Face = 'hiring' | 'hosting' | 'pitching';
 
@@ -49,18 +50,6 @@ function SortBar({ count, sort, onToggle }: { count: number; sort: 'newest' | 'o
         <ArrowUpDown size={13} color={HC.t2} />
         <Text style={styles.sortTxt}>{sort === 'newest' ? 'NEWEST' : 'OLDEST'}</Text>
       </Pressable>
-    </View>
-  );
-}
-
-function PitchingComingSoon() {
-  return (
-    <View style={styles.soon}>
-      <Text style={styles.soonEyebrow}>PITCHING</Text>
-      <Text style={styles.soonTitle}>Coming soon</Text>
-      <Text style={styles.soonSub}>
-        Pitching for client work opens once clients are posting briefs on NETSA. We’ll switch it on here.
-      </Text>
     </View>
   );
 }
@@ -162,11 +151,6 @@ const styles = StyleSheet.create({
   fcount: { fontFamily: HF.mono, fontSize: 9.5, letterSpacing: 0.8, color: HC.t2 },
   sortbtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   sortTxt: { fontFamily: HF.mono, fontSize: 9.5, letterSpacing: 0.8, color: HC.t1 },
-
-  soon: { borderWidth: 1, borderStyle: 'dashed', borderColor: HC.hair, borderRadius: 16, backgroundColor: HC.card, padding: 26, alignItems: 'center', gap: 8, marginTop: 22 },
-  soonEyebrow: { fontFamily: HF.mono, fontSize: 9, letterSpacing: 1.6, color: HC.blue },
-  soonTitle: { fontFamily: HF.serif, fontSize: 21, color: HC.cream },
-  soonSub: { fontFamily: HF.body, fontSize: 12.5, color: HC.t2, textAlign: 'center', lineHeight: 18, maxWidth: 260 },
 
   frule: { height: 1, backgroundColor: HC.hairSoft, marginTop: 28 },
   fcap: { fontFamily: HF.mono, fontSize: 9, letterSpacing: 2, color: HC.t3, textAlign: 'center', textTransform: 'uppercase', paddingTop: 14 },

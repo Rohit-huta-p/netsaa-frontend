@@ -79,6 +79,9 @@ export function hostingRow(p: PostRow, sub: HostSub, opts: { router: Nav }) {
 }
 
 // ── Pitching rows (proposals to client briefs — surface ₹) ──────────────────
+// Currently UNUSED: Pitching is "coming soon" on both the home and the See-all
+// page (the client side is deferred — see PitchingComingSoon). Retained so the
+// Sent/Won/Closed rows can be restored when the client side ships.
 export function pitchRow(p: SentProposal, sub: PitchSub, opts: { router: Nav }) {
   const pill: { label: string; tone: PillTone } =
     sub === 'won' ? { label: 'Won', tone: 'green' }

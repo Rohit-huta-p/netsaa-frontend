@@ -70,6 +70,9 @@ const TAB_TO_EVENT_STATUS: Record<string, 'draft' | 'live' | 'completed' | undef
 type TabKey = 'active' | 'draft' | 'past' | 'all';
 
 function readGigPrice(g: any): string {
+  // Gig schema stores pay at compensation.amount (in rupees); older shapes used
+  // price / price.amount / budget. Check compensation first so the card isn't blank.
+  if (typeof g?.compensation?.amount === 'number') return `₹${g.compensation.amount.toLocaleString('en-IN')}`;
   if (typeof g?.price === 'number') return `₹${g.price.toLocaleString('en-IN')}`;
   if (typeof g?.price?.amount === 'number') return `₹${g.price.amount.toLocaleString('en-IN')}`;
   if (typeof g?.budget === 'number') return `₹${g.budget.toLocaleString('en-IN')}`;

@@ -98,7 +98,7 @@ export default function ArtistProfileCompletion() {
         accessibilityRole="button"
         accessibilityLabel={full ? 'View profile' : 'Complete your profile'}
       >
-        {full ? <Eye size={16} color={HC.cream} /> : <Pencil size={16} color={ON_ACCENT} />}
+        {full ? <Eye size={15} color={HC.cream} /> : <Pencil size={15} color={ON_ACCENT} />}
         <Text style={[styles.ctaTxt, full ? { color: HC.cream } : { color: ON_ACCENT }]}>
           {full ? 'View profile' : 'Complete your profile'}
         </Text>
@@ -112,20 +112,20 @@ const styles = StyleSheet.create({
     backgroundColor: HC.card,
     borderWidth: 1,
     borderColor: HC.hair,
-    borderRadius: 18,
-    padding: 20,
+    borderRadius: 16,
+    padding: 16,
     marginHorizontal: 20,
-    marginTop: 18,
+    marginTop: 16,
   },
-  eyebrow: { fontFamily: HF.mono, fontSize: 10, letterSpacing: 3, color: HC.orange },
-  head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 12, marginBottom: 10 },
-  pct: { fontFamily: HF.serif, fontSize: 30, color: HC.cream, lineHeight: 32 },
-  cap: { fontFamily: HF.mono, fontSize: 10, letterSpacing: 1.5, color: HC.t2, marginBottom: 3 },
-  shoes: { flexDirection: 'row', gap: 7, alignItems: 'flex-end' },
-  shoeCell: { flex: 1, aspectRatio: 226 / 172 },
-  sub: { fontFamily: HF.body, fontSize: 13, lineHeight: 19, color: HC.t2, marginTop: 10 },
-  cta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 16, marginTop: 18 },
+  eyebrow: { fontFamily: HF.mono, fontSize: 9.5, letterSpacing: 2.5, color: HC.orange },
+  head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 10, marginBottom: 9 },
+  pct: { fontFamily: HF.serif, fontSize: 23, color: HC.cream, lineHeight: 25 },
+  cap: { fontFamily: HF.mono, fontSize: 9.5, letterSpacing: 1.2, color: HC.t2, marginBottom: 2 },
+  shoes: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  shoeCell: { flex: 1, maxWidth: 24, aspectRatio: 226 / 172 },
+  sub: { fontFamily: HF.body, fontSize: 12.5, lineHeight: 18, color: HC.t2, marginTop: 10 },
+  cta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 11, paddingVertical: 11, paddingHorizontal: 16, marginTop: 15 },
   ctaFill: { backgroundColor: HC.orange },
   ctaGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: HC.chipb },
-  ctaTxt: { fontFamily: HF.bold, fontSize: 14 },
+  ctaTxt: { fontFamily: HF.bold, fontSize: 13 },
 });

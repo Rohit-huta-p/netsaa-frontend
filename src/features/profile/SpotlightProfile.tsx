@@ -495,6 +495,12 @@ export function SpotlightProfile({ userId, isOwner }: {
                                 <View style={st.secHead}>
                                     <Text style={st.secLabel}>Featured</Text>
                                     <View style={st.secRule} />
+                                    {isOwner && featured.length > 0 && (
+                                        <>
+                                            <Pressable onPress={() => openEditor(null)} hitSlop={6} style={st.fhBtn} accessibilityLabel="Add featured highlight"><Plus size={13} color={C.t4} /></Pressable>
+                                            <Pressable onPress={() => openEditor(0)} hitSlop={6} style={st.fhBtn} accessibilityLabel="Edit featured"><Pencil size={13} color={C.t4} /></Pressable>
+                                        </>
+                                    )}
                                 </View>
                             </View>
                             {featured.length === 0 ? (
@@ -509,13 +515,6 @@ export function SpotlightProfile({ userId, isOwner }: {
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingLeft: PAD, paddingRight: PAD }}>
                                     {featured.map((item, i) => <FeaturedCard key={i} item={item} index={i} />)}
                                 </ScrollView>
-                            )}
-                            {isOwner && featured.length > 0 && (
-                                <View style={{ paddingHorizontal: PAD, marginTop: 11 }}>
-                                    <Pressable onPress={() => openEditor(null)} style={st.addAnother}>
-                                        <Plus size={13} color={C.orange} /><Text style={st.addAnotherTx}>Add another highlight</Text>
-                                    </Pressable>
-                                </View>
                             )}
                         </View>
                     )}
@@ -713,6 +712,7 @@ const st = StyleSheet.create({
     secHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 11 },
     secLabel: { fontFamily: 'SpaceMono-Bold', fontSize: 9.5, letterSpacing: 1.6, color: C.t4, textTransform: 'uppercase' },
     secRule: { flex: 1, height: 1, backgroundColor: C.border2 },
+    fhBtn: { width: 27, height: 27, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border, backgroundColor: 'rgba(255,255,255,0.02)' },  // Featured header add/edit (matches mockup .hbtn)
 
     addTx: { fontFamily: 'Outfit-Regular', fontSize: 13, color: C.orange },
 

@@ -505,7 +505,8 @@ export default function NetworkPage() {
                         <ChevronLeft size={18} color={C.text2} strokeWidth={2} />
                     </Pressable>
                     <Text style={s.topTitle}>Network</Text>
-                    <NotificationsBell size={18} color={C.text2} />
+                    {/* /network isn't on A·Minimal yet — keep the badge notch matching this screen's dark bg. */}
+                    <NotificationsBell size={18} color={C.text2} badgeBorderColor={C.bg} />
                 </View>
 
                 {loading ? (

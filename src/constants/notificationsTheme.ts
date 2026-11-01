@@ -1,8 +1,8 @@
 // src/constants/notificationsTheme.ts
-// v2 "editorial inbox" design tokens + restrained-semantic config for the
-// notifications redesign. Ported from event-detail-v2.html :root. Pure module —
-// no RN imports beyond the lucide icon components used in the visual config.
-// Mockup: DOCS/04-design/mockups/notifications-redesign.html (Direction B).
+// Design tokens + restrained-semantic config for the notifications screen.
+// Palette = locked A·Minimal (shared with gig board / CL home / artist home).
+// Pure module — no RN imports beyond the lucide icon components used in the
+// visual config. Mockup: DOCS/04-design/mockups/notifications-aminimal.html.
 import {
   Briefcase, BadgeCheck, Clock, CalendarCheck, Calendar, MessageCircle,
   UserPlus, UserCheck, Banknote, Ban, MinusCircle, FileText, Settings,
@@ -10,15 +10,15 @@ import {
 } from 'lucide-react-native';
 import type { Notification } from '@/stores/notificationsStore';
 
-/* ── palette (event-detail-v2 :root) ── */
+/* ── palette: locked A·Minimal (same tokens as gig board / CL home / artist home) ── */
 export const N = {
-  bg0: '#07070B', bg1: '#0B0A0F', bg2: '#131218', bg3: '#1B1A22',
+  bg0: '#0E0E12', bg1: '#121216', bg2: '#1C1C23', bg3: '#212129',
   hairline: 'rgba(255,255,255,0.06)', hairline2: 'rgba(255,255,255,0.10)',
-  text0: '#F0ECE6', text1: '#C8C0B5', text2: '#8C857B', text3: '#57524C', text4: '#2E2B28',
-  orange: '#FF6B35', orangeSoft: 'rgba(255,107,53,0.10)', orangeLine: 'rgba(255,107,53,0.30)', orangeInk: '#1A0D06',
-  green: '#4ADE80', amber: '#F59E0B', red: '#EF4444', purple: '#8B5CF6',
-  greenSoft: 'rgba(74,222,128,0.11)', amberSoft: 'rgba(245,158,11,0.11)',
-  redSoft: 'rgba(239,68,68,0.11)', purpleSoft: 'rgba(139,92,246,0.11)', mutedSoft: 'rgba(140,133,123,0.10)',
+  text0: '#FFFFFF', text1: '#D4D4D8', text2: '#A1A1AA', text3: '#8B8B99', text4: '#6B6B78',
+  orange: '#FF6B35', orangeSoft: 'rgba(255,107,53,0.12)', orangeLine: 'rgba(255,107,53,0.30)', orangeInk: '#190B05',
+  green: '#22C55E', amber: '#F59E0B', red: '#EF4444', purple: '#8B5CF6',
+  greenSoft: 'rgba(34,197,94,0.12)', amberSoft: 'rgba(245,158,11,0.12)',
+  redSoft: 'rgba(239,68,68,0.12)', purpleSoft: 'rgba(139,92,246,0.12)', mutedSoft: 'rgba(161,161,170,0.10)',
 } as const;
 
 /* ── fonts (exact loaded family strings — see app/_layout.tsx) ── */

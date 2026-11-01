@@ -17,14 +17,19 @@ type Props = {
     size?: number;
     color?: string;
     badgeColor?: string;
+    badgeBorderColor?: string;
     hitSlop?: number;
     onPress?: () => void;
 };
 
 export const NotificationsBell: React.FC<Props> = ({
     size = 20,
-    color = '#F0ECE6',
-    badgeColor = '#F97316',
+    color = '#FFFFFF',
+    badgeColor = '#FF6B35',
+    // A·Minimal canvas — the badge sits in a "notch" matching the bg behind it.
+    // Default fits the #121216 screens TopRightIcons floats over; override per
+    // screen bg (e.g. /network passes its own, still-dark C.bg).
+    badgeBorderColor = '#121216',
     hitSlop = 10,
     onPress,
 }) => {
@@ -66,7 +71,7 @@ export const NotificationsBell: React.FC<Props> = ({
         >
             <Bell size={size} color={color} strokeWidth={2} />
             {count > 0 && (
-                <View style={[s.badge, { backgroundColor: badgeColor }]}>
+                <View style={[s.badge, { backgroundColor: badgeColor, borderColor: badgeBorderColor }]}>
                     <Text style={s.badgeText}>{count > 99 ? '99+' : count}</Text>
                 </View>
             )}
@@ -93,7 +98,7 @@ const s = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 2,
-        borderColor: '#0A0A10',
+        // borderColor supplied inline via the badgeBorderColor prop.
     },
     badgeText: {
         color: '#fff',

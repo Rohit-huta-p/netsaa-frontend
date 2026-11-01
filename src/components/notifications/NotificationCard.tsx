@@ -8,7 +8,7 @@ import { Check } from 'lucide-react-native';
 import { Notification, useNotificationsStore } from '@/stores/notificationsStore';
 import { deepLinkService } from '@/services/deepLinkService';
 import connectionService from '@/services/connectionService';
-import { N, FONT, SEMANTIC, getNotifConfig, formatStamp } from '@/constants/notificationsTheme';
+import { N, FONT, SEMANTIC, getNotifConfig, formatStamp, resolveNotifCopy } from '@/constants/notificationsTheme';
 
 interface NotificationCardProps {
     notification: Notification;
@@ -21,21 +21,26 @@ function initials(name?: string): string {
 
 export const NotificationCard: React.FC<NotificationCardProps> = ({ notification }) => {
     const swipeableRef = useRef<Swipeable>(null);
-    const { markAsRead } = useNotificationsStore();
+    const { markAsRead, respondedConnections, markConnectionResponded } = useNotificationsStore();
 
     const config = getNotifConfig(notification);
     const Icon = config.Icon;
     const sem = SEMANTIC[config.semantic];
     const unread = !notification.isRead;
-    const body = notification.message || notification.body || '';
+    const copy = resolveNotifCopy(notification);
 
     const actor = notification.actorId && typeof notification.actorId === 'object' ? notification.actorId : null;
     const actorImage = actor?.profileImageUrl;
 
-    // Inline connection actions — only when the payload carries a connectionId.
+    // Inline connection actions — only when the payload carries a connectionId
+    // AND the user hasn't already responded. The outcome lives in the store
+    // (not local state) so the row stays resolved across refetch / refocus /
+    // remount — otherwise the server keeps re-sending the request row and the
+    // Accept/Decline buttons wrongly reappear.
     const connectionId = notification.data?.params?.connectionId;
-    const canAct = typeof connectionId === 'string';
-    const [acted, setActed] = useState(false);
+    const resolved = typeof connectionId === 'string' ? respondedConnections[connectionId] : undefined;
+    const canAct = typeof connectionId === 'string' && !resolved;
+    const [pending, setPending] = useState(false);
 
     const handlePress = () => {
         if (unread) markAsRead(notification._id);
@@ -43,15 +48,18 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({ notification
     };
 
     const respond = async (kind: 'accept' | 'decline') => {
-        if (!canAct) return;
-        setActed(true);
+        if (!canAct || pending) return;
+        setPending(true);
         try {
             if (kind === 'accept') await connectionService.acceptConnectionRequest(connectionId!);
             else await connectionService.rejectConnectionRequest(connectionId!);
+            // Persist the outcome so the row resolves for good (survives refetch).
+            markConnectionResponded(connectionId!, kind === 'accept' ? 'accepted' : 'rejected');
             markAsRead(notification._id);
         } catch (e) {
-            setActed(false); // restore actions on failure
             if (__DEV__) console.warn('[NotificationCard] connection respond failed', e);
+        } finally {
+            setPending(false); // on failure the buttons stay (still canAct)
         }
     };
 
@@ -104,19 +112,26 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({ notification
                         <Text style={[s.eyebrow, { color: sem.color }]}>{config.eyebrow}</Text>
                     ) : null}
                     <View style={s.head}>
-                        <Text style={s.title} numberOfLines={2}>{notification.title}</Text>
+                        <Text style={s.title} numberOfLines={2}>{copy.title}</Text>
                         <Text style={s.stamp}>{formatStamp(notification.createdAt)}</Text>
                     </View>
-                    {body ? <Text style={s.bodyText} numberOfLines={2}>{body}</Text> : null}
+                    {copy.body ? <Text style={s.bodyText} numberOfLines={2}>{copy.body}</Text> : null}
 
-                    {canAct && !acted ? (
+                    {canAct ? (
                         <View style={s.actions}>
-                            <Pressable onPress={() => respond('accept')} style={[s.btn, s.btnPrimary]}>
+                            <Pressable disabled={pending} onPress={() => respond('accept')} style={[s.btn, s.btnPrimary, pending && s.btnBusy]}>
                                 <Text style={s.btnPrimaryText}>Accept</Text>
                             </Pressable>
-                            <Pressable onPress={() => respond('decline')} style={[s.btn, s.btnGhost]}>
+                            <Pressable disabled={pending} onPress={() => respond('decline')} style={[s.btn, s.btnGhost, pending && s.btnBusy]}>
                                 <Text style={s.btnGhostText}>Decline</Text>
                             </Pressable>
+                        </View>
+                    ) : resolved ? (
+                        <View style={s.resolvedRow}>
+                            {resolved === 'accepted' ? <Check size={13} color={N.green} strokeWidth={2.5} /> : null}
+                            <Text style={[s.resolvedText, { color: resolved === 'accepted' ? N.green : N.text3 }]}>
+                                {resolved === 'accepted' ? 'Connected' : 'Request declined'}
+                            </Text>
                         </View>
                     ) : null}
                 </View>
@@ -160,6 +175,10 @@ const s = StyleSheet.create({
     btnPrimaryText: { fontFamily: FONT.semi, fontSize: 12, color: N.orangeInk },
     btnGhost: { borderColor: N.hairline2 },
     btnGhostText: { fontFamily: FONT.semi, fontSize: 12, color: N.text2 },
+    btnBusy: { opacity: 0.45 },
+
+    resolvedRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 11 },
+    resolvedText: { fontFamily: FONT.semi, fontSize: 12, letterSpacing: -0.1 },
 
     swipeAction: {
         backgroundColor: N.orange, justifyContent: 'center', alignItems: 'center', width: 90,

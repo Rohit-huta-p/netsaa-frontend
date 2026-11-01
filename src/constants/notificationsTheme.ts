@@ -91,6 +91,45 @@ export function getNotifConfig(n: Pick<Notification, 'type' | 'subtype'>): Notif
   return BY_SUBTYPE[n.subtype] ?? BY_TYPE[n.type] ?? { semantic: 'muted', Icon: Bell };
 }
 
+/** Display copy for a notification row.
+ *
+ *  The backend factory stores generic, name-less strings ("New Connection
+ *  Request" / "Someone wants to connect with you") because the emitted event
+ *  carries only an actorId, not a name. The client already has the populated
+ *  actor (displayName), so we compose warmer, name-led copy here for the
+ *  surfaces where it reads clearly better. Anything without a template falls
+ *  through to the server's own title/body unchanged.
+ *
+ *  Scope note: this polishes IN-APP display only. Push/email copy still comes
+ *  from the backend factory — improving that needs the actor's name plumbed
+ *  into the event payload (backend follow-up). This switch is the single place
+ *  to extend as more types get first-class copy. */
+export function resolveNotifCopy(n: Notification): { title: string; body?: string } {
+  const actor = n.actorId && typeof n.actorId === 'object' ? n.actorId : null;
+  const name = actor?.displayName?.trim();
+  const serverBody = (n.message || n.body || '').trim();
+
+  switch (n.subtype) {
+    case 'connection.request': {
+      // Keep a real personal note from the requester; drop the generic fallback.
+      const personal = /^someone wants to connect/i.test(serverBody) ? '' : serverBody;
+      return {
+        // Only override when we actually have a name — never downgrade a title
+        // the server already composed well.
+        title: name ? `${name} wants to connect` : (n.title || 'New connection request'),
+        body: personal || undefined,
+      };
+    }
+    case 'connection.accepted':
+      return {
+        title: name ? `${name} accepted your request` : (n.title || 'Connection accepted'),
+        body: 'Say hello to start the conversation.',
+      };
+    default:
+      return { title: n.title, body: serverBody || undefined };
+  }
+}
+
 /* ── category filter tabs ── */
 export type NotifCategory = 'all' | 'gigs' | 'events' | 'network';
 export const CATEGORY_TABS: { key: NotifCategory; label: string }[] = [

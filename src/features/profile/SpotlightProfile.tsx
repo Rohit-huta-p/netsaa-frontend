@@ -30,7 +30,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { useUser, userKeys } from '@/hooks/useUser';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
-import { useMutualConnections, useConnectionDegree, useMyConnectionsCount } from '@/hooks/useConnectionMeta';
+import { useMutualConnections, useMyConnectionsCount } from '@/hooks/useConnectionMeta';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
 import { useProfileUiStore } from '@/stores/profileUiStore';
 import conversationService from '@/services/conversationService';
@@ -142,7 +142,6 @@ export function SpotlightProfile({ userId, isOwner }: {
         connectionStatus, sendRequest, withdrawRequest, removeConnection, blockUser, isConnectionLoading,
     } = useConnectionStatus(userId, isOwner);
     const { data: mutualData } = useMutualConnections(isOwner ? undefined : userId);
-    const { data: degreeData } = useConnectionDegree(isOwner ? undefined : userId);
     const { data: myConnectionsCount } = useMyConnectionsCount(isOwner);
     const qc = useQueryClient();
     const authUser = useAuthStore((s) => s.user);
@@ -194,11 +193,9 @@ export function SpotlightProfile({ userId, isOwner }: {
     const emailVerified = !!(u.emailVerifiedAt || u.emailVerified || u.isEmailVerified);
     const verified = (phoneVerified && emailVerified) || u.trustTier === 'verified' || !!u.isVerified;
 
-    // Connections as quiet meta (degree/mutual are viewer-relative → visitor only).
+    // Connections as quiet meta. Always shown (0 when no data); mutual is viewer-relative → visitor only.
     const connections = isOwner ? (myConnectionsCount ?? 0) : (u.stats?.connections || 0);
     const mutual = mutualData?.count ?? 0;
-    const degreeNum: number | null = isOwner ? null : (degreeData?.degree ?? null);
-    const degree = degreeNum === 1 ? '1st' : degreeNum === 2 ? '2nd' : degreeNum === 3 ? '3rd' : null;
 
     // Showcase media — prefer structured `gallery` (per-photo caption/location).
     const photoItems = (u.gallery?.length ? u.gallery : ((u.galleryUrls || []) as string[]).map((url) => ({ url }))) as { url: string; caption?: string; location?: string }[];
@@ -436,15 +433,10 @@ export function SpotlightProfile({ userId, isOwner }: {
                             <View style={st.cityRow}><MapPin size={12} color={C.t5} /><Text style={st.city}>{city}</Text></View>
                         )}
 
-                        {(connections > 0 || degree || mutual > 0) && (
-                            <Text style={st.cmeta}>
-                                {degree && <Text style={st.cdeg}>{degree}</Text>}
-                                {degree && (connections > 0 || mutual > 0) ? <Text style={st.csep}>  ·  </Text> : null}
-                                {connections > 0 && <><Text style={st.cstrong}>{connections}</Text> connections</>}
-                                {connections > 0 && mutual > 0 ? <Text style={st.csep}>  ·  </Text> : null}
-                                {mutual > 0 && <><Text style={st.cstrong}>{mutual}</Text> mutual</>}
-                            </Text>
-                        )}
+                        <Text style={st.cmeta}>
+                            <Text style={st.cstrong}>{connections}</Text> connections
+                            {!isOwner && <><Text style={st.csep}>  ·  </Text><Text style={st.cstrong}>{mutual}</Text> mutual</>}
+                        </Text>
 
                         {/* One quiet contextual action */}
                         <View style={st.actWrap}>

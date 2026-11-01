@@ -463,6 +463,12 @@ export default function NetworkPage() {
                             </View>
                         )}
 
+                        {/* Breathing room before AppScrollView's auto-appended <Footer />:
+                            flexGrow pushes the footer to the bottom of the viewport when the
+                            page is short (e.g. a single connection) so it isn't stuck right
+                            under the content; minHeight keeps a gap once the list scrolls. */}
+                        <View style={{ flexGrow: 1, minHeight: 56 }} />
+
                         {/* Sent requests moved to /network/invitations (Sent tab) */}
                     </AppScrollView>
                 )}

@@ -10,7 +10,7 @@ const sampleItems = [
 describe('PYMKCarousel', () => {
   it('renders items with displayName + artistType + first reason', () => {
     render(
-      <PYMKCarousel items={sampleItems} onConnect={() => {}} onDismiss={() => {}} onSeeAll={() => {}} />
+      <PYMKCarousel items={sampleItems} onConnect={() => {}} onDismiss={() => {}} />
     );
     expect(screen.getByText('Priya')).toBeTruthy();
     expect(screen.getByText('Kathak')).toBeTruthy();
@@ -21,7 +21,7 @@ describe('PYMKCarousel', () => {
 
   it('returns null when items is empty', () => {
     const { toJSON } = render(
-      <PYMKCarousel items={[]} onConnect={() => {}} onDismiss={() => {}} onSeeAll={() => {}} />
+      <PYMKCarousel items={[]} onConnect={() => {}} onDismiss={() => {}} />
     );
     expect(toJSON()).toBeNull();
   });
@@ -29,7 +29,7 @@ describe('PYMKCarousel', () => {
   it('fires onDismiss when X tapped', () => {
     const onDismiss = jest.fn();
     render(
-      <PYMKCarousel items={sampleItems} onConnect={() => {}} onDismiss={onDismiss} onSeeAll={() => {}} />
+      <PYMKCarousel items={sampleItems} onConnect={() => {}} onDismiss={onDismiss} />
     );
     fireEvent.press(screen.getByTestId('pymk-dismiss-a1'));
     expect(onDismiss).toHaveBeenCalledWith('a1');
@@ -38,18 +38,9 @@ describe('PYMKCarousel', () => {
   it('fires onConnect when Connect tapped', () => {
     const onConnect = jest.fn();
     render(
-      <PYMKCarousel items={sampleItems} onConnect={onConnect} onDismiss={() => {}} onSeeAll={() => {}} />
+      <PYMKCarousel items={sampleItems} onConnect={onConnect} onDismiss={() => {}} />
     );
     fireEvent.press(screen.getAllByText('Connect')[0]);
     expect(onConnect).toHaveBeenCalledWith('a1');
-  });
-
-  it('fires onSeeAll when "See all →" tapped', () => {
-    const onSeeAll = jest.fn();
-    render(
-      <PYMKCarousel items={sampleItems} onConnect={() => {}} onDismiss={() => {}} onSeeAll={onSeeAll} />
-    );
-    fireEvent.press(screen.getByText('See all →'));
-    expect(onSeeAll).toHaveBeenCalled();
   });
 });

@@ -91,42 +91,118 @@ export function getNotifConfig(n: Pick<Notification, 'type' | 'subtype'>): Notif
   return BY_SUBTYPE[n.subtype] ?? BY_TYPE[n.type] ?? { semantic: 'muted', Icon: Bell };
 }
 
-/** Display copy for a notification row.
+/** First "quoted" entity in a string — the gig/event/contract name the backend
+ *  embeds in a body like `Someone applied to your gig "Kathak lead"`. Returns ''
+ *  if none. Coupled to the factory's current strings; if they change we just
+ *  fall back to the full server body (safe — tidier copy, never broken). */
+function firstQuoted(s: string): string {
+  const m = s.match(/"([^"]+)"/);
+  return m ? m[1].trim() : '';
+}
+
+/** Display copy (title + optional body) for a notification row.
  *
  *  The backend factory stores generic, name-less strings ("New Connection
  *  Request" / "Someone wants to connect with you") because the emitted event
  *  carries only an actorId, not a name. The client already has the populated
- *  actor (displayName), so we compose warmer, name-led copy here for the
- *  surfaces where it reads clearly better. Anything without a template falls
- *  through to the server's own title/body unchanged.
+ *  actor (displayName) and the state eyebrow from getNotifConfig, so here we
+ *  compose warmer, calmer copy:
+ *    • person-actor types lead with the name ("{name} wants to connect");
+ *    • state-eyebrow types (SHORTLISTED/HIRED/CANCELLED/…) let the eyebrow
+ *      carry the state and put the gig/event name in the title;
+ *    • money is stated plainly (pay-as-fact — no "Successful!" hype);
+ *    • bodies keep the server's specifics (gig/event titles, ₹ amounts,
+ *      ticket counts, reasons) since those live only in the server string.
+ *  Anything without a case falls through to the server's own title/body.
  *
- *  Scope note: this polishes IN-APP display only. Push/email copy still comes
- *  from the backend factory — improving that needs the actor's name plumbed
- *  into the event payload (backend follow-up). This switch is the single place
- *  to extend as more types get first-class copy. */
+ *  Scope: IN-APP display only. Push/email copy still comes from the backend
+ *  factory — matching it there needs the actor name + entity title plumbed into
+ *  the event payload (backend follow-up). This switch is the single place to
+ *  extend. */
 export function resolveNotifCopy(n: Notification): { title: string; body?: string } {
   const actor = n.actorId && typeof n.actorId === 'object' ? n.actorId : null;
   const name = actor?.displayName?.trim();
+  const serverTitle = (n.title || '').trim();
   const serverBody = (n.message || n.body || '').trim();
+  const entity = firstQuoted(serverBody);   // gig / event / contract name, when present
+  const body = serverBody || undefined;
 
   switch (n.subtype) {
+    /* ── Network — a person acted, so lead with their name ── */
     case 'connection.request': {
       // Keep a real personal note from the requester; drop the generic fallback.
       const personal = /^someone wants to connect/i.test(serverBody) ? '' : serverBody;
       return {
-        // Only override when we actually have a name — never downgrade a title
-        // the server already composed well.
-        title: name ? `${name} wants to connect` : (n.title || 'New connection request'),
+        // Only override when we have a name — never downgrade good server copy.
+        title: name ? `${name} wants to connect` : (serverTitle || 'New connection request'),
         body: personal || undefined,
       };
     }
     case 'connection.accepted':
       return {
-        title: name ? `${name} accepted your request` : (n.title || 'Connection accepted'),
+        title: name ? `${name} accepted your request` : (serverTitle || 'Connection accepted'),
         body: 'Say hello to start the conversation.',
       };
+    case 'connection.rejected':
+      return { title: serverTitle || 'Connection request closed', body };
+    case 'message.new':
+    case 'message.mention':
+      return { title: name ? `${name} sent you a message` : (serverTitle || 'New message'), body };
+    case 'profile.viewed':
+      return { title: name ? `${name} viewed your profile` : (serverTitle || 'Your profile got a view') };
+
+    /* ── Gigs ── */
+    case 'gig.application.received':
+      // Hirer side; actor = applicant. Name leads, the gig becomes the detail.
+      return { title: name ? `${name} applied to your gig` : (serverTitle || 'New application'), body: entity || body };
+    case 'gig.application.shortlisted':   // eyebrow already reads SHORTLISTED
+      return { title: entity || serverTitle || 'Application shortlisted' };
+    case 'gig.application.hired':         // eyebrow already reads HIRED
+      return { title: entity || serverTitle || 'You got the gig' };
+    case 'gig.application.rejected':
+      return { title: 'Not selected this time', body: entity || body };
+    case 'gig.cancelled':                 // eyebrow CANCELLED — body keeps the reason
+      return { title: entity || serverTitle || 'Gig cancelled', body };
+    case 'gig.deadline.approaching':      // eyebrow DEADLINE
+      return { title: entity || serverTitle || 'Deadline approaching', body };
+
+    /* ── Events (eyebrow'd ones put the event name in the title) ── */
+    case 'event.registration.success':
+      return { title: 'Registration confirmed', body };
+    case 'event.reservation.expiring':    // eyebrow EXPIRING — body keeps the countdown
+      return { title: entity || serverTitle || 'Reservation expiring', body };
+    case 'event.cancelled':               // eyebrow CANCELLED
+      return { title: entity || serverTitle || 'Event cancelled', body };
+    case 'event.updated':
+      return { title: 'Event updated', body };
+    case 'event.reminder':
+      return { title: serverTitle || 'Event reminder', body };
+    case 'event.reservation.expired':     // eyebrow EXPIRED
+      return { title: entity || serverTitle || 'Reservation expired', body };
+
+    /* ── Payments (pay-as-fact: money stated plainly, no hype) ── */
+    case 'payment.success':
+      return { title: 'Payment received', body };
+    case 'payment.failed':                // eyebrow "Payment failed" — body keeps ₹ + reason
+      return { title: serverTitle || 'Payment failed', body };
+    case 'payment.refund.initiated':      // eyebrow "Refund started"
+      return { title: serverTitle || 'Refund started', body };
+    case 'payment.refund.completed':      // eyebrow "Refunded"
+      return { title: serverTitle || 'Refund completed', body };
+
+    /* ── Contracts ── */
+    case 'contract.sent':
+      return { title: name ? `${name} sent you a contract` : (serverTitle || 'New contract'), body: entity || body };
+    case 'contract.signed':               // eyebrow SIGNED
+      return { title: entity || serverTitle || 'Contract signed' };
+    case 'contract.expired':              // eyebrow EXPIRED
+      return { title: entity || serverTitle || 'Contract expired' };
+    case 'contract.cancelled':            // eyebrow CANCELLED
+      return { title: entity || serverTitle || 'Contract cancelled', body };
+
+    /* ── System + anything untemplated: trust the server copy ── */
     default:
-      return { title: n.title, body: serverBody || undefined };
+      return { title: serverTitle, body };
   }
 }
 

@@ -1,5 +1,5 @@
 import {
-  getNotifConfig, matchesCategory, filterByCategory, bucketCounts, formatStamp,
+  getNotifConfig, matchesCategory, filterByCategory, bucketCounts, formatStamp, resolveNotifCopy,
 } from '../notificationsTheme';
 
 const mk = (over: Partial<{ type: string; subtype: string }> = {}) =>
@@ -66,5 +66,53 @@ describe('formatStamp', () => {
     expect(formatStamp(new Date(now - 30 * 1000).toISOString())).toBe('now');
     expect(formatStamp(new Date(now - 5 * 60000).toISOString())).toBe('5m');
     expect(formatStamp(new Date(now - 3 * 3600000).toISOString())).toBe('3h');
+  });
+});
+
+describe('resolveNotifCopy', () => {
+  const nt = (over: any = {}) => ({
+    _id: 'n', userId: 'u', type: 'connection', subtype: 'connection.request',
+    title: 'New Connection Request', message: '', isRead: false,
+    createdAt: '', updatedAt: '', ...over,
+  } as any);
+
+  test('connection request leads with the actor name', () => {
+    const c = resolveNotifCopy(nt({ actorId: { _id: 'a', displayName: 'Priya Menon' } }));
+    expect(c.title).toBe('Priya Menon wants to connect');
+  });
+
+  test('drops the generic connect body but keeps a real personal note', () => {
+    expect(resolveNotifCopy(nt({ message: 'Someone wants to connect with you' })).body).toBeUndefined();
+    expect(resolveNotifCopy(nt({ message: 'Loved your Kathak reel!' })).body).toBe('Loved your Kathak reel!');
+  });
+
+  test('falls back to the server title when there is no actor name', () => {
+    expect(resolveNotifCopy(nt({ actorId: undefined })).title).toBe('New Connection Request');
+  });
+
+  test('hired: eyebrow carries the state, title carries the gig name', () => {
+    const c = resolveNotifCopy(nt({
+      type: 'gig', subtype: 'gig.application.hired', title: 'Congratulations! You Got the Gig',
+      message: 'You\'ve been hired for "Kathak lead"',
+    }));
+    expect(c.title).toBe('Kathak lead');
+    expect(c.body).toBeUndefined();
+  });
+
+  test('payment success is stated plainly (pay-as-fact)', () => {
+    const c = resolveNotifCopy(nt({
+      type: 'payment', subtype: 'payment.success', title: 'Payment Successful',
+      message: 'Your payment of ₹2000 was successful',
+    }));
+    expect(c.title).toBe('Payment received');
+    expect(c.body).toBe('Your payment of ₹2000 was successful');
+  });
+
+  test('untemplated subtype passes server copy through unchanged', () => {
+    const c = resolveNotifCopy(nt({
+      type: 'system', subtype: 'system.alert', title: 'Scheduled maintenance', message: 'Back at 2am',
+    }));
+    expect(c.title).toBe('Scheduled maintenance');
+    expect(c.body).toBe('Back at 2am');
   });
 });

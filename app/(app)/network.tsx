@@ -399,7 +399,8 @@ export default function NetworkPage() {
                                             style={s.filterTab}
                                         >
                                             <Text style={[s.filterTabText, active && s.filterTabTextActive]}>
-                                                {key === 'all' ? 'All' : key === 'artists' ? 'Artists' : 'Leads'}
+                                                {/* 'Leads' relabeled → 'Creative Lead' (swap back to restore) */}
+                                                {key === 'all' ? 'All' : key === 'artists' ? 'Artists' : 'Creative Lead'}
                                             </Text>
                                             {active && <View style={s.filterTabUnderline} />}
                                         </Pressable>

@@ -316,12 +316,9 @@ export function SpotlightProfile({ userId, isOwner }: {
         return (
             <Pressable onPress={() => setViewerIndex(i)} style={[st.tile, { width: w, height: h }]}>
                 <Image source={{ uri: item.url }} style={st.fill} />
-                {item.type === 'video' && (
-                    <>
-                        <View style={st.tileScrim} />
-                        <View style={st.tilePlay}><Play size={13} color="#fff" fill="#fff" /></View>
-                    </>
-                )}
+                <LinearGradient colors={['transparent', 'rgba(0,0,0,0.6)']} locations={[0.45, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+                {item.type === 'video' && <View style={st.tilePlay}><Play size={13} color="#fff" fill="#fff" /></View>}
+                {!!item.title && <Text style={st.tileLabel} numberOfLines={1}>{item.title}</Text>}
             </Pressable>
         );
     };
@@ -362,7 +359,7 @@ export function SpotlightProfile({ userId, isOwner }: {
                     )}
                 </View>
                 {!!item.description && (
-                    <MarkdownText value={item.description} color={C.t4} size={12} lineHeight={18} accent={C.orange} style={{ paddingHorizontal: 15, marginTop: 6 }} />
+                    <MarkdownText value={item.description} color={C.t4} size={12} lineHeight={18} accent={C.orange} numberOfLines={2} style={{ paddingHorizontal: 15, marginTop: 6 }} />
                 )}
                 {atts.length > 0 && (
                     <>
@@ -409,6 +406,16 @@ export function SpotlightProfile({ userId, isOwner }: {
                     {/* ── Header — centered halo portrait (always sits low on the cover) ── */}
                     <View style={[st.header, st.headerOnCover]}>
                         <View style={st.avatarWrap}>
+                            {/* halo glow — the signature Spotlight warmth behind the portrait */}
+                            <Svg width={176} height={176} style={{ position: 'absolute', top: -13, left: -13 }} pointerEvents="none">
+                                <Defs>
+                                    <RadialGradient id="halo" cx="50%" cy="50%" r="50%">
+                                        <Stop offset="0" stopColor="#FF9646" stopOpacity={0.3} />
+                                        <Stop offset="0.66" stopColor="#FF9646" stopOpacity={0} />
+                                    </RadialGradient>
+                                </Defs>
+                                <Rect x="0" y="0" width={176} height={176} fill="url(#halo)" />
+                            </Svg>
                             <View style={st.ring}>
                                 {avatarUrl ? (
                                     <Image source={{ uri: avatarUrl }} style={st.avatar} />
@@ -468,7 +475,7 @@ export function SpotlightProfile({ userId, isOwner }: {
                                 </Pressable>
                             ) : (
                                 <Pressable onPress={onConnect} disabled={connBusy} style={[st.abtn, st.abtnConnect]}>
-                                    {connBusy ? <ActivityIndicator size="small" color="#CDBBF5" /> : <><UserPlus size={15} color={C.violet} /><Text style={[st.abtnTx, { color: '#CDBBF5' }]}>Connect</Text></>}
+                                    {connBusy ? <ActivityIndicator size="small" color="#CDBBF5" /> : <><UserPlus size={15} color="#A78BFA" /><Text style={[st.abtnTx, { color: '#CDBBF5' }]}>Connect</Text></>}
                                 </Pressable>
                             )}
                         </View>
@@ -700,7 +707,7 @@ const st = StyleSheet.create({
     abtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 22, borderWidth: 1, borderColor: 'transparent', minHeight: 40 },
     abtnTx: { fontFamily: 'Outfit-Bold', fontSize: 13 },
     abtnConnect: { backgroundColor: 'rgba(139,92,246,0.08)', borderColor: 'rgba(139,92,246,0.4)' },
-    abtnGhost: { borderColor: 'rgba(255,255,255,0.14)' },
+    abtnGhost: { borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.05)' },
     moreBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
 
     menu: { marginTop: 10, width: 210, backgroundColor: '#141418', borderWidth: 1, borderColor: C.border2, borderRadius: 14, overflow: 'hidden' },
@@ -717,7 +724,7 @@ const st = StyleSheet.create({
     addTx: { fontFamily: 'Outfit-Regular', fontSize: 13, color: C.orange },
 
     quote: { position: 'relative', paddingTop: 8 },
-    quoteMark: { position: 'absolute', top: -20, left: -4, fontFamily: 'DMSerifDisplay_400Regular', fontSize: 60, color: 'rgba(255,107,53,0.18)' },
+    quoteMark: { position: 'absolute', top: -14, left: -4, fontFamily: 'DMSerifDisplay_400Regular', fontSize: 64, color: 'rgba(255,107,53,0.18)' },
     bio: { fontFamily: 'Outfit-Light', fontSize: 13.5, lineHeight: 23, color: '#C9C4CC' },
 
     pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
@@ -731,6 +738,7 @@ const st = StyleSheet.create({
     tilePh: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     tileScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.28)' },
     tilePlay: { position: 'absolute', top: '50%', left: '50%', marginTop: -16, marginLeft: -16, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.65)', alignItems: 'center', justifyContent: 'center' },
+    tileLabel: { position: 'absolute', left: 9, right: 9, bottom: 7, fontFamily: 'Outfit-Bold', fontSize: 8.5, letterSpacing: 0.3, color: '#fff', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 3 },
 
     // experience timeline
     tlWrap: { position: 'relative', paddingLeft: 20 },

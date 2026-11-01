@@ -26,7 +26,7 @@ import {
 } from '@/lib/eventPricing';
 import { openRazorpayCheckout } from '@/lib/razorpayCheckout';
 import { eventService, DPDP_CONSENT_VERSION } from '@/services/eventService';
-import type { RegisterAnswer, EventQuestion } from '@/services/eventService';
+import type { RegisterAnswer, RegisterApplication, EventQuestion } from '@/services/eventService';
 import { useRegisterFlowStore } from '@/stores/registerFlowStore';
 import RegistrationReceiptCard from './RegistrationReceiptCard';
 import PaymentRetrySheet from './PaymentRetrySheet';
@@ -54,6 +54,7 @@ const PHONE_RE = /^(\+91[\s-]?)?[6-9]\d{9}$/;
 const EMAIL_RE = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
 const MAX_ATTENDEES = 5;
 const MAX_NOTES = 300;
+const MAX_PITCH = 2000; // mirrors events-service buildApplication cap
 
 export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) {
   const user = useAuthStore((s) => s.user);
@@ -74,6 +75,9 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
   // Host custom questions (keyed by question _id, falling back to label) + spot tier.
   const [answers, setAnswers] = useState<Record<string, string | string[] | boolean>>({});
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
+  // Apply-with-work (door:'apply') submission.
+  const [applicationPitch, setApplicationPitch] = useState('');
+  const [applicationLink, setApplicationLink] = useState('');
   // The consent gate (DPDPConsentScreen) runs before this sheet opens; we read the
   // recorded consent so it can travel to the backend with register/reserve.
   const isConsentValid = useRegisterFlowStore((s) => s.isConsentValid);
@@ -111,6 +115,10 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
   const questions = useMemo<EventQuestion[]>(() => event?.registration?.questions ?? [], [event]);
   const spots = useMemo(() => event?.spots ?? [], [event]);
   const hasMultiSpot = spots.length > 1;
+  // Door policy: 'open' registers/reserves instantly; 'guest_list'/'apply' create a
+  // `pending` request the host approves (payment, if any, happens after approval).
+  const door = event?.registration?.door ?? 'open';
+  const isApprovalDoor = door !== 'open';
   const qKey = (q: EventQuestion) => q._id ?? q.label;
   const spotIdOf = (s: { _id?: string; name: string }) => s._id ?? s.name;
   const selectedSpot = useMemo(() => {
@@ -153,6 +161,17 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
       .filter(({ v }) => v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0))
       .map(({ q, v }) => ({ questionId: q._id, label: q.label, value: v as RegisterAnswer['value'] }));
 
+  // Apply-with-work payload — sent only for door:'apply'. A link and/or pitch is
+  // enough; empty → undefined so the backend stores nothing.
+  const buildApplication = (): RegisterApplication | undefined => {
+    const pitch = applicationPitch.trim().slice(0, MAX_PITCH);
+    const link = applicationLink.trim();
+    const out: RegisterApplication = {};
+    if (pitch) out.pitch = pitch;
+    if (link) out.links = [link];
+    return Object.keys(out).length ? out : undefined;
+  };
+
   // Reset custom-question answers + spot choice each time the sheet opens.
   // A single-spot event auto-selects its only tier; multi-spot forces a choice.
   // Keyed on the resolved single-spot id (a stable primitive), NOT the spots array
@@ -163,6 +182,8 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
     if (!open) return;
     setAnswers({});
     setSelectedSpotId(singleSpotId);
+    setApplicationPitch('');
+    setApplicationLink('');
   }, [open, singleSpotId]);
 
   const decCount = () => setCount((c) => Math.max(1, c - 1));
@@ -184,14 +205,21 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
     if (!phone.trim()) return 'Phone is required.';
     if (!PHONE_RE.test(phone.replace(/\s/g, ''))) return 'Enter a valid Indian mobile number.';
     if (email && !EMAIL_RE.test(email)) return 'Enter a valid email or leave it blank.';
-    if (count < 1 || count > MAX_ATTENDEES) return `Attendees must be 1-${MAX_ATTENDEES}.`;
-    if (count > slotsLeft) return `Only ${slotsLeft} seat${slotsLeft === 1 ? '' : 's'} left for this event.`;
+    // A pending request (guest_list/apply) is for one person and consumes no seat,
+    // so the attendee-count / capacity gates apply only to the open door.
+    if (!isApprovalDoor) {
+      if (count < 1 || count > MAX_ATTENDEES) return `Attendees must be 1-${MAX_ATTENDEES}.`;
+      if (count > slotsLeft) return `Only ${slotsLeft} seat${slotsLeft === 1 ? '' : 's'} left for this event.`;
+    }
     if (needsSpotChoice) return 'Please choose a spot.';
     for (const q of questions) {
       if (!q.required) continue;
       const v = answers[qKey(q)];
       const unanswered = v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
       if (unanswered) return `Please answer: ${q.label}`;
+    }
+    if (door === 'apply' && !applicationLink.trim() && !applicationPitch.trim()) {
+      return 'Share a link to your work (or add a short note).';
     }
     if (notes.length > MAX_NOTES) return `Notes max ${MAX_NOTES} characters.`;
     return null;
@@ -215,6 +243,33 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
     const builtAnswers = buildAnswers();
     const spotId = selectedSpot?._id;
     const consent = isConsentValid();
+
+    if (isApprovalDoor) {
+      // guest_list / apply → create a PENDING request via /register (no seat, no
+      // ticket). Works for free AND paid events — payment, if any, happens after the
+      // host approves (pay-after-approval poll in EventCtaBar). Never reserve here.
+      try {
+        await mutation.mutateAsync({
+          visibility: showPublic ? 'public' : 'private',
+          attendeeName: name.trim(),
+          attendeePhone: phone.trim(),
+          attendeeEmail: email.trim() || undefined,
+          attendeeCount: 1,
+          notes: notes.trim() || undefined,
+          idempotencyKey: idemKeyRef.current!,
+          answers: builtAnswers.length ? builtAnswers : undefined,
+          spotId,
+          dpdpConsent: consent,
+          consentVersion: consent ? DPDP_CONSENT_VERSION : undefined,
+          application: door === 'apply' ? buildApplication() : undefined,
+        });
+        clearIdemKey();
+        setSubmitted(true);
+      } catch {
+        // mutation.isError shows below
+      }
+      return;
+    }
 
     if (!isPaid) {
       // FREE branch — POST /register directly with backend contract
@@ -299,7 +354,28 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
             </View>
 
             {submitted ? (
-              event && confirmedRegistration ? (
+              isApprovalDoor ? (
+                /* Request submitted (guest_list/apply) — pending host approval, no ticket yet */
+                <View className="py-16 px-6 items-center gap-3">
+                  <Text className="text-event-brand text-5xl">✓</Text>
+                  <Text className="font-serif text-event-textPrimary text-2xl">Request sent.</Text>
+                  <Text className="font-outfit text-event-textSecondary text-sm text-center leading-5">
+                    {door === 'apply'
+                      ? 'Your application is in. The host reviews each one and will let you know.'
+                      : 'The host reviews each request. You\'ll be notified when they respond.'}
+                    {isPaid ? ' If approved, you\'ll get a link to pay within 48 hours.' : ''}
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setSubmitted(false);
+                      onClose();
+                    }}
+                    className="mt-4 rounded-2xl bg-event-brand px-8 py-3"
+                  >
+                    <Text className="font-outfit font-bold text-white">Done</Text>
+                  </Pressable>
+                </View>
+              ) : event && confirmedRegistration ? (
                 <RegistrationReceiptCard
                   event={event}
                   registration={confirmedRegistration}
@@ -428,7 +504,9 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                   </>
                 ) : null}
 
-                {/* ATTENDEES */}
+                {/* ATTENDEES — hidden for approval doors (a request is for one person) */}
+                {!isApprovalDoor ? (
+                <>
                 <Text className="font-mono text-event-textMuted text-[10px] uppercase tracking-widest mb-3">
                   How many attending
                 </Text>
@@ -483,6 +561,40 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                       />
                     ))}
                   </View>
+                ) : null}
+                </>
+                ) : null}
+
+                {/* APPLY-WITH-WORK — door:'apply' only */}
+                {door === 'apply' ? (
+                  <>
+                    <Text className="font-mono text-event-textMuted text-[10px] uppercase tracking-widest mb-3">
+                      Your application
+                    </Text>
+                    <View className="gap-2 mb-5">
+                      <TextInput
+                        value={applicationLink}
+                        onChangeText={setApplicationLink}
+                        placeholder="Link to your work — Instagram / YouTube / Drive"
+                        placeholderTextColor={eventTokens.textMuted ?? '#6E6C76'}
+                        keyboardType="url"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        maxLength={500}
+                        className="font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border border-event-border px-4 py-3"
+                      />
+                      <TextInput
+                        value={applicationPitch}
+                        onChangeText={setApplicationPitch}
+                        placeholder="A short note on why you'd be a fit (optional)"
+                        placeholderTextColor={eventTokens.textMuted ?? '#6E6C76'}
+                        multiline
+                        maxLength={MAX_PITCH}
+                        className="font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border border-event-border px-4 py-3 leading-6"
+                        style={{ minHeight: 80 }}
+                      />
+                    </View>
+                  </>
                 ) : null}
 
                 {/* HOST CUSTOM QUESTIONS */}
@@ -612,8 +724,18 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                   policy.
                 </Text>
 
-                {/* PRICE SUMMARY (paid only; hidden until a spot is chosen) */}
-                {isPaid && !needsSpotChoice ? (
+                {/* PAY-AFTER-APPROVAL NOTE — paid guest_list/apply events don't pay now */}
+                {isApprovalDoor && isPaid ? (
+                  <View className="flex-row gap-2.5 rounded-2xl px-4 py-3 mb-4" style={{ backgroundColor: 'rgba(91,141,239,0.10)' }}>
+                    <Text className="font-outfit text-sm leading-5" style={{ color: '#C7D7F8' }}>
+                      <Text className="font-outfit font-bold" style={{ color: '#C7D7F8' }}>Pay after approval. </Text>
+                      If the host approves you, you'll get a link to pay within 48 hours, or the spot passes to the next person.
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* PRICE SUMMARY (open door, paid; hidden until a spot is chosen) */}
+                {!isApprovalDoor && isPaid && !needsSpotChoice ? (
                   <View className="rounded-2xl bg-event-surface border border-event-brand/30 px-4 py-4 mb-4">
                     <View className="flex-row items-center justify-between mb-2">
                       <Text className="font-outfit text-event-textSecondary text-sm">
@@ -676,11 +798,15 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                     <Text className={`font-outfit font-bold text-base ${needsSpotChoice ? 'text-event-textMuted' : 'text-white'}`}>
                       {needsSpotChoice
                         ? 'Choose a spot to continue'
-                        : isPaid
-                          ? `Confirm — pay ${formatRupees(totalPrice)}`
-                          : count === 1
-                            ? 'Confirm registration'
-                            : `Confirm ${count} registrations`}
+                        : isApprovalDoor
+                          ? door === 'apply'
+                            ? 'Apply'
+                            : 'Request to join'
+                          : isPaid
+                            ? `Confirm — pay ${formatRupees(totalPrice)}`
+                            : count === 1
+                              ? 'Confirm registration'
+                              : `Confirm ${count} registrations`}
                     </Text>
                   )}
                 </Pressable>

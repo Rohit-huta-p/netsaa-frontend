@@ -5,6 +5,7 @@ import type { EventDoc } from '@/services/eventService';
 import { eventService } from '@/services/eventService';
 import { computeSlotsLeft, isCapacityUrgent } from '@/lib/eventTokens';
 import { formatRupees } from '@/lib/eventPricing';
+import { openRazorpayCheckout } from '@/lib/razorpayCheckout';
 import { useMyRegistration } from '@/hooks/useMyRegistration';
 import { useMyWaitlistEntry } from '@/hooks/useMyWaitlistEntry';
 import { useQueryClient } from '@tanstack/react-query';
@@ -46,6 +47,7 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
   const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [confirmingPromotion, setConfirmingPromotion] = useState(false);
+  const [payingApproval, setPayingApproval] = useState(false);
   const recordConsent = useRegisterFlowStore((s) => s.recordConsent);
   const isConsentValid = useRegisterFlowStore((s) => s.isConsentValid);
   // subscribe to the timestamp so the bar re-evaluates after consent is recorded
@@ -61,7 +63,48 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
 
   const { data: myRegistration, isLoading: regLoading } = useMyRegistration(event._id);
   const { data: myWaitlist } = useMyWaitlistEntry(event._id);
-  const isRegistered = !!myRegistration;
+
+  // Registration status (approval flow): a non-null registration may be pending /
+  // approved / declined, not only a confirmed ticket — branch the CTA accordingly.
+  const regStatus: string | undefined = (myRegistration as any)?.status;
+  const hasAnyReg = !!myRegistration;
+  const isConfirmed = regStatus === 'registered' || regStatus === 'attended' || regStatus === 'no-show';
+  const isPending = regStatus === 'pending';
+  const isApproved = regStatus === 'approved';
+  const isDeclined = regStatus === 'declined';
+  const pendingPayment = (myRegistration as any)?.pendingPayment as
+    | { reservationId: string; razorpayOrderId: string; amountPaise: number; payBy?: string }
+    | undefined;
+  const hoursToPay = pendingPayment?.payBy
+    ? Math.max(0, Math.round((new Date(pendingPayment.payBy).getTime() - Date.now()) / 3600000))
+    : null;
+
+  // Pay-after-approval: an approved paid request opens its held Razorpay order; the
+  // webhook flips the SAME registration to 'registered', so poll until it does.
+  const payAfterApproval = async () => {
+    if (!pendingPayment) return;
+    setPayingApproval(true);
+    try {
+      await openRazorpayCheckout({
+        key_id: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID!,
+        order_id: pendingPayment.razorpayOrderId,
+        amount: pendingPayment.amountPaise,
+        currency: 'INR',
+        eventTitle: event.title,
+        prefill: { name: '', email: '', contact: '' },
+      });
+      for (let i = 0; i < 6; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        await queryClient.invalidateQueries({ queryKey: ['myRegistration', event._id] });
+        const rows = queryClient.getQueriesData<any>({ queryKey: ['myRegistration', event._id] });
+        if (rows?.[0]?.[1]?.status === 'registered') break;
+      }
+    } catch {
+      // cancelled/failed → the 48h hold persists; the Pay CTA stays for a retry
+    } finally {
+      setPayingApproval(false);
+    }
+  };
 
   useEffect(() => {
     if (initialOpen && !preview) {
@@ -94,7 +137,22 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
   // E·9: the reserve button carries the lowest price + "onwards"; a small
   // refund·closing line sits above the row. Other states keep their labels.
   const reserveLabel = v3 && isLive && !isFull && !deadlinePassed ? ctaLabel(event) : buttonLabel;
-  const ribbon = v3 && !isRegistered ? [refundLabel(event), closesLabel(event)].filter(Boolean).join('  ·  ') : '';
+  const ribbon = isApproved && hoursToPay != null
+    ? `Approved — ${hoursToPay}h left to pay`
+    : v3 && !hasAnyReg
+      ? [refundLabel(event), closesLabel(event)].filter(Boolean).join('  ·  ')
+      : '';
+
+  // Status-column label + accent for any existing registration.
+  const statusLabel = isConfirmed ? "You're going ✓"
+    : isApproved ? 'Approved'
+    : isPending ? 'Requested'
+    : isDeclined ? 'Not selected'
+    : '';
+  const statusColor = isConfirmed ? '#22C55E'
+    : isApproved ? '#FF8A5C'
+    : isDeclined ? TEXT_2
+    : '#5B8DEF'; // pending → blue
 
   // Preview → the primary CTA is greyed + non-interactive (organizer proofing).
   const ctaDisabled = deadlinePassed || isFull || !isLive || regLoading || preview;
@@ -119,9 +177,9 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
       {/* Price + CTA row */}
       <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 10 }}>
         {/* Price / status column (hidden in v3 reserve state — the button carries the price) */}
-        {(!v3 || isRegistered) ? (
+        {(!v3 || hasAnyReg) ? (
         <View style={{ paddingHorizontal: 4, justifyContent: 'center' }}>
-          {isRegistered ? (
+          {hasAnyReg ? (
             <>
               <Text className="font-mono" style={{
                 color: TEXT_3,
@@ -134,11 +192,11 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
                 Status
               </Text>
               <Text className="font-serif" style={{
-                color: '#22C55E',
+                color: statusColor,
                 fontSize: 18,
                 lineHeight: 22,
               }}>
-                You're going ✓
+                {statusLabel}
               </Text>
             </>
           ) : (
@@ -165,8 +223,8 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
         </View>
         ) : null}
 
-        {isRegistered ? (
-          /* Registered state: View ticket (primary flex) + Cancel (secondary smaller) */
+        {isConfirmed ? (
+          /* Confirmed (has ticket): View ticket (primary flex) + Cancel (secondary smaller) */
           <>
             <Pressable
               onPress={() => router.push(`/events/${event._id}/ticket?registrationId=${myRegistration?._id}`)}
@@ -207,6 +265,31 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
               </Text>
             </Pressable>
           </>
+        ) : isPending ? (
+          /* Pending request (guest_list/apply): awaiting the host — no ticket yet */
+          <View style={{ flex: 1, borderRadius: 12, height: 52, alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE_2 }}>
+            <Text className="font-outfit" style={{ color: TEXT_2, fontWeight: '600', fontSize: 14 }}>Awaiting approval</Text>
+          </View>
+        ) : isApproved ? (
+          /* Approved paid request: pay the held order within 48h (webhook → registered) */
+          <Pressable
+            onPress={payAfterApproval}
+            disabled={payingApproval || !pendingPayment}
+            style={{ flex: 1, borderRadius: 12, height: 52, alignItems: 'center', justifyContent: 'center', backgroundColor: payingApproval || !pendingPayment ? SURFACE : '#FF6B35', borderWidth: payingApproval || !pendingPayment ? 1 : 0, borderColor: HAIRLINE_2 }}
+          >
+            {payingApproval ? (
+              <ActivityIndicator color={ORANGE_INK} />
+            ) : (
+              <Text className="font-outfit" style={{ color: pendingPayment ? ORANGE_INK : TEXT_3, fontWeight: '700', fontSize: 14 }}>
+                {pendingPayment ? `Pay ${formatRupees(pendingPayment.amountPaise / 100)} →` : 'Preparing payment…'}
+              </Text>
+            )}
+          </Pressable>
+        ) : isDeclined ? (
+          /* Declined: terminal, informational */
+          <View style={{ flex: 1, borderRadius: 12, height: 52, alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE_2 }}>
+            <Text className="font-outfit" style={{ color: TEXT_2, fontWeight: '600', fontSize: 14 }}>Not selected this time</Text>
+          </View>
         ) : (
           /* Not registered — waitlist-aware CTA precedence:
            * 1. promoted  → "Seat open — confirm"  (green)

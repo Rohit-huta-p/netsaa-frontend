@@ -52,6 +52,15 @@ export interface EventCancellationPolicy {
   notes?: string;                    // free-text shown to attendees
 }
 
+/** A host-authored custom registration question (event.registration.questions[i]). */
+export interface EventQuestion {
+  _id?: string;
+  label: string;
+  type: 'text' | 'choice' | 'link' | 'photo' | 'yes_no' | string;
+  options?: string[];
+  required?: boolean;
+}
+
 export interface EventDoc {
   _id: string;
   organizerId: string | { _id: string; name: string; verified: boolean; avatar?: string; role?: string };
@@ -112,9 +121,13 @@ export interface EventDoc {
   coverFit?: 'whole' | 'fill';
   /** Featured artists — "Led by". userId links a NETSA profile; invite.status marks invited vs joined. */
   people?: Array<{ userId?: string; displayName: string; role?: string; avatarUrl?: string; invite?: { status: 'invited' | 'joined' } }>;
-  spots?: Array<{ name: string; note?: string; capacity?: number; price: number }>;
-  offers?: Array<{ spotId?: string; name: string; price: number; audience?: 'everyone' | 'group'; endsAt?: string; seatLimit?: number; minSeats?: number }>;
-  registration?: { door: 'open' | 'guest_list' | 'apply'; questions?: Array<{ label: string; type: string; options?: string[]; required?: boolean }> };
+  // Subdoc _id is returned by the detail endpoint (Mongoose toObject). It is the
+  // `spotId` / `questionId` the register+reserve contract keys off — see RegisterPayload.
+  // NB: question _id CHURNS when the host edits questions (composerMapping strips+re-mints
+  // it), so answers carry `label` too as the reliable server-side matcher.
+  spots?: Array<{ _id?: string; name: string; note?: string; capacity?: number; price: number }>;
+  offers?: Array<{ _id?: string; spotId?: string; name: string; price: number; audience?: 'everyone' | 'group'; endsAt?: string; seatLimit?: number; minSeats?: number }>;
+  registration?: { door: 'open' | 'guest_list' | 'apply'; questions?: EventQuestion[] };
   requiresApproval?: boolean;
   lineup?: Array<{ when?: string; title: string; detail?: string }>;
   bring?: { items?: string[]; note?: string };
@@ -126,6 +139,33 @@ export interface EventDoc {
   organizerSnapshot?: { name?: string; organizationName?: string; profileImageUrl?: string; verified?: boolean; role?: string; rating?: number };
 }
 
+/**
+ * DPDP consent policy version sent with register/reserve. Mirrors the backend's
+ * DPDP_POLICY_VERSION (events-service utils/consent.ts) so a FE/BE acceptance
+ * reconciles to the same audited record. Bump both together when the consent
+ * copy shown at registration changes.
+ */
+export const DPDP_CONSENT_VERSION = '2026.1';
+
+/**
+ * One answer to a host custom question. Send BOTH `questionId` and `label`:
+ * the backend matches on either, but the question _id churns when the host edits
+ * the event (composerMapping re-mints subdoc ids), so `label` is the reliable key.
+ * `value` is a plain option string (choice), free text (text/link), or a boolean (yes_no).
+ */
+export interface RegisterAnswer {
+  questionId?: string;
+  label?: string;
+  value: string | string[] | boolean;
+}
+
+/** Apply-with-work submission (door:'apply' only). */
+export interface RegisterApplication {
+  pitch?: string;
+  links?: string[];
+  mediaIds?: string[];
+}
+
 export interface RegisterPayload {
   visibility?: 'public' | 'private';
   attendeeName: string;
@@ -135,6 +175,20 @@ export interface RegisterPayload {
   guestNames?: string[];
   notes?: string;
   idempotencyKey: string;       // required; stable per attempt, reused on retry
+  // ── additive register-flow fields (all optional; back-compat) ──
+  answers?: RegisterAnswer[];   // validated server-side vs event.registration.questions
+  spotId?: string;              // required by a multi-spot event; single/spot-less defaults
+  dpdpConsent?: boolean;        // true → persisted to UserConsent (scope event_registration)
+  consentVersion?: string;      // defaults to DPDP_CONSENT_VERSION
+  application?: RegisterApplication; // stored only for door:'apply'
+}
+
+/** Optional extras shared by register + reserve bodies. */
+export interface ReserveExtras {
+  answers?: RegisterAnswer[];
+  spotId?: string;
+  dpdpConsent?: boolean;
+  consentVersion?: string;
 }
 
 /** Shape returned by POST /v1/events/:id/register (free events only; no paymentRequired field). */
@@ -233,9 +287,23 @@ export const eventService = {
         .filter((g) => g.trim())
         .map((g) => ({ fullName: g.trim(), phone: payload.attendeePhone })),
     ];
+    const body: Record<string, unknown> = {
+      quantity: payload.attendeeCount,
+      attendees,
+      visibility: payload.visibility ?? 'public',
+    };
+    // Additive fields — only sent when present so the body stays minimal for
+    // plain open-door free events (back-compat).
+    if (payload.answers?.length) body.answers = payload.answers;
+    if (payload.spotId) body.spotId = payload.spotId;
+    if (payload.dpdpConsent) {
+      body.dpdpConsent = true;
+      body.consentVersion = payload.consentVersion ?? DPDP_CONSENT_VERSION;
+    }
+    if (payload.application) body.application = payload.application;
     const r = await client.post(
       `/v1/events/${eventId}/register`,
-      { quantity: payload.attendeeCount, attendees, visibility: payload.visibility ?? 'public' },
+      body,
       { headers: { 'Idempotency-Key': payload.idempotencyKey } },
     );
     return r.data.data;
@@ -245,10 +313,18 @@ export const eventService = {
     eventId: string,
     quantity: number,
     idempotencyKey: string,
+    extras?: ReserveExtras,
   ): Promise<{ reservationId: string; razorpayOrderId: string; amountPaise: number }> => {
+    const body: Record<string, unknown> = { quantity };
+    if (extras?.answers?.length) body.answers = extras.answers;
+    if (extras?.spotId) body.spotId = extras.spotId;
+    if (extras?.dpdpConsent) {
+      body.dpdpConsent = true;
+      body.consentVersion = extras.consentVersion ?? DPDP_CONSENT_VERSION;
+    }
     const r = await client.post(
       `/v1/events/${eventId}/reserve`,
-      { quantity },
+      body,
       { headers: { 'Idempotency-Key': idempotencyKey } },
     );
     return r.data.data;

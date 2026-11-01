@@ -1,18 +1,23 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 import { NotificationCard } from '../NotificationCard';
 
 const mockMarkAsRead = jest.fn();
 const mockNavigate = jest.fn();
 const mockAccept = jest.fn().mockResolvedValue({});
 const mockReject = jest.fn().mockResolvedValue({});
+const mockMarkResponded = jest.fn();
 
 // gesture-handler ships untransformed TurboModule specs — stub Swipeable to render children.
 jest.mock('react-native-gesture-handler', () => ({
   Swipeable: ({ children }: any) => children,
 }));
 jest.mock('@/stores/notificationsStore', () => ({
-  useNotificationsStore: () => ({ markAsRead: mockMarkAsRead }),
+  useNotificationsStore: () => ({
+    markAsRead: mockMarkAsRead,
+    respondedConnections: {},
+    markConnectionResponded: mockMarkResponded,
+  }),
 }));
 jest.mock('@/services/deepLinkService', () => ({
   deepLinkService: { navigateToRoute: (r: string) => mockNavigate(r) },
@@ -59,13 +64,15 @@ test('tap marks read and deep-links', () => {
   expect(mockNavigate).toHaveBeenCalledWith('/gigs/g1');
 });
 
-test('connection request shows inline actions only with a connectionId', () => {
+test('connection request shows inline actions only with a connectionId', async () => {
   const withId = render(<NotificationCard notification={mk({
     type: 'connection', subtype: 'connection.request', title: 'Meera Nair wants to connect',
     data: { params: { connectionId: 'c1' } },
   })} />);
-  fireEvent.press(withId.getByText('Accept'));
+  // respond() flips `pending` on a trailing microtask — let it settle inside act().
+  await act(async () => { fireEvent.press(withId.getByText('Accept')); });
   expect(mockAccept).toHaveBeenCalledWith('c1');
+  expect(mockMarkResponded).toHaveBeenCalledWith('c1', 'accepted');
 
   const withoutId = render(<NotificationCard notification={mk({
     type: 'connection', subtype: 'connection.request', title: 'Meera Nair wants to connect',

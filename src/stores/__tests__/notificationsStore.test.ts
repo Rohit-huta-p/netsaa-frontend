@@ -47,3 +47,18 @@ describe('incrementUnread', () => {
     expect(useNotificationsStore.getState().notifications).toHaveLength(1);
   });
 });
+
+describe('markConnectionResponded', () => {
+  beforeEach(() => useNotificationsStore.setState({ respondedConnections: {} }));
+
+  test('records the outcome and survives a notifications refresh', () => {
+    useNotificationsStore.getState().markConnectionResponded('c1', 'accepted');
+    expect(useNotificationsStore.getState().respondedConnections).toEqual({ c1: 'accepted' });
+
+    // A later fetch replaces the list but must NOT clear responses — otherwise
+    // the server re-sends the (still-pending-looking) request row and the card
+    // wrongly re-offers Accept/Decline. This is the regression under test.
+    useNotificationsStore.setState({ notifications: [] });
+    expect(useNotificationsStore.getState().respondedConnections).toEqual({ c1: 'accepted' });
+  });
+});

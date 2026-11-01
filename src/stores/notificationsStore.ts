@@ -84,6 +84,13 @@ type NotificationsState = {
     incrementUnread: (notification: Notification) => void; // For socket events
     resetUnread: () => void; // When notification screen opens
 
+    // Connection requests the user has already accepted/declined this session,
+    // keyed by connectionId → outcome. Kept OUT of `notifications` on purpose:
+    // the server keeps returning the original request row on every fetch, so the
+    // card reads this map (not ephemeral component state) to know it's resolved.
+    respondedConnections: Record<string, 'accepted' | 'rejected'>;
+    markConnectionResponded: (connectionId: string, outcome: 'accepted' | 'rejected') => void;
+
     // Internal state management
     isLoading: boolean;
     error: string | null;
@@ -92,6 +99,7 @@ type NotificationsState = {
 export const useNotificationsStore = create<NotificationsState>((set, get) => ({
     // Initial state
     notifications: [],
+    respondedConnections: {},
     isLoading: false,
     error: null,
 
@@ -229,6 +237,15 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
             // Sync with server in the background
             get().markAllAsRead();
         }
+    },
+
+    // Record that the user accepted/declined a connection request. Lives OUTSIDE
+    // `notifications` so a later fetchNotifications (which still returns the
+    // original request row) can't resurrect the Accept/Decline buttons.
+    markConnectionResponded: (connectionId, outcome) => {
+        set(state => ({
+            respondedConnections: { ...state.respondedConnections, [connectionId]: outcome },
+        }));
     },
 }));
 

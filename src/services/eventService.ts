@@ -470,3 +470,169 @@ export const eventService = {
 // other default-import site). The named `export const eventService` above is kept
 // for existing `import { eventService }` sites. Mirrors gigService's default export.
 export default eventService;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Host registration-request review (§6a-c/d/e) — approve/decline + full roster.
+//
+// Appended as standalone exported functions (not folded into the `eventService`
+// object above) so this file stays merge-safe against the concurrent register-flow
+// edits landing in the same object literal. They share the module-scoped `client`,
+// so the Bearer token + base URL are applied exactly as for every other call.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One answer to a host custom question, snapshotted on the registration (roster view). */
+export interface RosterAnswer {
+  questionId?: string;
+  label: string;
+  type?: string;
+  value: string;
+}
+
+/** Apply-with-work submission on an apply-door request (roster view). */
+export interface RosterApplication {
+  pitch?: string;
+  links?: string[];
+  mediaIds?: string[];
+}
+
+/** One roster row (toRow in events-service registrations.getEventRoster). */
+export interface EventRosterRow {
+  _id: string;
+  userId: string;
+  name: string;
+  phone?: string;
+  seats: number;                 // = registration.quantity
+  registeredAt?: string;         // request/registration time (pending rows sort newest-first)
+  joinedAt?: string;             // waitlist entries only
+  position?: number;             // waitlist entries only
+  status: string;                // pending | approved | registered | attended | cancelled | declined | no-show
+  visibility?: 'public' | 'private';
+  spotId?: string;               // chosen ticket tier (event.spots[i]._id), when set
+  answers?: RosterAnswer[];      // answers to the host's custom questions
+  application?: RosterApplication; // apply-door pitch/links
+}
+
+/**
+ * The host roster, bucketed by status. `requests` = pending guest_list/apply
+ * requests awaiting the host's decision (newest first); `approved` = approved PAID
+ * requests holding a seat while the attendee pays within 48h. Legacy 3-bucket
+ * callers keep reading confirmed/waitlist/cancelled + counts unchanged.
+ */
+export interface EventRosterData {
+  confirmed: EventRosterRow[];
+  requests: EventRosterRow[];
+  approved: EventRosterRow[];
+  waitlist: EventRosterRow[];
+  cancelled: EventRosterRow[];
+  declined: EventRosterRow[];
+  counts: {
+    confirmed: number;
+    requests: number;
+    approved: number;
+    waitlist: number;
+    cancelled: number;
+    declined: number;
+  };
+}
+
+const EMPTY_ROSTER: EventRosterData = {
+  confirmed: [], requests: [], approved: [], waitlist: [], cancelled: [], declined: [],
+  counts: { confirmed: 0, requests: 0, approved: 0, waitlist: 0, cancelled: 0, declined: 0 },
+};
+
+/**
+ * GET /v1/events/:id/roster (host only). Normalises to the full bucketed shape.
+ * Tolerates the pre-approval-trio backend (3 buckets / legacy `{rows,total}`) by
+ * defaulting the new buckets to empty, and a 404 (no roster yet) → empty roster.
+ */
+export async function getEventRoster(eventId: string): Promise<EventRosterData> {
+  try {
+    const r = await client.get(`/v1/events/${eventId}/roster`);
+    const d = r.data?.data ?? {};
+    // Legacy {rows,total} shape (oldest backend) — treat rows as confirmed.
+    if (!d.counts && Array.isArray(d.rows)) {
+      return {
+        ...EMPTY_ROSTER,
+        confirmed: d.rows,
+        counts: { ...EMPTY_ROSTER.counts, confirmed: d.rows.length },
+      };
+    }
+    const confirmed = d.confirmed ?? [];
+    const requests = d.requests ?? [];
+    const approved = d.approved ?? [];
+    const waitlist = d.waitlist ?? [];
+    const cancelled = d.cancelled ?? [];
+    const declined = d.declined ?? [];
+    return {
+      confirmed, requests, approved, waitlist, cancelled, declined,
+      counts: {
+        confirmed: d.counts?.confirmed ?? confirmed.length,
+        requests: d.counts?.requests ?? requests.length,
+        approved: d.counts?.approved ?? approved.length,
+        waitlist: d.counts?.waitlist ?? waitlist.length,
+        cancelled: d.counts?.cancelled ?? cancelled.length,
+        declined: d.counts?.declined ?? declined.length,
+      },
+    };
+  } catch (err: any) {
+    if (err?.response?.status === 404) return EMPTY_ROSTER;
+    throw err;
+  }
+}
+
+/** The 48h pay hold handed back when a PAID request is approved (§6a-e). */
+export interface ApprovalPayment {
+  reservationId: string;
+  razorpayOrderId?: string;
+  amountPaise: number;
+  payBy: string;
+}
+
+export interface ApproveResult {
+  /** 'registered' (free → ticket issued) or 'approved' (paid → awaiting payment). */
+  status: string;
+  payment?: ApprovalPayment;
+}
+
+/**
+ * POST /v1/registrations/:id/approve (host only). Idempotent.
+ * Free request → `registered` (+ ticket); paid request → `approved` + a 48h pay
+ * hold. Throws on 409 (full / payout not set up / not pending) and 403 (not host);
+ * callers read err.response.status + err.response.data.meta.message.
+ */
+export async function approveRegistration(registrationId: string): Promise<ApproveResult> {
+  const r = await client.post(`/v1/registrations/${registrationId}/approve`);
+  const d = r.data?.data ?? {};
+  return { status: d.status, payment: d.payment };
+}
+
+/**
+ * POST /v1/registrations/:id/decline (host only), with an optional reason.
+ * → `declined` (no ticket). Throws on 409 (not pending) and 403 (not host).
+ */
+export async function declineRegistration(
+  registrationId: string,
+  reason?: string,
+): Promise<{ status: string }> {
+  const body = reason && reason.trim() ? { reason: reason.trim() } : {};
+  const r = await client.post(`/v1/registrations/${registrationId}/decline`, body);
+  const d = r.data?.data ?? {};
+  return { status: d.status };
+}
+
+/**
+ * Pull a human-readable message off a failed approve/decline call. Surfaces the
+ * backend's own copy ('Event is full', 'Organizer payout not set up', …) with
+ * sensible fallbacks for the two gate cases the Requests UI must handle.
+ */
+export function approvalErrorMessage(err: any, action: 'approve' | 'decline'): string {
+  const status = err?.response?.status;
+  const serverMsg: string | undefined = err?.response?.data?.meta?.message;
+  if (status === 403) return "You're not the host of this event.";
+  if (status === 409) {
+    if (serverMsg) return serverMsg;
+    return action === 'approve' ? "Event is full — can't approve more." : 'This request is no longer pending.';
+  }
+  if (status === 404) return 'That request no longer exists.';
+  return serverMsg || `Could not ${action} the request. Please try again.`;
+}

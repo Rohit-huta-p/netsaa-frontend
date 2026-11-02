@@ -150,6 +150,7 @@ export default function OverviewScreen() {
             event={event}
             dayOf={dayOf}
             onAnnounce={() => setAnnounceOpen(true)}
+            pendingCount={roster?.counts?.requests ?? 0}
           />
 
           <StageDoorDiscussion event={event} />

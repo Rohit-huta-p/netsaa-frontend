@@ -20,7 +20,7 @@
  */
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Users, Megaphone, Lock, QrCode, Plus, ChevronRight } from 'lucide-react-native';
+import { Users, Megaphone, Lock, QrCode, Plus, ChevronRight, UserCheck } from 'lucide-react-native';
 import type { EventDoc } from '@/services/eventService';
 
 // Inbox-rhythm palette (DOCS/04-design/mockups/INBOX_RHYTHM_DESIGN_SYSTEM.md)
@@ -47,13 +47,23 @@ interface BackstageActionsProps {
   event: EventDoc;
   dayOf: boolean;
   onAnnounce(): void;
+  /** Pending (guest_list / apply) requests awaiting the host's call. */
+  pendingCount?: number;
 }
 
-export default function BackstageActions({ event, dayOf, onAnnounce }: BackstageActionsProps) {
+export default function BackstageActions({ event, dayOf, onAnnounce, pendingCount = 0 }: BackstageActionsProps) {
   const router = useRouter();
 
   const registered = event.capacity?.registeredCount ?? 0;
   const waitlist = event.waitlistCount ?? 0;
+
+  // Approval-gated door → the host gets a Requests surface to approve/decline.
+  // Driven by data (door / requiresApproval), not a feature flag. Also shown when
+  // any requests are still pending, so a host who flipped the door back to open
+  // can still clear the ones that already came in.
+  const door = event.registration?.door;
+  const gated = door === 'guest_list' || door === 'apply' || event.requiresApproval === true;
+  const showRequests = gated || pendingCount > 0;
 
   const openCheckIn = () => router.push(`/events/${event._id}/manage/check-in`);
 
@@ -61,8 +71,20 @@ export default function BackstageActions({ event, dayOf, onAnnounce }: Backstage
     <View>
       <Text style={styles.lab}>Backstage</Text>
 
+      {showRequests ? (
+        <ActionRow
+          first
+          icon={<UserCheck size={16} color={ORANGE} />}
+          tint={ORANGE_SOFT}
+          title="Review requests"
+          sub={pendingCount > 0 ? `${pendingCount} awaiting your call` : 'Approve or decline who joins'}
+          badge={pendingCount > 0 ? pendingCount : undefined}
+          onPress={() => router.push(`/events/${event._id}/manage/requests`)}
+        />
+      ) : null}
+
       <ActionRow
-        first
+        first={!showRequests}
         icon={<Users size={16} color={BLUE} />}
         tint={BLUE_SOFT}
         title="View roster"
@@ -151,6 +173,7 @@ function ActionRow({
   tint,
   title,
   sub,
+  badge,
   onPress,
 }: {
   first?: boolean;
@@ -158,6 +181,7 @@ function ActionRow({
   tint: string;
   title: string;
   sub: string;
+  badge?: number;
   onPress: () => void;
 }) {
   return (
@@ -172,6 +196,7 @@ function ActionRow({
         <Text style={styles.t}>{title}</Text>
         <Text style={styles.s}>{sub}</Text>
       </View>
+      {typeof badge === 'number' ? <Text style={styles.badge}>{badge}</Text> : null}
       <ChevronRight size={16} color={T3} />
     </Pressable>
   );
@@ -234,6 +259,19 @@ const styles = StyleSheet.create({
   bd: { flex: 1, minWidth: 0 },
   t: { fontFamily: 'Outfit-Medium', fontSize: 13.5, color: T0 },
   s: { fontFamily: 'Outfit-Regular', fontSize: 10.5, color: T3, marginTop: 2 },
+  // .badge — orange count pill on the Requests row when any are pending
+  badge: {
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: 10,
+    minWidth: 20,
+    textAlign: 'center',
+    color: INK,
+    backgroundColor: ORANGE,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 99,
+    overflow: 'hidden',
+  },
   // .lockpill — mono date chip on the locked row
   lockPill: {
     fontFamily: 'SpaceMono-Regular',

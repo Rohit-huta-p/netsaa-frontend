@@ -25,7 +25,9 @@ import {
   PROCESSING_FEE_PERCENT,
 } from '@/lib/eventPricing';
 import { openRazorpayCheckout } from '@/lib/razorpayCheckout';
-import { eventService } from '@/services/eventService';
+import { eventService, DPDP_CONSENT_VERSION } from '@/services/eventService';
+import type { RegisterAnswer, EventQuestion } from '@/services/eventService';
+import { useRegisterFlowStore } from '@/stores/registerFlowStore';
 import RegistrationReceiptCard from './RegistrationReceiptCard';
 import PaymentRetrySheet from './PaymentRetrySheet';
 import { useRouter } from 'expo-router';
@@ -69,6 +71,12 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
   const [guestNames, setGuestNames] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [showPublic, setShowPublic] = useState(false);
+  // Host custom questions (keyed by question _id, falling back to label) + spot tier.
+  const [answers, setAnswers] = useState<Record<string, string | string[] | boolean>>({});
+  const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
+  // The consent gate (DPDPConsentScreen) runs before this sheet opens; we read the
+  // recorded consent so it can travel to the backend with register/reserve.
+  const isConsentValid = useRegisterFlowStore((s) => s.isConsentValid);
 
   const [submitted, setSubmitted] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -99,15 +107,33 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
     }
   }, [open]);
 
+  // ── Host custom questions + spot tiers (from the detail doc) ──
+  const questions = useMemo<EventQuestion[]>(() => event?.registration?.questions ?? [], [event]);
+  const spots = useMemo(() => event?.spots ?? [], [event]);
+  const hasMultiSpot = spots.length > 1;
+  const qKey = (q: EventQuestion) => q._id ?? q.label;
+  const spotIdOf = (s: { _id?: string; name: string }) => s._id ?? s.name;
+  const selectedSpot = useMemo(() => {
+    if (spots.length === 1) return spots[0];
+    if (!selectedSpotId) return undefined;
+    return spots.find((s) => spotIdOf(s) === selectedSpotId);
+  }, [spots, selectedSpotId]);
+  // A multi-spot event must have a tier chosen before we can price or submit
+  // (the backend 400s a multi-spot reserve/register with no spotId).
+  const needsSpotChoice = hasMultiSpot && !selectedSpot;
+
   const slotsLeft = useMemo(() => {
     if (!event) return MAX_ATTENDEES;
     return computeSlotsLeft(event.capacity.total, event.capacity.registeredCount);
   }, [event]);
 
   const maxCountForEvent = Math.min(MAX_ATTENDEES, slotsLeft);
-  const isPaid = event?.registrationMode === 'paid_ticket';
-  const pricePerTicket = event?.pricing?.amount ?? 0;
-  // UI preview only — backend POST /register response is authoritative.
+  // Price comes from the selected spot/tier (count-on-read, E5), falling back to
+  // the event-level pricing overlay for single/spot-less events. A price > 0 means
+  // the paid (reserve → Razorpay) path; free spots take the direct register path.
+  const pricePerTicket = selectedSpot?.price ?? event?.pricing?.amount ?? 0;
+  const isPaid = pricePerTicket > 0;
+  // UI preview only — backend POST /register|/reserve response is authoritative.
   // Both reference src/lib/eventPricing.ts which mirrors events-service .env.
   const breakdown = isPaid
     ? computeCustomerBreakdown(pricePerTicket, count)
@@ -115,6 +141,29 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
   const ticketSubtotal = breakdown.ticketSubtotal;
   const serviceFee = breakdown.serviceFee;
   const totalPrice = breakdown.total;
+
+  const setAnswer = (key: string, value: string | string[] | boolean) =>
+    setAnswers((prev) => ({ ...prev, [key]: value }));
+
+  // Answers to send: drop empty/unanswered; send both questionId (best-effort) and
+  // label (the reliable server-side matcher — question _id churns on host edits).
+  const buildAnswers = (): RegisterAnswer[] =>
+    questions
+      .map((q) => ({ q, v: answers[qKey(q)] }))
+      .filter(({ v }) => v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0))
+      .map(({ q, v }) => ({ questionId: q._id, label: q.label, value: v as RegisterAnswer['value'] }));
+
+  // Reset custom-question answers + spot choice each time the sheet opens.
+  // A single-spot event auto-selects its only tier; multi-spot forces a choice.
+  // Keyed on the resolved single-spot id (a stable primitive), NOT the spots array
+  // identity — a re-created event reference from the query cache would otherwise
+  // retrigger this effect every render into a setState loop.
+  const singleSpotId = spots.length === 1 ? spotIdOf(spots[0]) : null;
+  useEffect(() => {
+    if (!open) return;
+    setAnswers({});
+    setSelectedSpotId(singleSpotId);
+  }, [open, singleSpotId]);
 
   const decCount = () => setCount((c) => Math.max(1, c - 1));
   const incCount = () => setCount((c) => Math.min(maxCountForEvent, c + 1));
@@ -137,6 +186,13 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
     if (email && !EMAIL_RE.test(email)) return 'Enter a valid email or leave it blank.';
     if (count < 1 || count > MAX_ATTENDEES) return `Attendees must be 1-${MAX_ATTENDEES}.`;
     if (count > slotsLeft) return `Only ${slotsLeft} seat${slotsLeft === 1 ? '' : 's'} left for this event.`;
+    if (needsSpotChoice) return 'Please choose a spot.';
+    for (const q of questions) {
+      if (!q.required) continue;
+      const v = answers[qKey(q)];
+      const unanswered = v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
+      if (unanswered) return `Please answer: ${q.label}`;
+    }
     if (notes.length > MAX_NOTES) return `Notes max ${MAX_NOTES} characters.`;
     return null;
   };
@@ -154,6 +210,12 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
       idemKeyRef.current = `evt_${eventId}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     }
 
+    // Shared additive fields for both paths. spotId uses the real subdoc _id only
+    // (never the name fallback — the backend matches spotId against event.spots[i]._id).
+    const builtAnswers = buildAnswers();
+    const spotId = selectedSpot?._id;
+    const consent = isConsentValid();
+
     if (!isPaid) {
       // FREE branch — POST /register directly with backend contract
       try {
@@ -166,6 +228,10 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
           guestNames: guestNames.map((g) => g.trim()).filter(Boolean),
           notes: notes.trim() || undefined,
           idempotencyKey: idemKeyRef.current!,
+          answers: builtAnswers.length ? builtAnswers : undefined,
+          spotId,
+          dpdpConsent: consent,
+          consentVersion: consent ? DPDP_CONSENT_VERSION : undefined,
         });
         clearIdemKey();
         setSubmitted(true);
@@ -179,7 +245,12 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
     setPaymentInFlight(true);
     let reservation: { reservationId: string; razorpayOrderId: string; amountPaise: number } | undefined;
     try {
-      reservation = await eventService.reserve(eventId, count, idemKeyRef.current!);
+      reservation = await eventService.reserve(eventId, count, idemKeyRef.current!, {
+        answers: builtAnswers.length ? builtAnswers : undefined,
+        spotId,
+        dpdpConsent: consent,
+        consentVersion: consent ? DPDP_CONSENT_VERSION : undefined,
+      });
       setRetryOrderId(reservation.razorpayOrderId);
       setRetryAmountPaise(reservation.amountPaise);
 
@@ -317,6 +388,46 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                   </View>
                 </View>
 
+                {/* SPOT / TIER PICKER — only when the host offers more than one spot */}
+                {hasMultiSpot ? (
+                  <>
+                    <Text className="font-mono text-event-textMuted text-[10px] uppercase tracking-widest mb-3">
+                      Choose your spot
+                    </Text>
+                    <View className="gap-2 mb-5">
+                      {spots.map((s) => {
+                        const id = spotIdOf(s);
+                        const on = selectedSpotId === id;
+                        return (
+                          <Pressable
+                            key={id}
+                            onPress={() => setSelectedSpotId(id)}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: on }}
+                            className={`flex-row items-center justify-between rounded-2xl border px-4 py-3 ${
+                              on ? 'border-event-brand bg-event-brand/10' : 'border-event-border bg-event-surface'
+                            }`}
+                          >
+                            <View className="flex-1 pr-3">
+                              <Text className="font-outfit text-event-textPrimary text-base font-semibold">
+                                {s.name}
+                              </Text>
+                              {s.note ? (
+                                <Text className="font-outfit text-event-textSecondary text-xs mt-0.5">
+                                  {s.note}
+                                </Text>
+                              ) : null}
+                            </View>
+                            <Text className="font-serif text-event-textPrimary text-lg">
+                              {s.price > 0 ? formatRupees(s.price) : 'Free'}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </>
+                ) : null}
+
                 {/* ATTENDEES */}
                 <Text className="font-mono text-event-textMuted text-[10px] uppercase tracking-widest mb-3">
                   How many attending
@@ -374,6 +485,86 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                   </View>
                 ) : null}
 
+                {/* HOST CUSTOM QUESTIONS */}
+                {questions.length ? (
+                  <>
+                    <Text className="font-mono text-event-textMuted text-[10px] uppercase tracking-widest mb-3">
+                      A few questions from the host
+                    </Text>
+                    <View className="gap-4 mb-5">
+                      {questions.map((q) => {
+                        const key = qKey(q);
+                        const val = answers[key];
+                        const linkish = q.type === 'link' || q.type === 'photo';
+                        return (
+                          <View key={key} className="gap-2">
+                            <Text className="font-outfit text-event-textSecondary text-xs">
+                              {q.label}
+                              {q.required ? ' *' : ''}
+                            </Text>
+                            {q.type === 'choice' && q.options?.length ? (
+                              <View className="flex-row flex-wrap gap-2">
+                                {q.options.map((opt) => {
+                                  const on = val === opt;
+                                  return (
+                                    <Pressable
+                                      key={opt}
+                                      onPress={() => setAnswer(key, opt)}
+                                      accessibilityRole="radio"
+                                      accessibilityState={{ selected: on }}
+                                      className={`rounded-full border px-3.5 py-2 ${
+                                        on ? 'border-event-brand bg-event-brand/10' : 'border-event-border bg-event-surface'
+                                      }`}
+                                    >
+                                      <Text className={`font-outfit text-sm ${on ? 'text-event-brand' : 'text-event-textPrimary'}`}>
+                                        {opt}
+                                      </Text>
+                                    </Pressable>
+                                  );
+                                })}
+                              </View>
+                            ) : q.type === 'yes_no' ? (
+                              <View className="flex-row gap-2">
+                                {([['Yes', true], ['No', false]] as const).map(([lbl, bv]) => {
+                                  const on = val === bv;
+                                  return (
+                                    <Pressable
+                                      key={lbl}
+                                      onPress={() => setAnswer(key, bv)}
+                                      accessibilityRole="radio"
+                                      accessibilityState={{ selected: on }}
+                                      className={`rounded-full border px-5 py-2 ${
+                                        on ? 'border-event-brand bg-event-brand/10' : 'border-event-border bg-event-surface'
+                                      }`}
+                                    >
+                                      <Text className={`font-outfit text-sm ${on ? 'text-event-brand' : 'text-event-textPrimary'}`}>
+                                        {lbl}
+                                      </Text>
+                                    </Pressable>
+                                  );
+                                })}
+                              </View>
+                            ) : (
+                              <TextInput
+                                value={typeof val === 'string' ? val : ''}
+                                onChangeText={(t) => setAnswer(key, t)}
+                                placeholder={linkish ? 'Paste a link (Instagram / Drive / video)' : 'Type your answer'}
+                                placeholderTextColor={eventTokens.textMuted ?? '#6E6C76'}
+                                keyboardType={linkish ? 'url' : 'default'}
+                                autoCapitalize={linkish ? 'none' : 'sentences'}
+                                autoCorrect={!linkish}
+                                maxLength={500}
+                                multiline={q.type === 'text'}
+                                className="font-outfit text-event-textPrimary text-base rounded-2xl bg-event-surface border border-event-border px-4 py-3"
+                              />
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </>
+                ) : null}
+
                 {/* NOTES */}
                 <Text className="font-mono text-event-textMuted text-[10px] uppercase tracking-widest mb-3">
                   Anything we should know? (optional)
@@ -421,8 +612,8 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                   policy.
                 </Text>
 
-                {/* PRICE SUMMARY (paid only) */}
-                {isPaid ? (
+                {/* PRICE SUMMARY (paid only; hidden until a spot is chosen) */}
+                {isPaid && !needsSpotChoice ? (
                   <View className="rounded-2xl bg-event-surface border border-event-brand/30 px-4 py-4 mb-4">
                     <View className="flex-row items-center justify-between mb-2">
                       <Text className="font-outfit text-event-textSecondary text-sm">
@@ -474,20 +665,22 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                 {/* CTA */}
                 <Pressable
                   onPress={onConfirm}
-                  disabled={mutation.isPending || paymentInFlight}
+                  disabled={mutation.isPending || paymentInFlight || needsSpotChoice}
                   className={`rounded-2xl py-4 items-center ${
-                    mutation.isPending || paymentInFlight ? 'bg-event-surface' : 'bg-event-brand'
+                    mutation.isPending || paymentInFlight || needsSpotChoice ? 'bg-event-surface' : 'bg-event-brand'
                   }`}
                 >
                   {mutation.isPending || paymentInFlight ? (
                     <ActivityIndicator color={eventTokens.textPrimary} />
                   ) : (
-                    <Text className="font-outfit font-bold text-white text-base">
-                      {isPaid
-                        ? `Confirm — pay ${formatRupees(totalPrice)}`
-                        : count === 1
-                          ? 'Confirm registration'
-                          : `Confirm ${count} registrations`}
+                    <Text className={`font-outfit font-bold text-base ${needsSpotChoice ? 'text-event-textMuted' : 'text-white'}`}>
+                      {needsSpotChoice
+                        ? 'Choose a spot to continue'
+                        : isPaid
+                          ? `Confirm — pay ${formatRupees(totalPrice)}`
+                          : count === 1
+                            ? 'Confirm registration'
+                            : `Confirm ${count} registrations`}
                     </Text>
                   )}
                 </Pressable>

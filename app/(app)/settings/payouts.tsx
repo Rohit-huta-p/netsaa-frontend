@@ -8,8 +8,8 @@ import PayoutStatusCard from '@/components/payouts/PayoutStatusCard';
 import PayoutSetupWizard from '@/components/payouts/PayoutSetupWizard';
 import type { PayoutStatus } from '@/services/payoutService';
 
-const SURFACE = 'rgba(255,255,255,0.04)';
-const HAIRLINE = 'rgba(255,255,255,0.1)';
+const SURFACE = '#1C1C23';
+const HAIRLINE = 'rgba(255,255,255,0.08)';
 const TEXT_0 = '#F3EFE8';
 const TEXT_1 = '#A1A1AA';
 const TEXT_3 = '#52525b';
@@ -35,7 +35,7 @@ export default function PayoutsSettings() {
     <>
       <Stack.Screen options={{ title: 'Payouts' }} />
 
-      <View style={{ flex: 1, backgroundColor: '#09090b' }}>
+      <View style={{ flex: 1, backgroundColor: '#121216' }}>
         <AppScrollView contentContainerStyle={{ padding: 20, paddingBottom: 64 }}>
           {/* Header */}
           <Text style={styles.eyebrow}>Settings · payouts</Text>

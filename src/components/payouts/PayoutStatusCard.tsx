@@ -8,12 +8,12 @@ interface Props {
   onSetup: () => void;
 }
 
-const SURFACE = 'rgba(255,255,255,0.04)';
-const HAIRLINE = 'rgba(255,255,255,0.1)';
+const SURFACE = '#1C1C23';
+const HAIRLINE = 'rgba(255,255,255,0.08)';
 const TEXT_0 = '#F3EFE8';
 const TEXT_2 = '#71717a';
 const ORANGE = '#FF6B35';
-const ORANGE_SOFT = 'rgba(255,107,53,0.16)';
+const ORANGE_SOFT = 'rgba(255,107,53,0.14)';
 const ORANGE_INK = '#1A0D06';
 const GREEN = '#22C55E';
 const AMBER = '#F59E0B';

@@ -19,18 +19,19 @@ import { useAuthStore } from '@/stores/authStore';
 import PayoutResultScreen from './PayoutResultScreen';
 
 /* ─── Palette ─────────────────────────────────────────────── */
-const BG = '#09090b';
-const SURFACE = 'rgba(255,255,255,0.04)';
-const SURFACE_HI = 'rgba(255,255,255,0.07)';
-const HAIRLINE = 'rgba(255,255,255,0.1)';
+const BG = '#121216';                 // A·Minimal canvas
+const SURFACE = '#1C1C23';            // lifted card (--tile)
+const WELL = '#212129';               // input well (--well)
+const SURFACE_HI = '#24242E';         // chip (--chip)
+const HAIRLINE = 'rgba(255,255,255,0.08)';
 const TEXT_0 = '#F3EFE8';
 const TEXT_1 = '#A1A1AA';
 const TEXT_2 = '#71717a';
 const TEXT_3 = '#52525b';
 const TEXT_4 = '#3f3f46';
 const ORANGE = '#FF6B35';
-const ORANGE_SOFT = 'rgba(255,107,53,0.16)';
-const ORANGE_LINE = 'rgba(255,107,53,0.32)';
+const ORANGE_SOFT = 'rgba(255,107,53,0.14)';
+const ORANGE_LINE = 'rgba(255,107,53,0.30)';
 const ORANGE_INK = '#1A0D06';
 const GREEN = '#22C55E';
 const GREEN_SOFT = 'rgba(34,197,94,0.14)';
@@ -43,6 +44,11 @@ const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/* PAN's 4th char encodes the holder's entity type — Razorpay rejects a type↔PAN mismatch
+   outright, so we catch it before submit. (P=person, C=company, F=firm/LLP, H=HUF, …) */
+const PAN_ENTITY_CHAR: Record<string, string> = { individual: 'P', sole_prop: 'P', partnership: 'F', llp: 'F', pvt_ltd: 'C' };
+const PAN_ENTITY_NAME: Record<string, string> = { P: 'an individual', C: 'a company', F: 'a firm / LLP', H: 'a HUF', T: 'a trust', A: 'an association', B: 'a body of individuals', G: 'a government body', L: 'a local authority', J: 'an artificial juridical person' };
 
 /* ─── Business types ─────────────────────────────────────── */
 const BUSINESS_TYPES: { value: 'individual' | 'sole_prop' | 'partnership' | 'llp' | 'pvt_ltd'; label: string; sub: string }[] = [
@@ -373,7 +379,11 @@ function StepPAN({
   const user = useAuthStore((s) => s.user);
   const panValid = PAN_REGEX.test(draft.pan);
   const nameValid = draft.accountHolderName.trim().length >= 2;
-  const canContinue = panValid && nameValid;
+  // PAN 4th char must match the chosen business type (Razorpay rejects a mismatch).
+  const expectedEntityChar = draft.businessType ? PAN_ENTITY_CHAR[draft.businessType] : undefined;
+  const panEntityChar = panValid ? draft.pan[3] : undefined;
+  const entityMismatch = !!(panEntityChar && expectedEntityChar && panEntityChar !== expectedEntityChar);
+  const canContinue = panValid && nameValid && !entityMismatch;
   const showPanHint = draft.pan.length > 0 && !panValid;
 
   // GAP: name-match against profile
@@ -409,6 +419,11 @@ function StepPAN({
         />
         {showPanHint && (
           <Text style={styles.hintRed}>PAN must be 10 characters · e.g. ABCDE1234F</Text>
+        )}
+        {!showPanHint && entityMismatch && (
+          <Text style={styles.hintRed}>
+            This PAN reads as {PAN_ENTITY_NAME[panEntityChar!] ?? 'a different entity'} (4th letter “{panEntityChar}”), but you picked “{BUSINESS_TYPES.find((b) => b.value === draft.businessType)?.label ?? draft.businessType}”. Fix the PAN, or change the business type in Step 2.
+          </Text>
         )}
       </View>
 
@@ -614,8 +629,11 @@ function StepGST({
   );
 
   const gstinValid = GSTIN_REGEX.test(draft.gstin);
+  // A GSTIN embeds its holder's PAN at chars 3–12 — it must equal the PAN from Step 3.
+  const gstPanMismatch = gstChoice === 'registered' && gstinValid && draft.pan.length === 10
+    && draft.gstin.slice(2, 12).toUpperCase() !== draft.pan.toUpperCase();
   const showHint = gstChoice === 'registered' && draft.gstin.length > 0 && !gstinValid;
-  const canContinue = gstChoice === 'skip' || (gstChoice === 'registered' && gstinValid);
+  const canContinue = gstChoice === 'skip' || (gstChoice === 'registered' && gstinValid && !gstPanMismatch);
 
   const handleChoiceChange = (choice: GstChoice) => {
     setGstChoice(choice);
@@ -683,6 +701,9 @@ function StepGST({
           />
           {showHint && (
             <Text style={styles.hintRed}>Invalid GSTIN format</Text>
+          )}
+          {!showHint && gstPanMismatch && (
+            <Text style={styles.hintRed}>This GSTIN's embedded PAN ({draft.gstin.slice(2, 12)}) doesn't match your PAN ({draft.pan}). They must be the same.</Text>
           )}
         </View>
       )}
@@ -998,7 +1019,7 @@ const styles = StyleSheet.create({
 
   /* Inputs */
   input: {
-    backgroundColor: SURFACE,
+    backgroundColor: WELL,
     borderWidth: 1,
     borderColor: HAIRLINE,
     borderRadius: 10,

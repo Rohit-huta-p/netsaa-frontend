@@ -11,16 +11,16 @@ interface Props {
   onRetry?: () => void;
 }
 
-const SURFACE = 'rgba(255,255,255,0.04)';
-const HAIRLINE = 'rgba(255,255,255,0.1)';
+const SURFACE = '#1C1C23';
+const HAIRLINE = 'rgba(255,255,255,0.08)';
 const TEXT_0 = '#F3EFE8';
 const TEXT_1 = '#A1A1AA';
 const TEXT_2 = '#71717a';
 const TEXT_3 = '#52525b';
 const TEXT_4 = '#3f3f46';
 const ORANGE = '#FF6B35';
-const ORANGE_SOFT = 'rgba(255,107,53,0.16)';
-const ORANGE_LINE = 'rgba(255,107,53,0.32)';
+const ORANGE_SOFT = 'rgba(255,107,53,0.14)';
+const ORANGE_LINE = 'rgba(255,107,53,0.30)';
 const ORANGE_INK = '#1A0D06';
 const GREEN = '#22C55E';
 const GREEN_SOFT = 'rgba(34,197,94,0.14)';

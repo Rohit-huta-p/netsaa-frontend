@@ -30,6 +30,7 @@ import type { RegisterAnswer, RegisterApplication, EventQuestion } from '@/servi
 import { useRegisterFlowStore } from '@/stores/registerFlowStore';
 import RegistrationReceiptCard from './RegistrationReceiptCard';
 import PaymentRetrySheet from './PaymentRetrySheet';
+import PhotoAnswerField from './PhotoAnswerField';
 import { useRouter } from 'expo-router';
 
 async function pollUntilConfirmed(eventId: string, qc: QueryClient): Promise<boolean> {
@@ -607,7 +608,7 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                       {questions.map((q) => {
                         const key = qKey(q);
                         const val = answers[key];
-                        const linkish = q.type === 'link' || q.type === 'photo';
+                        const linkish = q.type === 'link';
                         return (
                           <View key={key} className="gap-2">
                             <Text className="font-outfit text-event-textSecondary text-xs">
@@ -656,6 +657,13 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                                   );
                                 })}
                               </View>
+                            ) : q.type === 'photo' ? (
+                              <PhotoAnswerField
+                                value={typeof val === 'string' ? val : undefined}
+                                onChange={(url) => setAnswer(key, url ?? '')}
+                                entityId={(user as any)?._id ?? ''}
+                                disabled={!(user as any)?._id}
+                              />
                             ) : (
                               <TextInput
                                 value={typeof val === 'string' ? val : ''}

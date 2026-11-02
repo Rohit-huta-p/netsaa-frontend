@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { View, Pressable, Text, Modal, ActivityIndicator } from 'react-native';
+import { View, Pressable, Text, Modal, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { EventDoc } from '@/services/eventService';
 import { eventService } from '@/services/eventService';
+import { eventKeys } from '@/hooks/useEvents';
+import { isWithdrawable, withdrawConfirmCopy } from '@/lib/eventWithdraw';
 import { computeSlotsLeft, isCapacityUrgent } from '@/lib/eventTokens';
 import { formatRupees } from '@/lib/eventPricing';
 import { openRazorpayCheckout } from '@/lib/razorpayCheckout';
@@ -48,6 +50,7 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [confirmingPromotion, setConfirmingPromotion] = useState(false);
   const [payingApproval, setPayingApproval] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const recordConsent = useRegisterFlowStore((s) => s.recordConsent);
   const isConsentValid = useRegisterFlowStore((s) => s.isConsentValid);
   // subscribe to the timestamp so the bar re-evaluates after consent is recorded
@@ -104,6 +107,51 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
     } finally {
       setPayingApproval(false);
     }
+  };
+
+  // Withdraw a pending request or an unpaid approved hold. Both are pre-payment,
+  // so the backend /cancel just flips the reg to 'cancelled' (freeing any held
+  // seat) with NO refund — getMyRegistration then reads 'cancelled' as 404, so a
+  // refetch drops us back to the default register/request entry state. We clear
+  // the registration/roster/capacity caches so every surface reflects the release.
+  const resetAfterWithdraw = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['myRegistration', event._id] });
+    queryClient.invalidateQueries({ queryKey: ['myWaitlist', event._id] });
+    queryClient.invalidateQueries({ queryKey: ['publicRoster', event._id] });
+    queryClient.invalidateQueries({ queryKey: ['eventRoster', event._id] });
+    queryClient.invalidateQueries({ queryKey: eventKeys.detail(event._id) });
+  };
+
+  // Lightweight confirm (not the refund-oriented CancellationReasonModal — there
+  // is no refund here). A short/empty reason is fine; /cancel is status-agnostic.
+  const withdraw = () => {
+    const regId = myRegistration?._id;
+    if (!regId || withdrawing || !isWithdrawable(regStatus)) return;
+    const { title, body } = withdrawConfirmCopy(regStatus);
+    Alert.alert(title, body, [
+      { text: 'Keep it', style: 'cancel' },
+      {
+        text: 'Withdraw',
+        style: 'destructive',
+        onPress: async () => {
+          setWithdrawing(true);
+          try {
+            await eventService.cancelRegistration(regId, '');
+            await resetAfterWithdraw();
+          } catch (err: any) {
+            // 409 = already cancelled (swept hold / another device) → treat as
+            // already-withdrawn and resync rather than surfacing an error.
+            if (err?.response?.status === 409) {
+              await resetAfterWithdraw();
+            } else {
+              Alert.alert('Could not withdraw', 'Something went wrong. Please try again in a moment.');
+            }
+          } finally {
+            setWithdrawing(false);
+          }
+        },
+      },
+    ]);
   };
 
   useEffect(() => {
@@ -266,25 +314,51 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
             </Pressable>
           </>
         ) : isPending ? (
-          /* Pending request (guest_list/apply): awaiting the host — no ticket yet */
-          <View style={{ flex: 1, borderRadius: 12, height: 52, alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE_2 }}>
-            <Text className="font-outfit" style={{ color: TEXT_2, fontWeight: '600', fontSize: 14 }}>Awaiting approval</Text>
-          </View>
+          /* Pending request (guest_list/apply): awaiting the host — no ticket yet.
+           * Nothing is held or charged, so the attendee can quietly withdraw it. */
+          <>
+            <View style={{ flex: 1, borderRadius: 12, height: 52, alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE_2 }}>
+              <Text className="font-outfit" style={{ color: TEXT_2, fontWeight: '600', fontSize: 14 }}>Awaiting approval</Text>
+            </View>
+            <Pressable
+              onPress={withdraw}
+              disabled={withdrawing}
+              style={{ borderRadius: 12, height: 52, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE_2, opacity: withdrawing ? 0.6 : 1 }}>
+              {withdrawing ? (
+                <ActivityIndicator color={TEXT_2} />
+              ) : (
+                <Text className="font-outfit" style={{ color: TEXT_2, fontWeight: '600', fontSize: 13 }}>Withdraw</Text>
+              )}
+            </Pressable>
+          </>
         ) : isApproved ? (
-          /* Approved paid request: pay the held order within 48h (webhook → registered) */
-          <Pressable
-            onPress={payAfterApproval}
-            disabled={payingApproval || !pendingPayment}
-            style={{ flex: 1, borderRadius: 12, height: 52, alignItems: 'center', justifyContent: 'center', backgroundColor: payingApproval || !pendingPayment ? SURFACE : '#FF6B35', borderWidth: payingApproval || !pendingPayment ? 1 : 0, borderColor: HAIRLINE_2 }}
-          >
-            {payingApproval ? (
-              <ActivityIndicator color={ORANGE_INK} />
-            ) : (
-              <Text className="font-outfit" style={{ color: pendingPayment ? ORANGE_INK : TEXT_3, fontWeight: '700', fontSize: 14 }}>
-                {pendingPayment ? `Pay ${formatRupees(pendingPayment.amountPaise / 100)} →` : 'Preparing payment…'}
-              </Text>
-            )}
-          </Pressable>
+          /* Approved paid request: pay the held order within 48h (webhook → registered),
+           * or withdraw to release the held seat. Nothing was captured → no refund. */
+          <>
+            <Pressable
+              onPress={payAfterApproval}
+              disabled={payingApproval || !pendingPayment}
+              style={{ flex: 1, borderRadius: 12, height: 52, alignItems: 'center', justifyContent: 'center', backgroundColor: payingApproval || !pendingPayment ? SURFACE : '#FF6B35', borderWidth: payingApproval || !pendingPayment ? 1 : 0, borderColor: HAIRLINE_2 }}
+            >
+              {payingApproval ? (
+                <ActivityIndicator color={ORANGE_INK} />
+              ) : (
+                <Text className="font-outfit" style={{ color: pendingPayment ? ORANGE_INK : TEXT_3, fontWeight: '700', fontSize: 14 }}>
+                  {pendingPayment ? `Pay ${formatRupees(pendingPayment.amountPaise / 100)} →` : 'Preparing payment…'}
+                </Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={withdraw}
+              disabled={withdrawing || payingApproval}
+              style={{ borderRadius: 12, height: 52, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE_2, opacity: withdrawing || payingApproval ? 0.6 : 1 }}>
+              {withdrawing ? (
+                <ActivityIndicator color={TEXT_2} />
+              ) : (
+                <Text className="font-outfit" style={{ color: TEXT_2, fontWeight: '600', fontSize: 13 }}>Withdraw</Text>
+              )}
+            </Pressable>
+          </>
         ) : isDeclined ? (
           /* Declined: terminal, informational */
           <View style={{ flex: 1, borderRadius: 12, height: 52, alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE, borderWidth: 1, borderColor: HAIRLINE_2 }}>

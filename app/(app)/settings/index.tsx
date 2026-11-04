@@ -12,6 +12,7 @@ import {
     MessageCircle,
     UserCog,
     Lock,
+    Landmark,
     Repeat,
     AlertTriangle,
     Link2,
@@ -69,6 +70,12 @@ const SECTIONS: Section[] = [
         title: 'Account',
         items: [
             { key: 'role', label: 'Switch Role', description: 'Client, Creative Lead or Artist', icon: Repeat, route: '/(app)/settings/role' },
+        ],
+    },
+    {
+        title: 'Payments',
+        items: [
+            { key: 'payouts', label: 'Payouts', description: 'Bank account for getting paid', icon: Landmark, route: '/(app)/settings/payouts' },
         ],
     },
     {

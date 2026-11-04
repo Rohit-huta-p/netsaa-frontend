@@ -45,7 +45,7 @@ const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/* PAN's 4th char encodes the holder's entity type — Razorpay rejects a type↔PAN mismatch
+/* PAN's 4th char encodes the holder's entity type — Cashfree rejects a type↔PAN mismatch
    outright, so we catch it before submit. (P=person, C=company, F=firm/LLP, H=HUF, …) */
 const PAN_ENTITY_CHAR: Record<string, string> = { individual: 'P', sole_prop: 'P', partnership: 'F', llp: 'F', pvt_ltd: 'C' };
 const PAN_ENTITY_NAME: Record<string, string> = { P: 'an individual', C: 'a company', F: 'a firm / LLP', H: 'a HUF', T: 'a trust', A: 'an association', B: 'a body of individuals', G: 'a government body', L: 'a local authority', J: 'an artificial juridical person' };
@@ -234,7 +234,7 @@ function StepIntro({ onNext, onClose }: { onNext: () => void; onClose: () => voi
       <View style={{ gap: 10 }}>
         <Text style={styles.title}>Quick payout setup.</Text>
         <Text style={styles.sub}>
-          Three minutes. Razorpay verifies live. After this, every paid event you host just works.
+          Three minutes. Cashfree verifies live. After this, every paid event you host just works.
         </Text>
       </View>
 
@@ -246,7 +246,7 @@ function StepIntro({ onNext, onClose }: { onNext: () => void; onClose: () => voi
           iconColor={BLUE}
           icon={<CreditCard size={16} color={BLUE} />}
           title="PAN card"
-          sub="required by Razorpay"
+          sub="required by Cashfree"
         />
         <ReadyRow
           iconBg={GREEN_SOFT}
@@ -328,7 +328,7 @@ function StepBusinessType({
       <Text style={styles.eyebrow}>Step 2 of 6</Text>
       <View style={{ gap: 8 }}>
         <Text style={styles.title}>Who's running this?</Text>
-        <Text style={styles.sub}>Pick how Razorpay should treat your account.</Text>
+        <Text style={styles.sub}>Pick how Cashfree should treat your account.</Text>
       </View>
 
       <View style={{ gap: 8 }}>
@@ -381,7 +381,7 @@ function StepPAN({
   const user = useAuthStore((s) => s.user);
   const panValid = PAN_REGEX.test(draft.pan);
   const nameValid = draft.accountHolderName.trim().length >= 2;
-  // PAN 4th char must match the chosen business type (Razorpay rejects a mismatch).
+  // PAN 4th char must match the chosen business type (Cashfree rejects a mismatch).
   const expectedEntityChar = draft.businessType ? PAN_ENTITY_CHAR[draft.businessType] : undefined;
   const panEntityChar = panValid ? draft.pan[3] : undefined;
   const entityMismatch = !!(panEntityChar && expectedEntityChar && panEntityChar !== expectedEntityChar);

@@ -11,7 +11,7 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native';
-import { ChevronLeft, X, Shield, CreditCard, Landmark, Lock, Info, CheckCircle2, AlertCircle, Zap } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, X, Shield, CreditCard, Landmark, Lock, Info, CheckCircle2, AlertCircle, Zap } from 'lucide-react-native';
 import { usePayoutWizardStore, type PayoutDraft } from '@/stores/payoutWizardStore';
 import { payoutService } from '@/services/payoutService';
 import type { PayoutStatus, PayoutAccount, VerifyResult } from '@/services/payoutService';
@@ -112,10 +112,12 @@ export default function PayoutSetupWizard({ visible, onClose, onDone }: Props) {
         businessType: draft.businessType!,
         pan: draft.pan,
         accountHolderName: draft.accountHolderName,
-        bankAccount: draft.bankAccount,
-        ifsc: draft.ifsc,
-        gstin: draft.gstin || undefined,
         email: draft.email,
+        gstin: draft.gstin || undefined,
+        method: draft.payoutMethod,
+        ...(draft.payoutMethod === 'upi'
+          ? { vpa: draft.vpa.trim() }
+          : { bankAccount: draft.bankAccount, ifsc: draft.ifsc }),
       });
       setResult(account);
     } catch (err: any) {
@@ -483,9 +485,9 @@ function StepBank({
   onNext: () => void;
   onBack: () => void;
 }) {
+  // ── Bank fallback fields ──
   const [ifscInfo, setIfscInfo] = useState<IfscInfo | null>(null);
   const fetchIdRef = useRef(0);
-
   const ifscValid = IFSC_REGEX.test(draft.ifsc);
   const accountFilled = draft.bankAccount.length > 0;
   const confirmFilled = draft.bankConfirm.length > 0;
@@ -493,22 +495,29 @@ function StepBank({
   const showMismatch = confirmFilled && draft.bankAccount !== draft.bankConfirm;
   const showMatchOk = accountMatch;
   const showIfscHint = draft.ifsc.length > 0 && !ifscValid;
-  const canContinue = accountMatch && ifscValid;
+  const bankValid = accountMatch && ifscValid;
 
-  // Secure ID pre-submit verification (advisory — a soft name check, never blocks Continue).
+  // ── UPI primary field (UPI-first: the default destination + verification) ──
+  const method = draft.payoutMethod;
+  const upiVpa = draft.vpa.trim();
+  const upiValid = /^[^\s@]+@[^\s@]+$/.test(upiVpa);
+
+  // A chosen + entered destination is enough to continue. The Secure ID name check below
+  // is advisory — it warns on a mismatch but never blocks Continue.
+  const canContinue = method === 'upi' ? upiValid : bankValid;
+
   const [verifying, setVerifying] = useState<null | 'upi' | 'bank'>(null);
   const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
-  const upiVpa = draft.vpa.trim();
-  const upiCanVerify = /^.+@.+$/.test(upiVpa);
-  const bankCanVerify = accountMatch && ifscValid;
-  const runVerify = async (method: 'upi' | 'bank') => {
-    setVerifying(method);
+  const lastVerifiedRef = useRef<string | null>(null);
+
+  const runVerify = async (m: 'upi' | 'bank') => {
+    setVerifying(m);
     setVerifyError(null);
     setVerifyResult(null);
     try {
       const accountHolderName = draft.accountHolderName.trim() || undefined;
-      const res = method === 'upi'
+      const res = m === 'upi'
         ? await payoutService.verifyUpi({ vpa: upiVpa, accountHolderName })
         : await payoutService.verifyBank({ bankAccount: draft.bankAccount, ifsc: draft.ifsc, accountHolderName });
       setVerifyResult(res);
@@ -519,9 +528,20 @@ function StepBank({
     }
   };
 
-  // GAP: IFSC live-lookup
+  // Auto-verify the UPI ID once it looks complete and the field blurs (fewer taps).
+  const onUpiBlur = () => {
+    if (method !== 'upi' || !upiValid || verifying !== null) return;
+    if (lastVerifiedRef.current === upiVpa) return;
+    lastVerifiedRef.current = upiVpa;
+    runVerify('upi');
+  };
+
+  const chooseBank = () => { patch({ payoutMethod: 'bank' }); setVerifyResult(null); setVerifyError(null); lastVerifiedRef.current = null; };
+  const chooseUpi = () => { patch({ payoutMethod: 'upi' }); setVerifyResult(null); setVerifyError(null); lastVerifiedRef.current = null; };
+
+  // IFSC live-lookup (bank path only)
   useEffect(() => {
-    if (!ifscValid) {
+    if (method !== 'bank' || !ifscValid) {
       setIfscInfo(null);
       return;
     }
@@ -537,159 +557,192 @@ function StepBank({
       .catch(() => {
         if (fetchIdRef.current === id) setIfscInfo(null);
       });
-  }, [draft.ifsc, ifscValid]);
+  }, [draft.ifsc, ifscValid, method]);
+
+  const resultCard = verifyResult ? (
+    <View style={[styles.verifyResult, verifyResult.nameMatchAcceptable ? styles.verifyResultOk : styles.verifyResultWarn]}>
+      {verifyResult.nameMatchAcceptable
+        ? <CheckCircle2 size={17} color={GREEN} />
+        : <AlertCircle size={17} color={ORANGE} />}
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.verifyResultName}>
+          {verifyResult.nameAtBank || (verifyResult.valid ? 'Account verified' : 'Could not verify')}
+        </Text>
+        <Text style={styles.verifyResultSub}>
+          {verifyResult.nameMatchAcceptable
+            ? 'Name matches your PAN name'
+            : verifyResult.valid
+              ? "Name doesn't match your PAN name — double-check before you submit"
+              : 'This account could not be verified'}
+          {verifyResult.bankName ? ` · ${verifyResult.bankName}` : ''}
+        </Text>
+      </View>
+    </View>
+  ) : null;
 
   return (
     <View style={{ gap: 24 }}>
       <Text style={styles.eyebrow}>Step 4 of 6</Text>
       <View style={{ gap: 8 }}>
-        <Text style={styles.title}>Where the rupees land.</Text>
-        <Text style={styles.sub}>Payouts settle to this account. A quick Secure ID check keeps them from bouncing.</Text>
+        <Text style={styles.title}>Where should the money land?</Text>
+        <Text style={styles.sub}>Most artists get paid straight to UPI — instant, and we name-check it so payouts don't bounce.</Text>
       </View>
 
-      {/* Account number */}
-      <View style={{ gap: 6 }}>
-        <Text style={styles.fieldLabel}>Account number</Text>
-        <TextInput
-          value={draft.bankAccount}
-          onChangeText={(t) => patch({ bankAccount: t.replace(/\D/g, '') })}
-          placeholder="Enter account number"
-          placeholderTextColor={TEXT_3}
-          keyboardType="number-pad"
-          autoCorrect={false}
-          style={[styles.input, styles.monoInput]}
-        />
-      </View>
-
-      {/* Confirm account */}
-      <View style={{ gap: 6 }}>
-        <Text style={styles.fieldLabel}>Confirm account number</Text>
-        <TextInput
-          value={draft.bankConfirm}
-          onChangeText={(t) => patch({ bankConfirm: t.replace(/\D/g, '') })}
-          placeholder="Re-enter account number"
-          placeholderTextColor={TEXT_3}
-          keyboardType="number-pad"
-          autoCorrect={false}
-          contextMenuHidden={true}
-          style={[styles.input, styles.monoInput, showMismatch && styles.inputError]}
-        />
-        {showMismatch && (
-          <Text style={styles.hintRed}>Account numbers don't match</Text>
-        )}
-        {showMatchOk && (
-          <View style={styles.matchPill}>
-            <View style={styles.matchDot} />
-            <Text style={styles.matchText}>Numbers match · paste blocked</Text>
-          </View>
-        )}
-      </View>
-
-      {/* IFSC */}
-      <View style={{ gap: 6 }}>
-        <Text style={styles.fieldLabel}>IFSC code</Text>
-        <TextInput
-          value={draft.ifsc}
-          onChangeText={(t) => patch({ ifsc: t.toUpperCase() })}
-          placeholder="HDFC0001234"
-          placeholderTextColor={TEXT_3}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          maxLength={11}
-          style={[styles.input, styles.monoInput, showIfscHint && styles.inputError]}
-        />
-        {showIfscHint && (
-          <Text style={styles.hintRed}>Invalid IFSC · format HDFC0001234 (4 letters, 0, 6 alphanumeric)</Text>
-        )}
-
-        {/* GAP: IFSC live-lookup result card */}
-        {ifscInfo && (
-          <View style={styles.ifscCard}>
-            <View style={styles.ifscBadge}>
-              <Text style={styles.ifscBadgeText}>{ifscInfo.BANK?.charAt(0) ?? 'B'}</Text>
+      {method === 'upi' ? (
+        <>
+          {/* UPI — the primary destination + Secure ID name check in one */}
+          <View style={styles.verifyCard}>
+            <View style={styles.verifyHead}>
+              <Zap size={13} color={ORANGE} />
+              <Text style={styles.verifyTitle}>Your UPI ID</Text>
+              <Text style={styles.verifyBadge}>Recommended</Text>
             </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={styles.ifscBank}>{ifscInfo.BANK}</Text>
-              <Text style={styles.ifscBranch}>{ifscInfo.BRANCH}</Text>
+            <Text style={styles.verifySub}>
+              A one-tap Secure ID check confirms the name on the account — no bank details needed.
+            </Text>
+            <View style={{ gap: 6 }}>
+              <Text style={styles.fieldLabel}>UPI ID</Text>
+              <View style={styles.verifyRow}>
+                <TextInput
+                  value={draft.vpa}
+                  onChangeText={(t) => { patch({ vpa: t.replace(/\s/g, '') }); setVerifyResult(null); setVerifyError(null); }}
+                  onBlur={onUpiBlur}
+                  placeholder="name@bank"
+                  placeholderTextColor={TEXT_3}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  style={[styles.input, styles.monoInput, { flex: 1 }, verifyResult?.method === 'upi' && verifyResult.nameMatchAcceptable ? styles.inputOk : null]}
+                />
+                <Pressable
+                  onPress={() => runVerify('upi')}
+                  disabled={!upiValid || verifying !== null}
+                  style={[styles.verifyBtn, (!upiValid || verifying !== null) && styles.verifyBtnDisabled]}
+                >
+                  {verifying === 'upi'
+                    ? <ActivityIndicator size="small" color={ORANGE} />
+                    : verifyResult?.method === 'upi' && verifyResult.nameMatchAcceptable
+                      ? <CheckCircle2 size={18} color={GREEN} />
+                      : <Text style={[styles.verifyBtnText, !upiValid && { color: TEXT_3 }]}>Verify</Text>}
+                </Pressable>
+              </View>
             </View>
-            <View style={styles.matchDot} />
+            {verifyError && <Text style={styles.hintRed}>{verifyError}</Text>}
+            {resultCard}
           </View>
-        )}
-      </View>
 
-      {/* ─── Secure ID verification (UPI-first · advisory) ─── */}
-      <View style={styles.verifyCard}>
-        <View style={styles.verifyHead}>
-          <Zap size={13} color={ORANGE} />
-          <Text style={styles.verifyTitle}>Verify it's your account</Text>
-          <Text style={styles.verifyBadge}>Recommended</Text>
-        </View>
-        <Text style={styles.verifySub}>
-          An instant name check via Cashfree Secure ID, so your payouts don't bounce. Fastest with UPI.
-        </Text>
+          {/* Bank — optional fallback */}
+          <Pressable onPress={chooseBank} style={styles.destRow}>
+            <View style={styles.destIcon}><Landmark size={16} color={TEXT_2} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.destTitle}>Prefer a bank account?</Text>
+              <Text style={styles.destSub}>Add account number + IFSC instead</Text>
+            </View>
+            <ChevronRight size={18} color={TEXT_3} />
+          </Pressable>
+        </>
+      ) : (
+        <>
+          {/* Switch back to the UPI path */}
+          <Pressable onPress={chooseUpi} style={styles.destRow}>
+            <View style={[styles.destIcon, { backgroundColor: ORANGE_SOFT }]}><Zap size={16} color={ORANGE} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.destTitle}>Use UPI instead</Text>
+              <Text style={styles.destSub}>Faster · no bank details</Text>
+            </View>
+            <ChevronLeft size={18} color={TEXT_3} />
+          </Pressable>
 
-        {/* UPI VPA — primary path */}
-        <View style={{ gap: 6 }}>
-          <Text style={styles.fieldLabel}>UPI ID</Text>
-          <View style={styles.verifyRow}>
+          {/* Account number */}
+          <View style={{ gap: 6 }}>
+            <Text style={styles.fieldLabel}>Account number</Text>
             <TextInput
-              value={draft.vpa}
-              onChangeText={(t) => patch({ vpa: t.replace(/\s/g, '') })}
-              placeholder="name@bank"
+              value={draft.bankAccount}
+              onChangeText={(t) => patch({ bankAccount: t.replace(/\D/g, '') })}
+              placeholder="Enter account number"
               placeholderTextColor={TEXT_3}
-              autoCapitalize="none"
+              keyboardType="number-pad"
               autoCorrect={false}
-              keyboardType="email-address"
-              style={[styles.input, styles.monoInput, { flex: 1 }]}
+              style={[styles.input, styles.monoInput]}
             />
-            <Pressable
-              onPress={() => runVerify('upi')}
-              disabled={!upiCanVerify || verifying !== null}
-              style={[styles.verifyBtn, (!upiCanVerify || verifying !== null) && styles.verifyBtnDisabled]}
-            >
-              {verifying === 'upi'
-                ? <ActivityIndicator size="small" color={ORANGE} />
-                : <Text style={[styles.verifyBtnText, !upiCanVerify && { color: TEXT_3 }]}>Verify</Text>}
-            </Pressable>
           </View>
-        </View>
 
-        {/* Bank fallback */}
-        <Pressable
-          onPress={() => runVerify('bank')}
-          disabled={!bankCanVerify || verifying !== null}
-          style={styles.verifyAltBtn}
-        >
-          {verifying === 'bank'
-            ? <ActivityIndicator size="small" color={TEXT_1} />
-            : <Text style={[styles.verifyAltText, !bankCanVerify && { color: TEXT_4 }]}>
-                Or verify the bank account above
-              </Text>}
-        </Pressable>
+          {/* Confirm account */}
+          <View style={{ gap: 6 }}>
+            <Text style={styles.fieldLabel}>Confirm account number</Text>
+            <TextInput
+              value={draft.bankConfirm}
+              onChangeText={(t) => patch({ bankConfirm: t.replace(/\D/g, '') })}
+              placeholder="Re-enter account number"
+              placeholderTextColor={TEXT_3}
+              keyboardType="number-pad"
+              autoCorrect={false}
+              contextMenuHidden={true}
+              style={[styles.input, styles.monoInput, showMismatch && styles.inputError]}
+            />
+            {showMismatch && (
+              <Text style={styles.hintRed}>Account numbers don't match</Text>
+            )}
+            {showMatchOk && (
+              <View style={styles.matchPill}>
+                <View style={styles.matchDot} />
+                <Text style={styles.matchText}>Numbers match · paste blocked</Text>
+              </View>
+            )}
+          </View>
 
-        {verifyError && <Text style={styles.hintRed}>{verifyError}</Text>}
+          {/* IFSC */}
+          <View style={{ gap: 6 }}>
+            <Text style={styles.fieldLabel}>IFSC code</Text>
+            <TextInput
+              value={draft.ifsc}
+              onChangeText={(t) => patch({ ifsc: t.toUpperCase() })}
+              placeholder="HDFC0001234"
+              placeholderTextColor={TEXT_3}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={11}
+              style={[styles.input, styles.monoInput, showIfscHint && styles.inputError]}
+            />
+            {showIfscHint && (
+              <Text style={styles.hintRed}>Invalid IFSC · format HDFC0001234 (4 letters, 0, 6 alphanumeric)</Text>
+            )}
+            {ifscInfo && (
+              <View style={styles.ifscCard}>
+                <View style={styles.ifscBadge}>
+                  <Text style={styles.ifscBadgeText}>{ifscInfo.BANK?.charAt(0) ?? 'B'}</Text>
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.ifscBank}>{ifscInfo.BANK}</Text>
+                  <Text style={styles.ifscBranch}>{ifscInfo.BRANCH}</Text>
+                </View>
+                <View style={styles.matchDot} />
+              </View>
+            )}
+          </View>
 
-        {verifyResult && (
-          <View style={[styles.verifyResult, verifyResult.nameMatchAcceptable ? styles.verifyResultOk : styles.verifyResultWarn]}>
-            {verifyResult.nameMatchAcceptable
-              ? <CheckCircle2 size={17} color={GREEN} />
-              : <AlertCircle size={17} color={ORANGE} />}
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={styles.verifyResultName}>
-                {verifyResult.nameAtBank || (verifyResult.valid ? 'Account verified' : 'Could not verify')}
-              </Text>
-              <Text style={styles.verifyResultSub}>
-                {verifyResult.nameMatchAcceptable
-                  ? 'Name matches your PAN name'
-                  : verifyResult.valid
-                    ? "Name doesn't match your PAN name — double-check before you submit"
-                    : 'This account could not be verified'}
-                {verifyResult.bankName ? ` · ${verifyResult.bankName}` : ''}
-              </Text>
+          {/* Secure ID — bank name check (advisory) */}
+          <View style={styles.verifyCard}>
+            <View style={styles.verifyHead}>
+              <Zap size={13} color={ORANGE} />
+              <Text style={styles.verifyTitle}>Verify it's your account</Text>
+              <Text style={styles.verifyBadge}>Recommended</Text>
             </View>
+            <Text style={styles.verifySub}>An instant name check via Cashfree Secure ID, so your payouts don't bounce.</Text>
+            <Pressable
+              onPress={() => runVerify('bank')}
+              disabled={!bankValid || verifying !== null}
+              style={[styles.verifyBtn, { alignSelf: 'flex-start' }, (!bankValid || verifying !== null) && styles.verifyBtnDisabled]}
+            >
+              {verifying === 'bank'
+                ? <ActivityIndicator size="small" color={ORANGE} />
+                : <Text style={[styles.verifyBtnText, !bankValid && { color: TEXT_3 }]}>Verify account</Text>}
+            </Pressable>
+            {verifyError && <Text style={styles.hintRed}>{verifyError}</Text>}
+            {resultCard}
           </View>
-        )}
-      </View>
+        </>
+      )}
 
       <View style={styles.navRow}>
         <Pressable onPress={onBack} style={styles.backBtn}>
@@ -852,10 +905,13 @@ function StepReview({
   const maskedPan = draft.pan.length === 10
     ? `${draft.pan.slice(0, 5)}★★★★${draft.pan.slice(9)}`
     : draft.pan || '—';
+  const isUpi = draft.payoutMethod === 'upi';
   const maskedAccount =
     draft.bankAccount.length > 4
       ? `★★★★${draft.bankAccount.slice(-4)}`
       : draft.bankAccount || '—';
+  const destValue = isUpi ? (draft.vpa.trim() || '—') : maskedAccount;
+  const destCaption = isUpi ? 'UPI' : (draft.ifsc || undefined);
   const emailValid = EMAIL_REGEX.test(draft.email);
   const canSubmit = !submitting && draft.email.length > 0 && emailValid;
 
@@ -865,7 +921,7 @@ function StepReview({
       <View style={{ gap: 8 }}>
         <Text style={styles.title}>Looks right?</Text>
         <Text style={styles.sub}>
-          Submit sends it to Razorpay. Most accounts verify in seconds.
+          Submit creates your Cashfree payout vendor. Most details verify in seconds.
         </Text>
       </View>
 
@@ -886,9 +942,9 @@ function StepReview({
         />
         <View style={styles.summaryDivider} />
         <ReviewRow
-          label="BANK"
-          value={maskedAccount}
-          valueSub={draft.ifsc ? `${draft.ifsc}` : undefined}
+          label={isUpi ? 'PAYOUT' : 'BANK'}
+          value={destValue}
+          valueSub={destCaption}
           mono
           onEdit={() => onEditStep(4)}
         />
@@ -904,7 +960,7 @@ function StepReview({
 
       {/* Email */}
       <View style={{ gap: 6 }}>
-        <Text style={styles.fieldLabel}>Email address · for Razorpay notifications</Text>
+        <Text style={styles.fieldLabel}>Email address · for payout notifications</Text>
         <TextInput
           value={draft.email}
           onChangeText={(t) => patch({ email: t.trim() })}
@@ -927,7 +983,7 @@ function StepReview({
       <View style={[styles.noteCard, { borderColor: `${BLUE}44`, backgroundColor: BLUE_SOFT }]}>
         <Info size={13} color={BLUE} style={{ marginTop: 1 }} />
         <Text style={[styles.noteText, { color: TEXT_1 }]}>
-          Your data is sent securely to Razorpay for KYC. NETSA doesn't store your raw account numbers.
+          Your details are sent securely to Cashfree for KYC. NETSA doesn't store your raw account numbers.
         </Text>
       </View>
 
@@ -1511,5 +1567,38 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     lineHeight: 16,
     color: TEXT_1,
+  },
+  inputOk: {
+    borderColor: `${GREEN}55`,
+  },
+  destRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  destIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: SURFACE_HI,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  destTitle: {
+    fontFamily: 'Outfit-SemiBold',
+    fontSize: 13,
+    color: TEXT_1,
+  },
+  destSub: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 11,
+    color: TEXT_3,
+    marginTop: 2,
   },
 });

@@ -43,15 +43,18 @@ export default function PayoutResultScreen({ status, rejectionReason, account, o
           <Text style={[styles.eyebrow, { color: GREEN }]}>Verified · instant</Text>
           <Text style={styles.title}>You're set.</Text>
           <Text style={styles.body}>
-            {account?.bankLast4
-              ? `Publish paid events now. Earnings land in your ${account.bankName ?? 'bank'} ****${account.bankLast4} · usually T+2.`
-              : 'Publish paid events now. Earnings settle to your linked account · usually T+2.'}
+            {account?.upiVpaMasked
+              ? `Publish paid events now. Earnings land straight in your UPI (${account.upiVpaMasked}).`
+              : account?.bankLast4
+                ? `Publish paid events now. Earnings land in your ${account.bankName ?? 'bank'} ****${account.bankLast4} · usually T+2.`
+                : 'Publish paid events now. Earnings settle to your linked account · usually T+2.'}
           </Text>
         </View>
 
         {account ? (
           <View style={[styles.metaCard, { borderColor: GREEN }]}>
             <Meta k="Account holder" v={account.accountHolderName ?? '—'} />
+            {account.upiVpaMasked ? <><View style={styles.divider} /><Meta k="UPI" v={account.upiVpaMasked} mono /></> : null}
             {account.bankLast4 ? <><View style={styles.divider} /><Meta k="Bank" v={`${account.bankName ? account.bankName + ' · ' : ''}****${account.bankLast4}`} /></> : null}
             {account.linkedAccountId ? <><View style={styles.divider} /><Meta k="Linked account ID" v={account.linkedAccountId} mono /></> : null}
           </View>

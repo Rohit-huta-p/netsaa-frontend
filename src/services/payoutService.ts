@@ -10,6 +10,8 @@ export type PayoutStatus = 'not_started' | 'submitted' | 'pending_kyc' | 'verifi
 export interface PayoutAccount {
   status: PayoutStatus; panMasked?: string; bankLast4?: string; bankName?: string;
   accountHolderName?: string; gstin?: string; rejectionReason?: string; linkedAccountId?: string;
+  /** Payout destination the organizer set up. UPI-first; bank is the fallback. */
+  payoutMethod?: 'upi' | 'bank'; upiVpaMasked?: string;
 }
 
 export type NameMatchResult =
@@ -31,8 +33,11 @@ export interface VerifyResult {
 export const payoutService = {
   getMine: async (): Promise<PayoutAccount> => (await client.get('/v1/payouts/account/me')).data.data,
   submit: async (body: {
-    businessType: string; pan: string; accountHolderName: string;
-    bankAccount: string; ifsc: string; gstin?: string; email: string;
+    businessType: string; pan: string; accountHolderName: string; email: string;
+    method?: 'upi' | 'bank';
+    vpa?: string;                 // UPI-first destination
+    bankAccount?: string; ifsc?: string;   // bank fallback
+    gstin?: string;
   }): Promise<PayoutAccount> => (await client.post('/v1/payouts/account', body)).data.data,
 
   // Cashfree Secure ID real-time verification (pre-submit, stateless). UPI-first; bank fallback.

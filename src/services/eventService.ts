@@ -314,7 +314,7 @@ export const eventService = {
     quantity: number,
     idempotencyKey: string,
     extras?: ReserveExtras,
-  ): Promise<{ reservationId: string; razorpayOrderId: string; amountPaise: number }> => {
+  ): Promise<{ reservationId: string; razorpayOrderId: string; paymentSessionId?: string; amountPaise: number }> => {
     const body: Record<string, unknown> = { quantity };
     if (extras?.answers?.length) body.answers = extras.answers;
     if (extras?.spotId) body.spotId = extras.spotId;

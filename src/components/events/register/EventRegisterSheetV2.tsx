@@ -24,7 +24,7 @@ import {
   formatRupees,
   PROCESSING_FEE_PERCENT,
 } from '@/lib/eventPricing';
-import { openRazorpayCheckout } from '@/lib/razorpayCheckout';
+import { openEventCheckout } from '@/lib/eventCheckout';
 import { eventService, DPDP_CONSENT_VERSION } from '@/services/eventService';
 import type { RegisterAnswer, RegisterApplication, EventQuestion } from '@/services/eventService';
 import { useRegisterFlowStore } from '@/stores/registerFlowStore';
@@ -88,6 +88,7 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
   const [paymentInFlight, setPaymentInFlight] = useState(false);
   const [showRetry, setShowRetry] = useState(false);
   const [retryOrderId, setRetryOrderId] = useState<string | null>(null);
+  const [retrySessionId, setRetrySessionId] = useState<string | null>(null);
   const [retryAmountPaise, setRetryAmountPaise] = useState(0);
   const mutation = useRegisterForEvent(eventId);
   const queryClient = useQueryClient();
@@ -297,9 +298,9 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
       return;
     }
 
-    // PAID branch — reserve seat hold, open Razorpay, poll for webhook confirmation
+    // PAID branch — reserve seat hold, open checkout, poll for webhook confirmation
     setPaymentInFlight(true);
-    let reservation: { reservationId: string; razorpayOrderId: string; amountPaise: number } | undefined;
+    let reservation: { reservationId: string; razorpayOrderId: string; paymentSessionId?: string; amountPaise: number } | undefined;
     try {
       reservation = await eventService.reserve(eventId, count, idemKeyRef.current!, {
         answers: builtAnswers.length ? builtAnswers : undefined,
@@ -308,13 +309,13 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
         consentVersion: consent ? DPDP_CONSENT_VERSION : undefined,
       });
       setRetryOrderId(reservation.razorpayOrderId);
+      setRetrySessionId(reservation.paymentSessionId ?? null);
       setRetryAmountPaise(reservation.amountPaise);
 
-      await openRazorpayCheckout({
-        key_id: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID!,
-        order_id: reservation.razorpayOrderId,
-        amount: reservation.amountPaise,
-        currency: 'INR',
+      await openEventCheckout({
+        paymentSessionId: reservation.paymentSessionId,
+        orderId: reservation.razorpayOrderId,
+        amountPaise: reservation.amountPaise,
         eventTitle: event?.title ?? 'Event',
         prefill: { name: name.trim(), email: email.trim(), contact: phone.trim() },
       });
@@ -328,6 +329,7 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
       // for retry (same Razorpay order, 10-min TTL). Show retry sheet instead of
       // calling cancelMyRegistration.
       setRetryOrderId(reservation?.razorpayOrderId ?? null);
+      setRetrySessionId(reservation?.paymentSessionId ?? null);
       setShowRetry(true);
     } finally {
       setPaymentInFlight(false);
@@ -824,10 +826,11 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
         </View>
       </KeyboardAvoidingView>
 
-      {/* Paid-event retry sheet — shown when Razorpay checkout fails/cancels */}
+      {/* Paid-event retry sheet — shown when checkout fails/cancels */}
       <PaymentRetrySheet
         visible={showRetry}
         orderId={retryOrderId}
+        paymentSessionId={retrySessionId}
         eventId={eventId}
         eventTitle={event?.title ?? 'Event'}
         amountPaise={retryAmountPaise}

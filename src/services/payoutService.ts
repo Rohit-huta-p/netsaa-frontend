@@ -12,10 +12,32 @@ export interface PayoutAccount {
   accountHolderName?: string; gstin?: string; rejectionReason?: string; linkedAccountId?: string;
 }
 
+export type NameMatchResult =
+  | 'DIRECT_MATCH' | 'GOOD_PARTIAL_MATCH' | 'MODERATE_PARTIAL_MATCH'
+  | 'POOR_PARTIAL_MATCH' | 'NO_MATCH' | 'MATCH';
+
+export interface VerifyResult {
+  method: 'upi' | 'bank';
+  valid: boolean;
+  statusCode?: string;
+  nameAtBank?: string;
+  nameMatchScore?: number;
+  nameMatchResult?: NameMatchResult;
+  bankName?: string;
+  /** Backend verdict on whether the resolved name is close enough to the PAN name. */
+  nameMatchAcceptable: boolean;
+}
+
 export const payoutService = {
   getMine: async (): Promise<PayoutAccount> => (await client.get('/v1/payouts/account/me')).data.data,
   submit: async (body: {
     businessType: string; pan: string; accountHolderName: string;
     bankAccount: string; ifsc: string; gstin?: string; email: string;
   }): Promise<PayoutAccount> => (await client.post('/v1/payouts/account', body)).data.data,
+
+  // Cashfree Secure ID real-time verification (pre-submit, stateless). UPI-first; bank fallback.
+  verifyUpi: async (body: { vpa: string; accountHolderName?: string }): Promise<VerifyResult> =>
+    (await client.post('/v1/payouts/verify-upi', body)).data.data,
+  verifyBank: async (body: { bankAccount: string; ifsc: string; accountHolderName?: string }): Promise<VerifyResult> =>
+    (await client.post('/v1/payouts/verify-bank', body)).data.data,
 };

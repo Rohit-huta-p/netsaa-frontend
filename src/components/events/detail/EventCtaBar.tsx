@@ -7,7 +7,7 @@ import { eventKeys } from '@/hooks/useEvents';
 import { isWithdrawable, withdrawConfirmCopy } from '@/lib/eventWithdraw';
 import { computeSlotsLeft, isCapacityUrgent } from '@/lib/eventTokens';
 import { formatRupees } from '@/lib/eventPricing';
-import { openRazorpayCheckout } from '@/lib/razorpayCheckout';
+import { openEventCheckout } from '@/lib/eventCheckout';
 import { useMyRegistration } from '@/hooks/useMyRegistration';
 import { useMyWaitlistEntry } from '@/hooks/useMyWaitlistEntry';
 import { useQueryClient } from '@tanstack/react-query';
@@ -76,23 +76,22 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
   const isApproved = regStatus === 'approved';
   const isDeclined = regStatus === 'declined';
   const pendingPayment = (myRegistration as any)?.pendingPayment as
-    | { reservationId: string; razorpayOrderId: string; amountPaise: number; payBy?: string }
+    | { reservationId: string; razorpayOrderId: string; paymentSessionId?: string; amountPaise: number; payBy?: string }
     | undefined;
   const hoursToPay = pendingPayment?.payBy
     ? Math.max(0, Math.round((new Date(pendingPayment.payBy).getTime() - Date.now()) / 3600000))
     : null;
 
-  // Pay-after-approval: an approved paid request opens its held Razorpay order; the
-  // webhook flips the SAME registration to 'registered', so poll until it does.
+  // Pay-after-approval: an approved paid request opens its held order; the webhook flips
+  // the SAME registration to 'registered', so poll until it does.
   const payAfterApproval = async () => {
     if (!pendingPayment) return;
     setPayingApproval(true);
     try {
-      await openRazorpayCheckout({
-        key_id: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID!,
-        order_id: pendingPayment.razorpayOrderId,
-        amount: pendingPayment.amountPaise,
-        currency: 'INR',
+      await openEventCheckout({
+        paymentSessionId: pendingPayment.paymentSessionId,
+        orderId: pendingPayment.razorpayOrderId,
+        amountPaise: pendingPayment.amountPaise,
         eventTitle: event.title,
         prefill: { name: '', email: '', contact: '' },
       });

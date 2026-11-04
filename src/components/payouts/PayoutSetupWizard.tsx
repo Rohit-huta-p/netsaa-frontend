@@ -11,10 +11,10 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native';
-import { ChevronLeft, X, Shield, CreditCard, Landmark, Lock, Info } from 'lucide-react-native';
+import { ChevronLeft, X, Shield, CreditCard, Landmark, Lock, Info, CheckCircle2, AlertCircle, Zap } from 'lucide-react-native';
 import { usePayoutWizardStore, type PayoutDraft } from '@/stores/payoutWizardStore';
 import { payoutService } from '@/services/payoutService';
-import type { PayoutStatus, PayoutAccount } from '@/services/payoutService';
+import type { PayoutStatus, PayoutAccount, VerifyResult } from '@/services/payoutService';
 import { useAuthStore } from '@/stores/authStore';
 import PayoutResultScreen from './PayoutResultScreen';
 
@@ -495,6 +495,30 @@ function StepBank({
   const showIfscHint = draft.ifsc.length > 0 && !ifscValid;
   const canContinue = accountMatch && ifscValid;
 
+  // Secure ID pre-submit verification (advisory — a soft name check, never blocks Continue).
+  const [verifying, setVerifying] = useState<null | 'upi' | 'bank'>(null);
+  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const upiVpa = draft.vpa.trim();
+  const upiCanVerify = /^.+@.+$/.test(upiVpa);
+  const bankCanVerify = accountMatch && ifscValid;
+  const runVerify = async (method: 'upi' | 'bank') => {
+    setVerifying(method);
+    setVerifyError(null);
+    setVerifyResult(null);
+    try {
+      const accountHolderName = draft.accountHolderName.trim() || undefined;
+      const res = method === 'upi'
+        ? await payoutService.verifyUpi({ vpa: upiVpa, accountHolderName })
+        : await payoutService.verifyBank({ bankAccount: draft.bankAccount, ifsc: draft.ifsc, accountHolderName });
+      setVerifyResult(res);
+    } catch (err: any) {
+      setVerifyError(err?.response?.data?.message || err?.message || "Couldn't verify right now — you can still continue.");
+    } finally {
+      setVerifying(null);
+    }
+  };
+
   // GAP: IFSC live-lookup
   useEffect(() => {
     if (!ifscValid) {
@@ -520,7 +544,7 @@ function StepBank({
       <Text style={styles.eyebrow}>Step 4 of 6</Text>
       <View style={{ gap: 8 }}>
         <Text style={styles.title}>Where the rupees land.</Text>
-        <Text style={styles.sub}>Verified live by Razorpay with a ₹1 penny drop.</Text>
+        <Text style={styles.sub}>Payouts settle to this account. A quick Secure ID check keeps them from bouncing.</Text>
       </View>
 
       {/* Account number */}
@@ -589,6 +613,80 @@ function StepBank({
               <Text style={styles.ifscBranch}>{ifscInfo.BRANCH}</Text>
             </View>
             <View style={styles.matchDot} />
+          </View>
+        )}
+      </View>
+
+      {/* ─── Secure ID verification (UPI-first · advisory) ─── */}
+      <View style={styles.verifyCard}>
+        <View style={styles.verifyHead}>
+          <Zap size={13} color={ORANGE} />
+          <Text style={styles.verifyTitle}>Verify it's your account</Text>
+          <Text style={styles.verifyBadge}>Recommended</Text>
+        </View>
+        <Text style={styles.verifySub}>
+          An instant name check via Cashfree Secure ID, so your payouts don't bounce. Fastest with UPI.
+        </Text>
+
+        {/* UPI VPA — primary path */}
+        <View style={{ gap: 6 }}>
+          <Text style={styles.fieldLabel}>UPI ID</Text>
+          <View style={styles.verifyRow}>
+            <TextInput
+              value={draft.vpa}
+              onChangeText={(t) => patch({ vpa: t.replace(/\s/g, '') })}
+              placeholder="name@bank"
+              placeholderTextColor={TEXT_3}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              style={[styles.input, styles.monoInput, { flex: 1 }]}
+            />
+            <Pressable
+              onPress={() => runVerify('upi')}
+              disabled={!upiCanVerify || verifying !== null}
+              style={[styles.verifyBtn, (!upiCanVerify || verifying !== null) && styles.verifyBtnDisabled]}
+            >
+              {verifying === 'upi'
+                ? <ActivityIndicator size="small" color={ORANGE} />
+                : <Text style={[styles.verifyBtnText, !upiCanVerify && { color: TEXT_3 }]}>Verify</Text>}
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Bank fallback */}
+        <Pressable
+          onPress={() => runVerify('bank')}
+          disabled={!bankCanVerify || verifying !== null}
+          style={styles.verifyAltBtn}
+        >
+          {verifying === 'bank'
+            ? <ActivityIndicator size="small" color={TEXT_1} />
+            : <Text style={[styles.verifyAltText, !bankCanVerify && { color: TEXT_4 }]}>
+                Or verify the bank account above
+              </Text>}
+        </Pressable>
+
+        {verifyError && <Text style={styles.hintRed}>{verifyError}</Text>}
+
+        {verifyResult && (
+          <View style={[styles.verifyResult, verifyResult.nameMatchAcceptable ? styles.verifyResultOk : styles.verifyResultWarn]}>
+            {verifyResult.nameMatchAcceptable
+              ? <CheckCircle2 size={17} color={GREEN} />
+              : <AlertCircle size={17} color={ORANGE} />}
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.verifyResultName}>
+                {verifyResult.nameAtBank || (verifyResult.valid ? 'Account verified' : 'Could not verify')}
+              </Text>
+              <Text style={styles.verifyResultSub}>
+                {verifyResult.nameMatchAcceptable
+                  ? 'Name matches your PAN name'
+                  : verifyResult.valid
+                    ? "Name doesn't match your PAN name — double-check before you submit"
+                    : 'This account could not be verified'}
+                {verifyResult.bankName ? ` · ${verifyResult.bankName}` : ''}
+              </Text>
+            </View>
           </View>
         )}
       </View>
@@ -1310,5 +1408,108 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit-Bold',
     fontSize: 14,
     color: ORANGE_INK,
+  },
+
+  /* Secure ID verification (Step 4) */
+  verifyCard: {
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    borderRadius: 12,
+    padding: 14,
+    gap: 12,
+  },
+  verifyHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  verifyTitle: {
+    flex: 1,
+    fontFamily: 'Outfit-SemiBold',
+    fontSize: 13.5,
+    color: TEXT_0,
+  },
+  verifyBadge: {
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: 8.5,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: ORANGE,
+    backgroundColor: ORANGE_SOFT,
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    overflow: 'hidden',
+  },
+  verifySub: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 12,
+    lineHeight: 17,
+    color: TEXT_2,
+    marginTop: -2,
+  },
+  verifyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  verifyBtn: {
+    height: 48,
+    minWidth: 78,
+    paddingHorizontal: 14,
+    borderRadius: 11,
+    backgroundColor: ORANGE_SOFT,
+    borderWidth: 1,
+    borderColor: ORANGE_LINE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifyBtnDisabled: {
+    backgroundColor: WELL,
+    borderColor: HAIRLINE,
+  },
+  verifyBtnText: {
+    fontFamily: 'Outfit-Bold',
+    fontSize: 13.5,
+    color: ORANGE,
+  },
+  verifyAltBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+  },
+  verifyAltText: {
+    fontFamily: 'Outfit-SemiBold',
+    fontSize: 12.5,
+    color: TEXT_1,
+    textDecorationLine: 'underline',
+  },
+  verifyResult: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  verifyResultOk: {
+    backgroundColor: GREEN_SOFT,
+    borderColor: `${GREEN}44`,
+  },
+  verifyResultWarn: {
+    backgroundColor: ORANGE_SOFT,
+    borderColor: ORANGE_LINE,
+  },
+  verifyResultName: {
+    fontFamily: 'Outfit-SemiBold',
+    fontSize: 13,
+    color: TEXT_0,
+  },
+  verifyResultSub: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: TEXT_1,
   },
 });

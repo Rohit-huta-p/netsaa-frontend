@@ -4,9 +4,11 @@ export interface PayoutDraft {
   businessType: 'individual' | 'sole_prop' | 'partnership' | 'llp' | 'pvt_ltd' | null;
   pan: string; accountHolderName: string; bankAccount: string; bankConfirm: string;
   ifsc: string; gstin: string; email: string;
+  /** UPI VPA used for the pre-submit Secure ID name check (UPI-first). Not submitted. */
+  vpa: string;
 }
 
-const empty: PayoutDraft = { businessType: null, pan: '', accountHolderName: '', bankAccount: '', bankConfirm: '', ifsc: '', gstin: '', email: '' };
+const empty: PayoutDraft = { businessType: null, pan: '', accountHolderName: '', bankAccount: '', bankConfirm: '', ifsc: '', gstin: '', email: '', vpa: '' };
 
 interface State {
   step: number; // 1-6

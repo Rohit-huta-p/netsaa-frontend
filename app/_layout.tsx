@@ -40,6 +40,7 @@ import {
 import Navbar from "../src/components/Navbar";
 import Footer from "../src/components/Footer";
 import MobileTabBar from "../src/components/MobileTabBar";
+import CashfreeCheckoutHost from "../src/lib/CashfreeCheckoutHost";
 
 import useAuthStore from "@/stores/authStore";
 import useNotificationsStore, { normalizeSocketNotification } from "@/stores/notificationsStore";
@@ -146,6 +147,9 @@ export default function RootLayout() {
 
                         {/* App content */}
                         <Slot />
+
+                        {/* Cashfree attendee checkout — renders only during a payment */}
+                        <CashfreeCheckoutHost />
 
                         {/* Mobile bottom tab bar */}
                         {/* {!isAuthRoute && <MobileTabBar />} */}

@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Modal, View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { AlertCircle, X } from 'lucide-react-native';
-import { openRazorpayCheckout } from '@/lib/razorpayCheckout';
+import { openEventCheckout } from '@/lib/eventCheckout';
 import { eventTokens } from '@/lib/eventTokens';
 
 interface Props {
   visible: boolean;
   orderId: string | null;
+  paymentSessionId: string | null;
   eventId: string;
   eventTitle: string;
   amountPaise: number;
@@ -18,6 +19,7 @@ interface Props {
 export default function PaymentRetrySheet({
   visible,
   orderId,
+  paymentSessionId,
   eventTitle,
   amountPaise,
   prefill,
@@ -32,15 +34,14 @@ export default function PaymentRetrySheet({
     setRetrying(true);
     setRetryError(null);
     try {
-      await openRazorpayCheckout({
-        key_id: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID!,
-        order_id: orderId,
-        amount: amountPaise,
-        currency: 'INR',
+      await openEventCheckout({
+        paymentSessionId: paymentSessionId ?? undefined,
+        orderId,
+        amountPaise,
         eventTitle,
         prefill,
       });
-      // Razorpay success — parent polls until webhook confirms registration
+      // Checkout finished — parent polls until the webhook confirms the registration
       onRetrySuccess();
     } catch (err: any) {
       const desc = err?.description ?? err?.message ?? 'Payment cancelled.';

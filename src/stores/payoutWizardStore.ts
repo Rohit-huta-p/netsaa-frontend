@@ -4,11 +4,13 @@ export interface PayoutDraft {
   businessType: 'individual' | 'sole_prop' | 'partnership' | 'llp' | 'pvt_ltd' | null;
   pan: string; accountHolderName: string; bankAccount: string; bankConfirm: string;
   ifsc: string; gstin: string; email: string;
-  /** UPI VPA used for the pre-submit Secure ID name check (UPI-first). Not submitted. */
+  /** UPI VPA — the primary payout destination (UPI-first) and the Secure ID name check. */
   vpa: string;
+  /** Which payout destination the organizer is setting up. UPI-first by default. */
+  payoutMethod: 'upi' | 'bank';
 }
 
-const empty: PayoutDraft = { businessType: null, pan: '', accountHolderName: '', bankAccount: '', bankConfirm: '', ifsc: '', gstin: '', email: '', vpa: '' };
+const empty: PayoutDraft = { businessType: null, pan: '', accountHolderName: '', bankAccount: '', bankConfirm: '', ifsc: '', gstin: '', email: '', vpa: '', payoutMethod: 'upi' };
 
 interface State {
   step: number; // 1-6

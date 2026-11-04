@@ -8,7 +8,7 @@
  *   Danger zone  — Cancel event (OrganizerCancellationModal)
  *
  * Manage Stack is headerless → this screen draws its own nav (back + DM Serif title).
- * Palette, fonts, and rhythms match roster.tsx / OverviewActions.tsx.
+ * Palette = A·Minimal #121216 (matches RequestsList / RequestCard); fonts + rhythms unchanged.
  */
 
 import React, { useState } from 'react';
@@ -48,30 +48,30 @@ import OrganizerCancellationModal, {
 } from '@/components/events/manage/OrganizerCancellationModal';
 import { CalendarModal } from '@/components/ui/CalendarModal';
 
-// ── Palette ─────────────────────────────────────────────────────────────────
+// ── Palette · A·Minimal #121216 (matches RequestsList / RequestCard siblings) ──
 
-const BG       = '#09090b';
-const SURFACE  = 'rgba(255,255,255,0.04)';
-const HAIRLINE = 'rgba(255,255,255,0.1)';
-const TEXT_0   = '#F3EFE8';
-const TEXT_1   = '#A1A1AA';
-const TEXT_2   = '#71717a';
-const TEXT_3   = '#52525b';
-const TEXT_4   = '#3f3f46';
+const BG       = '#121216';
+const SURFACE  = '#212129';                 // well — nested option rows in a sheet
+const HAIRLINE = 'rgba(255,255,255,0.08)';
+const TEXT_0   = '#F3EFE8';                 // cream — primary
+const TEXT_1   = '#C9C6CF';                 // bright secondary
+const TEXT_2   = '#9C99A6';                 // secondary
+const TEXT_3   = '#6E6C76';                 // muted
+const TEXT_4   = '#45424D';                 // dim — chevrons, inactive states, grab
 const ORANGE   = '#FF6B35';
 const ORANGE_SOFT = 'rgba(255,107,53,0.16)';
 const ORANGE_LINE = 'rgba(255,107,53,0.32)';
-const ORANGE_INK  = '#1A0D06';
-const GREEN    = '#22C55E';
-const RED      = '#EF4444';
-const RED_SOFT = 'rgba(239,68,68,0.13)';
+const ORANGE_INK  = '#160A04';
+const GREEN    = '#6EE7A0';
+const RED      = '#F0858A';
+const RED_SOFT = 'rgba(240,101,107,0.12)';
 const PURPLE   = '#8B5CF6';
 const PURPLE_SOFT = 'rgba(139,92,246,0.15)';
 const BLUE     = '#5B8DEF';
 const BLUE_SOFT = 'rgba(91,141,239,0.15)';
-const YELLOW   = '#F59E0B';
-const YELLOW_SOFT = 'rgba(245,158,11,0.13)';
-const SHEET_BG = '#0E0C12';
+const YELLOW   = '#F0B65A';
+const YELLOW_SOFT = 'rgba(240,182,90,0.13)';
+const SHEET_BG = '#1C1C23';                 // card tone — the lifted sheet layer
 const BACKDROP = 'rgba(0,0,0,0.60)';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -739,11 +739,11 @@ const st = StyleSheet.create({
     gap: 12,
     paddingVertical: 13,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(243,239,232,0.07)',
+    borderTopColor: 'rgba(255,255,255,0.07)',
   },
   rowLast: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(243,239,232,0.07)',
+    borderBottomColor: 'rgba(255,255,255,0.07)',
   },
   av: {
     width: 38,
@@ -774,7 +774,7 @@ const st = StyleSheet.create({
     marginRight: 6,
     textAlign: 'right',
   },
-  sectionEnd: { height: 1, borderBottomWidth: 1, borderBottomColor: 'rgba(243,239,232,0.07)' },
+  sectionEnd: { height: 1, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' },
 });
 
 // ── Sheet styles ──────────────────────────────────────────────────────────────

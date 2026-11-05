@@ -330,6 +330,17 @@ export const eventService = {
     return r.data.data;
   },
 
+  /**
+   * DEV-ONLY mock payment: confirm a reserved hold as paid without a real Cashfree charge.
+   * Called by openEventCheckout when the backend is in CASHFREE_DEV_MODE (the reserve response's
+   * paymentSessionId starts with `session_dev_`). The backend route is itself dev-gated → 404 in
+   * production, so this never results in a real registration there. `orderId` is the hold's
+   * razorpayOrderId.
+   */
+  devConfirmReservation: async (orderId: string): Promise<void> => {
+    await client.post(`/v1/reservations/${encodeURIComponent(orderId)}/dev-confirm`, {});
+  },
+
   // Tag taxonomy endpoints are not implemented server-side yet — degrade gracefully
   // (no autocomplete / silent submit) instead of throwing + retrying on 404.
   suggestionTags: async (limit = 20): Promise<{ tags: Array<{ _id: string; displayName: string; usageCount: number }>; count: number }> => {

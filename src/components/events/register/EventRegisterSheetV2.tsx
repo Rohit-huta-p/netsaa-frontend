@@ -555,7 +555,7 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                 {count > 1 ? (
                   <View className="gap-2 mb-5">
                     <Text className="font-outfit text-event-textSecondary text-xs">
-                      Guest names (optional — helps the organizer at check-in)
+                      Guest names (optional — helps the host at check-in)
                     </Text>
                     {guestNames.map((g, i) => (
                       <TextInput
@@ -724,7 +724,7 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                       Show I'm going to others
                     </Text>
                     <Text className="font-outfit text-event-textSecondary text-xs mt-1">
-                      Off by default. Organizer always sees you.
+                      Off by default. The host always sees you.
                     </Text>
                   </View>
                   <Switch
@@ -738,7 +738,7 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                 </View>
 
                 <Text className="font-outfit text-event-textSecondary text-xs mb-4 leading-5">
-                  Your phone and email are shared with the organizer for event
+                  Your phone and email are shared with the host for event
                   communications (reschedules, venue updates). Per NETSA privacy
                   policy.
                 </Text>
@@ -824,7 +824,7 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                     <Text className="font-outfit text-event-textMuted text-[10px] mt-2 leading-4">
                       Service fee covers payment processing (Razorpay charges per
                       method). UPI and cards pay the same flat fee for fairness.
-                      Organizer receives the ticket amount.
+                      The host receives the ticket amount.
                     </Text>
                   </View>
                 ) : null}

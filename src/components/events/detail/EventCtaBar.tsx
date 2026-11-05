@@ -18,7 +18,7 @@ import { DPDPConsentScreen } from '@/components/events/register/DPDPConsentScree
 import { useRegisterFlowStore } from '@/stores/registerFlowStore';
 import WaitlistJoinSheet from '@/components/events/register/WaitlistJoinSheet';
 import LeaveWaitlistConfirm from '@/components/events/register/LeaveWaitlistConfirm';
-import { ctaLabel, refundLabel, closesLabel } from '@/lib/eventDetailV3';
+import { ctaLabel, lowestPrice, refundLabel, closesLabel } from '@/lib/eventDetailV3';
 
 interface Props {
   event: EventDoc;
@@ -189,6 +189,11 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
     : v3 && !hasAnyReg
       ? [refundLabel(event), closesLabel(event)].filter(Boolean).join('  ·  ')
       : '';
+  // Active offer → a small orange "<offer> · was ₹X" cue above the reserve row (E·9 teaser).
+  const offerInfo = lowestPrice(event);
+  const offerCue = v3 && !hasAnyReg && offerInfo.offerName
+    ? `${offerInfo.offerName}${offerInfo.baseAmount ? ` · was ${formatRupees(offerInfo.baseAmount)}` : ''}`
+    : '';
 
   // Status-column label + accent for any existing registration.
   const statusLabel = isConfirmed ? "You're going ✓"
@@ -218,8 +223,12 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
       borderColor: HAIRLINE_2,
       gap: 0,
     }}>
-      {ribbon ? (
-        <Text className="font-outfit" style={{ fontSize: 11.5, color: TEXT_2, textAlign: 'center', marginBottom: 10 }}>{ribbon}</Text>
+      {(offerCue || ribbon) ? (
+        <Text className="font-outfit" style={{ fontSize: 11.5, color: TEXT_2, textAlign: 'center', marginBottom: 10 }}>
+          {offerCue ? <Text style={{ color: '#FF6B35', fontWeight: '600' }}>{offerCue}</Text> : null}
+          {offerCue && ribbon ? '  ·  ' : ''}
+          {ribbon}
+        </Text>
       ) : null}
       {/* Price + CTA row */}
       <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 10 }}>

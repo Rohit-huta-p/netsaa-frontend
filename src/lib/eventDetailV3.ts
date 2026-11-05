@@ -5,7 +5,7 @@
  * eventTypeLabel, bring/included, lineup.
  */
 import type { EventDoc } from '@/services/eventService';
-import { formatRupees } from '@/lib/eventPricing';
+import { formatRupees, resolveEffectiveOffer } from '@/lib/eventPricing';
 
 export const EVENT_TYPE_LABEL: Record<string, string> = {
   workshop: 'Workshop',
@@ -56,17 +56,23 @@ export function eyebrow(event: EventDoc): string {
   return craft ? `${kind} · ${craft}` : kind;
 }
 
-/** Lowest price across spots + offers (v4), or the single ticketPrice. */
-export function lowestPrice(event: EventDoc): { amount: number; multiple: boolean } {
-  const prices = [
-    ...(event.spots ?? []).map((s) => s.price ?? 0),
-    ...(event.offers ?? []).map((o) => o.price ?? 0),
-  ];
-  if (prices.length) {
-    return { amount: Math.min(...prices), multiple: new Set(prices).size > 1 };
-  }
-  const single = (event as any).pricing?.amount ?? (event as any).ticketPrice ?? 0;
-  return { amount: single, multiple: false };
+/** Lowest price a single buyer can pay RIGHT NOW: base spot/event price with any ACTIVE,
+ *  everyone-audience offer applied (via the resolver). Excludes expired offers and group rates
+ *  (which need minSeats), so the "from" price is honest. Exposes the winning offer for a teaser. */
+export function lowestPrice(event: EventDoc): { amount: number; multiple: boolean; offerName?: string; baseAmount?: number } {
+  const spots = event.spots ?? [];
+  const now = new Date();
+  const results = spots.length
+    ? spots.map((s) => resolveEffectiveOffer(event as any, { spotId: (s as any)._id ?? s.name, seats: 1, now }))
+    : [resolveEffectiveOffer(event as any, { seats: 1, now })];
+  const best = results.reduce((a, b) => (b.unitRupees < a.unitRupees ? b : a));
+  const distinct = new Set([...spots.map((s) => s.price ?? 0), ...results.map((r) => r.unitRupees)]);
+  return {
+    amount: best.unitRupees,
+    multiple: distinct.size > 1,
+    offerName: best.appliedOffer?.name,
+    baseAmount: best.appliedOffer?.baseUnitRupees,
+  };
 }
 
 /** The door-policy verb for the CTA, refined by event type. */

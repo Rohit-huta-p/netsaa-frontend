@@ -743,13 +743,39 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                   policy.
                 </Text>
 
-                {/* PAY-AFTER-APPROVAL NOTE — paid guest_list/apply events don't pay now */}
+                {/* PAY-AFTER-APPROVAL NOTE — paid guest_list/apply events don't pay now, but
+                    preview the current per-seat price + any active offer. The amount isn't locked
+                    until the host approves (the offer is re-resolved then), so it's framed as today's. */}
                 {isApprovalDoor && isPaid ? (
-                  <View className="flex-row gap-2.5 rounded-2xl px-4 py-3 mb-4" style={{ backgroundColor: 'rgba(91,141,239,0.10)' }}>
+                  <View className="rounded-2xl px-4 py-3 mb-4" style={{ backgroundColor: 'rgba(91,141,239,0.10)' }}>
                     <Text className="font-outfit text-sm leading-5" style={{ color: '#C7D7F8' }}>
                       <Text className="font-outfit font-bold" style={{ color: '#C7D7F8' }}>Pay after approval. </Text>
                       If the host approves you, you'll get a link to pay within 48 hours, or the spot passes to the next person.
                     </Text>
+                    {appliedOffer ? (
+                      <View className="flex-row items-center gap-2 rounded-xl px-3 py-2 mt-3" style={{ backgroundColor: 'rgba(255,107,53,0.12)', borderWidth: 1, borderColor: 'rgba(255,107,53,0.30)' }}>
+                        <Text className="font-outfit text-event-textPrimary text-xs font-semibold flex-1">
+                          {appliedOffer.name} · save {formatRupees(baseUnitPrice - pricePerTicket)}
+                        </Text>
+                        <Text className="font-mono text-event-brand text-[10px] font-bold">
+                          {Math.round((1 - pricePerTicket / baseUnitPrice) * 100)}% OFF
+                        </Text>
+                      </View>
+                    ) : null}
+                    <View className="flex-row items-center justify-between mt-3">
+                      <Text className="font-outfit text-xs" style={{ color: '#9FB4D9' }}>Per seat</Text>
+                      <Text className="font-outfit text-sm" style={{ color: '#C7D7F8' }}>
+                        {appliedOffer ? (
+                          <Text className="line-through" style={{ color: '#6E82A8' }}>{formatRupees(baseUnitPrice)} </Text>
+                        ) : null}
+                        {formatRupees(pricePerTicket)}
+                      </Text>
+                    </View>
+                    {appliedOffer ? (
+                      <Text className="font-outfit text-[10px] mt-1.5 leading-4" style={{ color: '#7E93BC' }}>
+                        Today's price — the final amount is set when the host approves.
+                      </Text>
+                    ) : null}
                   </View>
                 ) : null}
 

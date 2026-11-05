@@ -22,6 +22,7 @@ import { eventTokens, computeSlotsLeft } from '@/lib/eventTokens';
 import {
   computeCustomerBreakdown,
   formatRupees,
+  resolveEffectiveOffer,
   PROCESSING_FEE_PERCENT,
 } from '@/lib/eventPricing';
 import { openEventCheckout } from '@/lib/eventCheckout';
@@ -141,7 +142,15 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
   // Price comes from the selected spot/tier (count-on-read, E5), falling back to
   // the event-level pricing overlay for single/spot-less events. A price > 0 means
   // the paid (reserve → Razorpay) path; free spots take the direct register path.
-  const pricePerTicket = selectedSpot?.price ?? event?.pricing?.amount ?? 0;
+  // Best active offer the attendee qualifies for (Early-bird / group), else base price —
+  // mirrors the backend resolver. Preview only; the reserve/register response is authoritative.
+  const effectiveOffer = useMemo(
+    () => resolveEffectiveOffer(event as any, { spotId: (selectedSpot?._id ?? selectedSpot?.name) ?? null, seats: count }),
+    [event, selectedSpot?._id, selectedSpot?.name, count],
+  );
+  const pricePerTicket = effectiveOffer.unitRupees;
+  const baseUnitPrice = effectiveOffer.baseUnitRupees;
+  const appliedOffer = effectiveOffer.appliedOffer;
   const isPaid = pricePerTicket > 0;
   // UI preview only — backend POST /register|/reserve response is authoritative.
   // Both reference src/lib/eventPricing.ts which mirrors events-service .env.
@@ -747,9 +756,23 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
                 {/* PRICE SUMMARY (open door, paid; hidden until a spot is chosen) */}
                 {!isApprovalDoor && isPaid && !needsSpotChoice ? (
                   <View className="rounded-2xl bg-event-surface border border-event-brand/30 px-4 py-4 mb-4">
+                    {appliedOffer ? (
+                      <View className="flex-row items-center gap-2 rounded-xl bg-event-brand/10 border border-event-brand/30 px-3 py-2 mb-3">
+                        <Text className="font-outfit text-event-textPrimary text-xs font-semibold flex-1">
+                          {appliedOffer.name} · save {formatRupees((baseUnitPrice - pricePerTicket) * count)}
+                        </Text>
+                        <Text className="font-mono text-event-brand text-[10px] font-bold">
+                          {Math.round((1 - pricePerTicket / baseUnitPrice) * 100)}% OFF
+                        </Text>
+                      </View>
+                    ) : null}
                     <View className="flex-row items-center justify-between mb-2">
                       <Text className="font-outfit text-event-textSecondary text-sm">
-                        {count} {count === 1 ? 'ticket' : 'tickets'} × {formatRupees(pricePerTicket)}
+                        {count} {count === 1 ? 'ticket' : 'tickets'} ×{' '}
+                        {appliedOffer ? (
+                          <Text className="text-event-textMuted line-through">{formatRupees(baseUnitPrice)} </Text>
+                        ) : null}
+                        {formatRupees(pricePerTicket)}
                       </Text>
                       <Text className="font-outfit text-event-textPrimary text-sm">
                         {formatRupees(ticketSubtotal)}

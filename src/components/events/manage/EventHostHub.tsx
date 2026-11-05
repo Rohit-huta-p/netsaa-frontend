@@ -16,9 +16,10 @@
  * useEventHubData. Pay-as-fact: no fee math, no fabricated metrics; the host sees
  * only their own net ("Earned").
  *
- * Two row actions await backend (stubbed, clearly labelled):
- *   • Cancel + refund (per attendee) — TODO(B1), not built → explain + no-op.
- *   • Manual check-in by registrationId — TODO(B2), not built → route to scanner.
+ * Both per-attendee row actions are backed (netsaa-backend #35):
+ *   • Manual check-in by registrationId — flips reg → attended + ticket(s) → checked_in.
+ *   • Cancel + refund (per attendee) — cancels, voids ticket(s), frees the seat and
+ *     initiates a refund for paid regs. The per-reg payment/ticket read stays B3.
  */
 import React, { useState } from 'react';
 import {
@@ -35,9 +36,13 @@ import {
 import { useEventHubData, type EventHubStage } from '@/hooks/useEventHubData';
 import {
   useWaitlistPromote, useUpdateRegistrationStatus, usePublishEvent, useUpdateEvent,
+  useCheckInByRegistration, useCancelRegistrationByOrganizer,
 } from '@/hooks/useEvents';
 import { useApproveRequest, useDeclineRequest } from '@/hooks/useEventRequests';
-import { approvalErrorMessage, waitlistPromoteErrorMessage, type EventRosterRow } from '@/services/eventService';
+import {
+  approvalErrorMessage, waitlistPromoteErrorMessage,
+  checkInErrorMessage, cancelRegistrationErrorMessage, type EventRosterRow,
+} from '@/services/eventService';
 import { dateRange, timeLine, lowestPrice } from '@/lib/eventDetailV3';
 import { formatRupees } from '@/lib/eventPricing';
 import { shareEvent } from '@/lib/eventShare';
@@ -95,6 +100,8 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
   const approve = useApproveRequest(eventId);
   const decline = useDeclineRequest(eventId);
   const noShow = useUpdateRegistrationStatus(eventId);
+  const checkIn = useCheckInByRegistration(eventId);
+  const cancelAttendee = useCancelRegistrationByOrganizer(eventId);
   const publish = usePublishEvent(eventId);
   const updateEvent = useUpdateEvent(eventId);
 
@@ -155,27 +162,63 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
       gigTitle: event.title,
     });
   };
-  // TODO(B2): one-tap manual check-in by registrationId isn't built (needs
-  // POST /events/:id/registrations/:regId/check-in, which must flip the ticket
-  // too). Route to the scanner — the backed check-in path — for now.
+  // One-tap manual check-in by registrationId (POST …/check-in, netsaa-backend #35).
+  // Flips the reg → attended and its ticket(s) → checked_in, so the row jumps to the
+  // Checked-in spine on roster invalidation. Called from the attendee sheet and the
+  // Checked-in spine's pending rows. Same busy-lock + feedback as markNoShow.
   const checkInRow = (row: EventRosterRow) => {
-    setDetailRow(null);
-    Alert.alert(
-      'Check in at the door',
-      'Scan this attendee’s QR (or enter their 6-digit code) in the scanner to check them in.',
-      [{ text: 'Not now', style: 'cancel' }, { text: 'Open scanner', onPress: goScanner }],
+    if (busyId) return;
+    setBusyId(row._id);
+    setFeedback(null);
+    checkIn.mutate(
+      { registrationId: row._id },
+      {
+        onSuccess: () => { setDetailRow(null); setFeedback({ kind: 'success', text: `Checked ${firstName(row.name)} in.` }); },
+        onError: (err) => setFeedback({ kind: 'error', text: checkInErrorMessage(err) }),
+        onSettled: () => setBusyId(null),
+      },
     );
   };
-  // TODO(B1): per-attendee organizer cancel + refund isn't built (needs a new
-  // owner-gated endpoint that flips → cancelled, creates the Cashfree Refund and
-  // frees the seat; free attendees could use PATCH status→cancelled, but we keep
-  // this one path until B1 so the behaviour is consistent). Explain, don't fake it.
-  const cancelRefundRow = (_row: EventRosterRow) => {
-    setDetailRow(null);
+  // Per-attendee organizer cancel + refund (POST …/cancel, netsaa-backend #35). Flips
+  // the reg → cancelled, voids the ticket(s), frees the seat and — for a paid reg —
+  // initiates a Cashfree refund (settles async). Confirm first; pay-as-fact — the
+  // paid-attendee copy notes a refund without any fee math.
+  const cancelRefundRow = (row: EventRosterRow) => {
+    if (busyId) return;
+    const paid = isPaid;
     Alert.alert(
-      'Coming soon',
-      'Cancelling and refunding a single attendee is on the way. To refund everyone, cancel the event from the ⋯ menu.',
-      [{ text: 'OK' }],
+      `Cancel ${firstName(row.name)}?`,
+      paid
+        ? 'Their seat is freed and a refund is initiated to their original payment method. This can’t be undone.'
+        : 'Their seat is freed and their registration is cancelled. This can’t be undone.',
+      [
+        { text: 'Keep attendee', style: 'cancel' },
+        {
+          text: 'Cancel attendee',
+          style: 'destructive',
+          onPress: () => {
+            if (busyId) return;
+            setBusyId(row._id);
+            setFeedback(null);
+            cancelAttendee.mutate(
+              { registrationId: row._id, reason: 'Cancelled by organizer' },
+              {
+                onSuccess: (res) => {
+                  setDetailRow(null);
+                  setFeedback({
+                    kind: 'success',
+                    text: res?.refund
+                      ? `Cancelled ${firstName(row.name)} — a refund is on the way.`
+                      : `Cancelled ${firstName(row.name)}.`,
+                  });
+                },
+                onError: (err) => setFeedback({ kind: 'error', text: cancelRegistrationErrorMessage(err) }),
+                onSettled: () => setBusyId(null),
+              },
+            );
+          },
+        },
+      ],
     );
   };
   const markNoShow = (row: EventRosterRow) => {

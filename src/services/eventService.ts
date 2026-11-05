@@ -701,3 +701,76 @@ export async function updateRegistrationStatus(
   const d = r.data?.data ?? {};
   return { status: d.status ?? status };
 }
+
+/** Result of a manual per-registration check-in (netsaa-backend #35, B2). */
+export interface CheckInByRegistrationResult {
+  registrationId: string;
+  status: string;          // 'attended'
+  method?: string;         // 'manual'
+  checkedInAt?: string;
+}
+
+/**
+ * POST /v1/events/:id/registrations/:registrationId/check-in (host only, no body).
+ * The one-tap manual check-in the attendee sheet / Checked-in spine needs: it flips
+ * the registration → attended AND its ticket(s) → checked_in (unlike
+ * updateRegistrationStatus, which is registration-only). 409 on a repeat or a reg
+ * not in a checkable status — surfaced via checkInErrorMessage.
+ */
+export async function checkInByRegistration(
+  eventId: string,
+  registrationId: string,
+): Promise<CheckInByRegistrationResult> {
+  const r = await client.post(`/v1/events/${eventId}/registrations/${registrationId}/check-in`);
+  return r.data?.data ?? {};
+}
+
+/** Human-readable message off a failed manual check-in — 409 = already in / not checkable, 403 = not host. */
+export function checkInErrorMessage(err: any): string {
+  const status = err?.response?.status;
+  const serverMsg: string | undefined = err?.response?.data?.meta?.message;
+  if (status === 403) return "You're not the host of this event.";
+  if (status === 409) return serverMsg || 'This attendee can’t be checked in right now.';
+  if (status === 404) return 'That registration no longer exists.';
+  return serverMsg || 'Could not check this attendee in. Please try again.';
+}
+
+/** The refund leg of an organizer per-attendee cancel — null for a free registration (no money moved). */
+export interface RegistrationCancelRefund {
+  refundAmountPaise: number;
+  netsaAbsorbedPaise: number;
+  status: string;          // e.g. 'pending' (Cashfree settles async)
+}
+/** Result of an organizer cancelling + refunding one attendee (netsaa-backend #35, B1). */
+export interface RegistrationCancelResult {
+  registrationId: string;
+  status: string;          // 'cancelled'
+  seatFreed: boolean;
+  refund: RegistrationCancelRefund | null;  // null = free reg, nothing to refund
+}
+
+/**
+ * POST /v1/events/:id/registrations/:registrationId/cancel (host only), body { reason }.
+ * Flips the registration → cancelled, voids its ticket(s) and frees the seat; a PAID
+ * reg also gets a pending Cashfree refund (settles async), a free one gets refund:null.
+ * Pay-as-fact: the UI reads only whether a refund exists, never its amounts.
+ */
+export async function cancelRegistrationByOrganizer(
+  eventId: string,
+  registrationId: string,
+  reason: string,
+): Promise<RegistrationCancelResult> {
+  const body = reason && reason.trim() ? { reason: reason.trim() } : {};
+  const r = await client.post(`/v1/events/${eventId}/registrations/${registrationId}/cancel`, body);
+  return r.data?.data ?? {};
+}
+
+/** Human-readable message off a failed per-attendee cancel — 409 = not cancellable, 403 = not host. */
+export function cancelRegistrationErrorMessage(err: any): string {
+  const status = err?.response?.status;
+  const serverMsg: string | undefined = err?.response?.data?.meta?.message;
+  if (status === 403) return "You're not the host of this event.";
+  if (status === 409) return serverMsg || 'This attendee can’t be cancelled right now.';
+  if (status === 404) return 'That registration no longer exists.';
+  return serverMsg || 'Could not cancel this attendee. Please try again.';
+}

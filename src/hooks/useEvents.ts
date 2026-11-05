@@ -6,8 +6,12 @@ import {
   promoteWaitlist,
   publishEvent,
   updateRegistrationStatus,
+  checkInByRegistration,
+  cancelRegistrationByOrganizer,
   type WaitlistPromoteResult,
   type RegistrationStatusUpdate,
+  type CheckInByRegistrationResult,
+  type RegistrationCancelResult,
 } from '@/services/eventService';
 
 export const eventKeys = {
@@ -153,6 +157,41 @@ export function useUpdateRegistrationStatus(eventId: string) {
   const qc = useQueryClient();
   return useMutation<{ status: string }, unknown, { registrationId: string; status: RegistrationStatusUpdate }>({
     mutationFn: ({ registrationId, status }) => updateRegistrationStatus(registrationId, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['eventRoster', eventId] });
+      qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
+    },
+  });
+}
+
+/**
+ * Manually check an attendee in by registrationId (attendee sheet "Check in" /
+ * Checked-in spine). Flips the registration → attended and its ticket(s) →
+ * checked_in server-side; invalidates the roster + detail so the row jumps to the
+ * Checked-in spine. 409 (already in / not checkable) rejects — the hub reads it via
+ * checkInErrorMessage.
+ */
+export function useCheckInByRegistration(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation<CheckInByRegistrationResult, unknown, { registrationId: string }>({
+    mutationFn: ({ registrationId }) => checkInByRegistration(eventId, registrationId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['eventRoster', eventId] });
+      qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
+    },
+  });
+}
+
+/**
+ * Organizer cancel + refund one attendee (attendee sheet "Cancel + refund"). Flips
+ * the registration → cancelled, voids its ticket(s), frees the seat and (paid only)
+ * initiates a refund; invalidates the roster + detail so the row leaves the active
+ * spine. 409 (not cancellable) rejects — the hub reads it via cancelRegistrationErrorMessage.
+ */
+export function useCancelRegistrationByOrganizer(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation<RegistrationCancelResult, unknown, { registrationId: string; reason: string }>({
+    mutationFn: ({ registrationId, reason }) => cancelRegistrationByOrganizer(eventId, registrationId, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['eventRoster', eventId] });
       qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });

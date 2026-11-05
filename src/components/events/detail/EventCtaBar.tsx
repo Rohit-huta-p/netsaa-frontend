@@ -76,7 +76,12 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
   const isApproved = regStatus === 'approved';
   const isDeclined = regStatus === 'declined';
   const pendingPayment = (myRegistration as any)?.pendingPayment as
-    | { reservationId: string; razorpayOrderId: string; paymentSessionId?: string; amountPaise: number; payBy?: string }
+    | {
+        reservationId: string; razorpayOrderId: string; paymentSessionId?: string;
+        amountPaise: number; payBy?: string;
+        /** Early-bird/group discount locked at approve time (already baked into amountPaise). */
+        appliedOffer?: { name: string; unitRupees: number; baseUnitRupees: number; audience?: string };
+      }
     | undefined;
   const hoursToPay = pendingPayment?.payBy
     ? Math.max(0, Math.round((new Date(pendingPayment.payBy).getTime() - Date.now()) / 3600000))
@@ -194,6 +199,15 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
   const offerCue = v3 && !hasAnyReg && offerInfo.offerName
     ? `${offerInfo.offerName}${offerInfo.baseAmount ? ` · was ${formatRupees(offerInfo.baseAmount)}` : ''}`
     : '';
+  // Approved paid request: the discount LOCKED at approve time (already in amountPaise) — surface
+  // it so the payer sees the saving carried through, not just the final figure on the Pay button.
+  const approvedOffer = pendingPayment?.appliedOffer;
+  const approvedSeats = (myRegistration as any)?.attendeeCount ?? (myRegistration as any)?.quantity ?? 1;
+  const approvedOfferCue = isApproved && approvedOffer && approvedOffer.baseUnitRupees > approvedOffer.unitRupees
+    ? `${approvedOffer.name} · save ${formatRupees((approvedOffer.baseUnitRupees - approvedOffer.unitRupees) * approvedSeats)}`
+    : '';
+  // Only one applies at a time (offerCue needs no reg; approvedOfferCue needs an approved reg).
+  const cueOrange = offerCue || approvedOfferCue;
 
   // Status-column label + accent for any existing registration.
   const statusLabel = isConfirmed ? "You're going ✓"
@@ -223,10 +237,10 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
       borderColor: HAIRLINE_2,
       gap: 0,
     }}>
-      {(offerCue || ribbon) ? (
+      {(cueOrange || ribbon) ? (
         <Text className="font-outfit" style={{ fontSize: 11.5, color: TEXT_2, textAlign: 'center', marginBottom: 10 }}>
-          {offerCue ? <Text style={{ color: '#FF6B35', fontWeight: '600' }}>{offerCue}</Text> : null}
-          {offerCue && ribbon ? '  ·  ' : ''}
+          {cueOrange ? <Text style={{ color: '#FF6B35', fontWeight: '600' }}>{cueOrange}</Text> : null}
+          {cueOrange && ribbon ? '  ·  ' : ''}
           {ribbon}
         </Text>
       ) : null}

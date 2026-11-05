@@ -6,10 +6,9 @@
  * Shows only what the roster row carries — name, status, seats, phone — with the
  * actions:
  *   Message        ✅ backed (app-wide DM via the hub's ContactActionSheet)
- *   Check in       ⚠️ TODO(B2) — one-tap manual check-in by registrationId isn't
- *                     built; routes to the scanner (the backed path) instead.
+ *   Check in       ✅ backed (POST …/registrations/:id/check-in → attended + ticket)
  *   Mark no-show   ✅ backed (PATCH /registrations/:id/status → 'no-show')
- *   Cancel+refund  ⚠️ TODO(B1) — per-attendee organizer cancel+refund isn't built.
+ *   Cancel+refund  ✅ backed (POST …/registrations/:id/cancel → cancelled + refund)
  *
  * Deliberately NOT shown: payment line, ticket code, guest breakdown. Those live
  * behind B3 (the owner-gated per-reg read), which isn't built — so we show nothing

@@ -71,14 +71,13 @@ export default function WalkupAddSheet({
         {isPaid ? (
           <>
             <Text style={styles.label}>PAYMENT</Text>
+            {/* Cash/free only — the "Razorpay link · SMS" option is dropped: it's
+                unbacked (addWalkup accepts payment 'free' | 'cash' only) and a
+                pay-by-link walk-up would admit someone before they've paid. */}
             <View style={styles.payRow}>
               <View style={[styles.payCard, styles.payCardOn]}>
                 <Text style={styles.payTitleOn}>Cash recorded</Text>
                 <Text style={styles.paySub}>₹{priceRupees.toLocaleString('en-IN')} marked paid</Text>
-              </View>
-              <View style={[styles.payCard, styles.payCardOff]}>
-                <Text style={styles.payTitleOff}>Razorpay link</Text>
-                <Text style={styles.paySubMuted}>Coming soon</Text>
               </View>
             </View>
           </>

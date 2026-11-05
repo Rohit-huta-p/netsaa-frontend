@@ -636,3 +636,68 @@ export function approvalErrorMessage(err: any, action: 'approve' | 'decline'): s
   if (status === 404) return 'That request no longer exists.';
   return serverMsg || `Could not ${action} the request. Please try again.`;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Host hub thin wrappers — waitlist promote, publish, registration-status.
+//
+// Standalone exports (not folded into the `eventService` object) so they stay
+// merge-safe against concurrent edits to that literal, exactly like approve/
+// decline above. Each endpoint already exists and is owner-gated server-side
+// (netsaa-backend #34 closed the IDOR cluster, publishEvent included); the inline
+// ownership check is the real gate, so these are plain `protect`-path POSTs.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The promoted top-of-queue entry handed back by waitlist/promote (shape kept loose — only the 409 matters to the UI). */
+export interface WaitlistPromoteResult {
+  status?: string;
+  registrationId?: string;
+  entryId?: string;
+}
+
+/**
+ * POST /v1/events/:id/waitlist/promote (host only). Promotes the TOP `waiting`
+ * entry — and ONLY if a seat is free, else the backend 409s. Callers read
+ * err.response.status === 409 to surface "no free seat" inline (see
+ * waitlistPromoteErrorMessage).
+ */
+export async function promoteWaitlist(eventId: string): Promise<WaitlistPromoteResult> {
+  const r = await client.post(`/v1/events/${eventId}/waitlist/promote`);
+  return r.data?.data ?? {};
+}
+
+/** Human-readable message off a failed waitlist/promote — 409 = no seat free, 403 = not host. */
+export function waitlistPromoteErrorMessage(err: any): string {
+  const status = err?.response?.status;
+  const serverMsg: string | undefined = err?.response?.data?.meta?.message;
+  if (status === 403) return "You're not the host of this event.";
+  if (status === 409) return serverMsg || 'No free seat to promote into yet.';
+  if (status === 404) return 'No one is on the waitlist to promote.';
+  return serverMsg || 'Could not promote from the waitlist. Please try again.';
+}
+
+/**
+ * POST /v1/events/:id/publish (host only). Flips a draft → live. Returns the
+ * updated event (or a thin { status }); the hook invalidates the detail query.
+ */
+export async function publishEvent(eventId: string): Promise<Partial<EventDoc>> {
+  const r = await client.post(`/v1/events/${eventId}/publish`);
+  return r.data?.data ?? {};
+}
+
+/** Valid organizer-set registration statuses from the roster (EventRegistration.status enum). */
+export type RegistrationStatusUpdate = 'attended' | 'no-show' | 'cancelled';
+
+/**
+ * PATCH /v1/registrations/:id/status (host only). Used by the attendee sheet's
+ * "Mark no-show". NB: this flips the REGISTRATION only — it does not touch the
+ * ticket, so it is deliberately NOT the manual-check-in path (that is B2, which
+ * must flip the ticket too for de-dup). See MANAGE_EVENT_BACKEND_READINESS §3/§4.
+ */
+export async function updateRegistrationStatus(
+  registrationId: string,
+  status: RegistrationStatusUpdate,
+): Promise<{ status: string }> {
+  const r = await client.patch(`/v1/registrations/${registrationId}/status`, { status });
+  const d = r.data?.data ?? {};
+  return { status: d.status ?? status };
+}

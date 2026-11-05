@@ -1,5 +1,14 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { eventService, EventDoc, EventListParams } from '@/services/eventService';
+import {
+  eventService,
+  EventDoc,
+  EventListParams,
+  promoteWaitlist,
+  publishEvent,
+  updateRegistrationStatus,
+  type WaitlistPromoteResult,
+  type RegistrationStatusUpdate,
+} from '@/services/eventService';
 
 export const eventKeys = {
   all: ['events'] as const,
@@ -105,6 +114,48 @@ export function useWalkupAdd(eventId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
       qc.invalidateQueries({ queryKey: ['eventRoster', eventId] });
+    },
+  });
+}
+
+// Host hub mutations (Manage-Event A·Minimal). Each invalidates the roster +
+// detail queries so the spine counts, capacity bar and rows reflect the change.
+
+/**
+ * Promote the top waitlist entry into the one free seat. Succeeds only if a seat
+ * is free, else the mutation rejects with a 409 — the Requests/Waitlist UI reads
+ * err.response.status via waitlistPromoteErrorMessage and surfaces it inline.
+ */
+export function useWaitlistPromote(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation<WaitlistPromoteResult, unknown, void>({
+    mutationFn: () => promoteWaitlist(eventId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['eventRoster', eventId] });
+      qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
+    },
+  });
+}
+
+/** Publish a draft event (draft → live). Invalidates the detail query so the hub re-renders as the live room. */
+export function usePublishEvent(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation<Partial<EventDoc>, unknown, void>({
+    mutationFn: () => publishEvent(eventId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
+    },
+  });
+}
+
+/** Flip a registration's status (attendee sheet "Mark no-show"). Registration-only — see updateRegistrationStatus. */
+export function useUpdateRegistrationStatus(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation<{ status: string }, unknown, { registrationId: string; status: RegistrationStatusUpdate }>({
+    mutationFn: ({ registrationId, status }) => updateRegistrationStatus(registrationId, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['eventRoster', eventId] });
+      qc.invalidateQueries({ queryKey: eventKeys.detail(eventId) });
     },
   });
 }

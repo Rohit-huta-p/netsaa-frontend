@@ -45,6 +45,51 @@ export function computeCustomerBreakdown(unitPriceRupees: number, seats: number)
     return { ticketSubtotal, serviceFee, total };
 }
 
+export interface EventOffer {
+    spotId?: string;
+    name: string;
+    price: number;                 // rupees, below the base
+    audience: 'everyone' | 'group';
+    endsAt?: string | Date | null;
+    seatLimit?: number;
+    minSeats?: number;
+}
+
+export interface EffectiveOffer {
+    baseUnitRupees: number;        // undiscounted per-ticket price
+    unitRupees: number;            // what we preview charging per ticket
+    appliedOffer?: { name: string; unitRupees: number; baseUnitRupees: number; audience: 'everyone' | 'group' };
+}
+
+/**
+ * Display mirror of the backend resolver (events-service/src/services/offerPricing.ts): the
+ * cheapest offer the buyer qualifies for (not past `endsAt`, audience/minSeats fits, spot matches),
+ * else the base price. `seatLimit` is NOT enforced here — the server counts seats authoritatively;
+ * the sheet only previews the best time/audience/spot-eligible offer. The backend price is final.
+ */
+export function resolveEffectiveOffer(
+    input: { spots?: { _id?: string; name?: string; price?: number }[]; pricing?: { amount?: number } | null; ticketPrice?: number; offers?: EventOffer[] },
+    opts: { spotId?: string | null; seats: number; now?: Date },
+): EffectiveOffer {
+    const now = opts.now ?? new Date();
+    const seats = Math.max(1, Math.floor(opts.seats || 1));
+    const spot = opts.spotId ? (input.spots ?? []).find((s) => String(s._id ?? s.name) === String(opts.spotId)) : undefined;
+    const baseUnitRupees = spot ? (spot.price ?? 0) : (input.pricing?.amount ?? input.ticketPrice ?? 0);
+    if (baseUnitRupees <= 0) return { baseUnitRupees, unitRupees: baseUnitRupees };
+
+    const qualifies = (o: EventOffer): boolean => {
+        if (typeof o.price !== 'number' || o.price < 0 || o.price >= baseUnitRupees) return false;
+        if (o.endsAt && new Date(o.endsAt).getTime() <= now.getTime()) return false;
+        if (o.spotId && (!spot || String(o.spotId) !== String(spot._id ?? spot.name))) return false;
+        if (o.audience === 'group') { const min = o.minSeats && o.minSeats > 1 ? o.minSeats : 2; if (seats < min) return false; }
+        return true;
+    };
+    const candidates = (input.offers ?? []).filter(qualifies);
+    if (!candidates.length) return { baseUnitRupees, unitRupees: baseUnitRupees };
+    const best = candidates.reduce((a, b) => (b.price < a.price ? b : a));
+    return { baseUnitRupees, unitRupees: best.price, appliedOffer: { name: best.name, unitRupees: best.price, baseUnitRupees, audience: best.audience } };
+}
+
 /**
  * Compute what the organizer earns per registration (per seat or per N seats).
  * Use `seats=1` in the composer mini-calculator to show per-ticket earnings.

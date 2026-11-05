@@ -120,7 +120,7 @@ function refundPolicySummary(event: EventDoc): { label: string; body: string } |
     if (policy === 'custom')
         return {
             label: 'Custom refund policy',
-            body: pricing.refundCustomNote ?? 'See the organizer for refund terms.',
+            body: pricing.refundCustomNote ?? 'See the host for refund terms.',
         };
     return null;
 }
@@ -200,7 +200,7 @@ export default function RegistrationReceiptCard({
                     </View>
                     <Text className="font-serif text-event-textPrimary text-3xl mt-1">You're in.</Text>
                     <Text className="font-outfit text-event-textSecondary text-sm text-center px-6 leading-5">
-                        We sent confirmation by push. The organizer can reach you on your phone if anything changes.
+                        We sent confirmation by push. The host can reach you on your phone if anything changes.
                     </Text>
                 </View>
             ) : (

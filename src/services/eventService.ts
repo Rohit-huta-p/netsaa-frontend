@@ -189,6 +189,8 @@ export interface ReserveExtras {
   spotId?: string;
   dpdpConsent?: boolean;
   consentVersion?: string;
+  /** Primary registrant + any guests, so the paid ticket/roster carry the real name (not "Guest"). */
+  attendees?: Array<{ fullName: string; phone: string }>;
 }
 
 /** Shape returned by POST /v1/events/:id/register (free events only; no paymentRequired field). */
@@ -317,6 +319,7 @@ export const eventService = {
   ): Promise<{ reservationId: string; razorpayOrderId: string; paymentSessionId?: string; amountPaise: number }> => {
     const body: Record<string, unknown> = { quantity };
     if (extras?.answers?.length) body.answers = extras.answers;
+    if (extras?.attendees?.length) body.attendees = extras.attendees;
     if (extras?.spotId) body.spotId = extras.spotId;
     if (extras?.dpdpConsent) {
       body.dpdpConsent = true;

@@ -11,12 +11,10 @@ import {
 import { PerformerProfile } from '@/features/profile/PerformerProfile';
 import { SpotlightProfile } from '@/features/profile/SpotlightProfile';
 import { CreativeLeadProfile } from '@/features/profile/CreativeLeadProfile';
-import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 export default function UserProfile() {
     const { user } = useAuthStore();
     const viewerRole = useAuthStore((s) => s.role);
-    const { spotlightProfile, creativeLeadProfile } = useFeatureFlags();
     const { id: paramId, gigId, applicationId, fromGig } = useLocalSearchParams<{
         id: string;
         gigId?: string;
@@ -58,9 +56,8 @@ export default function UserProfile() {
     }
 
     // Creative Lead / organizer target → the company/org profile page. One common
-    // page for every viewer (artist to apply, client to size up). Flag-gated; when
-    // off, falls through to the prior performer / legacy behavior.
-    if (creativeLeadProfile && (targetRole === 'creative_lead' || targetRole === 'organizer')) {
+    // page for every viewer (artist to apply, client to size up).
+    if (targetRole === 'creative_lead' || targetRole === 'organizer') {
         return (
             <CreativeLeadProfile
                 userId={resolvedId || ''}
@@ -81,10 +78,9 @@ export default function UserProfile() {
         return <PerformerProfile userId={resolvedId || ''} />;
     }
 
-    // Spotlight (flagged) — the redesigned artist profile, for self-view and any
-    // non-client peer viewing an artist. Legacy ProfileScreen stays the fallback
-    // and still serves creative_lead / organizer targets.
-    if (spotlightProfile && targetRole === 'artist') {
+    // Spotlight — the redesigned artist profile, for self-view and any non-client
+    // peer viewing an artist. ProfileScreen remains the defensive fallback below.
+    if (targetRole === 'artist') {
         return (
             <SpotlightProfile
                 userId={resolvedId || ''}

@@ -16,7 +16,6 @@ import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import type { ImagePickerAsset } from 'expo-image-picker';
 import { MEDIA_SPEC, type CropPurpose, type CroppedAsset, type MediaSpec } from '@/constants/mediaSpec';
-import useFeatureFlags from '@/hooks/useFeatureFlags';
 
 interface CropperState {
   visible: boolean;
@@ -29,7 +28,6 @@ interface CropperState {
 const IDLE: CropperState = { visible: false, uri: null, sourceWidth: 0, sourceHeight: 0, purpose: 'avatar' };
 
 export function usePickAndCrop() {
-  const { mediaCropper } = useFeatureFlags();
   const [state, setState] = useState<CropperState>(IDLE);
   const resolver = useRef<((a: ImagePickerAsset | null) => void) | null>(null);
 
@@ -46,26 +44,22 @@ export function usePickAndCrop() {
       Alert.alert('Allow photo access', 'Enable photo-library access in Settings to choose a photo.');
       return null;
     }
-    const spec = MEDIA_SPEC[purpose];
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      // Flag ON: pick full-res and let the in-app MediaCropper frame it.
-      // Flag OFF: fall back to the OS crop at the surface's aspect.
-      allowsEditing: !mediaCropper,
-      aspect: mediaCropper ? undefined : spec.osAspect,
-      quality: mediaCropper ? 1 : 0.9,
+      // Pick full-res with the OS crop OFF — the in-app MediaCropper frames it.
+      allowsEditing: false,
+      quality: 1,
       exif: false,
     });
     if (res.canceled || !res.assets?.length) return null;
     const a = res.assets[0];
-    if (!mediaCropper) return a; // OS crop already applied — ready to upload
     // Abandon any crop still pending before starting a new one.
     resolver.current?.(null);
     return new Promise<ImagePickerAsset | null>((resolve) => {
       resolver.current = resolve;
       setState({ visible: true, uri: a.uri, sourceWidth: a.width ?? 0, sourceHeight: a.height ?? 0, purpose });
     });
-  }, [mediaCropper]);
+  }, []);
 
   const onDone = useCallback(
     (cropped: CroppedAsset) => settle({ ...cropped, type: 'image' } as unknown as ImagePickerAsset),

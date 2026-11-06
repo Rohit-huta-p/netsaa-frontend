@@ -18,7 +18,8 @@
  * Cold-start safe: every showcase field may be absent — absent sections render
  * nothing, never crash.
  *
- * Flag-gated: EXPO_PUBLIC_FEATURE_CL_PROFILE (useFeatureFlags().creativeLeadProfile).
+ * The profile page for every creative_lead / organizer target (artist to apply,
+ * client to size up).
  */
 
 import { useMemo, useState } from 'react';

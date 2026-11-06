@@ -10,7 +10,7 @@
 // A·Minimal reskin (2026-10): #121216 canvas + lifted #1C1C23 surfaces, orange the only
 // accent — same language as the gig board / CL home. Tokens + layout only; the queries,
 // selection callback and refresh wiring are unchanged. Two product decisions live here:
-//   • The "Inbox" title + eyebrow are commented out (the mobile back chevron stays).
+//   • An "INBOX" mono wordmark sits beside the mobile back chevron (desktop 2-pane has no header).
 //   • Invites is PARKED behind INVITES_ENABLED (kept, not deleted): the launcher surfaces
 //     Messages only, with no Messages/Invites tab bar. Flip the flag to bring it back.
 import { useState } from 'react';
@@ -91,13 +91,13 @@ export default function InboxLauncher({ activeId, onSelectConversation, hideBack
     return (
         <View style={{ flex: 1, backgroundColor: '#121216' }}>
             {/* Nav — mobile only (the desktop left pane has no header, matching the mockup).
-                The "Inbox" title + eyebrow are intentionally removed; the back chevron stays. */}
+                An "INBOX" mono wordmark sits beside the back chevron. */}
             {!hideBack ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 2 }}>
                     <Pressable onPress={() => router.back()} style={{ width: 34, height: 34, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
                         <ChevronLeft size={18} color="#D4D4D8" />
                     </Pressable>
-                    {/* <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', color: '#FFFFFF', fontSize: 25, letterSpacing: -0.6 }}>Inbox</Text> */}
+                    <Text style={{ fontFamily: 'SpaceMono-Regular', color: '#FFFFFF', fontSize: 13, letterSpacing: 2 }}>INBOX</Text>
                 </View>
             ) : null}
 

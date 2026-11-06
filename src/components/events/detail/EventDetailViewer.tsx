@@ -3,9 +3,9 @@
  *   - the route `/events/[id]` (real artists navigating in)         → mode = default
  *   - the manage "Preview" page-sheet modal (organizer proofing it) → preview
  *
- * Composition (v2): EventHeroV2 → EventDetailV2Body → MeetingLinkRevealCard +
- * DiscussionTabs → MoreByOrganizerRail → EventCtaBar. Resolves the organizer +
- * the "more by organizer" query once, here.
+ * Composition (E·9 photo-led): EventHeroV3 → EventDetailV3Body →
+ * MeetingLinkRevealCard + DiscussionTabs → MoreByOrganizerRail → EventCtaBar.
+ * Resolves the organizer once, here.
  *
  * In `preview`, the hero's back-chevron CLOSES the modal (instead of navigating)
  * and the register CTA is inert — the organizer can't register for their own
@@ -16,11 +16,8 @@ import { View, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { eventService, type EventDoc } from '@/services/eventService';
-import { useEventsByOrganizer } from '@/hooks/useEventsByOrganizer';
 import { queryKeys } from '@/constants/queryKeys';
 import { shareEvent } from '@/lib/eventShare';
-import EventHeroV2 from './EventHeroV2';
-import EventDetailV2Body from './EventDetailV2Body';
 import MoreByOrganizerRail from './MoreByOrganizerRail';
 import EventCtaBar from './EventCtaBar';
 import MeetingLinkRevealCard from './MeetingLinkRevealCard';
@@ -28,12 +25,10 @@ import DiscussionTabs from './DiscussionTabs';
 import EventHeroV3 from './EventHeroV3';
 import EventDetailV3Body from './EventDetailV3Body';
 import { usePublicRoster } from '@/hooks/usePublicRoster';
-import { eventDetailV3Enabled } from '@/utils/flags';
 import MediaViewer, { type MediaViewerItem } from '@/components/profile/MediaViewer';
 import { muxPoster } from '@/components/media/NetsaVideoPlayer';
 
-const BG = '#0B0A0F'; // v2 bg-1
-const CANVAS_V3 = '#121216'; // A·Minimal C.canvas — E·9 page only
+const CANVAS = '#121216'; // A·Minimal C.canvas
 
 interface Props {
   event: EventDoc;
@@ -53,12 +48,8 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
     organizerObj?._id ?? (typeof event.organizerId === 'string' ? event.organizerId : undefined);
   const organizerName = organizerObj?.name;
 
-  // One query powers both the organizer card's "N events" and the rail.
-  const { data: orgEvents } = useEventsByOrganizer(organizerId, event._id);
-
-  // E·9 photo-led page (flag-gated). Roster = public "who's going" (count + names).
-  const v3 = eventDetailV3Enabled();
-  const { data: roster } = usePublicRoster(v3 ? event._id : undefined);
+  // Public "who's going" (count + names).
+  const { data: roster } = usePublicRoster(event._id);
   const openProfile = (uid?: string) => { if (uid) router.push(`/profile/${uid}` as any); };
 
   // E·9 gallery → fullscreen viewer. Reuses the profile MediaViewer with no
@@ -66,20 +57,18 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
   // profile. Built once here and shared by both the rail and the lightbox.
   const [mediaIndex, setMediaIndex] = useState<number | null>(null);
   const galleryCity = (event.location as any)?.city as string | undefined;
-  const galleryItems: MediaViewerItem[] = v3
-    ? [...(event.media ?? [])]
-        .filter((m) => (m.kind === 'photo' ? !!m.url : m.status !== 'errored' && (!!m.thumbnailUrl || !!m.muxPlaybackId)))
-        .sort((a, b) => a.sortOrder - b.sortOrder)
-        .map((m): MediaViewerItem => ({
-          url: m.kind === 'video' ? (m.thumbnailUrl || (m.muxPlaybackId ? muxPoster(m.muxPlaybackId) : '')) : m.url,
-          type: m.kind === 'photo' ? 'image' : 'video',
-          muxPlaybackId: m.muxPlaybackId,
-          aspectRatio: m.aspectRatio,
-          // No per-slide title in the event viewer — the event name already
-          // owns the hero; a caption on every photo is redundant.
-          location: galleryCity,
-        }))
-    : [];
+  const galleryItems: MediaViewerItem[] = [...(event.media ?? [])]
+    .filter((m) => (m.kind === 'photo' ? !!m.url : m.status !== 'errored' && (!!m.thumbnailUrl || !!m.muxPlaybackId)))
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((m): MediaViewerItem => ({
+      url: m.kind === 'video' ? (m.thumbnailUrl || (m.muxPlaybackId ? muxPoster(m.muxPlaybackId) : '')) : m.url,
+      type: m.kind === 'photo' ? 'image' : 'video',
+      muxPlaybackId: m.muxPlaybackId,
+      aspectRatio: m.aspectRatio,
+      // No per-slide title in the event viewer — the event name already
+      // owns the hero; a caption on every photo is redundant.
+      location: galleryCity,
+    }));
 
   // Save / unsave — POST /v1/events/:id/save toggles server-side and returns the
   // new state. Seeded from viewerContext.hasSaved (detail endpoint), optimistic
@@ -104,41 +93,26 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
     : () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   return (
-    <View style={{ flex: 1, backgroundColor: v3 ? CANVAS_V3 : BG }}>
+    <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScrollView contentInsetAdjustmentBehavior="never" showsVerticalScrollIndicator={false}>
         {/* Hero owns the overlaid nav (back · share · save) */}
-        {v3 ? (
-          <>
-            <EventHeroV3
-              event={event}
-              onBack={handleBack}
-              onShare={() => shareEvent(event)}
-              onSave={preview ? undefined : onToggleSave}
-              saved={saved}
-              goingCount={roster?.count ?? 0}
-            />
-            <EventDetailV3Body
-              event={event}
-              goingCount={roster?.count}
-              goingNames={roster?.names}
-              organizerId={organizerId}
-              onOpenProfile={preview ? undefined : openProfile}
-              media={galleryItems}
-              onOpenMedia={setMediaIndex}
-            />
-          </>
-        ) : (
-          <>
-            <EventHeroV2
-              event={event}
-              onBack={handleBack}
-              onShare={() => shareEvent(event)}
-              onSave={preview ? undefined : onToggleSave}
-              saved={saved}
-            />
-            <EventDetailV2Body event={event} organizerEventCount={orgEvents?.total} />
-          </>
-        )}
+        <EventHeroV3
+          event={event}
+          onBack={handleBack}
+          onShare={() => shareEvent(event)}
+          onSave={preview ? undefined : onToggleSave}
+          saved={saved}
+          goingCount={roster?.count ?? 0}
+        />
+        <EventDetailV3Body
+          event={event}
+          goingCount={roster?.count}
+          goingNames={roster?.names}
+          organizerId={organizerId}
+          onOpenProfile={preview ? undefined : openProfile}
+          media={galleryItems}
+          onOpenMedia={setMediaIndex}
+        />
 
         <View style={{ paddingHorizontal: 20 }}>
           <MeetingLinkRevealCard event={event} />
@@ -151,10 +125,10 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
       </ScrollView>
 
       {/* Register bar — inert while previewing (greyed, non-interactive) */}
-      <EventCtaBar event={event} preview={preview} initialOpen={!preview && !!initialOpenRegister} v3={v3} />
+      <EventCtaBar event={event} preview={preview} initialOpen={!preview && !!initialOpenRegister} v3 />
 
       {/* Fullscreen gallery viewer — overlays everything, including the CTA bar */}
-      {v3 && mediaIndex !== null && galleryItems[mediaIndex] ? (
+      {mediaIndex !== null && galleryItems[mediaIndex] ? (
         <MediaViewer
           items={galleryItems}
           index={mediaIndex}

@@ -24,39 +24,39 @@ export const useSearchPreview = (debouncedQuery: string) => {
 };
 
 /**
- * Hook for Searching People
+ * Hook for Searching People.
+ * `crafts` is the multi-select craft facet. Active when there are ≥2 query
+ * chars OR at least one craft is selected (facet-only search).
  */
-export const useSearchPeople = (debouncedQuery: string, filters?: any) => {
+export const useSearchPeople = (debouncedQuery: string, crafts: string[] = []) => {
     return useQuery({
-        queryKey: SEARCH_KEYS.people(debouncedQuery, filters),
-        queryFn: () => searchService.searchPeople(debouncedQuery, filters),
-        enabled: debouncedQuery.length >= 2,
+        queryKey: SEARCH_KEYS.people(debouncedQuery, crafts),
+        queryFn: () => searchService.searchPeople(debouncedQuery, crafts),
+        enabled: debouncedQuery.length >= 2 || crafts.length > 0,
         placeholderData: keepPreviousData,
     });
 };
 
 /**
- * Hook for Searching Gigs
+ * Hook for Searching Gigs.
  */
-export const useSearchGigs = (debouncedQuery: string, filters?: any) => {
+export const useSearchGigs = (debouncedQuery: string, crafts: string[] = []) => {
     return useQuery({
-        queryKey: SEARCH_KEYS.gigs(debouncedQuery, filters),
-        // searchGigs takes a single request object — passing positionally left q undefined.
-        queryFn: () => searchService.searchGigs({ q: debouncedQuery, filters }),
-        enabled: debouncedQuery.length >= 2,
+        queryKey: SEARCH_KEYS.gigs(debouncedQuery, crafts),
+        queryFn: () => searchService.searchGigs({ q: debouncedQuery, crafts }),
+        enabled: debouncedQuery.length >= 2 || crafts.length > 0,
         placeholderData: keepPreviousData,
     });
 };
 
 /**
- * Hook for Searching Events
+ * Hook for Searching Events.
  */
-export const useSearchEvents = (debouncedQuery: string, filters?: any) => {
+export const useSearchEvents = (debouncedQuery: string, crafts: string[] = []) => {
     return useQuery({
-        queryKey: SEARCH_KEYS.events(debouncedQuery, filters),
-        // searchEvents takes a single request object — passing positionally left q undefined.
-        queryFn: () => searchService.searchEvents({ q: debouncedQuery, filters }),
-        enabled: debouncedQuery.length >= 2,
+        queryKey: SEARCH_KEYS.events(debouncedQuery, crafts),
+        queryFn: () => searchService.searchEvents({ q: debouncedQuery, crafts }),
+        enabled: debouncedQuery.length >= 2 || crafts.length > 0,
         placeholderData: keepPreviousData,
     });
 };

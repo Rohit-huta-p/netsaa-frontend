@@ -1,5 +1,5 @@
 // app/(app)/network/invitations.tsx
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
     View,
     Text,
@@ -12,7 +12,7 @@ import {
     Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Check, X, Clock } from 'lucide-react-native';
 import connectionService from '@/services/connectionService';
@@ -64,6 +64,12 @@ const roleLabel = (u: any) => {
 
 const fallbackName = (u: any) =>
     u?.displayName || u?.firstName || (u?._id ? `User ${String(u._id).slice(-4)}` : 'Unknown');
+
+// Drop accidental duplicate rows (same _id) so a stale double-insert can't render twice.
+const dedupeById = <T extends { _id: string }>(arr: T[]): T[] => {
+    const seen = new Set<string>();
+    return arr.filter((x) => (seen.has(x._id) ? false : (seen.add(x._id), true)));
+};
 
 const Avatar = ({ uri, name, size = 44 }: { uri?: string; name?: string; size?: number }) => {
     if (uri) {
@@ -214,8 +220,8 @@ export default function InvitationsPage() {
                 connectionService.getConnectionRequests(),
                 connectionService.getSentConnectionRequests(),
             ]);
-            setReceived(r || []);
-            setSent(s || []);
+            setReceived(dedupeById(r || []));
+            setSent(dedupeById(s || []));
         } catch (e) {
             console.error('[invitations] fetch failed', e);
         } finally {
@@ -224,9 +230,13 @@ export default function InvitationsPage() {
         }
     }, []);
 
-    useEffect(() => {
-        fetchAll();
-    }, [fetchAll]);
+    // Refetch whenever the screen regains focus (not just on mount) so the list
+    // reconverges with the server and never shows a request that's already gone.
+    useFocusEffect(
+        useCallback(() => {
+            fetchAll();
+        }, [fetchAll])
+    );
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -243,8 +253,13 @@ export default function InvitationsPage() {
             await connectionService.acceptConnectionRequest(id);
         } catch (e: any) {
             const info = interpretConnectionError(e);
-            if (!info.swallow) Alert.alert(info.title, info.message);
-            setReceived(prev);
+            if (info.swallow) {
+                // Already resolved/gone server-side — keep it removed and reconverge.
+                fetchAll();
+            } else {
+                Alert.alert(info.title, info.message);
+                setReceived(prev); // genuine, retryable error → restore the row
+            }
         } finally {
             markBusy(id, false);
         }
@@ -256,8 +271,14 @@ export default function InvitationsPage() {
         setReceived((r) => r.filter((i) => i._id !== id));
         try {
             await connectionService.rejectConnectionRequest(id);
-        } catch {
-            setReceived(prev);
+        } catch (e: any) {
+            const info = interpretConnectionError(e);
+            if (info.swallow) {
+                fetchAll(); // request already gone — keep it removed, reconverge
+            } else {
+                Alert.alert(info.title, info.message);
+                setReceived(prev);
+            }
         } finally {
             markBusy(id, false);
         }
@@ -271,8 +292,12 @@ export default function InvitationsPage() {
             await connectionService.withdrawConnectionRequest(id);
         } catch (e: any) {
             const info = interpretConnectionError(e);
-            if (!info.swallow) Alert.alert(info.title, info.message);
-            setSent(prev);
+            if (info.swallow) {
+                fetchAll();
+            } else {
+                Alert.alert(info.title, info.message);
+                setSent(prev);
+            }
         } finally {
             markBusy(id, false);
         }

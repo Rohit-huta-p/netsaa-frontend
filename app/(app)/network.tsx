@@ -4,7 +4,7 @@ import {
     ActivityIndicator, RefreshControl, Animated, Easing, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
     ChevronLeft, ChevronRight, Search, X, Users, Sparkles,
     MessageCircle, Send,
@@ -20,6 +20,12 @@ import { usePresence } from '@/hooks/usePresence';
 import { interpretConnectionError } from '@/utils/connectionErrors';
 import { PYMKCarousel } from '@/components/network/PYMKCarousel';
 import { usePymk, useDismissPymk } from '@/hooks/usePymk';
+
+// Drop accidental duplicate rows (same _id) so a stale double-insert can't render twice.
+const dedupeById = <T extends { _id: string }>(arr: T[]): T[] => {
+    const seen = new Set<string>();
+    return arr.filter((x) => (seen.has(x._id) ? false : (seen.add(x._id), true)));
+};
 
 // ─── A·Minimal palette (locked tokens — same family as gigs / CL home / notifications) ───
 const C = {
@@ -214,9 +220,9 @@ export default function NetworkPage() {
                 connectionService.getConnections(),
                 connectionService.getSentConnectionRequests(),
             ]);
-            setInvitations(reqs || []);
-            setConnections(conns || []);
-            setSentRequests(sent || []);
+            setInvitations(dedupeById(reqs || []));
+            setConnections(dedupeById(conns || []));
+            setSentRequests(dedupeById(sent || []));
         } catch (e) {
             console.error('[network] fetchAll failed', e);
         } finally {
@@ -225,9 +231,13 @@ export default function NetworkPage() {
         }
     }, []);
 
-    useEffect(() => {
-        fetchAll();
-    }, [fetchAll]);
+    // Reconverge with the server on every focus, not only on mount, so a count or
+    // row that's already gone doesn't linger.
+    useFocusEffect(
+        useCallback(() => {
+            fetchAll();
+        }, [fetchAll])
+    );
 
     const onRefresh = () => {
         setRefreshing(true);

@@ -5,6 +5,11 @@
 // build time. Default is "off" for every flag — a missing env var means
 // the feature is NOT enabled.
 //
+// EXCEPTION: newGigForm defaults ON. The v2 gig create-flow is the shipped
+// experience now, so a build that doesn't set the env var (e.g. prod) should
+// still get the new form. Set EXPO_PUBLIC_FEATURE_NEW_GIG_FORM=false to fall
+// back to the legacy wizard.
+//
 // Wrapped in useMemo so the return identity is stable across re-renders.
 // Downstream consumers can safely use flags in useEffect deps without
 // triggering false re-runs. Empty deps array is correct — env vars are
@@ -13,7 +18,7 @@
 import { useMemo } from 'react';
 
 export interface FeatureFlags {
-  /** Plan 5 — new 5-page GigForm vs legacy 10-step wizard. */
+  /** Plan 5 — new 5-page GigForm vs legacy 10-step wizard. Defaults ON (opt out with =false). */
   newGigForm: boolean;
   /** Spotlight — editorial artist profile (SpotlightProfile) vs legacy ProfileScreen. */
   spotlightProfile: boolean;
@@ -28,7 +33,8 @@ export interface FeatureFlags {
 export function useFeatureFlags(): FeatureFlags {
   return useMemo<FeatureFlags>(
     () => ({
-      newGigForm: process.env.EXPO_PUBLIC_FEATURE_NEW_GIG_FORM === 'true',
+      // Default ON — only an explicit "false" opts back into the legacy wizard.
+      newGigForm: process.env.EXPO_PUBLIC_FEATURE_NEW_GIG_FORM !== 'false',
       spotlightProfile: process.env.EXPO_PUBLIC_FEATURE_SPOTLIGHT_PROFILE === 'true',
       creativeLeadProfile: process.env.EXPO_PUBLIC_FEATURE_CL_PROFILE === 'true',
       eventComposerV4: process.env.EXPO_PUBLIC_FEATURE_EVENT_V4 === 'true',

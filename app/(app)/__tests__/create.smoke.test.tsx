@@ -1,5 +1,8 @@
 // Proves the feature flag actually gates which form renders at the
-// parent route. Two mount cycles with the env var set differently.
+// parent route. Mount cycles with the env var set differently.
+//
+// newGigForm defaults ON: an unset/empty var renders GigFormV2, and only an
+// explicit "false" falls back to the legacy wizard.
 //
 // Why the unusual shape: we need fresh module state per test (so
 // useFeatureFlags re-reads the env var at each module load) BUT we can't
@@ -36,10 +39,10 @@ describe('app/(app)/create.tsx — feature flag gate', () => {
     process.env = ORIGINAL_ENV;
   });
 
-  it('renders legacy GigForm when EXPO_PUBLIC_FEATURE_NEW_GIG_FORM is not "true"', () => {
+  it('renders GigFormV2 by default when the flag is unset', () => {
     // Explicit empty-string assignment is more robust than `delete`. Some
     // env-loading chains (dotenv + metro) re-populate the var on module
-    // re-require even after delete.
+    // re-require even after delete. Empty !== "false", so this is the default.
     process.env.EXPO_PUBLIC_FEATURE_NEW_GIG_FORM = '';
 
     jest.isolateModules(() => {
@@ -58,9 +61,9 @@ describe('app/(app)/create.tsx — feature flag gate', () => {
       TestRenderer.act(() => {
         TestRenderer.create(React.createElement(Create));
       });
-      // Actual assertion: only the legacy form was rendered, not V2.
-      expect(legacySpy).toHaveBeenCalled();
-      expect(v2Spy).not.toHaveBeenCalled();
+      // Actual assertion: the new form renders by default, not legacy.
+      expect(v2Spy).toHaveBeenCalled();
+      expect(legacySpy).not.toHaveBeenCalled();
     });
   });
 
@@ -86,6 +89,31 @@ describe('app/(app)/create.tsx — feature flag gate', () => {
       // Actual assertion: only V2 was rendered, not legacy.
       expect(v2Spy).toHaveBeenCalled();
       expect(legacySpy).not.toHaveBeenCalled();
+    });
+  });
+
+  it('falls back to legacy GigForm when EXPO_PUBLIC_FEATURE_NEW_GIG_FORM=false', () => {
+    process.env.EXPO_PUBLIC_FEATURE_NEW_GIG_FORM = 'false';
+
+    jest.isolateModules(() => {
+      const legacySpy = jest.fn(() => null);
+      const v2Spy = jest.fn(() => null);
+      jest.doMock('@/components/create/GigForm', () => ({
+        GigForm: legacySpy,
+      }));
+      jest.doMock('@/components/create/GigFormV2', () => ({
+        __esModule: true,
+        default: v2Spy,
+      }));
+      const React = require('react');
+      const TestRenderer = require('react-test-renderer');
+      const Create = require('../create').default;
+      TestRenderer.act(() => {
+        TestRenderer.create(React.createElement(Create));
+      });
+      // Actual assertion: explicit opt-out renders the legacy form, not V2.
+      expect(legacySpy).toHaveBeenCalled();
+      expect(v2Spy).not.toHaveBeenCalled();
     });
   });
 });

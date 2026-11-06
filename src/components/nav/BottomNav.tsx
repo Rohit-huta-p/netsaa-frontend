@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
-import { Home, Briefcase, Calendar, User as UserIcon, Users } from 'lucide-react-native';
+import { Home, Briefcase, Calendar, User as UserIcon, Users, MessageCircle } from 'lucide-react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { useOrganizer } from '../../hooks/useOrganizer';
@@ -13,16 +13,13 @@ import { useBottomNavVisibilityStyle, resetBottomNavVisibility } from './navVisi
 
 /**
  * Role-aware bottom nav. Spec §3.1. One static nav per role (no mode toggle).
- * Artist:        Home · Gigs · [Post FAB] · Events · Profile
- * Creative Lead: Home · Find Work · Events · Talent   (4 even tabs, NO center FAB)
- *   Agency-style: both market faces are first-class tabs. Talent hires DOWN (a
- *   CL's gig is stamped posterRole 'creative_lead' server-side, so only Artists
- *   see/apply); Find Work applies UP (browse open client requirements). Creating
- *   is home-only — the "＋ Post" dial in the dashboard's Your-work header — so the
- *   CL nav drops the center Post FAB and spreads its four tabs evenly. Profile is
- *   reachable from the top-avatar menu (Navbar).
- * Client:        Home · Talent · [Post FAB] · Events · Profile  (single-face role)
- * Agency client: Home · Find Work · [Post FAB] · Events · Talent
+ * Artist:        Gigs · Events · Home · Messages · Profile   (5 even tabs, NO center FAB)
+ * Creative Lead: Home · Talent · Messages · Events           (4 even tabs, NO center FAB)
+ *   Find Work (/requirements, the apply-UP feed) is hidden from the bar but the
+ *   route stays (reachable elsewhere). Creating is home-only — the "＋ Post" dial
+ *   in the dashboard's Your-work header. Profile is in the top-avatar menu (Navbar).
+ * Client:        Home · Talent · [Post FAB] · Events · Profile  (single-face, keeps ＋)
+ * Agency client: Home · Find Work · [Post FAB] · Events · Talent (keeps ＋)
  */
 
 type TabDef = {
@@ -32,25 +29,25 @@ type TabDef = {
   route: string;
 };
 
+// Artist — 5 even tabs, Home centered, no center Post FAB (posting is not an
+// artist action on the gig wall). Messages → the /inbox launcher.
 const ARTIST_TABS: TabDef[] = [
-  { id: 'home',     label: 'Home',     icon: Home,      route: '/(app)/dashboard' },
-  { id: 'gigs',     label: 'Gigs',     icon: Briefcase, route: '/(app)/gigs' },
-  // Post FAB goes in slot 3 (rendered separately, overlapping nav)
-  { id: 'events',   label: 'Events',   icon: Calendar,  route: '/(app)/events' },
-  { id: 'profile',  label: 'Profile',  icon: UserIcon,  route: '/(app)/profile' },
+  { id: 'gigs',     label: 'Gigs',     icon: Briefcase,     route: '/(app)/gigs' },
+  { id: 'events',   label: 'Events',   icon: Calendar,      route: '/(app)/events' },
+  { id: 'home',     label: 'Home',     icon: Home,          route: '/(app)/dashboard' },
+  { id: 'messages', label: 'Messages', icon: MessageCircle, route: '/(app)/inbox' },
+  { id: 'profile',  label: 'Profile',  icon: UserIcon,      route: '/(app)/profile' },
 ];
 
-// Creative Lead — the middle layer, agency-style nav (no Apply/Hire toggle).
-// Talent + Post FAB = hire DOWN: a posted gig is stamped posterRole
-// 'creative_lead' server-side (gigController.posterRoleFor), so only Artists
-// see/apply. Find Work = apply UP: /(app)/requirements is the CL-gated feed of
-// open client requirements (403 for non-CL). Profile lives in the top-avatar
-// menu (Navbar), mirroring AGENCY_TABS.
+// Creative Lead — 4 even tabs, no center Post FAB (create is home-only, via the
+// dashboard "＋ Post" dial). Find Work (/requirements, the apply-UP feed) is
+// hidden from the bar — the route still exists and stays reachable elsewhere.
+// Messages → /inbox. Profile lives in the top-avatar menu (Navbar).
 const CREATIVE_LEAD_TABS: TabDef[] = [
-  { id: 'home',     label: 'Home',      icon: Home,      route: '/(app)/dashboard' },
-  { id: 'findwork', label: 'Find Work', icon: Briefcase, route: '/(app)/requirements' },
-  { id: 'events',   label: 'Events',    icon: Calendar,  route: '/(app)/events' },
-  { id: 'talent',   label: 'Talent',    icon: Users,     route: '/(app)/talent' },
+  { id: 'home',     label: 'Home',     icon: Home,          route: '/(app)/dashboard' },
+  { id: 'talent',   label: 'Talent',   icon: Users,         route: '/(app)/talent' },
+  { id: 'messages', label: 'Messages', icon: MessageCircle, route: '/(app)/inbox' },
+  { id: 'events',   label: 'Events',   icon: Calendar,      route: '/(app)/events' },
 ];
 
 // Client shell (Client Experience spec §0). Home + Events are live;
@@ -116,16 +113,16 @@ export default function BottomNav() {
         ? ARTIST_TABS
         : CREATIVE_LEAD_TABS;
 
-  // Creative Lead has no center Post FAB — create is home-only now, via the
-  // "＋ Post" dial in the dashboard's Your-work header — so its four tabs sit
-  // evenly with no FAB gap. Artist/client (and agency clients) keep the FAB.
-  const isCreativeLead = role === 'creative_lead';
+  // Only Client / Agency keep the center Post FAB (they post requirements).
+  // Artist (5 even tabs) and Creative Lead (4 even tabs) have no FAB — posting is
+  // not an artist action, and CL creates home-only — so their tabs spread evenly.
+  const showPostFab = role === 'client';
 
   return (
     <Animated.View style={[styles.container, navVisibilityStyle]} pointerEvents="box-none">
       <BlurView intensity={40} tint="dark" style={styles.bar}>
         <View style={styles.tabRow}>
-          {isCreativeLead ? (
+          {!showPostFab ? (
             tabs.map((t) => (
               <NavButton key={t.id} tab={t} currentPath={pathname} onPress={() => router.push(t.route as any)} />
             ))
@@ -145,7 +142,7 @@ export default function BottomNav() {
           )}
         </View>
       </BlurView>
-      {!isCreativeLead && <PostFAB />}
+      {showPostFab && <PostFAB />}
     </Animated.View>
   );
 }

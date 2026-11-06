@@ -40,6 +40,12 @@ const SKILL_OPTIONS = [
     'Folk', 'Ballet', 'Salsa', 'Storytelling', 'Choreography',
     'Beatboxing', 'Freestyle', 'Improv', 'Voice Acting', 'Emceeing',
 ];
+// Languages an artist performs in. Bounded, familiar set → inline toggle pills
+// (no search sheet). Covers India's main performance languages.
+const LANGUAGE_OPTIONS = [
+    'Hindi', 'English', 'Marathi', 'Tamil', 'Telugu', 'Kannada',
+    'Malayalam', 'Bengali', 'Gujarati', 'Punjabi', 'Urdu', 'Sanskrit',
+];
 const SKIN_TONES = [
     { label: 'Fair', hex: '#fcd9b8' }, { label: 'Light', hex: '#f0cbb0' },
     { label: 'Medium', hex: '#dcb084' }, { label: 'Olive', hex: '#c29367' },
@@ -304,6 +310,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const [skinTone, setSkinTone] = useState('');
     const [skinToneHex, setSkinToneHex] = useState('');
     const [skills, setSkills] = useState<string[]>([]);
+    const [languages, setLanguages] = useState<string[]>([]);
     const [showSkillDropdown, setShowSkillDropdown] = useState(false);
     const [socials, setSocials] = useState({ instagramHandle: '', youtubeUrl: '', spotifyUrl: '', soundcloudUrl: '' });
     const [orgType, setOrgType] = useState('');
@@ -360,6 +367,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         setShowHeightDropdown(false);
         setSkinTone(profileData.skinTone || ''); setSkinToneHex(profileData.skinToneHex || '');
         setSkills(profileData.skills || []); setShowSkillDropdown(false);
+        setLanguages(profileData.languages || []);
         setSocials({ instagramHandle: profileData.instagramHandle || '', youtubeUrl: profileData.youtubeUrl || '', spotifyUrl: profileData.spotifyUrl || '', soundcloudUrl: profileData.soundcloudUrl || '' });
         setOrgType(normalizeOrgType(profileData.organizerTypeCategory) || 'individual'); setOrgWebsite(profileData.organizationWebsite || '');
         setProfileImageUrl(profileData.profileImageUrl || '');
@@ -462,7 +470,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             Object.assign(artistPayload, { bio, age, height, skinTone, skinToneHex });
         }
         if (dirtyTabs.has('identity')) {
-            Object.assign(artistPayload, { skills });
+            Object.assign(artistPayload, { skills, languages });
         }
         if (dirtyTabs.has('experience')) {
             Object.assign(artistPayload, { experience });
@@ -835,6 +843,26 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.orange, textTransform: 'uppercase', letterSpacing: 1.5, textAlign: 'right', marginTop: 12 }}>
                 {skills.length} skill{skills.length !== 1 ? 's' : ''} selected
             </Text>
+
+            {/* ── Languages — bounded set, inline toggle pills ── */}
+            <View style={{ marginTop: 24, borderTopWidth: 1, borderTopColor: P.border, paddingTop: 18 }}>
+                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textMuted, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12 }}>
+                    Languages you perform in
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {LANGUAGE_OPTIONS.map((lang) => {
+                        const on = languages.includes(lang);
+                        return (
+                            <TouchableOpacity
+                                key={lang}
+                                onPress={() => { setLanguages(prev => prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]); markDirty('identity'); }}
+                                style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100, borderWidth: 1, backgroundColor: on ? `${P.orange}12` : 'transparent', borderColor: on ? `${P.orange}30` : P.border }}>
+                                <Text style={{ color: on ? P.orange : P.textMuted, fontFamily: on ? 'Outfit-Medium' : 'Outfit-Regular', fontSize: 13 }}>{lang}</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            </View>
         </>
     );
 

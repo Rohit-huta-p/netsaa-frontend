@@ -1,7 +1,7 @@
 // app/(app)/connections/index.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import noAvatar from '@/assets/no-avatar.jpg'
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import {
     View,
     Text,
@@ -12,6 +12,7 @@ import {
     RefreshControl,
     TextInput,
     Platform,
+    Alert,
     useWindowDimensions
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,6 +29,7 @@ import {
     UserMinus
 } from "lucide-react-native";
 import connectionService from "@/services/connectionService";
+import { interpretConnectionError } from "@/utils/connectionErrors";
 import { useAuthStore } from "@/stores/authStore";
 import AppScrollView from "@/components/AppScrollView";
 
@@ -252,7 +254,8 @@ export default function ConnectionsScreen() {
                 connectionService.getConnections(),
                 conversationService.getConversations()
             ]);
-            setInvitations(reqs);
+            // Dedupe by _id so an accidental double-insert can't render the same row twice.
+            setInvitations(((reqs || []) as ConnectionRequest[]).filter((x, i, a) => a.findIndex((y) => y._id === x._id) === i));
             setConnections(conns);
 
             const map: Record<string, PopulatedConversation> = {};
@@ -391,20 +394,41 @@ export default function ConnectionsScreen() {
         fetchData();
     };
 
+    // Refetch on re-focus (mount already loads) so a returning user never sees a
+    // stale/phantom request whose underlying connection is already gone.
+    const didFocusOnce = useRef(false);
+    useFocusEffect(
+        useCallback(() => {
+            if (!didFocusOnce.current) { didFocusOnce.current = true; return; }
+            fetchData();
+        }, [])
+    );
+
     const handleAccept = async (id: string) => {
-        const response = await connectionService.acceptConnectionRequest(id);
-        setInvitations(prev => prev.filter(i => i._id !== id));
+        try {
+            const response = await connectionService.acceptConnectionRequest(id);
+            setInvitations(prev => prev.filter(i => i._id !== id));
 
-        if (response.success && response.data) {
-            const { conversation } = response.data;
-            const otherUser = response.data.requesterId;
+            if (response.success && response.data) {
+                const { conversation } = response.data;
+                const otherUser = response.data.requesterId;
 
-            setActiveConversation({
-                conversationId: conversation?._id || (typeof conversation === 'string' ? conversation : undefined),
-                recipient: otherUser
-            });
+                setActiveConversation({
+                    conversationId: conversation?._id || (typeof conversation === 'string' ? conversation : undefined),
+                    recipient: otherUser
+                });
 
-            setConnections(prev => [response.data, ...prev]);
+                setConnections(prev => [response.data, ...prev]);
+            }
+        } catch (e: any) {
+            const info = interpretConnectionError(e);
+            if (info.swallow) {
+                // Request already resolved/gone server-side — drop the stale row and reconverge.
+                setInvitations(prev => prev.filter(i => i._id !== id));
+                fetchData();
+            } else {
+                Alert.alert(info.title, info.message);
+            }
         }
     };
 
@@ -412,8 +436,15 @@ export default function ConnectionsScreen() {
         try {
             await connectionService.rejectConnectionRequest(id);
             setInvitations(prev => prev.filter(i => i._id !== id));
-        } catch (e) {
-            console.error("Ignore failed", e);
+        } catch (e: any) {
+            const info = interpretConnectionError(e);
+            if (info.swallow) {
+                // Request already gone — drop the stale row and reconverge.
+                setInvitations(prev => prev.filter(i => i._id !== id));
+                fetchData();
+            } else {
+                Alert.alert(info.title, info.message);
+            }
         }
     };
 

@@ -10,7 +10,8 @@
 export type ConnectionErrorInfo = {
     title: string;
     message: string;
-    /** True when the error is "already exists" — caller should silently refresh state. */
+    /** True when the request is already resolved or gone server-side ("already …"
+     *  or "not found"): the caller should drop the stale row and refetch, not error. */
     swallow?: boolean;
 };
 
@@ -20,7 +21,11 @@ export function interpretConnectionError(err: any): ConnectionErrorInfo {
     const serverMsg = data.message as string | undefined;
     const retry = data.retryAfterDays as number | undefined;
 
-    if (typeof serverMsg === 'string' && serverMsg.toLowerCase().includes('already')) {
+    // "already exists / already accepted / …" and "… not found" both mean the
+    // request is already resolved or gone on the server — the caller should drop
+    // the stale row and reconverge, not surface an error.
+    const lowerMsg = typeof serverMsg === 'string' ? serverMsg.toLowerCase() : '';
+    if (lowerMsg.includes('already') || lowerMsg.includes('not found')) {
         return { title: '', message: '', swallow: true };
     }
 

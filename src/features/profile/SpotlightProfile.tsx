@@ -1,10 +1,9 @@
 // src/features/profile/SpotlightProfile.tsx
 //
 // "Spotlight" — the redesigned artist profile (editorial single column).
-// Rendered in place of the legacy ProfileScreen when the `spotlightProfile`
-// feature flag is on (ProfileScreen stays as the fallback). Same prop
-// contract + same data source (useUser / useConnectionStatus), so the routes
-// can swap the two freely.
+// The default profile for artist targets (ProfileScreen stays the fallback for
+// other roles). Same prop contract + same data source (useUser /
+// useConnectionStatus) as ProfileScreen.
 //
 // Stage A (this file) is the PRESENTATIONAL rebuild — everything in the final
 // mockup except the LinkedIn-style "Featured" reel, which needs a new backend

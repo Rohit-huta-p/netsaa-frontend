@@ -8,15 +8,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, Pencil } from "lucide-react-native";
-import { GigForm, GigFormHandle } from "@/components/create/GigForm";
+import type { GigFormHandle } from "@/components/create/GigFormTypes";
 import { useAuthStore } from "@/stores/authStore";
 import GigFormV2 from "@/components/create/GigFormV2";
-// Event tab now renders the 7-step composer inline (also routable standalone at /events/compose)
-import ComposerShell from "@/components/events/composer/ComposerShell";
-// v4 "one form for every event" composer — gated behind EXPO_PUBLIC_FEATURE_EVENT_V4
+// v4 "one form for every event" composer (the only event composer).
 import ComposerV4 from "@/components/events/composer/v4/ComposerV4";
 import { useStepBackGuard } from "@/hooks/useStepBackGuard";
-import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 export default function CreateListing() {
     const router = useRouter();
@@ -31,7 +28,6 @@ export default function CreateListing() {
     const [activeTab] = useState<"gig" | "event">(initialTabValue);
 
     const gigFormRef = useRef<GigFormHandle>(null);
-    const { newGigForm, eventComposerV4 } = useFeatureFlags();
 
     // Keep activeTab in a ref so handleBack (read via onBackRef inside the hook)
     // always sees the latest tab without needing useCallback deps.
@@ -40,9 +36,9 @@ export default function CreateListing() {
 
     // Hide create.tsx's own header when the content renders its own nav:
     //  - gig create (GigFormV2 has its own back + step title)
-    //  - v4 event composer (ComposerV4's shell has back / "New event" / close)
+    //  - event composer (ComposerV4's shell has back / "New event" / close)
     const hideCreateHeader =
-        (activeTab === "gig" && !isEditing) || (activeTab === "event" && eventComposerV4);
+        (activeTab === "gig" && !isEditing) || activeTab === "event";
 
     const handlePublish = (data: any) => {
         console.log(`Publishing ${activeTab}:`, data);
@@ -116,27 +112,15 @@ export default function CreateListing() {
             {/* Content */}
             <View style={styles.content}>
                 {activeTab === "gig" ? (
-                    newGigForm ? (
-                        <GigFormV2
-                            ref={gigFormRef}
-                            onPublish={handlePublish}
-                            onCancel={handleCancel}
-                            gigId={gigIdValue}
-                        />
-                    ) : (
-                        <GigForm
-                            ref={gigFormRef}
-                            onPublish={handlePublish}
-                            onCancel={handleCancel}
-                            gigId={gigIdValue}
-                        />
-                    )
-                ) : eventComposerV4 ? (
-                    /* Event tab — v4 "one form for every event" composer */
-                    <ComposerV4 />
+                    <GigFormV2
+                        ref={gigFormRef}
+                        onPublish={handlePublish}
+                        onCancel={handleCancel}
+                        gigId={gigIdValue}
+                    />
                 ) : (
-                    /* Event tab — legacy inline 7-step composer */
-                    <ComposerShell />
+                    /* Event tab — "one form for every event" composer */
+                    <ComposerV4 />
                 )}
             </View>
         </SafeAreaView>

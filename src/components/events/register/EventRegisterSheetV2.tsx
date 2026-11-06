@@ -310,9 +310,16 @@ export default function EventRegisterSheetV2({ eventId, open, onClose }: Props) 
     // PAID branch — reserve seat hold, open checkout, poll for webhook confirmation
     setPaymentInFlight(true);
     let reservation: { reservationId: string; razorpayOrderId: string; paymentSessionId?: string; amountPaise: number } | undefined;
+    // Primary registrant + any guest names (guests reuse the primary phone), so the paid ticket
+    // and roster show the real name instead of "Guest". Mirrors the free-RSVP register payload.
+    const reserveAttendees = [
+      { fullName: name.trim(), phone: phone.trim() },
+      ...guestNames.map((g) => g.trim()).filter(Boolean).map((g) => ({ fullName: g, phone: phone.trim() })),
+    ].slice(0, count);
     try {
       reservation = await eventService.reserve(eventId, count, idemKeyRef.current!, {
         answers: builtAnswers.length ? builtAnswers : undefined,
+        attendees: reserveAttendees,
         spotId,
         dpdpConsent: consent,
         consentVersion: consent ? DPDP_CONSENT_VERSION : undefined,

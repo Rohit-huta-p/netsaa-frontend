@@ -20,10 +20,6 @@ class DeepLinkService {
     private readonly SUPPORTED_ROUTES = [
         /^\/conversations\/[a-zA-Z0-9_-]+$/,           // /conversations/:id
         /^\/(app)\/conversations\/[a-zA-Z0-9_-]+$/,   // /(app)/conversations/:id
-        /^\/connections$/,                              // /connections
-        /^\/(app)\/connections$/,                       // /(app)/connections
-        /^\/connections\/[a-zA-Z0-9_-]+$/,             // /connections/:id
-        /^\/(app)\/connections\/[a-zA-Z0-9_-]+$/,     // /(app)/connections/:id
         /^\/gigs\/[a-zA-Z0-9_-]+$/,                    // /gigs/:id
         /^\/(app)\/gigs\/[a-zA-Z0-9_-]+$/,            // /(app)/gigs/:id
         /^\/gigs$/,                                     // /gigs
@@ -49,11 +45,13 @@ class DeepLinkService {
     /**
      * Map route names from backend to actual app routes
      * Backend sends route names like 'connections', 'chat', etc.
-     * We need to map them to actual app routes like '/(app)/connections'
+     * We need to map them to actual app routes like '/(app)/network'
      */
     private readonly ROUTE_MAP: Record<string, string> = {
-        'connections': '/(app)/connections',
-        'chat': '/(app)/connections',
+        // The legacy /connections route was removed; map its backend route-names
+        // to the live successors so existing push/deep-links don't 404.
+        'connections': '/(app)/network',
+        'chat': '/(app)/inbox',
         'gig-applications': '/(app)/gigs',
         'gig-details': '/(app)/gigs',
         'event-details': '/(app)/events',

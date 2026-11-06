@@ -153,11 +153,6 @@ function getThemeFromRoute(pathname: string): ThemeRole | null {
         return 'artist';
     }
 
-    // Connections page → based on user role
-    if (pathname.includes('/connections')) {
-        return null;
-    }
-
     return 'artist';
 }
 

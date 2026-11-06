@@ -11,16 +11,8 @@ import { Clock, MapPin, X } from 'lucide-react-native';
 import { C, F } from './theme';
 import { PymkRail, PymkSuggestion } from './PymkRail';
 
-// Crafts that actually exist in PERFORMER_TYPES, so a tap returns real results.
-const BROWSE_CRAFTS: { label: string; color: string }[] = [
-  { label: 'Dancer', color: C.orange },
-  { label: 'Singer', color: C.purple },
-  { label: 'Actor', color: C.blue },
-  { label: 'Musician', color: C.green },
-  { label: 'Model', color: C.gold },
-  { label: 'Photographer', color: '#F43F5E' },
-  { label: 'DJ', color: '#0EA5E9' },
-];
+// Craft browsing now lives in the persistent CraftRail (a real multi-select
+// facet), so the idle state no longer carries its own "Browse by craft" chips.
 
 const POPULAR_CITIES = ['Pune', 'Mumbai', 'Delhi', 'Bengaluru'];
 
@@ -29,7 +21,6 @@ export function IdleState({
   onRecentPress,
   onRecentRemove,
   onClearRecent,
-  onCraft,
   onCity,
   pymkData,
   onOpenProfile,
@@ -38,7 +29,6 @@ export function IdleState({
   onRecentPress: (q: string) => void;
   onRecentRemove: (q: string) => void;
   onClearRecent: () => void;
-  onCraft: (label: string) => void;
   onCity: (label: string) => void;
   pymkData?: PymkSuggestion[];
   onOpenProfile?: (userId: string) => void;
@@ -73,20 +63,6 @@ export function IdleState({
           </View>
         </View>
       ) : null}
-
-      <View style={s.block}>
-        <View style={s.head}>
-          <Text style={s.eyebrow}>Browse by craft</Text>
-        </View>
-        <View style={s.chips}>
-          {BROWSE_CRAFTS.map((c) => (
-            <Pressable key={c.label} onPress={() => onCraft(c.label)} style={s.chip}>
-              <View style={[s.dot, { backgroundColor: c.color }]} />
-              <Text style={[s.chipTxt, s.chipTxtStrong]}>{c.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
 
       <View style={s.block}>
         <View style={s.head}>

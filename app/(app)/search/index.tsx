@@ -27,6 +27,7 @@ import { ScopeTabs, Scope } from '@/components/search/board/ScopeTabs';
 import { SectionHeader } from '@/components/search/board/SectionHeader';
 import { PersonRow, GigRow, EventRow, ConnectionStatus } from '@/components/search/board/ResultRows';
 import { IdleState } from '@/components/search/board/IdleState';
+import { CraftRail } from '@/components/search/board/CraftRail';
 import { SearchSkeleton } from '@/components/search/board/SearchSkeleton';
 import { EmptyState } from '@/components/search/board/EmptyState';
 import { ErrorState } from '@/components/search/board/ErrorState';
@@ -42,9 +43,17 @@ export default function SearchScreen() {
   const [query, setQuery] = useState((params.q as string) || '');
   const [scope, setScope] = useState<Scope>('All');
   const [recent, setRecent] = useState<string[]>([]);
+  const [crafts, setCrafts] = useState<string[]>([]);
 
   const dq = useDebouncedValue(query.trim(), 250);
-  const active = dq.length >= 2;
+  // Active (show scoped results instead of the idle state) when there's a real
+  // text query OR at least one craft facet is selected (facet-only search).
+  const active = dq.length >= 2 || crafts.length > 0;
+
+  const toggleCraft = (craft: string) => {
+    setScope('All');
+    setCrafts((prev) => (prev.includes(craft) ? prev.filter((c) => c !== craft) : [...prev, craft]));
+  };
 
   // ─── recent searches (AsyncStorage) ──────────────────────────────────────
   useEffect(() => {
@@ -75,10 +84,10 @@ export default function SearchScreen() {
   const statusOf = (id: string): ConnectionStatus =>
     connected.includes(id) ? 'connected' : sent.includes(id) ? 'pending' : 'none';
 
-  // ─── data (three typed hooks; gated ≥2 chars via `enabled` in the hooks) ──
-  const peopleQ = useSearchPeople(dq);
-  const gigsQ = useSearchGigs(dq);
-  const eventsQ = useSearchEvents(dq);
+  // ─── data (three typed hooks; enabled by ≥2 chars OR a craft facet) ───────
+  const peopleQ = useSearchPeople(dq, crafts);
+  const gigsQ = useSearchGigs(dq, crafts);
+  const eventsQ = useSearchEvents(dq, crafts);
 
   const people = peopleQ.data?.results ?? [];
   const gigs = gigsQ.data?.results ?? [];
@@ -126,7 +135,15 @@ export default function SearchScreen() {
   const renderActiveBody = () => {
     if (loading) return <SearchSkeleton />;
     if (errored) return <ErrorState onRetry={retry} />;
-    if (empty) return <EmptyState query={dq} onCraft={runQuery} onCity={runQuery} />;
+    if (empty)
+      return (
+        <EmptyState
+          query={dq || crafts.join(' · ')}
+          selectedCrafts={crafts}
+          onCraft={toggleCraft}
+          onCity={runQuery}
+        />
+      );
 
     if (scope === 'All') {
       const sections: React.ReactNode[] = [];
@@ -233,6 +250,10 @@ export default function SearchScreen() {
           onSubmit={() => dq.length >= 2 && remember(dq)}
         />
 
+        {/* Persistent craft facet — always visible, so it can be set from the
+            idle state and refined while viewing results. */}
+        <CraftRail selected={crafts} onToggle={toggleCraft} onClear={() => setCrafts([])} />
+
         {active ? (
           <>
             <ScopeTabs value={scope} counts={counts} onChange={setScope} />
@@ -247,7 +268,6 @@ export default function SearchScreen() {
               onRecentPress={runQuery}
               onRecentRemove={(q) => removeRecent(q).then(setRecent)}
               onClearRecent={() => clearRecent().then(() => setRecent([]))}
-              onCraft={runQuery}
               onCity={runQuery}
               onOpenProfile={openProfile}
             />

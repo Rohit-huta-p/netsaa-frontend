@@ -1218,15 +1218,15 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                             <TouchableOpacity
                                                 onPress={handleKeepEditing}
                                                 style={{ flex: 1, paddingVertical: 13, borderRadius: 12, borderWidth: 1, borderColor: P.border, alignItems: 'center' }}>
-                                                <Text style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                                <Text numberOfLines={1} style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
                                                     Keep editing
                                                 </Text>
                                             </TouchableOpacity>
                                             <TouchableOpacity
                                                 onPress={handleConfirmDiscard}
                                                 style={{ flex: 1, paddingVertical: 13, borderRadius: 12, backgroundColor: P.danger, alignItems: 'center' }}>
-                                                <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-                                                    Discard changes
+                                                <Text numberOfLines={1} style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                                    Discard
                                                 </Text>
                                             </TouchableOpacity>
                                         </View>

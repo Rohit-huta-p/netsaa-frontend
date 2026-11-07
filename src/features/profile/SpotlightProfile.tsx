@@ -440,7 +440,14 @@ export function SpotlightProfile({ userId, isOwner }: {
                         )}
 
                         <Text style={st.cmeta}>
-                            <Text style={st.cstrong}>{connections}</Text> connections
+                            <Text
+                                onPress={() => { haptic(); router.push('/(app)/network' as any); }}
+                                suppressHighlighting
+                                accessibilityRole="link"
+                                accessibilityLabel={`${connections} connections`}
+                            >
+                                <Text style={st.cstrong}>{connections}</Text> connections
+                            </Text>
                             {!isOwner && <><Text style={st.csep}>  ·  </Text><Text style={st.cstrong}>{mutual}</Text> mutual</>}
                         </Text>
 
@@ -585,13 +592,17 @@ export function SpotlightProfile({ userId, isOwner }: {
                     )}
 
                     {/* ── Languages ── */}
-                    {languages.length > 0 && (
+                    {(languages.length > 0 || isOwner) && (
                         <Section label="Languages" style={{ marginTop: 22 }}>
-                            <View style={st.pills}>
-                                {languages.map((l, i) => (
-                                    <View key={i} style={[st.pill, st.pillPlain]}><Text style={[st.pillTx, { color: C.t4 }]}>{l}</Text></View>
-                                ))}
-                            </View>
+                            {languages.length > 0 ? (
+                                <View style={st.pills}>
+                                    {languages.map((l, i) => (
+                                        <View key={i} style={[st.pill, st.pillPlain]}><Text style={[st.pillTx, { color: C.t4 }]}>{l}</Text></View>
+                                    ))}
+                                </View>
+                            ) : (
+                                <Pressable onPress={() => openSheet('identity')}><Text style={st.addTx}>Add the languages you perform in</Text></Pressable>
+                            )}
                         </Section>
                     )}
 
@@ -657,7 +668,7 @@ function buildProfileData(u: any, d: { name: string; city: string; bio: string; 
         age: u.age || '', gender: u.gender || '', height: u.height || '',
         skinTone: u.skinTone || '', skinToneHex: u.skinToneHex || '',
         artistType: Array.isArray(artistTypes) ? artistTypes.join(' · ') : artistTypes,
-        skills: d.skills, bio: d.bio,
+        skills: d.skills, languages: u.languages || u.artistDetails?.languages || [], bio: d.bio,
         instagramHandle: u.instagramHandle || '', youtubeUrl: u.youtubeUrl || '',
         spotifyUrl: u.spotifyUrl || '', soundcloudUrl: u.soundcloudUrl || '',
         experience: d.experience,

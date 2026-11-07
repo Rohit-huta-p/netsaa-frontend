@@ -63,6 +63,7 @@ export type ProfileData = {
     skinToneHex: string;
     artistType: string;
     skills: string[];
+    languages: string[];
     bio: string;
     instagramHandle: string;
     youtubeUrl?: string;

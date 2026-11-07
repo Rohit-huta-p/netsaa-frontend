@@ -241,36 +241,34 @@ export default function GigsListPage() {
                         <BoardSortMenu value={sortV} onSelect={onSelectSort} />
                     </View>
 
-                    {/* Craft tabs + pinned More-filters pill */}
-                    <View style={styles.craftRow}>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={{ gap: 8, paddingRight: 8 }}
-                            style={{ flex: 1 }}
-                        >
-                            {[{ value: 'all', label: 'All' }, ...ARTIST_OPTIONS].map((o) => {
-                                const isActive =
-                                    o.value === 'all' ? activeArtists.length === 0 : activeArtists.includes(o.value);
-                                return (
-                                    <Pressable
-                                        key={o.value}
-                                        onPress={() =>
-                                            updateFilters(
-                                                o.value === 'all'
-                                                    ? patchSection(filtersState, 'artistType', { artistTypes: [] })
-                                                    : setArtist(filtersState, o.value)
-                                            )
-                                        }
-                                        style={[styles.craft, isActive && styles.craftOn]}
-                                    >
-                                        <Text style={[styles.craftTxt, isActive && styles.craftTxtOn]}>{o.label}</Text>
-                                    </Pressable>
-                                );
-                            })}
-                        </ScrollView>
+                    {/* Craft tabs + trailing More-filters pill — scrolls with the tabs, matching the events board */}
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ gap: 8, paddingRight: 8 }}
+                        style={styles.craftRow}
+                    >
+                        {[{ value: 'all', label: 'All' }, ...ARTIST_OPTIONS].map((o) => {
+                            const isActive =
+                                o.value === 'all' ? activeArtists.length === 0 : activeArtists.includes(o.value);
+                            return (
+                                <Pressable
+                                    key={o.value}
+                                    onPress={() =>
+                                        updateFilters(
+                                            o.value === 'all'
+                                                ? patchSection(filtersState, 'artistType', { artistTypes: [] })
+                                                : setArtist(filtersState, o.value)
+                                        )
+                                    }
+                                    style={[styles.craft, isActive && styles.craftOn]}
+                                >
+                                    <Text style={[styles.craftTxt, isActive && styles.craftTxtOn]}>{o.label}</Text>
+                                </Pressable>
+                            );
+                        })}
                         <MoreFiltersPill count={facetCount} onPress={() => setShowFilterModal(true)} />
-                    </View>
+                    </ScrollView>
 
                     {/* Count row */}
                     <View style={styles.countRow}>
@@ -369,7 +367,7 @@ const styles = StyleSheet.create({
     },
     searchInput: { flex: 1, color: C.cream, fontFamily: F.body, fontSize: 14, padding: 0 },
 
-    craftRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16 },
+    craftRow: { marginTop: 16, flexGrow: 0 },
     craft: {
         height: 33,
         paddingHorizontal: 14,

@@ -1,9 +1,9 @@
 // src/components/gigs/board/MoreFiltersPill.tsx
 //
-// The sole entry into the Filters sheet — a "More filters · N" pill pinned to
-// the right of the craft-tabs row (the craft tabs scroll behind it). Filled
-// chip background distinguishes it from the transparent craft tabs; the orange
-// badge shows the active facet count.
+// The sole entry into the Filters sheet — a "More filters · N" pill that sits as
+// the trailing item in the craft-tabs row and scrolls with the tabs (matching the
+// events board). Filled chip background distinguishes it from the transparent
+// craft tabs; the orange badge shows the active facet count.
 
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';

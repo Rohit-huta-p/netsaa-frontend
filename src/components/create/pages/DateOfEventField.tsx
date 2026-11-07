@@ -99,6 +99,8 @@ export default function DateOfEventField({ value, onChange, minimumDate }: Props
   const pickerH = useRef(0);
   const slotRects = useRef<Record<string, LayoutRectangle>>({});
   const originField = useRef<'start' | 'end' | 'dates'>('start');
+  const monthScrollRef = useRef<ScrollView>(null);
+  const monthChipX = useRef<number[]>([]); // measured x of each month chip in the row
 
   // ── animation drivers ──
   const p = useSharedValue(0); // morph progress 0→1
@@ -295,6 +297,15 @@ export default function DateOfEventField({ value, onChange, minimumDate }: Props
   const hasSel = w.mode === 'range' ? !!w.start : w.picked.length > 0;
   const focus = anchorFocus(w.anchor); // dominant month/year of the visible fortnight
   const tileW = pageW > 0 ? Math.floor((pageW - 6 * 6) / 7) : 0; // 7 tiles + 6 gaps of 6px
+
+  // Keep the active month chip in view. On open the picker defaults to the
+  // current month, whose chip (e.g. Nov = 11th) would otherwise sit off-screen
+  // to the right of the Jan→Dec row — so it would look like nothing is active.
+  useEffect(() => {
+    if (!open) return;
+    const x = monthChipX.current[focus.m];
+    if (x != null) monthScrollRef.current?.scrollTo({ x: Math.max(0, x - 16), animated: false });
+  }, [open, focus.m]);
 
   // one fortnight's 14 tiles for the carousel page starting at `a`
   function renderTiles(a: Date) {
@@ -581,7 +592,7 @@ export default function DateOfEventField({ value, onChange, minimumDate }: Props
 
           {/* month row (Jan–Dec) */}
           <Text style={styles.rowLbl}>Month</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          <ScrollView ref={monthScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {MONTHS.map((m, i) => {
               const past = focus.y === today.getFullYear() && i < today.getMonth();
               const on = i === focus.m;
@@ -590,6 +601,9 @@ export default function DateOfEventField({ value, onChange, minimumDate }: Props
                   key={m}
                   disabled={past}
                   onPress={() => jumpTo(focus.y, i)}
+                  onLayout={(e) => {
+                    monthChipX.current[i] = e.nativeEvent.layout.x;
+                  }}
                   style={[styles.mchip, on && styles.mchipOn, past && styles.mchipPast]}
                 >
                   <Text style={[styles.mchipTxt, on && styles.mchipTxtOn]}>{m}</Text>
@@ -681,12 +695,12 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     gap: 3,
   },
-  cap: { fontFamily: 'Outfit-SemiBold', fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: '#8B8B99' },
-  cardVal: { fontFamily: 'Outfit-Medium', fontSize: 14.5, color: '#FFFFFF' },
-  summaryVal: { fontFamily: 'Outfit-SemiBold', fontSize: 15, color: '#FFFFFF' },
-  summarySub: { fontFamily: 'Outfit-Regular', fontSize: 11.5, color: '#8B8B99' },
+  cap: { fontFamily: 'Outfit-SemiBold', fontSize: 8, letterSpacing: 1, textTransform: 'uppercase', color: '#8B8B99' },
+  cardVal: { fontFamily: 'Outfit-Medium', fontSize: 12.5, color: '#FFFFFF' },
+  summaryVal: { fontFamily: 'Outfit-SemiBold', fontSize: 13, color: '#FFFFFF' },
+  summarySub: { fontFamily: 'Outfit-Regular', fontSize: 10, color: '#8B8B99' },
   ph: { fontFamily: 'Outfit-Regular', color: '#54545c' },
-  slotDash: { alignSelf: 'center', color: '#54545c', fontSize: 15 },
+  slotDash: { alignSelf: 'center', color: '#54545c', fontSize: 13 },
 
   scrim: { position: 'absolute', top: -2000, bottom: -2000, left: -2000, right: -2000, backgroundColor: 'rgba(3,3,5,0.55)', zIndex: 40 },
 
@@ -723,7 +737,7 @@ const styles = StyleSheet.create({
   },
   seg: { paddingVertical: 6, paddingHorizontal: 13, borderRadius: 8 },
   segOn: { backgroundColor: '#FF6B35' },
-  segTxt: { fontFamily: 'Outfit-Medium', fontSize: 12, color: '#A1A1AA' },
+  segTxt: { fontFamily: 'Outfit-Medium', fontSize: 10.5, color: '#A1A1AA' },
   segTxtOn: { fontFamily: 'Outfit-SemiBold', color: '#fff' },
 
   pcap: { flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: 8 },
@@ -731,10 +745,10 @@ const styles = StyleSheet.create({
   recapContent: { alignItems: 'center', gap: 5, paddingRight: 6 },
   rtab: { paddingVertical: 5, paddingHorizontal: 7, borderRadius: 8 },
   rtabOn: { backgroundColor: 'rgba(255,107,53,0.08)' },
-  rtabTxt: { fontFamily: 'Outfit-Regular', fontSize: 12.5, color: '#8B8B99' },
+  rtabTxt: { fontFamily: 'Outfit-Regular', fontSize: 11, color: '#8B8B99' },
   rtabTxtOn: { fontFamily: 'Outfit-SemiBold', color: '#FF6B35' },
   sep: { color: '#54545c' },
-  emptyChip: { fontFamily: 'Outfit-Regular', fontSize: 12, color: '#8B8B99' },
+  emptyChip: { fontFamily: 'Outfit-Regular', fontSize: 10.5, color: '#8B8B99' },
   dchip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -747,13 +761,13 @@ const styles = StyleSheet.create({
     paddingRight: 6,
     paddingVertical: 5,
   },
-  dchipTxt: { fontFamily: 'Outfit-Medium', fontSize: 12, color: '#FFCBB2' },
+  dchipTxt: { fontFamily: 'Outfit-Medium', fontSize: 10.5, color: '#FFCBB2' },
   clrBtn: { paddingVertical: 6, paddingHorizontal: 6 },
-  clr: { fontFamily: 'Outfit-SemiBold', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: '#A1A1AA' },
+  clr: { fontFamily: 'Outfit-SemiBold', fontSize: 8.5, letterSpacing: 1, textTransform: 'uppercase', color: '#A1A1AA' },
   clrOff: { opacity: 0.35 },
 
   wk: { flexDirection: 'row', marginTop: 6, marginBottom: 9 },
-  wkTxt: { flex: 1, textAlign: 'center', fontFamily: 'Outfit-SemiBold', fontSize: 9.5, letterSpacing: 0.5, color: '#8B8B99' },
+  wkTxt: { flex: 1, textAlign: 'center', fontFamily: 'Outfit-SemiBold', fontSize: 8.5, letterSpacing: 0.5, color: '#8B8B99' },
 
   gridwrap: { overflow: 'hidden' },
   track: { flexDirection: 'row' },
@@ -769,11 +783,11 @@ const styles = StyleSheet.create({
   tilePlain: { borderWidth: 1, borderStyle: 'dashed', borderColor: '#3A3A47' },
   tileRange: { backgroundColor: 'rgba(255,107,53,0.18)' },
   tileSel: { backgroundColor: '#FF6B35' },
-  tileTxt: { fontFamily: 'Outfit-Regular', fontSize: 15, color: '#D4D4D8' },
+  tileTxt: { fontFamily: 'Outfit-Regular', fontSize: 13, color: '#D4D4D8' },
   tileTxtSel: { fontFamily: 'Outfit-Bold', color: '#fff' },
   tileTxtRange: { color: '#FFCBB2' },
   tileTxtOff: { color: '#3F3F46' },
-  mm: { position: 'absolute', top: 4, right: 6, fontFamily: 'Outfit-SemiBold', fontSize: 8, color: '#8B8B99' },
+  mm: { position: 'absolute', top: 4, right: 6, fontFamily: 'Outfit-SemiBold', fontSize: 7, color: '#8B8B99' },
   dot: { position: 'absolute', bottom: 6, width: 4, height: 4, borderRadius: 2, backgroundColor: '#FF6B35' },
   dotOnSel: { backgroundColor: '#fff' },
 
@@ -789,9 +803,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   navOff: { opacity: 0.3 },
-  hint: { fontFamily: 'Outfit-Medium', fontSize: 9, letterSpacing: 0.8, textTransform: 'uppercase', color: '#54545c' },
+  hint: { fontFamily: 'Outfit-Medium', fontSize: 8, letterSpacing: 0.8, textTransform: 'uppercase', color: '#54545c' },
 
-  rowLbl: { fontFamily: 'Outfit-SemiBold', fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase', color: '#8B8B99', marginTop: 15, marginBottom: 8 },
+  rowLbl: { fontFamily: 'Outfit-SemiBold', fontSize: 8, letterSpacing: 1.5, textTransform: 'uppercase', color: '#8B8B99', marginTop: 15, marginBottom: 8 },
   chipRow: { gap: 7, paddingRight: 6 },
   mchip: {
     paddingVertical: 8,
@@ -803,7 +817,7 @@ const styles = StyleSheet.create({
   },
   mchipOn: { backgroundColor: '#FF6B35', borderColor: '#FF6B35' },
   mchipPast: { opacity: 0.3 },
-  mchipTxt: { fontFamily: 'Outfit-Regular', fontSize: 13, color: '#A1A1AA' },
+  mchipTxt: { fontFamily: 'Outfit-Regular', fontSize: 11.5, color: '#A1A1AA' },
   mchipTxtOn: { fontFamily: 'Outfit-SemiBold', color: '#fff' },
 
   done: {
@@ -815,6 +829,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   doneOff: { backgroundColor: '#1a1a20' },
-  doneTxt: { fontFamily: 'Outfit-Bold', fontSize: 15, letterSpacing: 0.4, color: '#fff' },
+  doneTxt: { fontFamily: 'Outfit-Bold', fontSize: 13, letterSpacing: 0.4, color: '#fff' },
   doneTxtOff: { color: '#54545c' },
 });

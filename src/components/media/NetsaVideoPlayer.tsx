@@ -66,27 +66,53 @@ export default function NetsaVideoPlayer({
 
   const [started, setStarted] = useState(false);
   const [ended, setEnded] = useState(false);
+  // True while we've kicked off a replace() to recover from an error — shows the
+  // buffering spinner until the player clears the error, preventing a flash of
+  // "Couldn't play" between the replace() call and the statusChange event firing.
+  const [recovering, setRecovering] = useState(false);
   useEventListener(player, 'playToEnd', () => setEnded(true));
 
   const { visible, reveal } = useAutoHideControls(isPlaying && !ended);
   const rm = useReducedMotion();
 
   useEffect(() => { if (!focused) player.pause(); }, [focused, player]);
+  useEffect(() => { if (recovering && status !== 'error') setRecovering(false); }, [status, recovering]);
 
   const duration = player.duration || 0;
+  // IMPORTANT: !started must be checked before status === 'error' so that a
+  // background-load error (player preloads HLS on mount, muted, before user taps)
+  // doesn't bypass the idle poster+play-button and show "Couldn't play" immediately.
   const uiState =
-    status === 'error' ? 'error'
+    !started ? 'idle'
+    : (recovering || status === 'loading') ? 'buffering'
+    : status === 'error' ? 'error'
     : ended ? 'ended'
-    : !started ? 'idle'
-    : status === 'loading' ? 'buffering'
     : isPlaying ? 'playing' : 'paused';
 
-  const start = useCallback(() => { setStarted(true); setEnded(false); player.muted = false; player.play(); reveal(); }, [player, reveal]);
+  const start = useCallback(() => {
+    if (player.status === 'error') {
+      // Player hit an error during background preload; reload silently before playing.
+      setRecovering(true);
+      player.replace(muxHls(playbackId));
+    }
+    setStarted(true);
+    setEnded(false);
+    player.muted = false;
+    player.play();
+    reveal();
+  }, [player, playbackId, reveal]);
   const togglePlay = useCallback(() => { if (isPlaying) player.pause(); else player.play(); reveal(); }, [player, isPlaying, reveal]);
   const toggleMute = useCallback(() => { player.muted = !player.muted; reveal(); }, [player, reveal]);
   const seek = useCallback((frac: number) => { if (duration > 0) player.currentTime = frac * duration; }, [player, duration]);
   const onReplay = useCallback(() => { setEnded(false); player.currentTime = 0; player.play(); reveal(); }, [player, reveal]);
-  const onRetry = useCallback(() => { player.replace(muxHls(playbackId)); setStarted(true); setEnded(false); player.play(); }, [player, playbackId]);
+  const onRetry = useCallback(() => {
+    // Show spinner immediately — don't wait for statusChange to clear the error UI.
+    setRecovering(true);
+    player.replace(muxHls(playbackId));
+    setStarted(true);
+    setEnded(false);
+    player.play();
+  }, [player, playbackId]);
   const onFullscreen = useCallback(() => { viewRef.current?.enterFullscreen(); }, []);
 
   const barOpacity = useRef(new Animated.Value(0)).current;

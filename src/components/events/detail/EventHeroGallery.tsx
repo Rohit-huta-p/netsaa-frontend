@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { View, Image, Dimensions, FlatList, Text } from 'react-native';
+import { View, Image, FlatList, Text, useWindowDimensions } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import NetsaVideoPlayer from '@/components/media/NetsaVideoPlayer';
 import type { EventDoc } from '@/services/eventService';
 import { computeSlotsLeft, isCapacityUrgent, durationKindLabel } from '@/lib/eventTokens';
 
-const { width: SCREEN_W } = Dimensions.get('window');
 const HERO_H = 220;
 const PAD = 20;
 
@@ -21,6 +20,7 @@ interface Props {
 }
 
 export default function EventHeroGallery({ event }: Props) {
+  const { width: SCREEN_W } = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const media = event.media || [];
 

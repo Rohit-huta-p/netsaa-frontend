@@ -30,6 +30,7 @@ export function useComposerMediaV4() {
   const photos = useComposerStoreV4((s) => s.form.photos);
   const videos = useComposerStoreV4((s) => s.form.videos);
   const update = useComposerStoreV4((s) => s.update);
+  const editEventId = useComposerStoreV4((s) => s.editEventId);
   const { pickAndCrop, cropperProps } = usePickAndCrop();
   const [uploading, setUploading] = useState<null | 'cover' | 'gallery' | 'video'>(null);
 
@@ -119,7 +120,7 @@ export function useComposerMediaV4() {
       if (!asset) return;
       // Direct-to-Mux PUT; bytes never touch our API. The reel starts life as
       // 'processing' and the shell-level poll fills in its playbackId when ready.
-      const r = await uploadVideoFlow({ asset, entityType: 'user', entityId: user._id, purpose: 'gallery' });
+      const r = await uploadVideoFlow({ asset, entityType: editEventId ? 'event' : 'user', entityId: editEventId || user._id, purpose: 'gallery' });
       if (!r.success || !r.uploadId) { Alert.alert('Upload failed', r.error || 'Please try again.'); return; }
       const item: MediaItemV4 = {
         kind: 'video', url: '', status: 'processing', uploadId: r.uploadId,
@@ -129,7 +130,7 @@ export function useComposerMediaV4() {
     } finally {
       setUploading(null);
     }
-  }, [uploading, videos, user, pickVideo, update]);
+  }, [uploading, videos, user, editEventId, pickVideo, update]);
 
   const removeVideo = useCallback(
     (index: number) => update('videos', videos.filter((_, i) => i !== index)),

@@ -47,45 +47,30 @@ export interface RetryConfig {
 export async function uploadToS3(options: UploadOptions): Promise<UploadResult> {
     const { uri, uploadUrl, contentType, onProgress } = options;
 
-    console.log('[S3 Upload] Starting upload...');
-    console.log('[S3 Upload] URI:', uri);
-    console.log('[S3 Upload] Content-Type:', contentType);
-
     try {
-        // Fetch the file as blob from the local URI
         const fileResponse = await fetch(uri);
         const blob = await fileResponse.blob();
 
-        console.log('[S3 Upload] Blob size:', blob.size);
-
-        if (onProgress) onProgress(10);
-
-        // Upload to S3 using fetch PUT
-        const uploadResponse = await fetch(uploadUrl, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': contentType,
-            },
-            body: blob,
+        await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', uploadUrl);
+            xhr.setRequestHeader('Content-Type', contentType);
+            if (onProgress) {
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+                };
+            }
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) resolve();
+                else reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
+            };
+            xhr.onerror = () => reject(new Error('Network error during upload'));
+            xhr.send(blob);
         });
 
-        console.log('[S3 Upload] Response status:', uploadResponse.status);
-
         if (onProgress) onProgress(100);
-
-        if (uploadResponse.ok) {
-            console.log('[S3 Upload] ✅ Upload successful!');
-            return { success: true };
-        } else {
-            const errorText = await uploadResponse.text();
-            console.log('[S3 Upload] ❌ Upload failed:', uploadResponse.status, errorText);
-            return {
-                success: false,
-                error: `Upload failed with status ${uploadResponse.status}: ${errorText}`,
-            };
-        }
+        return { success: true };
     } catch (err) {
-        console.error('[S3 Upload] ❌ Exception:', err);
         return {
             success: false,
             error: err instanceof Error ? err.message : 'Upload failed',
@@ -314,19 +299,32 @@ export async function uploadVideoFlow(options: {
     purpose: 'gallery' | 'portfolio';
     onProgress?: (p: number) => void;
 }): Promise<{ success: boolean; uploadId?: string; error?: string }> {
-    const { asset, entityType, entityId, purpose } = options;
+    const { asset, entityType, entityId, purpose, onProgress } = options;
     try {
         const presign = await mediaService.requestVideoUpload({ entityType, entityId, purpose });
         if (!presign.success) return { success: false, error: presign.message };
 
         const fileRes = await fetch(asset.uri);
         const blob = await fileRes.blob();
-        const put = await fetch(presign.data.uploadUrl, {
-            method: 'PUT',
-            headers: { 'Content-Type': asset.mimeType || 'video/mp4' },
-            body: blob,
+
+        await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', presign.data.uploadUrl);
+            xhr.setRequestHeader('Content-Type', asset.mimeType || 'video/mp4');
+            if (onProgress) {
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+                };
+            }
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) resolve();
+                else reject(new Error(`Upload failed (${xhr.status})`));
+            };
+            xhr.onerror = () => reject(new Error('Network error during video upload'));
+            xhr.send(blob);
         });
-        if (!put.ok) return { success: false, error: `Upload failed (${put.status})` };
+
+        if (onProgress) onProgress(100);
         return { success: true, uploadId: presign.data.uploadId };
     } catch (e) {
         return { success: false, error: e instanceof Error ? e.message : 'Upload failed' };

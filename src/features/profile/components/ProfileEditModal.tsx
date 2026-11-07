@@ -471,7 +471,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             Object.assign(artistPayload, {
                 profileImageUrl,
                 galleryUrls: galleryUrls.filter(Boolean),
-                videoReels,
+                videoReels: videoReels.filter(r => r.status !== 'processing' && r.status !== 'errored'),
                 hasPhotos: galleryUrls.some(Boolean) || !!profileImageUrl,
             });
         }

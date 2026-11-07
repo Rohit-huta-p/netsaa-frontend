@@ -298,14 +298,15 @@ export default function DateOfEventField({ value, onChange, minimumDate }: Props
   const focus = anchorFocus(w.anchor); // dominant month/year of the visible fortnight
   const tileW = pageW > 0 ? Math.floor((pageW - 6 * 6) / 7) : 0; // 7 tiles + 6 gaps of 6px
 
-  // Keep the active month chip in view. On open the picker defaults to the
-  // current month, whose chip (e.g. Nov = 11th) would otherwise sit off-screen
-  // to the right of the Jan→Dec row — so it would look like nothing is active.
+  // Keep the active month chip in view — on open, and when the month or year
+  // changes. Past months of the current year are hidden (see the Month row) so
+  // the current month is already first; this mainly covers future years and
+  // swiping the fortnight across a month boundary.
   useEffect(() => {
     if (!open) return;
     const x = monthChipX.current[focus.m];
     if (x != null) monthScrollRef.current?.scrollTo({ x: Math.max(0, x - 16), animated: false });
-  }, [open, focus.m]);
+  }, [open, focus.m, focus.y]);
 
   // one fortnight's 14 tiles for the carousel page starting at `a`
   function renderTiles(a: Date) {
@@ -594,17 +595,18 @@ export default function DateOfEventField({ value, onChange, minimumDate }: Props
           <Text style={styles.rowLbl}>Month</Text>
           <ScrollView ref={monthScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {MONTHS.map((m, i) => {
-              const past = focus.y === today.getFullYear() && i < today.getMonth();
+              // Hide past months of the current year — they can't be booked, and
+              // keeping them would push the current month off-screen to the right.
+              if (focus.y === today.getFullYear() && i < today.getMonth()) return null;
               const on = i === focus.m;
               return (
                 <Pressable
                   key={m}
-                  disabled={past}
                   onPress={() => jumpTo(focus.y, i)}
                   onLayout={(e) => {
                     monthChipX.current[i] = e.nativeEvent.layout.x;
                   }}
-                  style={[styles.mchip, on && styles.mchipOn, past && styles.mchipPast]}
+                  style={[styles.mchip, on && styles.mchipOn]}
                 >
                   <Text style={[styles.mchipTxt, on && styles.mchipTxtOn]}>{m}</Text>
                 </Pressable>

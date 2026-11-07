@@ -12,13 +12,14 @@ const MAX_DISCOUNTS = 3, MAX_TIERS = 3;
 const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '');
 
 // A plain number box. Money = same box with a ₹ prefix.
-const Num = ({ value, onChange, prefix, placeholder = '0' }: {
-  value: number; onChange: (n: number) => void; prefix?: string; placeholder?: string;
+const Num = ({ value, onChange, prefix, suffix, placeholder = '0' }: {
+  value: number; onChange: (n: number) => void; prefix?: string; suffix?: string; placeholder?: string;
 }) => (
   <View style={st.num}>
     {prefix ? <Text style={st.prefix}>{prefix}</Text> : null}
     <TextInput keyboardType="number-pad" value={value ? String(value) : ''} placeholder={placeholder} placeholderTextColor={C.dim2}
       onChangeText={(t) => onChange(parseInt(t.replace(/[^0-9]/g, ''), 10) || 0)} style={st.numInput} />
+    {suffix ? <Text style={st.prefix}>{suffix}</Text> : null}
   </View>
 );
 
@@ -73,20 +74,16 @@ export default function Step3Spots() {
           options={[{ key: 'free', label: 'Free', icon: Gift }, { key: 'paid', label: 'Paid', icon: IndianRupee }]} />
       </Group>
 
-      <Group label={form.paid ? 'Tickets' : 'Capacity'} required>
-        <View style={st.row}>
-          <View style={{ flex: 1 }}>
-            <Text style={st.miniLab}>How many can join</Text>
-            <Num value={spot?.capacity ?? 0} onChange={setCapacity} placeholder="20" />
-          </View>
-          {form.paid ? (
-            <View style={{ flex: 1 }}>
-              <Text style={st.miniLab}>Price per ticket</Text>
-              <Num value={spot?.price ?? 0} onChange={setPrice} prefix="₹" />
-            </View>
-          ) : null}
-        </View>
-        <Hint>{form.paid ? 'One price for everyone. You can change it any time before the event.' : 'How many people can join for free.'}</Hint>
+      {form.paid ? (
+        <Group label="Ticket price" required>
+          <Num value={spot?.price ?? 0} onChange={setPrice} prefix="₹" />
+          <Hint>One price for everyone. You can change it any time before the event.</Hint>
+        </Group>
+      ) : null}
+
+      <Group label="How many can join" required>
+        <Num value={spot?.capacity ?? 0} onChange={setCapacity} placeholder="20" suffix="seats" />
+        {!form.paid ? <Hint>How many people can join for free.</Hint> : null}
       </Group>
 
       {earn ? (

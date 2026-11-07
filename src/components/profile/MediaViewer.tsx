@@ -15,7 +15,7 @@
 // - Swipe left/right to move between items (paged FlatList — works on web +
 //   native, unlike react-native-pager-view's native-only modules).
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
-import { View, Text, Pressable, StyleSheet, Share, Alert, FlatList, useWindowDimensions, Animated } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Share, Alert, FlatList, useWindowDimensions, Animated, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import { BlurView } from 'expo-blur';
@@ -111,6 +111,7 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
     };
 
     return (
+        <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={onClose}>
         <View style={StyleSheet.absoluteFill}>
             {/* translucent black tint over the blurred profile */}
             <BlurView intensity={38} tint="dark" style={StyleSheet.absoluteFill} experimentalBlurMethod="dimezisBlurView">
@@ -235,6 +236,7 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
                 </Animated.View>
             )}
         </View>
+        </Modal>
     );
 }
 

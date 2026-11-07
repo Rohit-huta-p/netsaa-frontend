@@ -1,27 +1,27 @@
 // src/components/profile/MediaViewer.tsx
 //
-// Editorial-plate media viewer — the fullscreen lightbox that opens when you tap
-// a photo/video in the showcase. Design: DOCS/04-design/mockups/profile-media-viewer-editorial.html
+// Immersive media viewer — the fullscreen lightbox that opens when you tap a
+// photo/video in a showcase or an event gallery.
+// Design: DOCS/04-design/mockups/media-viewer-immersive.html
 //
-// - Background is a TRANSLUCENT BLACK TINT over the blurred profile (BlurView +
-//   an rgba overlay), so the profile shows through faintly — it's an overlay,
-//   not a solid screen.
-// - The media is CENTERED; title + location, then Connect / Share (Edit / Delete
-//   for the owner), sit just above a thumbnail strip.
-// - Swipe left/right to move between items (paged FlatList — works on web + native,
-//   unlike react-native-pager-view which imports native-only modules); no TikTok snap.
-//
-// Replaces the two near-duplicate inline viewers in ProfileScreen.tsx and
-// PerformerProfile.tsx. Video plays via NetsaVideoPlayer (Mux); photos via expo-image.
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, Share, Alert, FlatList, useWindowDimensions } from 'react-native';
+// - Media is centered with `contain`: a portrait clip fills the viewer, a
+//   landscape clip is centered with equal top/bottom gaps. The media area
+//   reserves room at the bottom for the thumbnail strip, so a video's own
+//   control bar (native <video> on web, custom bar on native) never collides
+//   with the thumbnails.
+// - Chrome: a Back button (top-left) and, top-right, either the owner's ⋯ menu
+//   (Share · Edit · Delete) or a lone Share for visitors. Thumbnails sit along
+//   the bottom. Tapping a photo fades the chrome for a clean, immersive look.
+// - Swipe left/right to move between items (paged FlatList — works on web +
+//   native, unlike react-native-pager-view's native-only modules).
+import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
+import { View, Text, Pressable, StyleSheet, Share, Alert, FlatList, useWindowDimensions, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { X, MapPin, UserPlus, Check, Clock, Share2, Play, Pencil, Trash2 } from 'lucide-react-native';
+import { ChevronLeft, MoreHorizontal, Share2, Play, Pencil, Trash2 } from 'lucide-react-native';
 import NetsaVideoPlayer, { parseAspectRatio, muxPoster } from '@/components/media/NetsaVideoPlayer';
-import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
 import { useUiStore } from '@/stores/uiStore';
 
 export type MediaViewerItem = {
@@ -29,15 +29,15 @@ export type MediaViewerItem = {
     type: 'image' | 'video';
     muxPlaybackId?: string;
     aspectRatio?: string;
-    title?: string;                 // e.g. "Teentaal solo" — falls back to Reel/Photo
-    location?: string;              // e.g. "Nritya Studio, Pune" — falls back to artist.location
+    title?: string;                 // retained for compat; not shown in the immersive viewer
+    location?: string;              // retained for compat; not shown in the immersive viewer
 };
 
 type Props = {
     items: MediaViewerItem[];
     index: number;
     onClose: () => void;
-    /** The media's owner. Omit it (e.g. for an event gallery) to hide the Connect action. */
+    /** The media's owner — used only for the default share message. */
     artist?: { id: string; name: string; location?: string };
     isOwner?: boolean;
     onEdit?: (index: number) => void;
@@ -48,8 +48,8 @@ type Props = {
     showShare?: boolean;
 };
 
-const TINT = 'rgba(6,4,9,0.70)';
-const VIOLET = '#8B5CF6';
+const TINT = 'rgba(6,4,9,0.72)';
+const THUMB_H = 60;
 
 export default function MediaViewer({ items, index, onClose, artist, isOwner = false, onEdit, onDelete, onShare: onShareProp, showShare = true }: Props) {
     const insets = useSafeAreaInsets();
@@ -57,13 +57,17 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
     const pagerRef = useRef<FlatList>(null);
     const stripRef = useRef<FlatList>(null);
     const [cur, setCur] = useState(index);
-    // Start high enough that h = Math.min(boxH, pagerH-24) = boxH from the first
-    // render — prevents a VideoView resize when layout fires, which triggers a
-    // spurious 'error' event from expo-video on web.
-    const [pagerH, setPagerH] = useState(() => Math.round(winH * 0.54) + 25);
+    const [chromeOn, setChromeOn] = useState(true);
+    const [menuOpen, setMenuOpen] = useState(false);
 
-    const { connectionStatus, isConnectionLoading, sendRequest, withdrawRequest } = useConnectionStatus(artist?.id, isOwner);
-    const [busy, setBusy] = useState(false);
+    const multi = items.length > 1;
+
+    // Safe-area-aware bands. The media sits between the top bar and a reserved
+    // bottom band (thumbnail strip when multi, else just the home-indicator inset
+    // + a little breathing room so a video's controls clear the edge).
+    const topBand = insets.top + 54;
+    const bottomBand = insets.bottom + (multi ? THUMB_H + 36 : 16);
+    const mediaH = Math.max(120, winH - topBand - bottomBand);
 
     useEffect(() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); }, []);
 
@@ -76,8 +80,14 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
 
     // keep the active thumbnail in view as the pager moves
     useEffect(() => {
-        if (items.length > 1) stripRef.current?.scrollToIndex({ index: cur, animated: true, viewPosition: 0.5 });
-    }, [cur, items.length]);
+        if (multi) stripRef.current?.scrollToIndex({ index: cur, animated: true, viewPosition: 0.5 });
+    }, [cur, multi]);
+
+    // chrome fade (top bar + thumbnails fade together on a photo tap)
+    const chromeOpacity = useRef(new Animated.Value(1)).current;
+    useEffect(() => {
+        Animated.timing(chromeOpacity, { toValue: chromeOn ? 1 : 0, duration: 220, useNativeDriver: true }).start();
+    }, [chromeOn, chromeOpacity]);
 
     const go = useCallback((i: number) => {
         if (i === cur) return;
@@ -85,23 +95,9 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
         setCur(i);
     }, [cur]);
 
+    const toggleChrome = useCallback(() => { setMenuOpen(false); setChromeOn((v) => !v); }, []);
+
     if (!items.length) return null;
-    const m = items[cur];
-    const title = m.title;   // no generic "Photo"/"Reel" fallback — show only a real caption
-    const location = m.location || artist?.location;
-
-    // media box: centred, matted with side margins
-    const boxW = Math.min(winW - 56, 520);
-    const boxH = Math.round(winH * 0.54);
-
-    const onConnect = async () => {
-        if (busy || isConnectionLoading) return;
-        setBusy(true);
-        try {
-            if (connectionStatus === 'none') await sendRequest();
-            else if (connectionStatus === 'pending') await withdrawRequest();
-        } catch { /* surfaced minimally */ } finally { setBusy(false); }
-    };
 
     const onShare = async () => {
         if (onShareProp) { onShareProp(); return; }
@@ -117,173 +113,164 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
         ]);
     };
 
-    const connected = connectionStatus === 'connected';
-    const pending = connectionStatus === 'pending';
-    // Hide the whole actions row when it would be empty — e.g. the event viewer:
-    // no artist (no Connect), not owner (no Edit/Delete), Share hidden.
-    const hasActions = isOwner ? (!!onEdit || !!onDelete || showShare) : artist ? true : showShare;
-
     return (
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        <View style={StyleSheet.absoluteFill}>
             {/* translucent black tint over the blurred profile */}
             <BlurView
                 intensity={38}
                 tint="dark"
                 style={StyleSheet.absoluteFill}
-                // Android: enable behind-content blur; harmless on iOS.
                 experimentalBlurMethod="dimezisBlurView"
             >
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: TINT }]} />
             </BlurView>
 
-            {/* close */}
-            <Pressable onPress={onClose} hitSlop={12} style={[styles.close, { top: insets.top + 8 }]} accessibilityLabel="Close">
-                <X size={18} color="#fff" />
-            </Pressable>
+            {/* media — fills the band between the top bar and the reserved bottom */}
+            <View style={{ position: 'absolute', top: topBand, left: 0, right: 0, height: mediaH }}>
+                <FlatList
+                    ref={pagerRef}
+                    data={items}
+                    horizontal
+                    pagingEnabled
+                    initialScrollIndex={index}
+                    getItemLayout={(_, i) => ({ length: winW, offset: winW * i, index: i })}
+                    onScrollToIndexFailed={() => {}}
+                    onMomentumScrollEnd={(e) => setCur(Math.round(e.nativeEvent.contentOffset.x / winW))}
+                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={(it, i) => `${it.url}-${i}`}
+                    renderItem={({ item: it }) => (
+                        <View style={{ width: winW, height: mediaH, alignItems: 'center', justifyContent: 'center' }}>
+                            {it.type === 'video' && it.muxPlaybackId ? (
+                                // Video owns its own taps (play / native controls); no fade overlay.
+                                <NetsaVideoPlayer
+                                    playbackId={it.muxPlaybackId}
+                                    poster={it.url || muxPoster(it.muxPlaybackId)}
+                                    fill
+                                    contentFit="contain"
+                                    showRotateCue={(parseAspectRatio(it.aspectRatio) ?? 0) >= 1.2}
+                                    style={{ backgroundColor: 'transparent', borderWidth: 0, borderRadius: 0 }}
+                                />
+                            ) : (
+                                // Photo: tap anywhere on it to fade the chrome in/out.
+                                <Pressable style={StyleSheet.absoluteFill} onPress={toggleChrome}>
+                                    <ExpoImage source={{ uri: it.url }} style={StyleSheet.absoluteFill} contentFit="contain" transition={150} />
+                                </Pressable>
+                            )}
+                        </View>
+                    )}
+                />
+            </View>
 
-            {/* centred media — swipe left/right */}
-            <FlatList
-                ref={pagerRef}
-                data={items}
-                horizontal
-                pagingEnabled
-                initialScrollIndex={index}
-                getItemLayout={(_, i) => ({ length: winW, offset: winW * i, index: i })}
-                onScrollToIndexFailed={() => {}}
-                onMomentumScrollEnd={(e) => setCur(Math.round(e.nativeEvent.contentOffset.x / winW))}
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(it, i) => `${it.url}-${i}`}
-                style={styles.pager}
-                onLayout={(e) => setPagerH(e.nativeEvent.layout.height)}
-                renderItem={({ item: it }) => {
-                    const h = pagerH ? Math.min(boxH, pagerH - 24) : boxH;
-                    return (
-                        <View style={{ width: winW, height: pagerH || boxH, alignItems: 'center', justifyContent: 'center' }}>
-                            <View style={{ width: boxW, height: h, borderRadius: 4, overflow: 'hidden' }}>
-                                {it.type === 'video' && it.muxPlaybackId ? (
-                                    <NetsaVideoPlayer
-                                        playbackId={it.muxPlaybackId}
-                                        poster={it.url || muxPoster(it.muxPlaybackId)}
-                                        fill
-                                        contentFit="contain"
-                                        showRotateCue={(parseAspectRatio(it.aspectRatio) ?? 0) >= 1.2}
-                                        style={{ width: boxW, height: h, borderRadius: 4, backgroundColor: 'transparent' }}
-                                    />
-                                ) : (
-                                    <ExpoImage source={{ uri: it.url }} style={{ width: boxW, height: h }} contentFit="contain" transition={150} />
+            {/* TOP BAR — back (left) · owner ⋯ menu / visitor share (right) */}
+            <Animated.View
+                style={[styles.topbar, { paddingTop: insets.top + 10, opacity: chromeOpacity }]}
+                pointerEvents={chromeOn ? 'box-none' : 'none'}
+            >
+                <Pressable onPress={onClose} hitSlop={10} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Back">
+                    <ChevronLeft size={16} color="#fff" />
+                </Pressable>
+                <View style={{ flex: 1 }} />
+
+                {isOwner ? (
+                    <View>
+                        <Pressable onPress={() => setMenuOpen((v) => !v)} hitSlop={10} style={[styles.iconBtn, styles.iconBtnStrong]} accessibilityRole="button" accessibilityLabel="More options">
+                            <MoreHorizontal size={16} color="#fff" />
+                        </Pressable>
+                        {menuOpen && (
+                            <View style={styles.menu}>
+                                {showShare && (
+                                    <MenuRow label="Share" onPress={() => { setMenuOpen(false); onShare(); }}>
+                                        <Share2 size={14} color="#fff" />
+                                    </MenuRow>
+                                )}
+                                {onEdit && (
+                                    <MenuRow label="Edit" onPress={() => { setMenuOpen(false); onEdit(cur); }}>
+                                        <Pencil size={14} color="#fff" />
+                                    </MenuRow>
+                                )}
+                                {onDelete && (
+                                    <MenuRow label="Delete" danger onPress={() => { setMenuOpen(false); confirmDelete(); }}>
+                                        <Trash2 size={14} color="#fca5a5" />
+                                    </MenuRow>
                                 )}
                             </View>
-                        </View>
-                    );
-                }}
-            />
-
-            {/* caption · actions · thumbnail strip */}
-            <View style={[styles.bottom, { paddingBottom: insets.bottom + 18 }]}>
-                {!!title && <Text style={styles.title} numberOfLines={1}>{title}</Text>}
-                {!!location && (
-                    <View style={styles.locRow}>
-                        <MapPin size={12} color="#71717A" />
-                        <Text style={styles.loc}>{location}</Text>
+                        )}
                     </View>
-                )}
+                ) : showShare ? (
+                    <Pressable onPress={onShare} hitSlop={10} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Share">
+                        <Share2 size={15} color="#fff" />
+                    </Pressable>
+                ) : null}
+            </Animated.View>
 
-                {hasActions && (
-                <View style={styles.actions}>
-                    {isOwner ? (
-                        <>
-                            {onEdit && (
-                                <Pressable onPress={() => onEdit(cur)} style={[styles.pbtn, styles.pbtnGhost]}>
-                                    <Pencil size={15} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Edit</Text>
-                                </Pressable>
-                            )}
-                            {onDelete && (
-                                <Pressable onPress={confirmDelete} style={[styles.pbtn, styles.pbtnGhost]}>
-                                    <Trash2 size={15} color="#FCA5A5" /><Text style={[styles.pbtnGhostTxt, { color: '#FCA5A5' }]}>Delete</Text>
-                                </Pressable>
-                            )}
-                            {showShare && (
-                                <Pressable onPress={onShare} style={[styles.pbtn, styles.pbtnGhost]}>
-                                    <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
-                                </Pressable>
-                            )}
-                        </>
-                    ) : artist ? (
-                        <>
-                            <Pressable onPress={connected ? undefined : onConnect} disabled={connected || busy} style={[styles.pbtn, styles.pbtnConnect, (connected || busy) && { opacity: 0.7 }]}>
-                                {connected ? <Check size={15} color="#34D399" /> : pending ? <Clock size={15} color="#A1A1AA" /> : <UserPlus size={15} color="#CDBBF5" />}
-                                <Text style={[styles.pbtnConnectTxt, connected && { color: '#34D399' }, pending && { color: '#A1A1AA' }]}>
-                                    {connected ? 'Connected' : pending ? 'Requested' : 'Connect'}
-                                </Text>
+            {/* THUMBNAILS — along the bottom, fade with the chrome */}
+            {multi && (
+                <Animated.View
+                    style={[styles.thumbsWrap, { paddingBottom: insets.bottom + 16, opacity: chromeOpacity }]}
+                    pointerEvents={chromeOn ? 'box-none' : 'none'}
+                >
+                    <FlatList
+                        ref={stripRef}
+                        data={items}
+                        keyExtractor={(it, i) => `${it.url}-${i}`}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.strip}
+                        getItemLayout={(_, i) => ({ length: 53, offset: 53 * i, index: i })}
+                        onScrollToIndexFailed={() => {}}
+                        renderItem={({ item, index: i }) => (
+                            <Pressable onPress={() => go(i)} style={[styles.thumb, i === cur && styles.thumbOn]}>
+                                <ExpoImage
+                                    source={{ uri: item.type === 'video' && item.muxPlaybackId ? (item.url || muxPoster(item.muxPlaybackId)) : item.url }}
+                                    style={StyleSheet.absoluteFill}
+                                    contentFit="cover"
+                                />
+                                {item.type === 'video' && (
+                                    <View style={styles.thumbPlay}><Play size={10} color="#fff" fill="#fff" /></View>
+                                )}
                             </Pressable>
-                            {showShare && (
-                                <Pressable onPress={onShare} style={[styles.pbtn, styles.pbtnGhost]}>
-                                    <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
-                                </Pressable>
-                            )}
-                        </>
-                    ) : showShare ? (
-                        <Pressable onPress={onShare} style={[styles.pbtn, styles.pbtnGhost]}>
-                            <Share2 size={14} color="#F4F4F5" /><Text style={styles.pbtnGhostTxt}>Share</Text>
-                        </Pressable>
-                    ) : null}
-                </View>
-                )}
-
-                {items.length > 1 && (
-                    <>
-                        <Text style={styles.count}>{cur + 1} / {items.length}</Text>
-                        <FlatList
-                            ref={stripRef}
-                            data={items}
-                            keyExtractor={(it, i) => `${it.url}-${i}`}
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.strip}
-                            getItemLayout={(_, i) => ({ length: 53, offset: 53 * i, index: i })}
-                            onScrollToIndexFailed={() => {}}
-                            renderItem={({ item, index: i }) => (
-                                <Pressable onPress={() => go(i)} style={[styles.thumb, i === cur && styles.thumbOn]}>
-                                    <ExpoImage
-                                        source={{ uri: item.type === 'video' && item.muxPlaybackId ? (item.url || muxPoster(item.muxPlaybackId)) : item.url }}
-                                        style={StyleSheet.absoluteFill}
-                                        contentFit="cover"
-                                    />
-                                    {item.type === 'video' && (
-                                        <View style={styles.thumbPlay}><Play size={10} color="#fff" fill="#fff" /></View>
-                                    )}
-                                </Pressable>
-                            )}
-                        />
-                    </>
-                )}
-            </View>
+                        )}
+                    />
+                </Animated.View>
+            )}
         </View>
     );
 }
 
+/** A right-aligned menu row: label pill + circular icon button, stacked vertically. */
+function MenuRow({ label, danger, onPress, children }: { label: string; danger?: boolean; onPress: () => void; children: ReactNode }) {
+    return (
+        <Pressable onPress={onPress} style={styles.menuRow} accessibilityRole="button" accessibilityLabel={label}>
+            <Text style={[styles.menuLabel, danger && { color: '#fca5a5' }]}>{label}</Text>
+            <View style={styles.iconBtn}>{children}</View>
+        </Pressable>
+    );
+}
+
 const styles = StyleSheet.create({
-    close: {
-        position: 'absolute', right: 16, zIndex: 10,
-        width: 38, height: 38, borderRadius: 19,
-        backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
-        alignItems: 'center', justifyContent: 'center',
+    topbar: {
+        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 6,
+        flexDirection: 'row', alignItems: 'flex-start',
+        paddingHorizontal: 14, paddingBottom: 8,
     },
-    pager: { flex: 1 },
-    // controls overlay the bottom so the pager fills the whole screen → media sits at exact screen centre
-    bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 10 },
-    title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 25, color: '#F4F4F5', textAlign: 'center', letterSpacing: -0.3 },
-    locRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 9 },
-    loc: { fontFamily: 'SpaceMono-Regular', fontSize: 10.5, letterSpacing: 1.3, textTransform: 'uppercase', color: '#71717A' },
-    actions: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 15 },
-    pbtn: { flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 9, borderWidth: 1 },
-    pbtnConnect: { backgroundColor: 'rgba(139,92,246,0.10)', borderColor: 'rgba(139,92,246,0.4)' },
-    pbtnConnectTxt: { fontFamily: 'Outfit-Bold', fontSize: 12.5, color: '#CDBBF5' },
-    pbtnGhost: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.16)' },
-    pbtnGhostTxt: { fontFamily: 'Outfit-Bold', fontSize: 12.5, color: '#F4F4F5' },
-    count: { fontFamily: 'SpaceMono-Regular', fontSize: 11, color: 'rgba(255,255,255,0.72)', textAlign: 'center', marginTop: 22, marginBottom: 10, letterSpacing: 1 },
-    strip: { gap: 7, paddingHorizontal: 2 },
-    thumb: { width: 46, height: 60, borderRadius: 7, overflow: 'hidden', opacity: 0.42, borderWidth: 1, borderColor: 'transparent', backgroundColor: '#17151d' },
+    iconBtn: {
+        width: 32, height: 32, borderRadius: 16,
+        alignItems: 'center', justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.10)',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
+    },
+    iconBtnStrong: { backgroundColor: 'rgba(255,255,255,0.16)' },
+    // Owner menu — drops below the ⋯, right-aligned, vertically stacked.
+    menu: { position: 'absolute', top: 42, right: 0, alignItems: 'flex-end', gap: 11 },
+    menuRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    menuLabel: {
+        fontFamily: 'Outfit-SemiBold', fontSize: 11.5, color: '#fff',
+        backgroundColor: 'rgba(0,0,0,0.46)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+        paddingHorizontal: 9, paddingVertical: 4, borderRadius: 7, overflow: 'hidden',
+    },
+    thumbsWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 5 },
+    strip: { gap: 7, paddingHorizontal: 14 },
+    thumb: { width: 46, height: THUMB_H, borderRadius: 7, overflow: 'hidden', opacity: 0.42, borderWidth: 1.5, borderColor: 'transparent', backgroundColor: '#17151d' },
     thumbOn: { opacity: 1, borderColor: '#fff' },
     thumbPlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
 });

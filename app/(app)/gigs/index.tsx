@@ -44,6 +44,7 @@ import { C, F, INK } from '@/components/gigs/board/theme';
 import { GigBoardCard } from '@/components/gigs/board/GigBoardCard';
 import { CasterCard } from '@/components/gigs/board/CasterCard';
 import { BoardSortMenu } from '@/components/gigs/board/BoardSortMenu';
+import { BoardFilterButton } from '@/components/gigs/board/BoardFilterButton';
 import { MoreFiltersPill } from '@/components/gigs/board/MoreFiltersPill';
 import { buildCasterGroups, distinctCraftOptions } from '@/components/gigs/board/casterGroups';
 
@@ -238,6 +239,7 @@ export default function GigsListPage() {
                             />
                             {isFetching && inputQuery ? <ActivityIndicator size="small" color={C.orange} /> : null}
                         </View>
+                        <BoardFilterButton count={facetCount} onPress={() => setShowFilterModal(true)} />
                         <BoardSortMenu value={sortV} onSelect={onSelectSort} />
                     </View>
 
@@ -377,7 +379,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    craftOn: { backgroundColor: C.orange, borderColor: C.orange },
+    craftOn: { backgroundColor: '#EAEAEC', borderColor: '#EAEAEC' },
     craftTxt: { fontFamily: F.mono, fontSize: 10, letterSpacing: 1, color: C.t2 },
     craftTxtOn: { color: INK, fontFamily: F.bold },
 

@@ -1,16 +1,16 @@
 // src/components/gigs/board/GigBoardCard.tsx
 //
 // Compact A·Minimal gig card for the Roles lens (DOCS/.../gig-board-aminimal.html).
-// Three zones: top strip (craft chip · urgency · save) / serif title (2-line) /
-// hairline footer (poster · city · date — left, pay — right). Pay is a plain
-// fact (fixed / range / Negotiable) — never take-home or fee math.
+// Zones: top strip (craft chip · urgency · save) / serif title (2-line) / poster
+// byline (tiny avatar + name) / hairline footer (city · date — left, pay — right).
+// Pay is a plain fact (fixed / range / Negotiable) — never take-home or fee math.
 
 import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Image } from 'react-native';
 import { Bookmark, Check } from 'lucide-react-native';
 import useAuthStore from '@/stores/authStore';
 import gigService from '@/services/gigService';
-import { C, F, INK, AMBER, fmtPay, fmtDate, fmtUrgency } from './theme';
+import { C, F, INK, AMBER, fmtPay, fmtDate, fmtUrgency, initialOf } from './theme';
 
 export function GigBoardCard({
   gig,
@@ -41,12 +41,12 @@ export function GigBoardCard({
   const urg = fmtUrgency(gig);
   const pay = fmtPay(gig?.compensation);
   const poster = gig?.organizerSnapshot?.organizationName || gig?.organizerSnapshot?.displayName;
+  const avatarUrl = gig?.organizerSnapshot?.profileImageUrl;
   const city = gig?.location?.city;
   const date = fmtDate(gig?.applicationDeadline || gig?.schedule?.startDate || gig?.createdAt);
   // No trust/verified field on the gig model yet → tick stays off (backend follow-up).
   const verified = false;
   const metaParts = [city, date].filter(Boolean).join(' · ');
-  const dim = metaParts ? (poster ? `· ${metaParts}` : metaParts) : '';
 
   return (
     <Pressable onPress={onPress} style={[s.card, isSelected && s.cardSel]}>
@@ -72,17 +72,27 @@ export function GigBoardCard({
         {gig?.title || 'Untitled role'}
       </Text>
 
+      {poster ? (
+        <View style={s.byline}>
+          <View style={s.avatar}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={s.avatarImg} resizeMode="cover" />
+            ) : (
+              <Text style={s.avatarInit}>{initialOf(poster)}</Text>
+            )}
+          </View>
+          <Text style={s.by} numberOfLines={1}>
+            {poster}
+          </Text>
+          {verified ? <Check size={10} color={C.green} /> : null}
+        </View>
+      ) : null}
+
       <View style={s.foot}>
         <View style={s.sub}>
-          {poster ? (
-            <Text style={s.nm} numberOfLines={1}>
-              {poster}
-            </Text>
-          ) : null}
-          {verified ? <Check size={10} color={C.green} /> : null}
-          {dim ? (
+          {metaParts ? (
             <Text style={s.dim} numberOfLines={1}>
-              {dim}
+              {metaParts}
             </Text>
           ) : null}
         </View>
@@ -132,6 +142,21 @@ const s = StyleSheet.create({
   },
   saveOn: { borderColor: 'rgba(255,107,53,0.35)' },
   title: { fontFamily: F.serif, fontSize: 18, lineHeight: 22, letterSpacing: -0.3, color: C.cream },
+  byline: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 },
+  avatar: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: C.chip,
+    borderWidth: 1,
+    borderColor: C.hairSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarImg: { width: '100%', height: '100%' },
+  avatarInit: { fontFamily: F.semi, fontSize: 8.5, color: C.t2 },
+  by: { fontFamily: F.med, fontSize: 12, color: C.t2, flexShrink: 1 },
   foot: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -143,7 +168,6 @@ const s = StyleSheet.create({
     borderTopColor: C.hairSoft,
   },
   sub: { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, minWidth: 0 },
-  nm: { fontFamily: F.body, fontSize: 12, color: C.t1, flexShrink: 0 },
   dim: { fontFamily: F.mono, fontSize: 9.5, letterSpacing: 0.3, color: C.t3, flexShrink: 1 },
   payWrap: { flexShrink: 0 },
   pay: { fontFamily: F.serif, fontSize: 18, color: C.cream },

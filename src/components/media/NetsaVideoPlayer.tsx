@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Pressable, Text, Image, ActivityIndicator, StyleSheet, Animated, type StyleProp, type ViewStyle } from 'react-native';
+import { View, Pressable, Text, Image, ActivityIndicator, StyleSheet, Animated, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEvent, useEventListener } from 'expo';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -36,23 +36,82 @@ function fmt(t: number): string {
   return `${m}:${r < 10 ? '0' : ''}${r}`;
 }
 
-export default function NetsaVideoPlayer({
+// ---------------------------------------------------------------------------
+// Web-only player: wraps a native <video> element with hls.js for Chrome/Firefox.
+// Safari has native HLS support (canPlayType check), so it uses the src directly.
+// expo-video's VideoView can't play HLS on Chrome without hls.js.
+// A separate component (not an early-return inside NetsaVideoPlayer) so React
+// hooks are always called the same number of times regardless of Platform.OS.
+// ---------------------------------------------------------------------------
+function WebVideoPlayer({
+  playbackId, poster, fill, contentFit,
+}: {
+  playbackId: string; poster?: string; fill?: boolean; contentFit?: 'cover' | 'contain';
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const src = muxHls(playbackId);
+
+    // Dynamic import avoids bundling hls.js on native (tree-shaken at compile time).
+    import('hls.js').then(({ default: Hls }) => {
+      if (Hls.isSupported()) {
+        // Chrome / Firefox: native <video> can't play HLS — use hls.js via MSE.
+        const hls = new Hls({ enableWorker: false });
+        hls.loadSource(src);
+        hls.attachMedia(video);
+        // Cleanup captured in a ref so the effect can return synchronously.
+        (videoRef as any)._hls = hls;
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari: native HLS support.
+        video.src = src;
+      }
+    });
+
+    return () => {
+      const hls = (videoRef as any)._hls;
+      if (hls) { hls.destroy(); (videoRef as any)._hls = null; }
+    };
+  }, [playbackId]);
+
+  return (
+    <div style={{
+      ...(fill ? { position: 'absolute', inset: 0 } : { aspectRatio: '16 / 9' }),
+      backgroundColor: '#0E0C12', borderRadius: 14, overflow: 'hidden',
+    }}>
+      <video
+        ref={videoRef}
+        poster={poster ?? muxPoster(playbackId)}
+        controls
+        playsInline
+        style={{ width: '100%', height: '100%', objectFit: contentFit === 'contain' ? 'contain' : 'cover' }}
+      />
+    </div>
+  );
+}
+
+type NetsaVideoPlayerProps = {
+  playbackId: string; poster?: string; aspectRatio?: number; style?: StyleProp<ViewStyle>;
+  contentFit?: 'cover' | 'contain'; fill?: boolean; showRotateCue?: boolean;
+  onFullscreenChange?: (isFullscreen: boolean) => void;
+};
+
+// Wrapper: routes to the web player (hls.js) on web, expo-video on native.
+// Keeping them as separate components avoids a hooks-count mismatch that would
+// occur if we used an early-return inside the hooked NativeVideoPlayer body.
+export default function NetsaVideoPlayer(props: NetsaVideoPlayerProps) {
+  if (Platform.OS === 'web') {
+    return <WebVideoPlayer playbackId={props.playbackId} poster={props.poster} fill={props.fill} contentFit={props.contentFit} />;
+  }
+  return <NativeVideoPlayer {...props} />;
+}
+
+function NativeVideoPlayer({
   playbackId, poster, aspectRatio = 16 / 9, style, contentFit = 'cover', fill = false, showRotateCue = false,
   onFullscreenChange,
-}: {
-  playbackId: string; poster?: string; aspectRatio?: number; style?: StyleProp<ViewStyle>;
-  // `cover` (default) fills+crops for cards; `contain` shows the whole frame for
-  // fullscreen viewers. `fill` drops the aspect-ratio box so the player fills the
-  // parent exactly (use for a fullscreen lightbox where the parent is fixed-size).
-  contentFit?: 'cover' | 'contain'; fill?: boolean;
-  // Fullscreen viewers pass this for WIDE/landscape clips: contain leaves them a
-  // small centered strip, so surface a one-tap rotate-to-fullscreen cue (the only
-  // thing that makes a landscape clip big on a portrait screen). Idle state only.
-  showRotateCue?: boolean;
-  // Fires on native fullscreen enter/exit so a host viewer can hide its own
-  // chrome (nav pill, close button) while the video owns the screen.
-  onFullscreenChange?: (isFullscreen: boolean) => void;
-}) {
+}: NetsaVideoPlayerProps) {
   const viewRef = useRef<VideoView>(null);
   const player = useVideoPlayer(muxHls(playbackId), (p) => { p.timeUpdateEventInterval = 0.25; p.muted = true; });
   const focused = useIsFocused();

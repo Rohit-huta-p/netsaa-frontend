@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
   track: { flexDirection: 'row' },
   page: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   tile: {
-    height: 42,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
@@ -822,7 +822,7 @@ const styles = StyleSheet.create({
 
   done: {
     marginTop: 16,
-    height: 50,
+    height: 44,
     borderRadius: 14,
     backgroundColor: '#FF6B35',
     alignItems: 'center',

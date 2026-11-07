@@ -90,11 +90,21 @@ export default function NetsaVideoPlayer({
       player.play();
     }
   }, [status, player]);
+  // Auto-retry up to 2× on mid-play errors before showing the error UI.
+  // expo-video on web can fire a spurious 'error' when the VideoView is resized on
+  // first layout (e.g. pagerH update in MediaViewer) — silent retries absorb that.
+  const retryCount = useRef(0);
+  useEffect(() => { if (isPlaying) retryCount.current = 0; }, [isPlaying]);
   useEffect(() => {
-    if (status === 'error') {
-      console.warn('[NetsaVideoPlayer] playback error id:', playbackId, (player as any).error ?? '');
+    if (status !== 'error' || !started) return;
+    console.warn('[NetsaVideoPlayer] playback error id:', playbackId, 'attempt', retryCount.current + 1);
+    if (retryCount.current < 2) {
+      retryCount.current++;
+      setRecovering(true);
+      playOnReady.current = true;
+      player.replace(muxHls(playbackId));
     }
-  }, [status, playbackId, player]);
+  }, [status, started, player, playbackId]);
 
   const duration = player.duration || 0;
   // IMPORTANT: !started must be checked before status === 'error' so that a
@@ -131,10 +141,10 @@ export default function NetsaVideoPlayer({
   const onRetry = useCallback(() => {
     setRecovering(true);
     playOnReady.current = true;
+    retryCount.current = 0;
     player.replace(muxHls(playbackId));
     setStarted(true);
     setEnded(false);
-    // play() deferred to useEffect above — fires when status reaches readyToPlay
   }, [player, playbackId]);
   const onFullscreen = useCallback(() => { viewRef.current?.enterFullscreen(); }, []);
 

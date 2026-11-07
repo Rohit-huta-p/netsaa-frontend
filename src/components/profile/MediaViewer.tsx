@@ -57,7 +57,10 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
     const pagerRef = useRef<FlatList>(null);
     const stripRef = useRef<FlatList>(null);
     const [cur, setCur] = useState(index);
-    const [pagerH, setPagerH] = useState(0);
+    // Start high enough that h = Math.min(boxH, pagerH-24) = boxH from the first
+    // render — prevents a VideoView resize when layout fires, which triggers a
+    // spurious 'error' event from expo-video on web.
+    const [pagerH, setPagerH] = useState(() => Math.round(winH * 0.54) + 25);
 
     const { connectionStatus, isConnectionLoading, sendRequest, withdrawRequest } = useConnectionStatus(artist?.id, isOwner);
     const [busy, setBusy] = useState(false);

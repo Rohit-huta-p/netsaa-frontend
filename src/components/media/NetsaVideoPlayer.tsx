@@ -75,8 +75,26 @@ export default function NetsaVideoPlayer({
   const { visible, reveal } = useAutoHideControls(isPlaying && !ended);
   const rm = useReducedMotion();
 
+  // Set to true when we want play() to fire as soon as the player reaches readyToPlay.
+  // Using a ref (not state) so it doesn't trigger re-renders.
+  const playOnReady = useRef(false);
+
   useEffect(() => { if (!focused) player.pause(); }, [focused, player]);
   useEffect(() => { if (recovering && status !== 'error') setRecovering(false); }, [status, recovering]);
+  // Deferred play: fires play() exactly once when the player finishes loading.
+  // This prevents "Couldn't play" caused by calling play() while status==='loading'.
+  useEffect(() => {
+    if (playOnReady.current && status === 'readyToPlay') {
+      playOnReady.current = false;
+      player.muted = false;
+      player.play();
+    }
+  }, [status, player]);
+  useEffect(() => {
+    if (status === 'error') {
+      console.warn('[NetsaVideoPlayer] playback error id:', playbackId, (player as any).error ?? '');
+    }
+  }, [status, playbackId, player]);
 
   const duration = player.duration || 0;
   // IMPORTANT: !started must be checked before status === 'error' so that a
@@ -91,14 +109,19 @@ export default function NetsaVideoPlayer({
 
   const start = useCallback(() => {
     if (player.status === 'error') {
-      // Player hit an error during background preload; reload silently before playing.
+      // Background preload errored; reload and defer play to readyToPlay.
       setRecovering(true);
       player.replace(muxHls(playbackId));
+      playOnReady.current = true;
+    } else if (player.status === 'readyToPlay') {
+      player.muted = false;
+      player.play();
+    } else {
+      // Still loading — queue play for when the player finishes loading.
+      playOnReady.current = true;
     }
     setStarted(true);
     setEnded(false);
-    player.muted = false;
-    player.play();
     reveal();
   }, [player, playbackId, reveal]);
   const togglePlay = useCallback(() => { if (isPlaying) player.pause(); else player.play(); reveal(); }, [player, isPlaying, reveal]);
@@ -106,12 +129,12 @@ export default function NetsaVideoPlayer({
   const seek = useCallback((frac: number) => { if (duration > 0) player.currentTime = frac * duration; }, [player, duration]);
   const onReplay = useCallback(() => { setEnded(false); player.currentTime = 0; player.play(); reveal(); }, [player, reveal]);
   const onRetry = useCallback(() => {
-    // Show spinner immediately — don't wait for statusChange to clear the error UI.
     setRecovering(true);
+    playOnReady.current = true;
     player.replace(muxHls(playbackId));
     setStarted(true);
     setEnded(false);
-    player.play();
+    // play() deferred to useEffect above — fires when status reaches readyToPlay
   }, [player, playbackId]);
   const onFullscreen = useCallback(() => { viewRef.current?.enterFullscreen(); }, []);
 

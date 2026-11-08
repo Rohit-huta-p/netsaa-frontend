@@ -96,6 +96,7 @@ type CLData = {
     organizerTypeCategory?: string;
     city?: string;
     primaryCity?: string;
+    tagline?: string;
     bio?: string;
     services?: string[];
     photos?: string[];
@@ -158,9 +159,14 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     const phoneH = Math.min(winH * 0.72, phoneW * 2.0);
 
     const d: CLData = useMemo(() => {
-        const base = (fetched ?? {}) as CLData;
+        const base = (fetched ?? {}) as any;
+        // Owner: merge the live, editable organizer doc (useOrganizer) over the user.
         if (isOwner && organizer) return { ...base, ...(organizer as unknown as CLData) };
-        return base;
+        // Public (GET /users/:id) nests the organizer under `organizerDetails`; lift its
+        // showcase fields (tagline/bio/services/website/logo/stats…) to the top level so
+        // visitors see them too. User-level keys (_id, cover, Instagram…) still win.
+        const od = (base.organizerDetails ?? {}) as any;
+        return { ...od, ...base } as CLData;
     }, [fetched, organizer, isOwner]);
 
     const name = d.organizationName || d.displayName || 'Creative Lead';
@@ -173,9 +179,13 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     const tierColor = TIER_COLOR[tier] || C.t3;
 
     const logo = d.logoUrl || d.profileImageUrl;
+    const tagline = (d.tagline || '').trim();
     const services = (d.services ?? []).filter(Boolean);
     const photos = (d.photos ?? []).filter(Boolean);
     const website = (d.organizationWebsite || '').trim();
+    const ig = (d.instagramHandle || '').trim();
+    const igHandle = ig ? (ig.startsWith('@') ? ig : `@${ig}`) : '';
+    const igUrl = ig ? `https://instagram.com/${ig.replace(/^@/, '')}` : null;
     const events = eventsData?.events ?? [];
     const gigs = gigsData?.gigs ?? [];
     const gigsTotal = gigsData?.total ?? 0;
@@ -304,6 +314,8 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
 
                     {!!typeCity && <Text style={s.typeline}>{typeCity}</Text>}
 
+                    {!!tagline && <Text style={s.tagline} numberOfLines={2}>{tagline}</Text>}
+
                     {!!tier && (
                         <View style={[s.tier, { borderColor: tierColor + '44', backgroundColor: tierColor + '1A' }]}>
                             <View style={[s.tierDot, { backgroundColor: tierColor }]} />
@@ -393,7 +405,7 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                     )}
 
                     {/* ═══ WHAT WE DO ═══ */}
-                    {(d.bio || services.length > 0 || typeLabel || d.yearsInBusiness != null || d.teamSize != null || website || owner) && (
+                    {(d.bio || services.length > 0 || typeLabel || d.yearsInBusiness != null || d.teamSize != null || website || ig || owner) && (
                         <>
                             <View style={s.shead}>
                                 <Text style={s.stitle}>What we do</Text>
@@ -430,6 +442,14 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                         v={website.replace(/^https?:\/\//i, '')}
                                         link
                                         onPress={() => Linking.openURL(normalizedWebsite).catch(() => {})}
+                                    />
+                                )}
+                                {!!igUrl && (
+                                    <KV
+                                        k="Instagram"
+                                        v={igHandle}
+                                        link
+                                        onPress={() => Linking.openURL(igUrl!).catch(() => {})}
                                     />
                                 )}
                             </View>
@@ -817,6 +837,7 @@ const s = StyleSheet.create({
     orgName: { fontFamily: F.serif, fontSize: 25, color: C.cream, letterSpacing: -0.5, flexShrink: 1 },
     vmark: { width: 17, height: 17, borderRadius: 9, backgroundColor: 'rgba(34,197,94,0.14)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.4)', alignItems: 'center', justifyContent: 'center' },
     typeline: { fontFamily: F.mono, fontSize: 10, letterSpacing: 1.2, color: C.t3, textTransform: 'uppercase', marginTop: 7 },
+    tagline: { fontFamily: F.body, fontSize: 14.5, lineHeight: 20, color: C.t1, marginTop: 9, maxWidth: 440 },
     tier: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, marginTop: 12 },
     tierDot: { width: 5, height: 5, borderRadius: 3 },
     tierText: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.2 },

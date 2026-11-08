@@ -188,6 +188,7 @@ const authService = {
     organizationName?: string;
     organizationWebsite?: string;
     logoUrl?: string;
+    tagline?: string;
     bio?: string;
     services?: string[];
     photos?: string[];

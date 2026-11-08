@@ -58,6 +58,7 @@ describe('CreativeLeadCompanyEdit smoke', () => {
             organizationName: 'Mehfil Collective',
             organizerTypeCategory: 'production_company',
             logoUrl: 'https://img/logo.jpg',
+            tagline: 'Weddings & corporate shows, done right.',
             bio: 'A Pune production house.',
             services: ['Sangeet', 'Bollywood'],
             photos: ['https://img/1.jpg', 'https://img/2.jpg'],
@@ -73,6 +74,7 @@ describe('CreativeLeadCompanyEdit smoke', () => {
         expect(txt).toContain('known for');       // Specialties title
         expect(txt).toContain('The showcase');     // Productions title
         expect(txt).toContain('Production company'); // org-type option label
+        expect(txt).toContain('Weddings & corporate shows, done right.'); // tagline loads (editable now)
         expect(txt).toContain('Coming soon');       // Team / Billing (P2)
         expect(txt).toContain('Save changes');
     });

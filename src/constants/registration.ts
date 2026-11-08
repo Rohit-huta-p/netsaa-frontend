@@ -106,52 +106,71 @@ export const HIRER_CLIENT_TYPES: { id: HirerClientType; label: string; sub: stri
 ];
 
 /* ═════════════════════════════════════════════════════════════
- *  STEP SEQUENCE — single flow for every user
+ *  ARTIST REGISTRATION — 5-step linear wizard (v1, 2026-11)
  *
- *  Blocking steps (required):   entry, identity, credentials
- *  Soft steps (skip allowed):   intent, artistProfile, hirerProfile*, social
- *                               * shown only if 'hire_artists' selected
+ *  All steps are blocking (required). Step 5 (media) becomes
+ *  skippable only after the minimum photo count is met.
  *
- *  Step 'intent' is what we collect the interest signal on.
- *  No role fork. The sequence is the same for everyone.
- *
- *  NOTE: OTP verification happens in the separate /login flow which deep-links
- *  into /register with phone already confirmed. We do not re-verify here.
+ *  credentials → identity → dob → artistProfile → media
  * ═════════════════════════════════════════════════════════════ */
 
 export const STEPS = [
-    'entry',         // Step 1: email + phone (both)
-    'identity',      // Step 2: fullName, displayName
+    'credentials',   // Step 1: email + password
+    'identity',      // Step 2: fullName + stageName
     'dob',           // Step 3: date of birth (age-gate per Indian Contract Act §11)
-    'credentials',   // Step 4: password (Google OAuth deferred)
-    'intent',        // Step 5: "What brings you to NETSA?" (emotional center)
-    'artistProfile', // Step 6: artist type + experience + city (skippable)
-    'hirerProfile',  // Step 7: client type + city (conditional on hire intent)
-    'social',        // Step 8: optional social handles
+    'artistProfile', // Step 4: artist type + skills + bio (required)
+    'media',         // Step 5: profile photo + min 2 photos + optional videos
 ] as const;
 
 export type StepId = (typeof STEPS)[number] | 'completion';
 
-/**
- * Steps that are SOFT — user can tap "Skip" and still end with a working account.
- * The wizard renders "Skip for now" as visually equal to "Continue" on these.
- */
-export const SOFT_STEPS: ReadonlySet<StepId> = new Set<StepId>([
-    'artistProfile',
-    'hirerProfile',
-    'social',
-]);
+/** All steps are blocking in the new 5-step artist flow. */
+export const SOFT_STEPS: ReadonlySet<StepId> = new Set<StepId>([]);
 
-/**
- * Blocking steps — required for a usable account.
- * Drives the progress indicator.
- */
 export const BLOCKING_STEPS: ReadonlySet<StepId> = new Set<StepId>([
-    'entry',
+    'credentials',
     'identity',
     'dob',
-    'credentials',
+    'artistProfile',
+    'media',
 ]);
+
+/* ═════════════════════════════════════════════════════════════
+ *  SKILLS — contextual options per artist type
+ * ═════════════════════════════════════════════════════════════ */
+
+export const ARTIST_SKILLS: Record<string, string[]> = {
+    dancer:   ['Hip-hop', 'Contemporary', 'Bollywood', 'Classical', 'Folk', 'Western', 'Jazz', 'Ballet'],
+    singer:   ['Hindustani Classical', 'Carnatic', 'Bollywood', 'Pop / Indie', 'Ghazal', 'Folk', 'Sufi'],
+    musician: ['Guitar', 'Tabla', 'Violin', 'Piano', 'Flute', 'Sitar', 'Mridangam', 'Drums'],
+    dj:       ['Bollywood', 'EDM', 'Hip-hop', 'House', 'Techno', 'Commercial', 'Punjabi'],
+    actor:    ['Theatre', 'Film', 'TV / Web Series', 'Voiceover', 'Mime', 'Stand-up Comedy'],
+    anchor:   ['Corporate Events', 'Weddings', 'Award Shows', 'News', 'Radio'],
+    folk:     ['Lavani', 'Bhangra', 'Garba', 'Dandiya', 'Chhau', 'Kuchipudi', 'Mohiniyattam'],
+    visual:   ['Photography', 'Illustration', 'Calligraphy', 'Digital Art', 'Mural', 'Installation'],
+};
+
+export const ARTIST_SKILL_DEFAULTS: Record<string, string[]> = {
+    dancer:   ['Hip-hop', 'Contemporary'],
+    singer:   ['Bollywood', 'Folk'],
+    musician: ['Guitar'],
+    dj:       ['Bollywood', 'EDM'],
+    actor:    ['Theatre', 'Film'],
+    anchor:   ['Corporate Events', 'Weddings'],
+    folk:     ['Bhangra'],
+    visual:   ['Photography'],
+};
+
+export const ARTIST_SKILL_HINTS: Record<string, string> = {
+    dancer: 'Dancer skills',
+    singer: 'Singer skills',
+    musician: 'Instruments & styles',
+    dj: 'DJ styles',
+    actor: 'Acting specialisms',
+    anchor: 'Hosting types',
+    folk: 'Folk forms',
+    visual: 'Visual mediums',
+};
 
 /**
  * Age thresholds driving the dob step UI + backend age-gate.

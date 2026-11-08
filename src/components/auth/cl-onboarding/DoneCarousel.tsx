@@ -2,15 +2,13 @@
 // Images: assets/onboarding/creative-lead-onboarding-images/*-full.png
 import React, { useRef, useState } from 'react';
 import {
-  View, Text, Pressable, FlatList, Dimensions, StyleSheet,
-  ImageBackground, StatusBar,
+  View, Text, Pressable, FlatList, StyleSheet,
+  ImageBackground, StatusBar, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowRight } from 'lucide-react-native';
 
 interface Props { onDone: () => void }
-
-const { width: W, height: H } = Dimensions.get('window');
 
 const SLIDES = [
   {
@@ -51,6 +49,7 @@ export default function DoneCarousel({ onDone }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const listRef = useRef<FlatList>(null);
   const insets  = useSafeAreaInsets();
+  const { width: W, height: H } = useWindowDimensions();
   const isLast  = activeIdx === SLIDES.length - 1;
 
   function goNext() {
@@ -78,6 +77,7 @@ export default function DoneCarousel({ onDone }: Props) {
         showsHorizontalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}
+        getItemLayout={(_data, index) => ({ length: W, offset: W * index, index })}
         renderItem={({ item }) => (
           <ImageBackground
             source={item.bg}

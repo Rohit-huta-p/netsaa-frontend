@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import { ShieldAlert } from 'lucide-react-native';
+import { ShieldAlert, Lock } from 'lucide-react-native';
 import { DatePickerInput } from '@/components/ui/DatePickerInput/DatePickerInput';
 import { MIN_REGISTRATION_AGE, MAJORITY_AGE } from '@/constants/registration';
 import { C, FONT, s } from './shared';
@@ -18,8 +18,8 @@ export function Step3DOB({ dob, setDob, ageYears, isMinor, onClear }: Props) {
         <View>
             <View style={{ marginBottom: 28 }}>
                 <Text style={s.eyebrow}>STEP 3 OF 5</Text>
-                <Text style={s.headline}>When were{'\n'}you born?</Text>
-                <Text style={s.subhead}>Needed for booking contracts. Not shown publicly.</Text>
+                <Text style={s.headline}>Date of birth</Text>
+                <Text style={s.subhead}>Required by the DPDP Act · not shown publicly.</Text>
             </View>
 
             <DatePickerInput
@@ -52,10 +52,27 @@ export function Step3DOB({ dob, setDob, ageYears, isMinor, onClear }: Props) {
                 </View>
             )}
 
-            <Text style={s.fineprint}>
-                Per Indian Contract Act §11, minors can't sign enforceable contracts alone —
-                guardian co-sign is required for bookings.
-            </Text>
+            <View style={{
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                gap: 9,
+                marginTop: 16,
+                padding: 12,
+                borderRadius: 11,
+                backgroundColor: C.surface,
+                borderWidth: 1,
+                borderColor: C.border,
+            }}>
+                <Lock size={14} color={C.t3} strokeWidth={1.75} style={{ marginTop: 1 }} />
+                <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: FONT.bodyMed, fontSize: 11, color: C.t2, marginBottom: 2 }}>
+                        Private & encrypted
+                    </Text>
+                    <Text style={{ fontFamily: FONT.body, fontSize: 10, color: C.t3, lineHeight: 15 }}>
+                        Your date of birth is never shown to hirers. Used only for age verification.
+                    </Text>
+                </View>
+            </View>
         </View>
     );
 }

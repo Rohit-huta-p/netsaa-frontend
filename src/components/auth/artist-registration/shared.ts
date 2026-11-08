@@ -36,7 +36,7 @@ export const s = StyleSheet.create({
     eyebrow: {
         fontFamily: FONT.mono,
         fontSize: 9,
-        color: C.t4,
+        color: C.orange,
         letterSpacing: 2,
         marginBottom: 10,
     },

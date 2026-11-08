@@ -87,8 +87,6 @@ export default function RegisterScreen() {
     const translateX  = useSharedValue(0);
     const opacity     = useSharedValue(1);
     const ctaScale    = useSharedValue(1);
-    const progressPct = useSharedValue(1 / TOTAL_STEPS);
-
     const contentStyle = useAnimatedStyle(() => ({
         opacity: opacity.get(),
         transform: [{ translateX: translateX.get() }],
@@ -96,10 +94,6 @@ export default function RegisterScreen() {
 
     const ctaAnimStyle = useAnimatedStyle(() => ({
         transform: [{ scale: ctaScale.get() }],
-    }));
-
-    const progressStyle = useAnimatedStyle(() => ({
-        width: `${progressPct.get() * 100}%` as any,
     }));
 
     /* ─── Animated step transition ─── */
@@ -120,8 +114,6 @@ export default function RegisterScreen() {
             translateX.set(withSpring(0, { duration: 400, dampingRatio: 0.85 }));
         }));
 
-        // Progress bar springs to new value
-        progressPct.set(withSpring((newIdx + 1) / TOTAL_STEPS, { duration: 400, dampingRatio: 1 }));
     }
 
     /* ─── Per-step validation ─── */
@@ -295,17 +287,26 @@ export default function RegisterScreen() {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
-            {/* Animated progress bar — absolutely positioned fill, out of flow */}
-            <View style={{ height: 2, backgroundColor: C.border }}>
-                <Animated.View style={[{ height: 2, backgroundColor: C.orange }, progressStyle]} />
-            </View>
-
-            {/* Header */}
+            {/* Nav row: back button + pill/dot progress */}
             <View style={styles.header}>
                 <Pressable onPress={handleBack} hitSlop={12} style={styles.backBtn}>
                     <ChevronLeft size={22} color={C.t3} strokeWidth={2} />
                 </Pressable>
-                <Text style={styles.headerStep}>{stepIdx + 1} / {TOTAL_STEPS}</Text>
+                <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center' }}>
+                    {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+                        <View
+                            key={i}
+                            style={{
+                                height: 5,
+                                width: i === stepIdx ? 18 : 5,
+                                borderRadius: 2.5,
+                                backgroundColor: i === stepIdx
+                                    ? C.orange
+                                    : i < stepIdx ? '#52525B' : '#2A2A30',
+                            }}
+                        />
+                    ))}
+                </View>
             </View>
 
             <ScrollView
@@ -448,23 +449,15 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        gap: 10,
+        paddingHorizontal: 20,
+        paddingVertical: 7,
     },
     backBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        width: 28,
+        height: 28,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    headerStep: {
-        fontFamily: 'SpaceMono-Regular',
-        fontSize: 11,
-        color: '#4A4648',
-        letterSpacing: 1,
     },
     errorBox: {
         marginBottom: 16,

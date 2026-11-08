@@ -49,8 +49,8 @@ export function Step4ArtistProfile({ artistType, onTypeChange, skills, setSkills
         <View>
             <View style={{ marginBottom: 28 }}>
                 <Text style={s.eyebrow}>STEP 4 OF 5</Text>
-                <Text style={s.headline}>What do{'\n'}you do?</Text>
-                <Text style={s.subhead}>Choose your art form and specialisations.</Text>
+                <Text style={s.headline}>Your craft</Text>
+                <Text style={s.subhead}>Hirers filter by type and skill.</Text>
             </View>
 
             {/* Artist type chips */}

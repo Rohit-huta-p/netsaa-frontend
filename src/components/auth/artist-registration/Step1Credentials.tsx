@@ -16,9 +16,9 @@ export function Step1Credentials({ email, setEmail, password, setPassword, onCle
     return (
         <View>
             <View style={{ marginBottom: 28 }}>
-                <Text style={s.eyebrow}>STEP 1 OF 5</Text>
-                <Text style={s.headline}>Create your{'\n'}account.</Text>
-                <Text style={s.subhead}>How should we reach you?</Text>
+                <Text style={s.eyebrow}>CREATE ACCOUNT</Text>
+                <Text style={s.headline}>Let's start</Text>
+                <Text style={s.subhead}>Use an email you check regularly.</Text>
             </View>
 
             <StepInput

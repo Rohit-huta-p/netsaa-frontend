@@ -98,21 +98,23 @@ const MAX_PHOTOS = 8;
 // as a chip (SearchableMultiSelect falls back to the raw value).
 const SPECIALTY_OPTIONS = [
     // Dance & Choreography
-    'Sangeet Choreography', 'Wedding Choreography', 'Bharatanatyam', 'Kathak',
-    'Bollywood Dance', 'Contemporary Dance', 'Folk Dance', 'Classical Dance',
-    'Bhangra', 'Lavani', 'Garba & Dandiya', 'Group Choreography',
+    'Sangeet Choreography', 'Wedding Choreography', 'Classical Dance',
+    'Bollywood Dance', 'Folk Dance', 'Contemporary Dance',
     // Music
-    'Live Band', 'Bollywood Playback', 'Ghazal & Sufi', 'Classical Music',
-    'Fusion Music', 'Bhajans & Devotional', 'DJ & Music Production',
-    // Drama & Comedy
-    'Theatre', 'Stand-up Comedy', 'Storytelling', 'Spoken Word', 'Mime & Physical Theatre',
+    'Live Band', 'Classical Music', 'Bollywood / Film Music', 'Ghazal & Sufi',
+    'Bhajans & Devotional', 'Folk Music', 'Fusion Music', 'DJ',
+    // Theatre & Drama
+    'Theatre Production', 'Street Theatre', 'Musical Theatre', 'Mime & Physical Theatre',
+    // Comedy & Spoken Word
+    'Stand-up Comedy', 'Storytelling', 'Spoken Word / Poetry', 'Improv Comedy',
     // Anchoring & Hosting
-    'Wedding Hosting', 'Corporate Events', 'Award Shows', 'Cultural Festivals', 'Fashion Shows',
+    'Wedding Anchoring', 'Corporate Anchoring', 'Award Shows',
+    'Cultural Festivals', 'Fashion Shows', 'Sports Events', 'Product Launches',
+    // Visual & Variety
+    'Magic & Illusionism', 'Acrobatics & Circus', 'Puppetry', 'Photography',
     // Production & Management
-    'Artist Management', 'Film & Ad Production', 'Music Production',
-    'Event Planning', 'Decor & Staging', 'Sound & Light',
-    // Variety
-    'Magic & Illusionism', 'Acrobatics & Circus', 'Puppetry',
+    'Artist Management', 'Talent Booking', 'Event Management', 'Creative Direction',
+    'Film & Ad Production', 'Music Production', 'Stage Design & Decor',
 ].map((v) => ({ value: v, label: v }));
 
 const TABS = [

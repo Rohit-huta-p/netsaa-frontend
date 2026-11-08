@@ -16,19 +16,21 @@ interface Props {
     setPhotos: (p: ImagePickerAsset[]) => void;
     avatar?: ImagePickerAsset | null;
     setAvatar?: (a: ImagePickerAsset | null) => void;
-    videoAsset?: ImagePickerAsset | null;
-    setVideoAsset?: (v: ImagePickerAsset | null) => void;
+    videoAssets?: ImagePickerAsset[];
+    setVideoAssets?: (v: ImagePickerAsset[]) => void;
     uploading?: boolean;
     onSkip?: () => void;
 }
+
+const MAX_VIDEOS = 2;
 
 export function Step5Media({
     photos,
     setPhotos,
     avatar = null,
     setAvatar,
-    videoAsset = null,
-    setVideoAsset,
+    videoAssets = [],
+    setVideoAssets,
     uploading = false,
     onSkip,
 }: Props) {
@@ -70,7 +72,7 @@ export function Step5Media({
         setPhotos(photos.filter((_, i) => i !== idx));
     };
 
-    const pickVideo = async () => {
+    const pickVideo = async (idx: number) => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
             Alert.alert('Permission needed', 'Allow media access to add a performance video.');
@@ -82,7 +84,13 @@ export function Step5Media({
             videoMaxDuration: 90,
         });
         if (result.canceled || !result.assets?.[0]) return;
-        setVideoAsset?.(result.assets[0]);
+        const next = [...videoAssets];
+        next[idx] = result.assets[0];
+        setVideoAssets?.(next.filter(Boolean));
+    };
+
+    const removeVideo = (idx: number) => {
+        setVideoAssets?.(videoAssets.filter((_, i) => i !== idx));
     };
 
     const filled = photos.length;
@@ -330,98 +338,88 @@ export function Step5Media({
                     </Text>
                 </View>
 
-                <TouchableOpacity
-                    activeOpacity={0.85}
-                    disabled={uploading}
-                    style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 10,
-                        backgroundColor: C.surface,
-                        borderWidth: 1,
-                        borderColor: videoAsset ? C.orangeBorder : C.border,
-                        borderRadius: 11,
-                        padding: 11,
-                    }}
-                    onPress={pickVideo}
-                >
-                    {/* Thumbnail or icon */}
-                    <View style={{
-                        width: 46,
-                        height: 46,
-                        borderRadius: 8,
-                        backgroundColor: C.surface2,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                        borderWidth: videoAsset ? 1 : 0,
-                        borderColor: C.orangeBorder,
-                    }}>
-                        {videoAsset ? (
-                            <>
-                                <Image
-                                    source={{ uri: videoAsset.uri }}
-                                    style={{ width: 46, height: 46 }}
-                                    resizeMode="cover"
-                                />
-                                <View style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    width: 46,
-                                    height: 46,
-                                    backgroundColor: 'rgba(0,0,0,0.35)',
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {Array.from({ length: MAX_VIDEOS }).map((_, idx) => {
+                        const asset = videoAssets[idx];
+                        if (asset) {
+                            return (
+                                <View key={idx} style={{ position: 'relative' }}>
+                                    <TouchableOpacity
+                                        onPress={() => !uploading && pickVideo(idx)}
+                                        activeOpacity={0.85}
+                                        style={{
+                                            width: FRAME_SIZE,
+                                            height: FRAME_SIZE,
+                                            borderRadius: 10,
+                                            overflow: 'hidden',
+                                            borderWidth: 1,
+                                            borderColor: C.orangeBorder,
+                                        }}
+                                    >
+                                        <Image
+                                            source={{ uri: asset.uri }}
+                                            style={{ width: FRAME_SIZE, height: FRAME_SIZE }}
+                                            resizeMode="cover"
+                                        />
+                                        <View style={{
+                                            position: 'absolute',
+                                            inset: 0,
+                                            width: FRAME_SIZE,
+                                            height: FRAME_SIZE,
+                                            backgroundColor: 'rgba(0,0,0,0.35)',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}>
+                                            {uploading
+                                                ? <ActivityIndicator color={C.orange} size="small" />
+                                                : <Play size={16} color="#fff" fill="#fff" strokeWidth={0} />
+                                            }
+                                        </View>
+                                    </TouchableOpacity>
+                                    {!uploading && (
+                                        <TouchableOpacity
+                                            onPress={() => removeVideo(idx)}
+                                            hitSlop={4}
+                                            style={{
+                                                position: 'absolute',
+                                                top: 4,
+                                                right: 4,
+                                                width: 18,
+                                                height: 18,
+                                                borderRadius: 9,
+                                                backgroundColor: 'rgba(0,0,0,0.65)',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}
+                                        >
+                                            <X size={10} color="#fff" strokeWidth={2.5} />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            );
+                        }
+                        return (
+                            <TouchableOpacity
+                                key={idx}
+                                onPress={() => pickVideo(idx)}
+                                activeOpacity={0.8}
+                                style={{
+                                    width: FRAME_SIZE,
+                                    height: FRAME_SIZE,
+                                    borderRadius: 10,
+                                    backgroundColor: C.surface,
+                                    borderWidth: 1.5,
+                                    borderColor: C.border,
+                                    borderStyle: 'dashed',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                }}>
-                                    <Play size={14} color="#fff" fill="#fff" strokeWidth={0} />
-                                </View>
-                            </>
-                        ) : (
-                            <Play size={14} color={C.t4} fill={C.t4} strokeWidth={0} />
-                        )}
-                    </View>
-
-                    <View style={{ flex: 1 }}>
-                        {videoAsset ? (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                                <Check size={11} color={C.orange} strokeWidth={2.5} />
-                                <Text style={{ fontFamily: FONT.bodyMed, fontSize: 12, color: C.orange }}>
-                                    Video ready
-                                </Text>
-                            </View>
-                        ) : (
-                            <Text style={{ fontFamily: FONT.bodyMed, fontSize: 12, color: C.t3 }}>
-                                Add a performance video
-                            </Text>
-                        )}
-                        <Text style={{ fontFamily: FONT.body, fontSize: 9, color: C.t4, marginTop: 2 }}>
-                            {videoAsset
-                                ? `${Math.round((videoAsset.duration ?? 0) / 1000)}s · tap to change`
-                                : 'Pick from library · Max 90 s'}
-                        </Text>
-                    </View>
-
-                    {videoAsset && !uploading && (
-                        <TouchableOpacity
-                            onPress={() => setVideoAsset?.(null)}
-                            hitSlop={8}
-                            style={{
-                                width: 22,
-                                height: 22,
-                                borderRadius: 11,
-                                backgroundColor: 'rgba(0,0,0,0.5)',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <X size={11} color="#fff" strokeWidth={2.5} />
-                        </TouchableOpacity>
-                    )}
-
-                    {uploading && videoAsset && (
-                        <ActivityIndicator size="small" color={C.orange} />
-                    )}
-                </TouchableOpacity>
+                                }}
+                            >
+                                <Play size={15} color={C.t4} fill={C.t4} strokeWidth={0} />
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
             </View>
         </View>
     );

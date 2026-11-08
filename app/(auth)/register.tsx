@@ -72,7 +72,7 @@ export default function RegisterScreen() {
     const [bio, setBio]           = useState('');
     const [photos, setPhotos]     = useState<ImagePickerAsset[]>([]);
     const [avatar, setAvatar]     = useState<ImagePickerAsset | null>(null);
-    const [videoAsset, setVideoAsset] = useState<ImagePickerAsset | null>(null);
+    const [videoAssets, setVideoAssets] = useState<ImagePickerAsset[]>([]);
 
     /* ─── Derived age ─── */
     const ageYears = useMemo<number | null>(() => {
@@ -221,8 +221,8 @@ export default function RegisterScreen() {
                 console.warn('[register] profile enrich failed — user can update later', e);
             }
 
-            // Upload avatar + portfolio photos + video reel — non-fatal if it fails
-            const hasMedia = avatar || photos.length > 0 || videoAsset;
+            // Upload avatar + portfolio photos + video reels — non-fatal if it fails
+            const hasMedia = avatar || photos.length > 0 || videoAssets.length > 0;
             if (hasMedia) {
                 try {
                     const userId = (user as any)?._id ?? '';
@@ -254,16 +254,20 @@ export default function RegisterScreen() {
                     else if (galleryUrls.length) mediaPatch.profileImageUrl = galleryUrls[0];
                     if (galleryUrls.length) mediaPatch.galleryUrls = galleryUrls;
 
-                    if (videoAsset) {
-                        const vRes = await uploadVideoFlow({
-                            asset: videoAsset,
-                            entityType: 'user',
-                            entityId: userId,
-                            purpose: 'portfolio',
-                        });
-                        if (vRes.success && vRes.uploadId) {
-                            mediaPatch.videoReels = [{ uploadId: vRes.uploadId, status: 'processing', muxPlaybackId: '' }];
+                    if (videoAssets.length > 0) {
+                        const reels: Array<{ uploadId: string; status: string; muxPlaybackId: string }> = [];
+                        for (const asset of videoAssets) {
+                            const vRes = await uploadVideoFlow({
+                                asset,
+                                entityType: 'user',
+                                entityId: userId,
+                                purpose: 'portfolio',
+                            });
+                            if (vRes.success && vRes.uploadId) {
+                                reels.push({ uploadId: vRes.uploadId, status: 'processing', muxPlaybackId: '' });
+                            }
                         }
+                        if (reels.length) mediaPatch.videoReels = reels;
                     }
 
                     if (Object.keys(mediaPatch).length) await authService.updateProfile(mediaPatch);
@@ -363,8 +367,8 @@ export default function RegisterScreen() {
                             setPhotos={setPhotos}
                             avatar={avatar}
                             setAvatar={setAvatar}
-                            videoAsset={videoAsset}
-                            setVideoAsset={setVideoAsset}
+                            videoAssets={videoAssets}
+                            setVideoAssets={setVideoAssets}
                             uploading={loading}
                         />
                     )}

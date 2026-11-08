@@ -15,8 +15,10 @@
  * is me-scoped and complete). Events via useEventsByOrganizer (public). There is NO
  * public organizerId gig endpoint yet → "Now hiring" is Phase 2 (hidden here).
  *
- * Cold-start safe: every showcase field may be absent — absent sections render
- * nothing, never crash.
+ * Cold-start safe: every showcase field may be absent — never crash. For a VISITOR
+ * an absent section renders nothing; for the OWNER every section stays visible with
+ * an "Add …" affordance (bio, website/Instagram, Productions, gigs, events), mirroring
+ * the artist "Spotlight" page so the owner can always see & fill what's missing.
  *
  * The profile page for every creative_lead / organizer target (artist to apply,
  * client to size up).
@@ -413,7 +415,13 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                     <Pressable onPress={onEditProfile} hitSlop={8}><Text style={s.seeall}>EDIT</Text></Pressable>
                                 )}
                             </View>
-                            {!!d.bio && <Text style={s.bio}>{d.bio}</Text>}
+                            {d.bio ? (
+                                <Text style={s.bio}>{d.bio}</Text>
+                            ) : owner ? (
+                                <Pressable onPress={onEditProfile}>
+                                    <Text style={s.addTx}>Tell artists &amp; clients what your company does</Text>
+                                </Pressable>
+                            ) : null}
 
                             {(services.length > 0 || owner) && (
                                 <View style={s.chips}>
@@ -453,56 +461,76 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                     />
                                 )}
                             </View>
+
+                            {owner && !normalizedWebsite && !igUrl && (
+                                <Pressable onPress={onEditProfile} style={{ marginTop: 14 }}>
+                                    <Text style={s.addTx}>Add your website or Instagram</Text>
+                                </Pressable>
+                            )}
                         </>
                     )}
 
-                    {/* ═══ PRODUCTIONS — shared MediaViewer showcase ═══ */}
-                    {photos.length > 0 && (
+                    {/* ═══ PRODUCTIONS — shared MediaViewer showcase (owner sees it even when empty) ═══ */}
+                    {(photos.length > 0 || owner) && (
                         <>
                             <View style={s.divsec} />
                             <View style={s.shead}>
                                 <Text style={s.stitle}>Productions</Text>
-                                {owner ? (
-                                    <Pressable onPress={onEditProfile} hitSlop={8}>
-                                        <Text style={s.seeall}>MANAGE</Text>
-                                    </Pressable>
-                                ) : photos.length > 3 ? (
-                                    <Pressable onPress={() => setViewerIndex(0)} hitSlop={8}>
-                                        <Text style={s.seeall}>See all →</Text>
-                                    </Pressable>
+                                {photos.length > 0 ? (
+                                    owner ? (
+                                        <Pressable onPress={onEditProfile} hitSlop={8}>
+                                            <Text style={s.seeall}>MANAGE</Text>
+                                        </Pressable>
+                                    ) : photos.length > 3 ? (
+                                        <Pressable onPress={() => setViewerIndex(0)} hitSlop={8}>
+                                            <Text style={s.seeall}>See all →</Text>
+                                        </Pressable>
+                                    ) : null
                                 ) : null}
                             </View>
 
-                            <Pressable style={s.mfeature} onPress={() => setViewerIndex(0)}>
-                                <Image source={{ uri: photos[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                                <LinearGradient colors={['transparent', 'rgba(8,6,10,0.78)']} style={s.mfeatureFade} />
-                                {photos.length > 1 && (
-                                    <View style={s.mplay}><Play size={14} color="#fff" fill="#fff" /></View>
-                                )}
-                            </Pressable>
+                            {photos.length > 0 ? (
+                                <>
+                                    <Pressable style={s.mfeature} onPress={() => setViewerIndex(0)}>
+                                        <Image source={{ uri: photos[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                                        <LinearGradient colors={['transparent', 'rgba(8,6,10,0.78)']} style={s.mfeatureFade} />
+                                        {photos.length > 1 && (
+                                            <View style={s.mplay}><Play size={14} color="#fff" fill="#fff" /></View>
+                                        )}
+                                    </Pressable>
 
-                            {photos.length > 1 && (
-                                <View style={s.mgrid}>
-                                    {photos.slice(1, 4).map((url, i) => {
-                                        const idx = i + 1;
-                                        const extra = photos.length - 4;
-                                        const isLast = i === 2 && extra > 0;
-                                        return (
-                                            <Pressable key={`${url}-${idx}`} style={s.mtile} onPress={() => setViewerIndex(idx)}>
-                                                <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                                                {isLast && (
-                                                    <View style={s.mmore}><Text style={s.mmoreText}>+{extra}</Text></View>
-                                                )}
-                                            </Pressable>
-                                        );
-                                    })}
-                                </View>
-                            )}
+                                    {photos.length > 1 && (
+                                        <View style={s.mgrid}>
+                                            {photos.slice(1, 4).map((url, i) => {
+                                                const idx = i + 1;
+                                                const extra = photos.length - 4;
+                                                const isLast = i === 2 && extra > 0;
+                                                return (
+                                                    <Pressable key={`${url}-${idx}`} style={s.mtile} onPress={() => setViewerIndex(idx)}>
+                                                        <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                                                        {isLast && (
+                                                            <View style={s.mmore}><Text style={s.mmoreText}>+{extra}</Text></View>
+                                                        )}
+                                                    </Pressable>
+                                                );
+                                            })}
+                                        </View>
+                                    )}
 
-                            {st?.artistsHired != null && st.artistsHired > 0 && (
-                                <Text style={s.workedTxt}>
-                                    {st.artistsHired} artists have worked with {name}
-                                </Text>
+                                    {st?.artistsHired != null && st.artistsHired > 0 && (
+                                        <Text style={s.workedTxt}>
+                                            {st.artistsHired} artists have worked with {name}
+                                        </Text>
+                                    )}
+                                </>
+                            ) : (
+                                <Pressable style={s.postcta} onPress={onEditProfile}>
+                                    <View style={s.postPlus}><Plus size={18} color={C.orange} /></View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={s.postTitle}>Add your productions</Text>
+                                        <Text style={s.postSub}>SHOWCASE YOUR BEST SHOWS &amp; SHOOTS</Text>
+                                    </View>
+                                </Pressable>
                             )}
                         </>
                     )}
@@ -870,6 +898,8 @@ const s = StyleSheet.create({
 
     // about
     bio: { fontFamily: F.body, fontSize: 13.5, lineHeight: 22, color: C.t1 },
+    // Owner empty-state prompt — orange "Add …" link (mirrors Spotlight's addTx).
+    addTx: { fontFamily: F.body, fontSize: 13, color: C.orange },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 14 },
     chipPill: { backgroundColor: C.chip, borderWidth: 1, borderColor: C.chipB, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 },
     chipText: { fontFamily: F.mono, fontSize: 10, color: C.t2, letterSpacing: 0.3 },

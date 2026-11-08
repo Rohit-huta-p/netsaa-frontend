@@ -9,15 +9,14 @@
  *
  * Replaces the generic /client/agency-profile form for CLs (agency-profile role-
  * branches to this). Two write targets:
- *   · Organizer fields (name, type, logo, bio, services, photos, website, years,
+ *   · Organizer fields (name, type, logo, tagline, bio, services, photos, website, years,
  *     team) → updateOrganizerProfile() → PATCH /organizers/me
  *   · User fields   (cover, city, Instagram, YouTube)
  *     → updateProfile() → PATCH /auth/me  (updateMe whitelists these)
  *
  * P1 tabs: Identity · About · Specialties · Productions · Links.
- * P2 (shown as "coming soon"): Team (no member schema), Billing (no fields),
- * plus the tagline field (no backend field yet). Cold-start safe — absent fields
- * just render empty.
+ * P2 (shown as "coming soon"): Team (no member schema), Billing (no fields).
+ * Cold-start safe — absent fields just render empty.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -128,6 +127,7 @@ export function CreativeLeadCompanyEdit() {
     const [name, setName] = useState('');
     const [orgType, setOrgType] = useState('');
     const [city, setCity] = useState('');
+    const [tagline, setTagline] = useState('');
     const [bio, setBio] = useState('');
     const [years, setYears] = useState('');
     const [team, setTeam] = useState('');
@@ -156,6 +156,7 @@ export function CreativeLeadCompanyEdit() {
         setLogoUrl(o.logoUrl || '');
         setName(o.organizationName || user?.organizationName || user?.displayName || '');
         setOrgType(normalizeOrgType(o.organizerTypeCategory || user?.organizerTypeCategory));
+        setTagline(o.tagline || '');
         setBio(o.bio || '');
         setWebsite(o.organizationWebsite || '');
         setServices(Array.isArray(o.services) ? o.services : []);
@@ -266,6 +267,7 @@ export function CreativeLeadCompanyEdit() {
                 ...(orgType ? { organizerTypeCategory: orgType } : {}),
                 logoUrl,
                 organizationWebsite: website.trim(),
+                tagline: tagline.trim(),
                 bio: bio.trim(),
                 services,
                 photos,
@@ -407,13 +409,13 @@ export function CreativeLeadCompanyEdit() {
 
                     <Field
                         label="Tagline"
-                        value=""
-                        editable={false}
-                        onChangeText={() => {}}
-                        placeholder="Coming soon"
+                        value={tagline}
+                        onChangeText={(t) => { setTagline(t); mark(); }}
+                        placeholder="One line that sums up your company"
+                        maxLength={160}
                         style={{ marginBottom: 2 }}
                     />
-                    <Text style={s.hintTiny}>A one-line tagline is coming soon.</Text>
+                    <Text style={s.hintTiny}>Shown under your name — e.g. “Weddings & corporate shows, done right.”</Text>
                 </View>
 
                 {/* 02 · ABOUT */}

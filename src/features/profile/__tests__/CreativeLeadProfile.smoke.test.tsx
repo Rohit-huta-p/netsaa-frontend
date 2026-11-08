@@ -60,6 +60,8 @@ const POPULATED = {
     organizationName: 'Mehfil Collective',
     organizerTypeCategory: 'production_company',
     primaryCity: 'Pune',
+    tagline: 'Weddings & corporate shows, choreographed end-to-end.',
+    instagramHandle: '@mehfil.collective',
     bio: 'A Pune production house.',
     services: ['Sangeet', 'Bollywood Dance'],
     photos: ['https://img/1.jpg', 'https://img/2.jpg', 'https://img/3.jpg', 'https://img/4.jpg', 'https://img/5.jpg'],
@@ -82,6 +84,8 @@ describe('CreativeLeadProfile smoke', () => {
 
         const txt = renderText(false);
         expect(txt).toContain('Mehfil Collective');
+        expect(txt).toContain('Weddings & corporate shows, choreographed end-to-end.'); // tagline
+        expect(txt).toContain('@mehfil.collective');  // Instagram link
         expect(txt).toContain('What we do');
         expect(txt).toContain('Now hiring');
         expect(txt).toContain('Lead dancer — Diwali gala');
@@ -89,6 +93,32 @@ describe('CreativeLeadProfile smoke', () => {
         // No owner chrome leaks into the public view.
         expect(txt).not.toContain('Your gigs');
         expect(txt).not.toContain('View as visitor');
+    });
+
+    it('lifts showcase fields from organizerDetails for public viewers (DTO nesting)', () => {
+        // The public GET /users/:id nests the organizer doc under `organizerDetails`.
+        mockUser = {
+            _id: 'org1',
+            role: 'creative_lead',
+            displayName: 'Mehfil',
+            instagramHandle: '@mehfil.collective',
+            organizerDetails: {
+                organizationName: 'Mehfil Collective',
+                organizerTypeCategory: 'production_company',
+                tagline: 'Nested tagline lifts to the top.',
+                bio: 'Nested bio should render.',
+                services: ['Sangeet'],
+            },
+        };
+        mockEvents = [];
+        mockGigs = [];
+        mockOwnerGigs = [];
+
+        const txt = renderText(false);
+        expect(txt).toContain('Mehfil Collective');            // org name lifted
+        expect(txt).toContain('Nested tagline lifts to the top.');
+        expect(txt).toContain('Nested bio should render.');
+        expect(txt).toContain('@mehfil.collective');           // user-level IG still wins
     });
 
     it('renders the OWNER view (Your gigs / insights / manage)', () => {

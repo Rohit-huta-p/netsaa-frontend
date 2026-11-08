@@ -141,9 +141,46 @@ describe('CreativeLeadProfile smoke', () => {
         expect(txt).toContain('Finish & publish →');
         expect(txt).toContain('Your events');
         expect(txt).toContain('Edit profile');
+        expect(txt).toContain('Productions');
+        expect(txt).not.toContain('Add your productions'); // has photos → grid, not the empty CTA
         // Public CTAs are replaced in the owner view.
         expect(txt).not.toContain('+ Follow');
         expect(txt).not.toContain('Now hiring');
+    });
+
+    it('owner with an EMPTY page still sees every section with "Add" affordances', () => {
+        mockUser = { _id: 'org1', role: 'creative_lead', organizationName: 'Blank Co' };
+        mockEvents = [];
+        mockGigs = [];
+        mockOwnerGigs = [];
+
+        const txt = renderText(true);
+        // What we do — bio + links prompts instead of a bare/empty section.
+        expect(txt).toContain('What we do');
+        expect(txt).toContain('Tell artists & clients what your company does'); // bio prompt
+        expect(txt).toContain('Add specialties');                               // specialties add-chip
+        expect(txt).toContain('Add your website or Instagram');                 // links prompt
+        // Productions stays visible (it vanishes for a visitor) with a dashed CTA.
+        expect(txt).toContain('Productions');
+        expect(txt).toContain('Add your productions');
+        // Gigs + events sections always present for the owner.
+        expect(txt).toContain('Your gigs');
+        expect(txt).toContain('Post a gig');
+        expect(txt).toContain('Your events');
+    });
+
+    it('visitor on an EMPTY page sees no owner "Add" prompts or empty Productions', () => {
+        mockUser = { _id: 'org1', role: 'creative_lead', organizationName: 'Blank Co' };
+        mockEvents = [];
+        mockGigs = [];
+        mockOwnerGigs = [];
+
+        const txt = renderText(false);
+        expect(txt).toContain('Blank Co');
+        expect(txt).not.toContain('Tell artists & clients what your company does');
+        expect(txt).not.toContain('Add your website or Instagram');
+        expect(txt).not.toContain('Productions');        // whole section hidden when no photos
+        expect(txt).not.toContain('Add your productions');
     });
 
     it('owner: "View as visitor" opens the phone-frame preview', () => {

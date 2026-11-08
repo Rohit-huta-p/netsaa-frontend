@@ -71,6 +71,8 @@ export default function RegisterScreen() {
     const [skills, setSkills]     = useState<string[]>([]);
     const [bio, setBio]           = useState('');
     const [photos, setPhotos]     = useState<ImagePickerAsset[]>([]);
+    const [avatar, setAvatar]     = useState<ImagePickerAsset | null>(null);
+    const [videoUrl, setVideoUrl] = useState('');
 
     /* ─── Derived age ─── */
     const ageYears = useMemo<number | null>(() => {
@@ -145,7 +147,8 @@ export default function RegisterScreen() {
                 if (skills.length === 0) return 'Please select at least one skill';
                 return null;
             case 4:
-                if (photos.length < 2) return 'Add at least 2 portfolio photos to continue';
+                // Photos have a minimum of 2, but user can also skip entirely via onSkip
+                if (photos.length > 0 && photos.length < 2) return 'Add at least 2 photos, or skip to continue later';
                 return null;
             default:
                 return null;
@@ -226,11 +229,24 @@ export default function RegisterScreen() {
                 console.warn('[register] profile enrich failed — user can update later', e);
             }
 
-            // Upload portfolio photos — non-fatal if it fails
-            if (photos.length) {
+            // Upload avatar + portfolio photos — non-fatal if it fails
+            const hasMedia = avatar || photos.length > 0;
+            if (hasMedia) {
                 try {
                     const userId = (user as any)?._id ?? '';
-                    const uploadedUrls: string[] = [];
+                    let avatarUrl: string | undefined;
+                    const galleryUrls: string[] = [];
+
+                    if (avatar) {
+                        const res = await uploadMediaFlow({
+                            asset: avatar,
+                            entityType: 'user',
+                            entityId: userId,
+                            purpose: 'portfolio',
+                        });
+                        if (res.success && res.url) avatarUrl = res.url;
+                    }
+
                     for (const asset of photos) {
                         const res = await uploadMediaFlow({
                             asset,
@@ -238,16 +254,17 @@ export default function RegisterScreen() {
                             entityId: userId,
                             purpose: 'portfolio',
                         });
-                        if (res.success && res.url) uploadedUrls.push(res.url);
+                        if (res.success && res.url) galleryUrls.push(res.url);
                     }
-                    if (uploadedUrls.length) {
-                        await authService.updateProfile({
-                            profileImageUrl: uploadedUrls[0],
-                            galleryUrls: uploadedUrls,
-                        });
-                    }
+
+                    const mediaPatch: Record<string, any> = {};
+                    if (avatarUrl) mediaPatch.profileImageUrl = avatarUrl;
+                    else if (galleryUrls.length) mediaPatch.profileImageUrl = galleryUrls[0];
+                    if (galleryUrls.length) mediaPatch.galleryUrls = galleryUrls;
+                    if (videoUrl.trim()) mediaPatch.videoUrl = videoUrl.trim();
+                    if (Object.keys(mediaPatch).length) await authService.updateProfile(mediaPatch);
                 } catch (e) {
-                    console.warn('[register] photo upload failed — user can add from profile', e);
+                    console.warn('[register] media upload failed — user can add from profile', e);
                 }
             }
 
@@ -268,7 +285,11 @@ export default function RegisterScreen() {
         setSkills(defaultSkills);
     };
 
-    const ctaLabel = stepIdx === TOTAL_STEPS - 1
+    const isMediaStep = stepIdx === TOTAL_STEPS - 1;
+    const mediaCtaLocked = isMediaStep && photos.length > 0 && photos.length < 2;
+    const mediaCtaEnabled = isMediaStep && photos.length >= 2;
+
+    const ctaLabel = isMediaStep
         ? (loading ? 'Creating your account…' : 'Create account')
         : 'Continue';
 
@@ -327,6 +348,10 @@ export default function RegisterScreen() {
                         <Step5Media
                             photos={photos}
                             setPhotos={setPhotos}
+                            avatar={avatar}
+                            setAvatar={setAvatar}
+                            videoUrl={videoUrl}
+                            setVideoUrl={setVideoUrl}
                             uploading={loading}
                         />
                     )}
@@ -346,27 +371,65 @@ export default function RegisterScreen() {
                     <Pressable
                         onPress={handleNext}
                         onPressIn={() => {
-                            ctaScale.set(withTiming(0.97, { duration: 100 }));
+                            if (!mediaCtaLocked) ctaScale.set(withTiming(0.97, { duration: 100 }));
                         }}
                         onPressOut={() => {
                             ctaScale.set(withSpring(1, { duration: 300, dampingRatio: 0.6 }));
                         }}
-                        disabled={loading}
-                        style={[styles.cta, loading && styles.ctaDim]}
+                        disabled={loading || mediaCtaLocked}
+                        style={[styles.cta, (loading || mediaCtaLocked) && styles.ctaDim]}
                     >
-                        <LinearGradient
-                            colors={['#FF8C5A', '#FF6B35', '#E55A20']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.ctaGrad}
-                        >
-                            {loading
-                                ? <ActivityIndicator color="#fff" size="small" />
-                                : <Text style={styles.ctaLabel}>{ctaLabel}</Text>
-                            }
-                        </LinearGradient>
+                        {mediaCtaLocked ? (
+                            <View style={[styles.ctaGrad, { backgroundColor: '#1C1C20' }]}>
+                                <Text style={[styles.ctaLabel, { color: C.t4 }]}>{ctaLabel}</Text>
+                            </View>
+                        ) : (
+                            <LinearGradient
+                                colors={['#FF8C5A', '#FF6B35', '#E55A20']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.ctaGrad}
+                            >
+                                {loading
+                                    ? <ActivityIndicator color="#fff" size="small" />
+                                    : <Text style={styles.ctaLabel}>{ctaLabel}</Text>
+                                }
+                            </LinearGradient>
+                        )}
                     </Pressable>
                 </Animated.View>
+
+                {/* Media step: hint + skip */}
+                {isMediaStep && (
+                    <>
+                        {mediaCtaLocked && (
+                            <Text style={{
+                                fontFamily: FONT.mono,
+                                fontSize: 8,
+                                color: C.t4,
+                                letterSpacing: 1,
+                                textTransform: 'uppercase',
+                                textAlign: 'center',
+                                marginTop: 6,
+                            }}>
+                                Add 2 photos to continue
+                            </Text>
+                        )}
+                        <Pressable
+                            onPress={() => submitRegistration()}
+                            style={{ paddingVertical: 8 }}
+                        >
+                            <Text style={{
+                                fontFamily: FONT.body,
+                                fontSize: 13,
+                                color: C.t3,
+                                textAlign: 'center',
+                            }}>
+                                Skip for now
+                            </Text>
+                        </Pressable>
+                    </>
+                )}
 
                 {stepIdx === 0 && (
                     <Pressable onPress={() => router.replace('/(auth)/login')} style={{ marginTop: 16 }}>

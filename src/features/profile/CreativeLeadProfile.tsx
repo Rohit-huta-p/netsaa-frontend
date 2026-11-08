@@ -213,7 +213,8 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     const onSettings = () => router.push('/(app)/settings' as any);
     const onPostGig = () => router.push('/(app)/create' as any);
     const onCreateEvent = () => router.push('/(app)/create?initialTab=event' as any);
-    const onManageGigs = () => router.push('/(app)/dashboard/cl-work?tab=hiring' as any);
+    const onManageGigs = () => router.push('/(app)/dashboard/cl-work?face=hiring' as any);
+    const onManageEvents = () => router.push('/(app)/dashboard/cl-work?face=hosting' as any);
 
     const normalizedWebsite = website
         ? (/^https?:\/\//i.test(website) ? website : `https://${website}`)
@@ -515,7 +516,13 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                             <View style={s.shead}>
                                 <Text style={s.stitle}>{owner ? 'Your events' : 'Events they host'}</Text>
                                 {events.length > 2 && (
-                                    <Text style={s.seeall}>{owner ? `MANAGE ALL ${events.length} →` : `See all ${events.length} →`}</Text>
+                                    owner ? (
+                                        <Pressable onPress={onManageEvents} hitSlop={8}>
+                                            <Text style={s.seeall}>MANAGE ALL {events.length} →</Text>
+                                        </Pressable>
+                                    ) : (
+                                        <Text style={s.seeall}>See all {events.length} →</Text>
+                                    )
                                 )}
                             </View>
                         </>

@@ -1,19 +1,21 @@
-// app/(auth)/register.tsx — artist-only 5-step registration (v2)
+// app/(auth)/register.tsx — role-aware registration wizard
 //
-// Steps: credentials → identity → dob → artistProfile → media
-// Account creation: POST /auth/register at step 5
-// Profile enrichment: PATCH /auth/me right after (dateOfBirth, artistType, skills, bio)
+// Artist flow  (5 steps): credentials → identity → dob → artistProfile → media
+// CL flow      (7 steps): credentials → identity → dob → clIdentity → clVisual → clAbout → clDetails
+// Account creation:
+//   Artist: POST /auth/register at step 5
+//   CL:     POST /auth/register transitioning step 2→3, then PATCH /organizers/me at step 7
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-    View, Text, Pressable, StyleSheet,
+    Alert, View, Text, Pressable, StyleSheet,
     ActivityIndicator, ScrollView,
 } from 'react-native';
 import Animated, {
     useSharedValue, useAnimatedStyle,
     withTiming, withSpring, Easing, runOnJS,
 } from 'react-native-reanimated';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft } from 'lucide-react-native';
@@ -25,6 +27,7 @@ import { MIN_REGISTRATION_AGE, MAJORITY_AGE } from '@/constants/registration';
 import authService from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 
+// Artist steps
 import { Step1Credentials }   from '@/components/auth/artist-registration/Step1Credentials';
 import { Step2Identity }      from '@/components/auth/artist-registration/Step2Identity';
 import { Step3DOB }           from '@/components/auth/artist-registration/Step3DOB';
@@ -32,13 +35,28 @@ import { Step4ArtistProfile } from '@/components/auth/artist-registration/Step4A
 import { Step5Media }         from '@/components/auth/artist-registration/Step5Media';
 import { uploadMediaFlow, uploadVideoFlow } from '@/utils/upload';
 
+// CL steps (reused from the standalone cl-onboarding wizard)
+import CLStep1Identity from '@/components/auth/cl-onboarding/Step1Identity';
+import CLStep2Visual   from '@/components/auth/cl-onboarding/Step2Visual';
+import CLStep3About    from '@/components/auth/cl-onboarding/Step3About';
+import CLStep4Details  from '@/components/auth/cl-onboarding/Step4Details';
+import DoneCarousel    from '@/components/auth/cl-onboarding/DoneCarousel';
+import type { CLOFormData } from '@/types/clOnboarding';
+
+const CL_EMPTY: CLOFormData = {
+    organizationName: '', organizerTypeCategory: '', city: '',
+    logoUrl: '', coverUrl: '',
+    bio: '', services: [],
+    organizationWebsite: '', yearsInBusiness: '', teamSize: '',
+};
+
 const C = {
-    bg:          '#121216',
-    orange:      '#FF6B35',
-    t1:          '#F2F0EB',
-    t3:          '#706C6A',
-    t4:          '#4A4648',
-    border:      'rgba(255,255,255,0.07)',
+    bg:     '#121216',
+    orange: '#FF6B35',
+    t1:     '#F2F0EB',
+    t3:     '#706C6A',
+    t4:     '#4A4648',
+    border: 'rgba(255,255,255,0.07)',
 };
 const FONT = {
     body:    'Outfit-Regular',
@@ -46,9 +64,9 @@ const FONT = {
     mono:    'SpaceMono-Regular',
 };
 
-const TOTAL_STEPS = 5;
+const ARTIST_TOTAL = 5;
+const CL_TOTAL     = 7; // 3 shared + 4 CL-specific
 
-// Strong ease-out for entrances; ease-in-out for outgoing moves.
 const EASE_OUT    = Easing.bezier(0.23, 1, 0.32, 1);
 const EASE_IN_OUT = Easing.bezier(0.77, 0, 0.175, 1);
 
@@ -56,23 +74,41 @@ export default function RegisterScreen() {
     const setAuth = useAuthStore((s) => s.setAuth);
     const checkEmailMutation = useCheckEmail();
 
+    // Role from welcome.tsx params
+    const { role: roleParam } = useLocalSearchParams<{ role?: string }>();
+    const isCL = roleParam === 'creative_lead';
+    const TOTAL_STEPS = isCL ? CL_TOTAL : ARTIST_TOTAL;
+
     /* ─── Wizard cursor ─── */
     const [stepIdx, setStepIdx] = useState(0);
     const [stepError, setStepError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    // CL: once the account is created (step 2→3), prevent going back past step 3
+    const [clAccountCreated, setClAccountCreated] = useState(false);
+    // CL: show DoneCarousel after final save
+    const [showDone, setShowDone] = useState(false);
 
-    /* ─── Form state ─── */
+    /* ─── Shared form state (steps 0-2) ─── */
     const [email, setEmail]       = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
     const [stageName, setStageName] = useState('');
     const [dob, setDob]           = useState<Date | null>(null);
+
+    /* ─── Artist-specific form state (steps 3-4) ─── */
     const [artistType, setArtistType] = useState('');
     const [skills, setSkills]     = useState<string[]>([]);
     const [bio, setBio]           = useState('');
     const [photos, setPhotos]     = useState<ImagePickerAsset[]>([]);
     const [avatar, setAvatar]     = useState<ImagePickerAsset | null>(null);
     const [videoAssets, setVideoAssets] = useState<ImagePickerAsset[]>([]);
+
+    /* ─── CL-specific form state (steps 3-6) ─── */
+    const [clData, setClData] = useState<CLOFormData>(CL_EMPTY);
+    const updateCL = useCallback(
+        (patch: Partial<CLOFormData>) => setClData(prev => ({ ...prev, ...patch })),
+        [],
+    );
 
     /* ─── Derived age ─── */
     const ageYears = useMemo<number | null>(() => {
@@ -84,14 +120,13 @@ export default function RegisterScreen() {
     const isMinor = ageYears !== null && ageYears < MAJORITY_AGE;
 
     /* ─── Shared values ─── */
-    const translateX  = useSharedValue(0);
-    const opacity     = useSharedValue(1);
-    const ctaScale    = useSharedValue(1);
+    const translateX   = useSharedValue(0);
+    const opacity      = useSharedValue(1);
+    const ctaScale     = useSharedValue(1);
     const contentStyle = useAnimatedStyle(() => ({
         opacity: opacity.get(),
         transform: [{ translateX: translateX.get() }],
     }));
-
     const ctaAnimStyle = useAnimatedStyle(() => ({
         transform: [{ scale: ctaScale.get() }],
     }));
@@ -99,11 +134,7 @@ export default function RegisterScreen() {
     /* ─── Animated step transition ─── */
     function animateToStep(newIdx: number) {
         const dir = newIdx > stepIdx ? 1 : -1;
-
-        // Fire haptic at the moment of commit — same frame as the visual starts
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-        // Slide + fade out (110ms), then swap step and slide in
         translateX.set(withTiming(dir * -80, { duration: 110, easing: EASE_IN_OUT }));
         opacity.set(withTiming(0, { duration: 110, easing: EASE_IN_OUT }, (finished) => {
             'worklet';
@@ -113,10 +144,9 @@ export default function RegisterScreen() {
             opacity.set(withTiming(1, { duration: 220, easing: EASE_OUT }));
             translateX.set(withSpring(0, { duration: 400, dampingRatio: 0.85 }));
         }));
-
     }
 
-    /* ─── Per-step validation ─── */
+    /* ─── Per-step validation (shared + artist steps only) ─── */
     const validateCurrent = (): string | null => {
         switch (stepIdx) {
             case 0:
@@ -135,15 +165,84 @@ export default function RegisterScreen() {
                 return null;
             }
             case 3:
-                if (!artistType) return 'Please choose your artist type';
-                if (skills.length === 0) return 'Please select at least one skill';
+                if (!isCL) {
+                    if (!artistType) return 'Please choose your artist type';
+                    if (skills.length === 0) return 'Please select at least one skill';
+                }
                 return null;
             case 4:
-                // Photos have a minimum of 2, but user can also skip entirely via onSkip
-                if (photos.length > 0 && photos.length < 2) return 'Add at least 2 photos, or skip to continue later';
+                if (!isCL && photos.length > 0 && photos.length < 2) {
+                    return 'Add at least 2 photos, or skip to continue later';
+                }
                 return null;
             default:
                 return null;
+        }
+    };
+
+    /* ─── CL: create account (runs on step 2 → 3 transition) ─── */
+    const createCLAccount = async () => {
+        setLoading(true);
+        setStepError(null);
+        try {
+            const displayName = stageName.trim() || fullName.trim();
+            const data = await authService.register({
+                user: {
+                    displayName,
+                    email: email.trim(),
+                    password,
+                    role: 'creative_lead' as const,
+                    marketingConsent: false,
+                },
+            });
+            if (!data.token) throw new Error('No token returned');
+            let user = data.user || await authService.getMe();
+            if (!user?.role) user = await authService.getMe();
+            setAuth({ user, accessToken: data.token });
+            // Enrich DOB — non-fatal
+            try {
+                if (dob) await authService.updateProfile({ dateOfBirth: dob.toISOString() } as any);
+            } catch {}
+            setClAccountCreated(true);
+        } catch (err: any) {
+            const msg = err.response?.data?.msg || err.response?.data?.message || err.message || 'Registration failed.';
+            setStepError(msg);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    /* ─── CL: save organizer profile (triggered by Finish/Skip on step 6) ─── */
+    const saveCLProfile = async () => {
+        setLoading(true);
+        try {
+            const orgPatch: Record<string, any> = {
+                organizationName:      clData.organizationName.trim(),
+                organizerTypeCategory: clData.organizerTypeCategory,
+            };
+            if (clData.logoUrl)                    orgPatch.logoUrl              = clData.logoUrl;
+            if (clData.bio.trim())                 orgPatch.bio                  = clData.bio.trim();
+            if (clData.services.length)            orgPatch.services             = clData.services;
+            if (clData.organizationWebsite.trim()) orgPatch.organizationWebsite  = clData.organizationWebsite.trim();
+            if (clData.yearsInBusiness)            orgPatch.yearsInBusiness      = Number(clData.yearsInBusiness);
+            if (clData.teamSize)                   orgPatch.teamSize             = Number(clData.teamSize);
+            await authService.updateOrganizerProfile(orgPatch);
+
+            const userPatch: Record<string, any> = {};
+            if (clData.city.trim())  userPatch.primaryCity   = clData.city.trim();
+            if (clData.coverUrl)     userPatch.coverImageUrl = clData.coverUrl;
+            if (Object.keys(userPatch).length) await authService.updateProfile(userPatch as any);
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setShowDone(true);
+        } catch (err: any) {
+            const msg = err?.response?.data?.message ?? 'Could not save. Please try again.';
+            Alert.alert('Error', msg);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -167,18 +266,34 @@ export default function RegisterScreen() {
                     return;
                 }
             } catch {
-                // Remote failure is non-fatal — proceed
+                // Non-fatal — proceed
             }
+        }
+
+        // CL: create account when leaving DOB step (step 2 → CL steps)
+        if (isCL && stepIdx === 2) {
+            try {
+                await createCLAccount();
+                animateToStep(3);
+            } catch {
+                // Error already set in createCLAccount
+            }
+            return;
         }
 
         if (stepIdx < TOTAL_STEPS - 1) {
             animateToStep(stepIdx + 1);
         } else {
-            submitRegistration();
+            submitArtistRegistration();
         }
     };
 
     const handleBack = () => {
+        // CL: once account is created, don't go back past step 3
+        if (isCL && clAccountCreated && stepIdx <= 3) {
+            router.replace('/(app)/dashboard');
+            return;
+        }
         if (stepIdx > 0) {
             setStepError(null);
             animateToStep(stepIdx - 1);
@@ -187,8 +302,8 @@ export default function RegisterScreen() {
         }
     };
 
-    /* ─── Submit ─── */
-    const submitRegistration = async () => {
+    /* ─── Artist submit ─── */
+    const submitArtistRegistration = async () => {
         setLoading(true);
         setStepError(null);
         try {
@@ -202,14 +317,12 @@ export default function RegisterScreen() {
                     marketingConsent: false,
                 },
             });
-
             if (!data.token) throw new Error('No token returned');
-
             let user = data.user || await authService.getMe();
             if (!user?.role) user = await authService.getMe();
             setAuth({ user, accessToken: data.token });
 
-            // Enrich profile — non-fatal if it fails
+            // Enrich profile — non-fatal
             try {
                 const patch: Record<string, any> = {};
                 if (dob)           patch.dateOfBirth = dob.toISOString();
@@ -221,55 +334,35 @@ export default function RegisterScreen() {
                 console.warn('[register] profile enrich failed — user can update later', e);
             }
 
-            // Upload avatar + portfolio photos + video reels — non-fatal if it fails
+            // Upload media — non-fatal
             const hasMedia = avatar || photos.length > 0 || videoAssets.length > 0;
             if (hasMedia) {
                 try {
                     const userId = (user as any)?._id ?? '';
                     let avatarUrl: string | undefined;
                     const galleryUrls: string[] = [];
-
                     if (avatar) {
-                        const res = await uploadMediaFlow({
-                            asset: avatar,
-                            entityType: 'user',
-                            entityId: userId,
-                            purpose: 'portfolio',
-                        });
+                        const res = await uploadMediaFlow({ asset: avatar, entityType: 'user', entityId: userId, purpose: 'portfolio' });
                         if (res.success && res.url) avatarUrl = res.url;
                     }
-
                     for (const asset of photos) {
-                        const res = await uploadMediaFlow({
-                            asset,
-                            entityType: 'user',
-                            entityId: userId,
-                            purpose: 'portfolio',
-                        });
+                        const res = await uploadMediaFlow({ asset, entityType: 'user', entityId: userId, purpose: 'portfolio' });
                         if (res.success && res.url) galleryUrls.push(res.url);
                     }
-
                     const mediaPatch: Record<string, any> = {};
                     if (avatarUrl) mediaPatch.profileImageUrl = avatarUrl;
                     else if (galleryUrls.length) mediaPatch.profileImageUrl = galleryUrls[0];
                     if (galleryUrls.length) mediaPatch.galleryUrls = galleryUrls;
-
                     if (videoAssets.length > 0) {
                         const reels: Array<{ uploadId: string; status: string; muxPlaybackId: string }> = [];
                         for (const asset of videoAssets) {
-                            const vRes = await uploadVideoFlow({
-                                asset,
-                                entityType: 'user',
-                                entityId: userId,
-                                purpose: 'portfolio',
-                            });
+                            const vRes = await uploadVideoFlow({ asset, entityType: 'user', entityId: userId, purpose: 'portfolio' });
                             if (vRes.success && vRes.uploadId) {
                                 reels.push({ uploadId: vRes.uploadId, status: 'processing', muxPlaybackId: '' });
                             }
                         }
                         if (reels.length) mediaPatch.videoReels = reels;
                     }
-
                     if (Object.keys(mediaPatch).length) await authService.updateProfile(mediaPatch);
                 } catch (e) {
                     console.warn('[register] media upload failed — user can add from profile', e);
@@ -293,13 +386,22 @@ export default function RegisterScreen() {
         setSkills(defaultSkills);
     };
 
-    const isMediaStep = stepIdx === TOTAL_STEPS - 1;
-    const mediaCtaLocked = isMediaStep && photos.length > 0 && photos.length < 2;
-    const mediaCtaEnabled = isMediaStep && photos.length >= 2;
+    const isArtistMediaStep = !isCL && stepIdx === TOTAL_STEPS - 1;
+    const mediaCtaLocked    = isArtistMediaStep && photos.length > 0 && photos.length < 2;
 
-    const ctaLabel = isMediaStep
+    const ctaLabel = isArtistMediaStep
         ? (loading ? 'Creating your account…' : 'Create account')
-        : 'Continue';
+        : (isCL && stepIdx === 2 && loading)
+            ? 'Creating your account…'
+            : 'Continue';
+
+    // CL: after final save → full-screen DoneCarousel
+    if (showDone) {
+        return <DoneCarousel onDone={() => router.replace('/(app)/dashboard')} />;
+    }
+
+    // CL steps 3-6 have their own full-screen layout (KeyboardAvoidingView + ScrollView + CTA)
+    const showCLSteps = isCL && stepIdx >= 3;
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
@@ -325,138 +427,174 @@ export default function RegisterScreen() {
                 </View>
             </View>
 
-            <ScrollView
-                contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24 }}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-            >
-                {/* Step content — Reanimated slide + fade */}
-                <Animated.View style={[{ paddingTop: 16, paddingBottom: 32 }, contentStyle]}>
-                    {stepIdx === 0 && (
-                        <Step1Credentials
-                            email={email} setEmail={setEmail}
-                            password={password} setPassword={setPassword}
-                            onClear={() => setStepError(null)}
-                        />
-                    )}
-                    {stepIdx === 1 && (
-                        <Step2Identity
-                            fullName={fullName} setFullName={setFullName}
-                            stageName={stageName} setStageName={setStageName}
-                            onClear={() => setStepError(null)}
-                        />
-                    )}
-                    {stepIdx === 2 && (
-                        <Step3DOB
-                            dob={dob} setDob={setDob}
-                            ageYears={ageYears} isMinor={isMinor}
-                            onClear={() => setStepError(null)}
-                        />
-                    )}
+            {showCLSteps ? (
+                /* CL steps 3-6: each component owns its layout and CTA */
+                <Animated.View style={[{ flex: 1 }, contentStyle]}>
                     {stepIdx === 3 && (
-                        <Step4ArtistProfile
-                            artistType={artistType}
-                            onTypeChange={handleTypeChange}
-                            skills={skills} setSkills={setSkills}
-                            bio={bio} setBio={setBio}
+                        <CLStep1Identity
+                            data={clData}
+                            update={updateCL}
+                            onNext={() => animateToStep(4)}
                         />
                     )}
                     {stepIdx === 4 && (
-                        <Step5Media
-                            photos={photos}
-                            setPhotos={setPhotos}
-                            avatar={avatar}
-                            setAvatar={setAvatar}
-                            videoAssets={videoAssets}
-                            setVideoAssets={setVideoAssets}
-                            uploading={loading}
+                        <CLStep2Visual
+                            data={clData}
+                            update={updateCL}
+                            onNext={() => animateToStep(5)}
+                            onSkip={() => animateToStep(5)}
+                        />
+                    )}
+                    {stepIdx === 5 && (
+                        <CLStep3About
+                            data={clData}
+                            update={updateCL}
+                            onNext={() => animateToStep(6)}
+                            onSkip={() => animateToStep(6)}
+                        />
+                    )}
+                    {stepIdx === 6 && (
+                        <CLStep4Details
+                            data={clData}
+                            update={updateCL}
+                            onFinish={saveCLProfile}
+                            onSkip={saveCLProfile}
+                            saving={loading}
                         />
                     )}
                 </Animated.View>
-
-                {/* Error */}
-                {stepError && (
-                    <View style={styles.errorBox}>
-                        <Text style={styles.errorText}>{stepError}</Text>
-                    </View>
-                )}
-            </ScrollView>
-
-            {/* CTA — scale feedback on press */}
-            <View style={styles.ctaContainer}>
-                <Animated.View style={ctaAnimStyle}>
-                    <Pressable
-                        onPress={handleNext}
-                        onPressIn={() => {
-                            if (!mediaCtaLocked) ctaScale.set(withTiming(0.97, { duration: 100 }));
-                        }}
-                        onPressOut={() => {
-                            ctaScale.set(withSpring(1, { duration: 300, dampingRatio: 0.6 }));
-                        }}
-                        disabled={loading || mediaCtaLocked}
-                        style={[styles.cta, (loading || mediaCtaLocked) && styles.ctaDim]}
+            ) : (
+                /* Shared steps (0-2) + artist steps (3-4) */
+                <>
+                    <ScrollView
+                        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24 }}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
                     >
-                        {mediaCtaLocked ? (
-                            <View style={[styles.ctaGrad, { backgroundColor: '#1C1C20' }]}>
-                                <Text style={[styles.ctaLabel, { color: C.t4 }]}>{ctaLabel}</Text>
+                        <Animated.View style={[{ paddingTop: 16, paddingBottom: 32 }, contentStyle]}>
+                            {stepIdx === 0 && (
+                                <Step1Credentials
+                                    email={email} setEmail={setEmail}
+                                    password={password} setPassword={setPassword}
+                                    onClear={() => setStepError(null)}
+                                />
+                            )}
+                            {stepIdx === 1 && (
+                                <Step2Identity
+                                    fullName={fullName} setFullName={setFullName}
+                                    stageName={stageName} setStageName={setStageName}
+                                    onClear={() => setStepError(null)}
+                                />
+                            )}
+                            {stepIdx === 2 && (
+                                <Step3DOB
+                                    dob={dob} setDob={setDob}
+                                    ageYears={ageYears} isMinor={isMinor}
+                                    onClear={() => setStepError(null)}
+                                />
+                            )}
+                            {!isCL && stepIdx === 3 && (
+                                <Step4ArtistProfile
+                                    artistType={artistType}
+                                    onTypeChange={handleTypeChange}
+                                    skills={skills} setSkills={setSkills}
+                                    bio={bio} setBio={setBio}
+                                />
+                            )}
+                            {!isCL && stepIdx === 4 && (
+                                <Step5Media
+                                    photos={photos} setPhotos={setPhotos}
+                                    avatar={avatar} setAvatar={setAvatar}
+                                    videoAssets={videoAssets} setVideoAssets={setVideoAssets}
+                                    uploading={loading}
+                                />
+                            )}
+                        </Animated.View>
+
+                        {stepError && (
+                            <View style={styles.errorBox}>
+                                <Text style={styles.errorText}>{stepError}</Text>
                             </View>
-                        ) : (
-                            <LinearGradient
-                                colors={['#FF8C5A', '#FF6B35', '#E55A20']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.ctaGrad}
+                        )}
+                    </ScrollView>
+
+                    {/* CTA */}
+                    <View style={styles.ctaContainer}>
+                        <Animated.View style={ctaAnimStyle}>
+                            <Pressable
+                                onPress={handleNext}
+                                onPressIn={() => {
+                                    if (!mediaCtaLocked) ctaScale.set(withTiming(0.97, { duration: 100 }));
+                                }}
+                                onPressOut={() => {
+                                    ctaScale.set(withSpring(1, { duration: 300, dampingRatio: 0.6 }));
+                                }}
+                                disabled={loading || mediaCtaLocked}
+                                style={[styles.cta, (loading || mediaCtaLocked) && styles.ctaDim]}
                             >
-                                {loading
-                                    ? <ActivityIndicator color="#fff" size="small" />
-                                    : <Text style={styles.ctaLabel}>{ctaLabel}</Text>
-                                }
-                            </LinearGradient>
-                        )}
-                    </Pressable>
-                </Animated.View>
+                                {mediaCtaLocked ? (
+                                    <View style={[styles.ctaGrad, { backgroundColor: '#1C1C20' }]}>
+                                        <Text style={[styles.ctaLabel, { color: C.t4 }]}>{ctaLabel}</Text>
+                                    </View>
+                                ) : (
+                                    <LinearGradient
+                                        colors={['#FF8C5A', '#FF6B35', '#E55A20']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.ctaGrad}
+                                    >
+                                        {loading
+                                            ? <ActivityIndicator color="#fff" size="small" />
+                                            : <Text style={styles.ctaLabel}>{ctaLabel}</Text>
+                                        }
+                                    </LinearGradient>
+                                )}
+                            </Pressable>
+                        </Animated.View>
 
-                {/* Media step: hint + skip */}
-                {isMediaStep && (
-                    <>
-                        {mediaCtaLocked && (
-                            <Text style={{
-                                fontFamily: FONT.mono,
-                                fontSize: 8,
-                                color: C.t4,
-                                letterSpacing: 1,
-                                textTransform: 'uppercase',
-                                textAlign: 'center',
-                                marginTop: 6,
-                            }}>
-                                Add 2 photos to continue
-                            </Text>
+                        {/* Artist media step extras */}
+                        {isArtistMediaStep && (
+                            <>
+                                {mediaCtaLocked && (
+                                    <Text style={{
+                                        fontFamily: FONT.mono,
+                                        fontSize: 8,
+                                        color: C.t4,
+                                        letterSpacing: 1,
+                                        textTransform: 'uppercase',
+                                        textAlign: 'center',
+                                        marginTop: 6,
+                                    }}>
+                                        Add 2 photos to continue
+                                    </Text>
+                                )}
+                                <Pressable
+                                    onPress={() => submitArtistRegistration()}
+                                    style={{ paddingVertical: 8 }}
+                                >
+                                    <Text style={{
+                                        fontFamily: FONT.body,
+                                        fontSize: 13,
+                                        color: C.t3,
+                                        textAlign: 'center',
+                                    }}>
+                                        Skip for now
+                                    </Text>
+                                </Pressable>
+                            </>
                         )}
-                        <Pressable
-                            onPress={() => submitRegistration()}
-                            style={{ paddingVertical: 8 }}
-                        >
-                            <Text style={{
-                                fontFamily: FONT.body,
-                                fontSize: 13,
-                                color: C.t3,
-                                textAlign: 'center',
-                            }}>
-                                Skip for now
-                            </Text>
-                        </Pressable>
-                    </>
-                )}
 
-                {stepIdx === 0 && (
-                    <Pressable onPress={() => router.replace('/(auth)/login')} style={{ marginTop: 16 }}>
-                        <Text style={{ fontFamily: FONT.body, fontSize: 13, color: C.t4, textAlign: 'center' }}>
-                            Already have an account?{' '}
-                            <Text style={{ color: C.orange }}>Log in</Text>
-                        </Text>
-                    </Pressable>
-                )}
-            </View>
+                        {stepIdx === 0 && (
+                            <Pressable onPress={() => router.replace('/(auth)/login')} style={{ marginTop: 16 }}>
+                                <Text style={{ fontFamily: FONT.body, fontSize: 13, color: C.t4, textAlign: 'center' }}>
+                                    Already have an account?{' '}
+                                    <Text style={{ color: C.orange }}>Log in</Text>
+                                </Text>
+                            </Pressable>
+                        )}
+                    </View>
+                </>
+            )}
         </SafeAreaView>
     );
 }
@@ -493,7 +631,7 @@ const styles = StyleSheet.create({
     ctaContainer: {
         paddingHorizontal: 24,
         paddingBottom: 24,
-        paddingTop: 8,
+        paddingTop: 20,
     },
     cta: {
         borderRadius: 14,

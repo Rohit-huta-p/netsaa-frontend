@@ -36,7 +36,7 @@ export default function Step2Visual({ data, update, onNext, onSkip }: Props) {
     try {
       const asset = await pickAndCrop('logo');
       if (!asset) return;
-      const res = await uploadMediaFlow({ asset, entityType: 'user', entityId: userId, purpose: 'logo' });
+      const res = await uploadMediaFlow({ asset, entityType: 'user', entityId: userId, purpose: 'avatar' });
       if (res?.url) update({ logoUrl: res.url });
     } catch {
       Alert.alert('Upload failed', 'Could not upload logo. Please try again.');

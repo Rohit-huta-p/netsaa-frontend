@@ -21,7 +21,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, TextInput, ScrollView, StyleSheet } from 'react-native';
-import { ChevronDown, Search, Check, X } from 'lucide-react-native';
+import { ChevronDown, Search, Check, X, Plus } from 'lucide-react-native';
 
 export type MultiSelectOption = { value: string; label: string };
 
@@ -48,6 +48,7 @@ export function SearchableMultiSelect({
   placeholder = 'Select…',
   searchPlaceholder = 'Search…',
   emptyText = 'No matches.',
+  allowCustom = false,
 }: {
   /** Currently-selected option values. */
   selected: string[];
@@ -61,6 +62,8 @@ export function SearchableMultiSelect({
   searchPlaceholder?: string;
   /** Shown when the search filters out every option. */
   emptyText?: string;
+  /** Allow typing a custom value not in the list. */
+  allowCustom?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
@@ -73,6 +76,13 @@ export function SearchableMultiSelect({
       (o) => o.label.toLowerCase().includes(t) || o.value.toLowerCase().includes(t)
     );
   }, [q, options]);
+
+  const customValue = q.trim();
+  const exactMatch = options.some(
+    (o) => o.value.toLowerCase() === customValue.toLowerCase() ||
+           o.label.toLowerCase() === customValue.toLowerCase()
+  );
+  const showAddRow = allowCustom && customValue.length > 0 && !exactMatch && !selected.includes(customValue);
 
   return (
     <View>
@@ -113,7 +123,16 @@ export function SearchableMultiSelect({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {filtered.length === 0 ? (
+            {showAddRow && (
+              <Pressable
+                style={s.addRow}
+                onPress={() => { onToggle(customValue); setQ(''); }}
+              >
+                <Plus size={13} color={C.orange} strokeWidth={2.5} />
+                <Text style={s.addRowTxt}>Add "{customValue}"</Text>
+              </Pressable>
+            )}
+            {filtered.length === 0 && !showAddRow ? (
               <Text style={s.empty}>{emptyText}</Text>
             ) : (
               filtered.map((o) => {
@@ -204,4 +223,18 @@ const s = StyleSheet.create({
   pillTxt: { fontFamily: F.semi, fontSize: 12.5, color: C.t2 },
   pillTxtOn: { color: C.ink, fontFamily: F.bold },
   empty: { fontFamily: F.body, fontSize: 12, color: C.t3, paddingVertical: 4 },
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.orangeBorder,
+    backgroundColor: C.orangeSoft,
+    marginBottom: 4,
+    alignSelf: 'flex-start',
+  },
+  addRowTxt: { fontFamily: F.semi, fontSize: 12.5, color: C.orange },
 });

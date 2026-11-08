@@ -15,23 +15,45 @@ interface Props {
 }
 
 const SERVICES_OPTIONS = [
-  { value: 'Classical Dance',        label: 'Classical Dance' },
-  { value: 'Bollywood Dance',        label: 'Bollywood Dance' },
-  { value: 'Contemporary Dance',     label: 'Contemporary Dance' },
-  { value: 'Folk Dance',             label: 'Folk Dance' },
-  { value: 'Classical Music',        label: 'Classical Music' },
-  { value: 'Film Music',             label: 'Film Music' },
-  { value: 'Fusion Music',           label: 'Fusion Music' },
-  { value: 'Theatre',                label: 'Theatre' },
-  { value: 'Stand-up Comedy',        label: 'Stand-up Comedy' },
-  { value: 'Storytelling',           label: 'Storytelling' },
-  { value: 'Spoken Word',            label: 'Spoken Word' },
-  { value: 'Magic',                  label: 'Magic' },
-  { value: 'Acrobatics',             label: 'Acrobatics' },
-  { value: 'Puppetry',               label: 'Puppetry' },
-  { value: 'Event Hosting',          label: 'Event Hosting' },
-  { value: 'Wedding Entertainment',  label: 'Wedding Entertainment' },
-  { value: 'Corporate Events',       label: 'Corporate Events' },
+  // Dance & Choreography
+  { value: 'Sangeet Choreography',       label: 'Sangeet Choreography' },
+  { value: 'Wedding Choreography',       label: 'Wedding Choreography' },
+  { value: 'Bharatanatyam',             label: 'Bharatanatyam' },
+  { value: 'Kathak',                    label: 'Kathak' },
+  { value: 'Bollywood Dance',           label: 'Bollywood Dance' },
+  { value: 'Contemporary Dance',        label: 'Contemporary Dance' },
+  { value: 'Folk Dance',                label: 'Folk Dance' },
+  { value: 'Classical Dance',           label: 'Classical Dance' },
+  { value: 'Bhangra',                   label: 'Bhangra' },
+  { value: 'Lavani',                    label: 'Lavani' },
+  { value: 'Garba & Dandiya',           label: 'Garba & Dandiya' },
+  // Music
+  { value: 'Live Band',                 label: 'Live Band' },
+  { value: 'Bollywood Playback',        label: 'Bollywood Playback' },
+  { value: 'Ghazal & Sufi',            label: 'Ghazal & Sufi' },
+  { value: 'Classical Music',           label: 'Classical Music' },
+  { value: 'Fusion Music',              label: 'Fusion Music' },
+  { value: 'Bhajans & Devotional',      label: 'Bhajans & Devotional' },
+  // Drama & Comedy
+  { value: 'Theatre',                   label: 'Theatre' },
+  { value: 'Stand-up Comedy',           label: 'Stand-up Comedy' },
+  { value: 'Storytelling',              label: 'Storytelling' },
+  { value: 'Spoken Word',              label: 'Spoken Word' },
+  { value: 'Mime & Physical Theatre',  label: 'Mime & Physical Theatre' },
+  // Anchoring & Hosting
+  { value: 'Wedding Hosting',           label: 'Wedding Hosting' },
+  { value: 'Corporate Events',          label: 'Corporate Events' },
+  { value: 'Award Shows',              label: 'Award Shows' },
+  { value: 'Cultural Festivals',        label: 'Cultural Festivals' },
+  { value: 'Fashion Shows',            label: 'Fashion Shows' },
+  // Other
+  { value: 'DJ & Music Production',    label: 'DJ & Music Production' },
+  { value: 'Magic & Illusionism',      label: 'Magic & Illusionism' },
+  { value: 'Acrobatics & Circus',      label: 'Acrobatics & Circus' },
+  { value: 'Puppetry',                 label: 'Puppetry' },
+  { value: 'Artist Management',        label: 'Artist Management' },
+  { value: 'Film & Ad Production',     label: 'Film & Ad Production' },
+  { value: 'Music Production',         label: 'Music Production' },
 ];
 
 export default function Step3About({ data, update, onNext, onSkip }: Props) {
@@ -83,8 +105,9 @@ export default function Step3About({ data, update, onNext, onSkip }: Props) {
           options={SERVICES_OPTIONS}
           onToggle={toggleService}
           placeholder="Select specialties"
-          searchPlaceholder="Search specialties…"
+          searchPlaceholder="Search or add your own…"
           emptyText="No specialties match."
+          allowCustom
         />
 
         <View style={{ height: 100 }} />

@@ -140,36 +140,97 @@ export const BLOCKING_STEPS: ReadonlySet<StepId> = new Set<StepId>([
  * ═════════════════════════════════════════════════════════════ */
 
 export const ARTIST_SKILLS: Record<string, string[]> = {
-    dancer:   ['Hip-hop', 'Contemporary', 'Bollywood', 'Classical', 'Folk', 'Western', 'Jazz', 'Ballet'],
-    singer:   ['Hindustani Classical', 'Carnatic', 'Bollywood', 'Pop / Indie', 'Ghazal', 'Folk', 'Sufi'],
-    musician: ['Guitar', 'Tabla', 'Violin', 'Piano', 'Flute', 'Sitar', 'Mridangam', 'Drums'],
-    dj:       ['Bollywood', 'EDM', 'Hip-hop', 'House', 'Techno', 'Commercial', 'Punjabi'],
-    actor:    ['Theatre', 'Film', 'TV / Web Series', 'Voiceover', 'Mime', 'Stand-up Comedy'],
-    anchor:   ['Corporate Events', 'Weddings', 'Award Shows', 'News', 'Radio'],
-    folk:     ['Lavani', 'Bhangra', 'Garba', 'Dandiya', 'Chhau', 'Kuchipudi', 'Mohiniyattam'],
-    visual:   ['Photography', 'Illustration', 'Calligraphy', 'Digital Art', 'Mural', 'Installation'],
+    dancer: [
+        // Indian Classical
+        'Bharatanatyam', 'Kathak', 'Odissi', 'Kuchipudi', 'Manipuri',
+        'Mohiniyattam', 'Kathakali', 'Sattriya', 'Chhau',
+        // Folk
+        'Bhangra', 'Lavani', 'Garba', 'Dandiya', 'Ghoomar', 'Bihu', 'Koli', 'Kolattam',
+        // Western / Commercial
+        'Bollywood', 'Hip-hop', 'Contemporary', 'Freestyle', 'Waacking', 'Locking',
+        'Popping', 'Breaking', 'Ballet', 'Jazz', 'Lyrical',
+        // Event-specific
+        'Sangeet Choreography', 'Wedding Choreography', 'Group Choreography',
+        'Item Number', 'Title Track', 'Stage Show',
+    ],
+    singer: [
+        // Indian Classical
+        'Hindustani Classical', 'Carnatic', 'Thumri', 'Dadra', 'Bhajan', 'Dhrupad',
+        // Light / Semi-classical
+        'Ghazal', 'Sufi', 'Qawwali', 'Semi-Classical', 'Devotional', 'Rabindra Sangeet',
+        // Film / Commercial
+        'Bollywood Playback', 'Punjabi Pop', 'Tamil Film', 'Telugu Film', 'Marathi Film',
+        'Pop / Indie', 'Folk', 'Jingle / Commercial',
+        // Event-specific
+        'Sangeet Performances', 'Wedding Singer', 'Live Band Vocals', 'Corporate Shows',
+    ],
+    musician: [
+        // Percussion
+        'Tabla', 'Mridangam', 'Dholak', 'Dhol', 'Pakhawaj', 'Khol', 'Ghatam', 'Kanjira',
+        // Strings — Indian
+        'Sitar', 'Sarod', 'Sarangi', 'Santoor', 'Tanpura', 'Veena',
+        // Strings — Western
+        'Violin', 'Guitar', 'Bass Guitar', 'Mandolin',
+        // Wind / Keys
+        'Bansuri', 'Flute', 'Shehnai', 'Harmonium', 'Piano', 'Keyboard', 'Saxophone',
+        // Drums
+        'Drums',
+    ],
+    dj: [
+        'Bollywood DJ', 'Retro Bollywood', 'Punjabi / Bhangra DJ', 'Garba DJ',
+        'EDM', 'Hip-hop', 'House', 'Techno', 'Club DJ',
+        'Wedding DJ', 'Corporate DJ', 'Sufi Sets', 'Commercial', 'Live DJ',
+    ],
+    actor: [
+        // Stage
+        'Theatre', 'Street Theatre', 'Physical Theatre', 'Mime', 'Improv',
+        // Screen
+        'Hindi Film', 'Marathi Film', 'Tamil Film', 'Telugu Film',
+        'OTT / Streaming', 'TV / Web Series', 'Ad Film',
+        // Voice
+        'Voiceover', 'Dubbing', 'Radio Drama',
+        // Live
+        'Stand-up Comedy', 'Monologue',
+    ],
+    anchor: [
+        'Wedding Anchor', 'Sangeet Ceremonies', 'Corporate Events', 'Award Shows',
+        'Entertainment Shows', 'Fashion Shows', 'Sports Events', 'Cultural Festivals',
+        'App / Product Launch', 'Political Events', 'News / Radio',
+    ],
+    folk: [
+        'Bhangra', 'Lavani', 'Garba', 'Dandiya', 'Ghoomar', 'Bihu', 'Chholiya',
+        'Koli', 'Kolattam', 'Yakshagana', 'Dollu Kunitha', 'Theyyam', 'Poorakkali',
+        'Pulikali', 'Chhau', 'Gotipua', 'Dalkhai', 'Cheraw',
+    ],
+    visual: [
+        'Event Photography', 'Portrait Photography', 'Stage Photography',
+        'Digital Illustration', 'Illustration', 'Calligraphy',
+        'Warli', 'Madhubani', 'Pattachitra', 'Mehndi / Henna',
+        'Rangoli', 'Mural', 'Installation', 'Pottery / Ceramics',
+        'Sketch Art', 'Digital Art',
+    ],
 };
 
 export const ARTIST_SKILL_DEFAULTS: Record<string, string[]> = {
-    dancer:   ['Hip-hop', 'Contemporary'],
-    singer:   ['Bollywood', 'Folk'],
-    musician: ['Guitar'],
-    dj:       ['Bollywood', 'EDM'],
-    actor:    ['Theatre', 'Film'],
-    anchor:   ['Corporate Events', 'Weddings'],
-    folk:     ['Bhangra'],
-    visual:   ['Photography'],
+    dancer:   ['Bollywood', 'Sangeet Choreography'],
+    singer:   ['Bollywood Playback', 'Folk'],
+    musician: ['Tabla', 'Guitar'],
+    dj:       ['Bollywood DJ', 'Wedding DJ'],
+    actor:    ['Theatre', 'Hindi Film'],
+    anchor:   ['Wedding Anchor', 'Corporate Events'],
+    folk:     ['Bhangra', 'Garba'],
+    visual:   ['Event Photography', 'Digital Illustration'],
 };
 
 export const ARTIST_SKILL_HINTS: Record<string, string> = {
-    dancer: 'Dancer skills',
-    singer: 'Singer skills',
+    dancer:   'Dance styles & specialties',
+    singer:   'Vocal styles & genres',
     musician: 'Instruments & styles',
-    dj: 'DJ styles',
-    actor: 'Acting specialisms',
-    anchor: 'Hosting types',
-    folk: 'Folk forms',
-    visual: 'Visual mediums',
+    dj:       'DJ styles & event types',
+    actor:    'Acting specialisms',
+    anchor:   'Hosting & anchoring types',
+    folk:     'Folk forms & traditions',
+    visual:   'Visual art mediums',
 };
 
 /**

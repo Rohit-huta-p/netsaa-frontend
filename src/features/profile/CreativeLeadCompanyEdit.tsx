@@ -97,9 +97,22 @@ const MAX_PHOTOS = 8;
 // free string[] on the Organizer; any stored value outside this list still shows
 // as a chip (SearchableMultiSelect falls back to the raw value).
 const SPECIALTY_OPTIONS = [
-    'Sangeet', 'Bollywood', 'Contemporary', 'Classical', 'Folk', 'Choreography',
-    'Corporate shows', 'Weddings', 'Live Music', 'DJ', 'Anchoring', 'Hosting',
-    'Decor', 'Sound & Light', 'Production design', 'Event planning',
+    // Dance & Choreography
+    'Sangeet Choreography', 'Wedding Choreography', 'Bharatanatyam', 'Kathak',
+    'Bollywood Dance', 'Contemporary Dance', 'Folk Dance', 'Classical Dance',
+    'Bhangra', 'Lavani', 'Garba & Dandiya', 'Group Choreography',
+    // Music
+    'Live Band', 'Bollywood Playback', 'Ghazal & Sufi', 'Classical Music',
+    'Fusion Music', 'Bhajans & Devotional', 'DJ & Music Production',
+    // Drama & Comedy
+    'Theatre', 'Stand-up Comedy', 'Storytelling', 'Spoken Word', 'Mime & Physical Theatre',
+    // Anchoring & Hosting
+    'Wedding Hosting', 'Corporate Events', 'Award Shows', 'Cultural Festivals', 'Fashion Shows',
+    // Production & Management
+    'Artist Management', 'Film & Ad Production', 'Music Production',
+    'Event Planning', 'Decor & Staging', 'Sound & Light',
+    // Variety
+    'Magic & Illusionism', 'Acrobatics & Circus', 'Puppetry',
 ].map((v) => ({ value: v, label: v }));
 
 const TABS = [
@@ -451,7 +464,8 @@ export function CreativeLeadCompanyEdit() {
                         options={SPECIALTY_OPTIONS}
                         onToggle={toggleService}
                         placeholder="Add specialties"
-                        searchPlaceholder="Search or pick a specialty…"
+                        searchPlaceholder="Search or add your own…"
+                        allowCustom
                     />
                 </View>
 

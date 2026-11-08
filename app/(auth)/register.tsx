@@ -48,6 +48,7 @@ const CL_EMPTY: CLOFormData = {
     logoUrl: '', coverUrl: '',
     bio: '', services: [],
     organizationWebsite: '', yearsInBusiness: '', teamSize: '',
+    instagramHandle: '',
 };
 
 const C = {
@@ -230,6 +231,7 @@ export default function RegisterScreen() {
             if (clData.organizationWebsite.trim()) orgPatch.organizationWebsite  = clData.organizationWebsite.trim();
             if (clData.yearsInBusiness)            orgPatch.yearsInBusiness      = Number(clData.yearsInBusiness);
             if (clData.teamSize)                   orgPatch.teamSize             = Number(clData.teamSize);
+            if (clData.instagramHandle?.trim())    orgPatch.instagramHandle      = clData.instagramHandle.trim();
             await authService.updateOrganizerProfile(orgPatch);
 
             const userPatch: Record<string, any> = {};

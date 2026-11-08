@@ -9,4 +9,5 @@ export type CLOFormData = {
   organizationWebsite: string;
   yearsInBusiness: string;
   teamSize: string;
+  instagramHandle?: string;
 };

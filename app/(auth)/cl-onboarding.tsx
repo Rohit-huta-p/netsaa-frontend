@@ -21,6 +21,7 @@ const EMPTY: CLOFormData = {
   logoUrl: '', coverUrl: '',
   bio: '', services: [],
   organizationWebsite: '', yearsInBusiness: '', teamSize: '',
+  instagramHandle: '',
 };
 
 const STEP_INFO = [
@@ -79,6 +80,7 @@ export default function CLOnboarding() {
       if (data.organizationWebsite.trim()) orgPatch.organizationWebsite  = data.organizationWebsite.trim();
       if (data.yearsInBusiness)            orgPatch.yearsInBusiness      = Number(data.yearsInBusiness);
       if (data.teamSize)                   orgPatch.teamSize             = Number(data.teamSize);
+      if (data.instagramHandle?.trim())    orgPatch.instagramHandle      = data.instagramHandle.trim();
       await authService.updateOrganizerProfile(orgPatch);
 
       const userPatch: Record<string, any> = {};

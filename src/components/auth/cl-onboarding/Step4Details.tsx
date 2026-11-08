@@ -79,13 +79,20 @@ export default function Step4Details({ data, update, onFinish, onSkip, saving }:
         />
         <Text style={s.fieldHint}>Full-time + regular freelancers you work with</Text>
 
-        {/* Instagram placeholder — Phase 2 */}
-        <View style={s.p2Row}>
-          <Text style={s.p2Label}>INSTAGRAM</Text>
-          <View style={s.p2Input}>
-            <Text style={s.p2Text}>Coming soon</Text>
-          </View>
-        </View>
+        {/* Instagram */}
+        <Text style={[s.label, { marginTop: 20 }]}>INSTAGRAM</Text>
+        <TextInput
+          style={[s.input, focused === 'ig' && s.inputFocused]}
+          placeholder="@yourhandle"
+          placeholderTextColor="rgba(245,245,240,0.22)"
+          value={data.instagramHandle ?? ''}
+          onChangeText={v => update({ instagramHandle: v })}
+          onFocus={() => setFocused('ig')}
+          onBlur={() => setFocused(null)}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="done"
+        />
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -115,10 +122,6 @@ const s = StyleSheet.create({
   input:       { backgroundColor: '#1C1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontFamily: 'Outfit-Regular', fontSize: 15, color: '#F5F5F0' },
   inputFocused:{ borderColor: '#FF6B35' },
   fieldHint:   { fontFamily: 'Outfit-Light', fontSize: 11, color: 'rgba(245,245,240,0.25)', marginTop: 5 },
-  p2Row:       { marginTop: 24 },
-  p2Label:     { fontFamily: 'SpaceMono-Regular', fontSize: 9, letterSpacing: 1.4, color: 'rgba(245,245,240,0.14)', marginBottom: 8 },
-  p2Input:     { backgroundColor: 'rgba(28,28,35,0.4)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13 },
-  p2Text:      { fontFamily: 'Outfit-Regular', fontSize: 14, color: 'rgba(245,245,240,0.18)' },
   ctaRow:      { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingBottom: 28, paddingTop: 12, backgroundColor: '#121216' },
   skipBtn:     { flex: 1, paddingVertical: 15, alignItems: 'center', borderRadius: 12, backgroundColor: '#1C1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   skipText:    { fontFamily: 'Outfit-Regular', fontSize: 14, color: 'rgba(245,245,240,0.45)' },

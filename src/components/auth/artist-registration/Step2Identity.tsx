@@ -19,7 +19,7 @@ export function Step2Identity({ fullName, setFullName, stageName, setStageName, 
         <View>
             <View style={{ marginBottom: 28 }}>
                 <Text style={s.eyebrow}>STEP 2 OF 5</Text>
-                <Text style={s.headline}>Who are you?</Text>
+                <Text style={s.headline}>How do people{'\n'}recognize you?</Text>
                 <Text style={s.subhead}>Your name on the platform.</Text>
             </View>
 
@@ -62,7 +62,7 @@ export function Step2Identity({ fullName, setFullName, stageName, setStageName, 
             </View>
 
             <StepInput
-                label="Phone number (optional)"
+                label="Phone number"
                 value={phoneNumber}
                 onChangeText={(v) => { setPhoneNumber(v); onClear(); }}
                 placeholder="+91 98765 43210"

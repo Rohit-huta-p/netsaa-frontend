@@ -31,9 +31,12 @@ import {
     Pressable,
     Share,
     Linking,
+    Modal,
+    useWindowDimensions,
     StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight } from 'lucide-react-native';
@@ -147,8 +150,12 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     const [previewAsVisitor, setPreviewAsVisitor] = useState(false);
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
-    // `owner` gates the owner layer; false while previewing the page as a visitor.
-    const owner = isOwner && !previewAsVisitor;
+    // The page body is rendered by renderBody(owner): the live page passes `isOwner`,
+    // and the "View as visitor" phone preview passes `false`. "View as visitor" opens a
+    // centred phone-frame Modal over the blurred owner page rather than swapping inline.
+    const { width: winW, height: winH } = useWindowDimensions();
+    const phoneW = Math.min(winW - 56, 380);
+    const phoneH = Math.min(winH * 0.72, phoneW * 2.0);
 
     const d: CLData = useMemo(() => {
         const base = (fetched ?? {}) as CLData;
@@ -173,8 +180,9 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     const gigs = gigsData?.gigs ?? [];
     const gigsTotal = gigsData?.total ?? 0;
 
-    // ── Owner-only derived data ──
-    const ownerGigs: any[] = owner ? ((ownerGigsRaw as any[]) ?? []) : [];
+    // ── Owner-only derived data (available whenever isOwner, independent of the
+    // visitor-preview toggle, so the live owner page keeps its gigs while previewing) ──
+    const ownerGigs: any[] = isOwner ? ((ownerGigsRaw as any[]) ?? []) : [];
     const applicantsToReview = ownerGigs.reduce((a, g) => a + (g.applicants ?? 0), 0);
     // Page completeness — filled showcase fields over the set a company page needs.
     const completeChecks = [
@@ -220,9 +228,8 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
         ? (/^https?:\/\//i.test(website) ? website : `https://${website}`)
         : null;
 
-    return (
-        <View style={s.container}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 90 }} showsVerticalScrollIndicator={false}>
+    const renderBody = (owner: boolean) => (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 90 }} showsVerticalScrollIndicator={false}>
                 {/* ═══ COVER + TOPBAR ═══ */}
                 <View style={s.cover}>
                     {d.coverImageUrl ? (
@@ -550,6 +557,11 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                 <View style={s.frule} />
                 <Text style={s.fcap}>{name.toUpperCase()}{d.yearsInBusiness != null ? ` · SINCE ${new Date().getFullYear() - d.yearsInBusiness}` : ''}</Text>
             </ScrollView>
+    );
+
+    return (
+        <View style={s.container}>
+            {renderBody(isOwner)}
 
             {viewerIndex !== null && mediaItems[viewerIndex] && (
                 <MediaViewer
@@ -561,11 +573,41 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                 />
             )}
 
+            {/* ═══ VIEW-AS-VISITOR — centred phone-frame preview over the blurred page ═══ */}
             {isOwner && previewAsVisitor && (
-                <Pressable style={s.previewBar} onPress={() => setPreviewAsVisitor(false)}>
-                    <Eye size={13} color="#190B05" />
-                    <Text style={s.previewBarText}>Previewing as visitor — tap to exit</Text>
-                </Pressable>
+                <Modal
+                    visible
+                    transparent
+                    animationType="fade"
+                    statusBarTranslucent
+                    onRequestClose={() => setPreviewAsVisitor(false)}
+                >
+                    <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill}>
+                        <Pressable style={s.previewScrim} onPress={() => setPreviewAsVisitor(false)}>
+                            <View style={s.previewHead}>
+                                <Eye size={13} color={C.t2} />
+                                <Text style={s.previewHeadText}>How visitors see your page</Text>
+                            </View>
+
+                            {/* Phone shell. Swallow taps so scrolling the preview doesn't dismiss it. */}
+                            <Pressable style={[s.phone, { width: phoneW, height: phoneH }]} onPress={() => {}}>
+                                <View style={s.phoneScreen}>
+                                    {renderBody(false)}
+                                    <LinearGradient
+                                        colors={['transparent', 'rgba(5,5,8,0.85)']}
+                                        style={s.phoneFade}
+                                        pointerEvents="none"
+                                    />
+                                    <View style={s.phoneNotch} pointerEvents="none" />
+                                </View>
+                            </Pressable>
+
+                            <Pressable style={s.previewDone} onPress={() => setPreviewAsVisitor(false)} hitSlop={8}>
+                                <Text style={s.previewDoneText}>Done</Text>
+                            </Pressable>
+                        </Pressable>
+                    </BlurView>
+                </Modal>
             )}
         </View>
     );
@@ -883,6 +925,14 @@ const s = StyleSheet.create({
     ecardAdd: { width: 128, borderRadius: 14, borderWidth: 1, borderColor: C.hair, borderStyle: 'dashed', backgroundColor: C.well, alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 20 },
     ecardAddText: { fontFamily: F.semi, fontSize: 12, color: C.t1, textAlign: 'center', lineHeight: 15 },
     emanage: { fontFamily: F.mono, fontSize: 9, letterSpacing: 0.8, color: C.orange, marginTop: 8 },
-    previewBar: { position: 'absolute', left: 20, right: 20, bottom: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.orange, borderRadius: 12, paddingVertical: 12 },
-    previewBarText: { fontFamily: F.bold, fontSize: 12.5, color: '#190B05', letterSpacing: 0.2 },
+    // View-as-visitor phone-frame preview
+    previewScrim: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 36, gap: 16, backgroundColor: 'rgba(6,6,10,0.42)' },
+    previewHead: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+    previewHeadText: { fontFamily: F.semi, fontSize: 12, color: C.t2, letterSpacing: 0.3 },
+    phone: { borderRadius: 46, borderWidth: 9, borderColor: '#060608', backgroundColor: '#060608', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 24 }, shadowOpacity: 0.55, shadowRadius: 44, elevation: 24 },
+    phoneScreen: { flex: 1, borderRadius: 37, overflow: 'hidden', backgroundColor: C.canvas },
+    phoneNotch: { position: 'absolute', top: 11, left: '50%', width: 104, height: 24, marginLeft: -52, borderRadius: 12, backgroundColor: '#060608' },
+    phoneFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 44 },
+    previewDone: { paddingHorizontal: 28, paddingVertical: 11, borderRadius: 22, backgroundColor: C.cream },
+    previewDoneText: { fontFamily: F.bold, fontSize: 13, color: '#121216', letterSpacing: 0.2 },
 });

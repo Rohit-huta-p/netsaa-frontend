@@ -20,15 +20,30 @@ export type IPrivacySettings = {
   showEmail: boolean;
   showPhone: boolean;
   showLocation: boolean;
+  showInDiscovery: boolean;
+};
+
+export type IAvailabilitySettings = {
+  isAvailableForWork: boolean;
 };
 
 export type INotificationSettings = {
   emailNotifications: boolean;
   pushNotifications: boolean;
+  smsNotifications: boolean;
   allowConnectionRequests: boolean;
   messages: boolean;
+  profileViews: boolean;
   gigUpdates: boolean;
+  gigShortlisted: boolean;
+  gigHired: boolean;
+  gigNotSelected: boolean;
+  gigCancelled: boolean;
+  gigDeadline: boolean;
   eventUpdates: boolean;
+  paymentReceived: boolean;
+  paymentSent: boolean;
+  paymentRefunds: boolean;
   marketing: boolean;
 };
 
@@ -48,6 +63,14 @@ export type IUserSettings = {
   notifications: INotificationSettings;
   messaging: IMessagingSettings;
   account: IAccountSettings;
+  availability: IAvailabilitySettings;
+};
+
+export type MarketingConsent = {
+  accepted: boolean;
+  acceptedAt?: string | null;
+  source?: string;
+  policyVersion?: string;
 };
 
 /** Three-role marketplace model (2026-06):
@@ -106,6 +129,7 @@ export type User = {
   events?: number;
   // Settings
   settings?: IUserSettings;
+  marketingConsent?: MarketingConsent;
   // Attached sub-documents from auth login
   organizerDetails?: any;
   artistDetails?: any;

@@ -79,6 +79,29 @@ export const useLogoutDevice = () => {
     });
 };
 
+/** Send OTP to registered phone for password reset. */
+export const useSendPasswordResetOtp = () => {
+    return useMutation({
+        mutationFn: () => securityService.sendPasswordResetOtp(),
+        onError: (err: any) => {
+            const message = err?.response?.data?.message || 'Could not send OTP. Please try again.';
+            Alert.alert('Error', message);
+        },
+    });
+};
+
+/** Verify OTP and set new password. */
+export const useResetPasswordWithOtp = () => {
+    return useMutation({
+        mutationFn: ({ otp, newPassword }: { otp: string; newPassword: string }) =>
+            securityService.resetPasswordWithOtp(otp, newPassword),
+        onError: (err: any) => {
+            const message = err?.response?.data?.message || 'Could not reset password. Please try again.';
+            Alert.alert('Error', message);
+        },
+    });
+};
+
 /**
  * Logout all devices.
  */

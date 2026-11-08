@@ -62,6 +62,16 @@ const securityService = {
     logoutAllDevices: async (): Promise<void> => {
         await API.delete('/users/me/sessions');
     },
+
+    /** POST /users/me/password-reset/send-otp — sends OTP to registered phone */
+    sendPasswordResetOtp: async (): Promise<void> => {
+        await API.post('/users/me/password-reset/send-otp');
+    },
+
+    /** POST /users/me/password-reset/verify — verifies OTP and sets new password */
+    resetPasswordWithOtp: async (otp: string, newPassword: string): Promise<void> => {
+        await API.post('/users/me/password-reset/verify', { otp, newPassword });
+    },
 };
 
 export default securityService;

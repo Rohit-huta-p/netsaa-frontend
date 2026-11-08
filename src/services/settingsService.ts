@@ -49,9 +49,16 @@ const settingsService = {
         notifications: Partial<IUserSettings['notifications']>;
         messaging: Partial<IUserSettings['messaging']>;
         account: Partial<IUserSettings['account']>;
+        availability: Partial<IUserSettings['availability']>;
     }>): Promise<IUserSettings> => {
         const res = await API.patch('/users/me/settings', data);
         return res.data.data.settings;
+    },
+
+    /** PATCH /users/me/marketing-consent */
+    updateMarketingConsent: async (accepted: boolean): Promise<{ accepted: boolean; acceptedAt?: string | null }> => {
+        const res = await API.patch('/users/me/marketing-consent', { accepted });
+        return res.data.data.marketingConsent;
     },
 };
 

@@ -59,9 +59,9 @@ export default function SettingRow(props: SettingRowProps) {
                     value={props.value}
                     onValueChange={props.onToggle}
                     disabled={props.disabled}
-                    trackColor={{ false: '#3f3f46', true: '#7c3aed' }}
-                    thumbColor={props.value ? '#ede9fe' : '#a1a1aa'}
-                    ios_backgroundColor="#3f3f46"
+                    trackColor={{ false: 'rgba(255,255,255,0.12)', true: '#FF6B35' }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor="rgba(255,255,255,0.12)"
                 />
             </View>
         );

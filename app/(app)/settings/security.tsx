@@ -1,229 +1,71 @@
-// app/(app)/settings/security.tsx
-import React, { useState } from 'react';
-import { View, Text, Alert, ActivityIndicator, Pressable, Modal, TextInput } from 'react-native';
-import { Stack } from 'expo-router';
+import React from 'react';
+import { View, Text, Alert, ActivityIndicator, Pressable } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { Lock, Smartphone, Monitor, Tablet, Shield, X } from 'lucide-react-native';
 import AppScrollView from '@/components/AppScrollView';
 import SettingRow from '@/components/settings/SettingRow';
-import {
-    useActiveSessions,
-    useChangePassword,
-    useLogoutDevice,
-    useLogoutAllDevices,
-} from '@/hooks/useSecurity';
-import { useAuthStore } from '@/stores/authStore';
-import {
-    Lock,
-    Smartphone,
-    Monitor,
-    Tablet,
-    LogOut,
-    BadgeCheck,
-    ShieldCheck,
-} from 'lucide-react-native';
+import { useActiveSessions, useLogoutDevice, useLogoutAllDevices } from '@/hooks/useSecurity';
 
-/* ── Helpers ── */
+/* ── A·Minimal tokens ── */
+const BG = '#121216';
+const SURFACE = 'rgba(255,255,255,0.028)';
+const HAIR = 'rgba(255,255,255,0.055)';
+const ORANGE = '#FF6B35';
+const ORANGE_SOFT = 'rgba(255,107,53,0.08)';
+const ORANGE_LINE = 'rgba(255,107,53,0.2)';
+const TEXT_0 = '#FFFFFF';
+const TEXT_2 = '#A1A1AA';
+const TEXT_3 = '#71717A';
+const TEXT_4 = '#52525B';
+const RED = '#EF4444';
+const RED_SOFT = 'rgba(239,68,68,0.08)';
 
-/** Map platform string to icon + label */
 const platformMeta = (platform: string) => {
     switch (platform) {
-        case 'ios':
-            return { Icon: Smartphone, label: 'iPhone' };
-        case 'android':
-            return { Icon: Smartphone, label: 'Android' };
-        case 'web':
-            return { Icon: Monitor, label: 'Web Browser' };
-        default:
-            return { Icon: Tablet, label: platform };
+        case 'ios':     return { Icon: Smartphone, label: 'iPhone' };
+        case 'android': return { Icon: Smartphone, label: 'Android' };
+        case 'web':     return { Icon: Monitor,    label: 'Web Browser' };
+        default:        return { Icon: Tablet,     label: platform };
     }
 };
 
-/** Format ISO date to relative or readable string */
 const formatLastActive = (dateStr?: string) => {
     if (!dateStr) return 'Unknown';
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+    const d = new Date(dateStr), now = new Date();
+    const mins = Math.floor((now.getTime() - d.getTime()) / 60000);
+    if (mins < 1)   return 'Just now';
+    if (mins < 60)  return `${mins}m ago`;
+    const h = Math.floor(mins / 60);
+    if (h < 24)     return `${h}h ago`;
+    const days = Math.floor(h / 24);
+    if (days < 7)   return `${days}d ago`;
+    return d.toLocaleDateString();
 };
 
-/* ── Change Password Modal ── */
-
-function ChangePasswordModal({
-    visible,
-    onClose,
-}: {
-    visible: boolean;
-    onClose: () => void;
-}) {
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const { mutate: changePassword, isPending } = useChangePassword();
-
-    const handleSubmit = () => {
-        if (!currentPassword.trim()) {
-            return Alert.alert('Required', 'Please enter your current password.');
-        }
-        if (newPassword.length < 8) {
-            return Alert.alert('Too Short', 'New password must be at least 8 characters.');
-        }
-        if (newPassword !== confirmPassword) {
-            return Alert.alert('Mismatch', 'New passwords do not match.');
-        }
-
-        changePassword(
-            { currentPassword, newPassword },
-            {
-                onSuccess: () => {
-                    setCurrentPassword('');
-                    setNewPassword('');
-                    setConfirmPassword('');
-                    onClose();
-                },
-            },
-        );
-    };
-
-    return (
-        <Modal visible={visible} transparent animationType="fade">
-            <Pressable className="flex-1 bg-black/60 justify-end" onPress={onClose}>
-                <Pressable className="bg-zinc-900 rounded-t-2xl p-5 pb-10" onPress={() => { }}>
-                    <Text className="text-white text-lg font-['Outfit-SemiBold'] mb-5">Change Password</Text>
-
-                    <Text className="text-zinc-400 text-[13px] font-['SourceSans3-Regular'] mb-1 ml-1">Current Password</Text>
-                    <TextInput
-                        className="bg-white/5 rounded-xl px-4 py-3 text-white text-[15px] font-['SourceSans3-Regular'] mb-4"
-                        placeholder="Enter current password"
-                        placeholderTextColor="#52525b"
-                        secureTextEntry
-                        value={currentPassword}
-                        onChangeText={setCurrentPassword}
-                        editable={!isPending}
-                    />
-
-                    <Text className="text-zinc-400 text-[13px] font-['SourceSans3-Regular'] mb-1 ml-1">New Password</Text>
-                    <TextInput
-                        className="bg-white/5 rounded-xl px-4 py-3 text-white text-[15px] font-['SourceSans3-Regular'] mb-4"
-                        placeholder="At least 8 characters"
-                        placeholderTextColor="#52525b"
-                        secureTextEntry
-                        value={newPassword}
-                        onChangeText={setNewPassword}
-                        editable={!isPending}
-                    />
-
-                    <Text className="text-zinc-400 text-[13px] font-['SourceSans3-Regular'] mb-1 ml-1">Confirm New Password</Text>
-                    <TextInput
-                        className="bg-white/5 rounded-xl px-4 py-3 text-white text-[15px] font-['SourceSans3-Regular'] mb-5"
-                        placeholder="Confirm new password"
-                        placeholderTextColor="#52525b"
-                        secureTextEntry
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        editable={!isPending}
-                    />
-
-                    <Pressable
-                        className="bg-violet-600 rounded-xl py-3.5 items-center active:opacity-80"
-                        onPress={handleSubmit}
-                        disabled={isPending}
-                    >
-                        {isPending ? (
-                            <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                            <Text className="text-white text-[15px] font-['Outfit-SemiBold']">Change Password</Text>
-                        )}
-                    </Pressable>
-                </Pressable>
-            </Pressable>
-        </Modal>
-    );
-}
-
-/* ── Device Row ── */
-
-function DeviceRow({
-    device,
-    onLogout,
-    isLoggingOut,
-}: {
-    device: { _id: string; platform: string; lastActive?: string; appVersion?: string };
-    onLogout: () => void;
-    isLoggingOut: boolean;
-}) {
-    const { Icon, label } = platformMeta(device.platform);
-
-    return (
-        <View className="flex-row items-center px-5 py-4 border-b border-white/5">
-            <View className="w-10 h-10 rounded-full bg-violet-600/15 items-center justify-center mr-3">
-                <Icon size={20} color="#a78bfa" />
-            </View>
-            <View className="flex-1">
-                <Text className="text-white text-[15px] font-['Outfit-Medium']">{label}</Text>
-                <Text className="text-zinc-500 text-[12px] font-['SourceSans3-Regular'] mt-0.5">
-                    Active {formatLastActive(device.lastActive)}
-                    {device.appVersion ? ` · v${device.appVersion}` : ''}
-                </Text>
-            </View>
-            <Pressable
-                className="px-3 py-1.5 rounded-lg bg-red-500/10 active:bg-red-500/20"
-                onPress={onLogout}
-                disabled={isLoggingOut}
-            >
-                {isLoggingOut ? (
-                    <ActivityIndicator size="small" color="#f87171" />
-                ) : (
-                    <Text className="text-red-400 text-[13px] font-['Outfit-Medium']">Logout</Text>
-                )}
-            </Pressable>
-        </View>
-    );
-}
-
-/* ── Main Screen ── */
-
 export default function SecuritySettings() {
-    const role = useAuthStore((s) => s.user?.role);
-    const [showPasswordModal, setShowPasswordModal] = useState(false);
-
-    const { data: devices, isLoading: sessionsLoading } = useActiveSessions();
+    const router = useRouter();
+    const { data: devices, isLoading } = useActiveSessions();
     const { mutate: logoutDevice, variables: loggingOutId, isPending: isLoggingOutDevice } = useLogoutDevice();
     const { mutate: logoutAll, isPending: isLoggingOutAll } = useLogoutAllDevices();
 
     const handleLogoutAll = () => {
         Alert.alert(
-            'Logout All Devices',
-            'This will log out all devices except the current one. Continue?',
+            'Sign out of all other devices',
+            'All sessions except this one will be ended.',
             [
                 { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Logout All',
-                    style: 'destructive',
-                    onPress: () => logoutAll(),
-                },
+                { text: 'Sign out', style: 'destructive', onPress: () => logoutAll() },
             ],
         );
     };
 
-    const handleLogoutDevice = (deviceId: string) => {
+    const handleLogoutDevice = (id: string) => {
         Alert.alert(
-            'Logout Device',
-            'This device will be logged out and stop receiving push notifications.',
+            'Remove device',
+            'This device will be signed out.',
             [
                 { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Logout',
-                    style: 'destructive',
-                    onPress: () => logoutDevice(deviceId),
-                },
+                { text: 'Remove', style: 'destructive', onPress: () => logoutDevice(id) },
             ],
         );
     };
@@ -231,117 +73,172 @@ export default function SecuritySettings() {
     return (
         <>
             <Stack.Screen options={{ title: 'Security' }} />
-            <View className="flex-1 bg-[#09090b]">
+            <View style={{ flex: 1, backgroundColor: BG }}>
                 <AppScrollView>
-                    {/* ── Section 1: Password ── */}
-                    <View className="mt-6">
-                        <Text className="text-zinc-500 text-[12px] font-['Outfit-SemiBold'] uppercase tracking-wider px-5 mb-2">
+
+                    {/* ── Authentication ── */}
+                    <View style={{ marginTop: 24 }}>
+                        <Text style={{
+                            fontSize: 11, fontFamily: 'Outfit-SemiBold', color: TEXT_3,
+                            letterSpacing: 0.8, textTransform: 'uppercase',
+                            paddingHorizontal: 20, marginBottom: 8,
+                        }}>
                             Authentication
                         </Text>
-                        <View className="bg-white/[0.03] rounded-xl mx-4 overflow-hidden">
+                        <View style={{
+                            backgroundColor: SURFACE, borderRadius: 14,
+                            marginHorizontal: 16, overflow: 'hidden',
+                            borderWidth: 1, borderColor: HAIR,
+                        }}>
                             <SettingRow
                                 type="nav"
                                 label="Change Password"
-                                description="Re-authentication required"
-                                icon={<Lock size={20} color="#a78bfa" />}
-                                onPress={() => setShowPasswordModal(true)}
+                                description="Update your account password"
+                                icon={<Lock size={18} color={TEXT_2} />}
+                                onPress={() => router.push('/settings/change-password')}
+                            />
+                            <SettingRow
+                                type="nav"
+                                label="Two-Factor Auth"
+                                description="Add a second layer of security · Coming soon"
+                                icon={<Shield size={18} color={TEXT_4} />}
+                                onPress={() => {}}
                             />
                         </View>
                     </View>
 
-                    {/* ── Section 2: Active Sessions ── */}
-                    <View className="mt-8">
-                        <Text className="text-zinc-500 text-[12px] font-['Outfit-SemiBold'] uppercase tracking-wider px-5 mb-2">
+                    {/* ── Active Sessions ── */}
+                    <View style={{ marginTop: 24 }}>
+                        <Text style={{
+                            fontSize: 11, fontFamily: 'Outfit-SemiBold', color: TEXT_3,
+                            letterSpacing: 0.8, textTransform: 'uppercase',
+                            paddingHorizontal: 20, marginBottom: 8,
+                        }}>
                             Active Sessions
                         </Text>
-                        <View className="bg-white/[0.03] rounded-xl mx-4 overflow-hidden">
-                            {sessionsLoading ? (
-                                <View className="py-8 items-center">
-                                    <ActivityIndicator size="small" color="#A855F7" />
+                        <View style={{
+                            backgroundColor: SURFACE, borderRadius: 14,
+                            marginHorizontal: 16, overflow: 'hidden',
+                            borderWidth: 1, borderColor: HAIR,
+                        }}>
+                            {isLoading ? (
+                                <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+                                    <ActivityIndicator size="small" color={ORANGE} />
                                 </View>
                             ) : !devices || devices.length === 0 ? (
-                                <View className="py-6 items-center">
-                                    <Text className="text-zinc-500 text-[14px] font-['SourceSans3-Regular']">
+                                <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                                    <Text style={{ fontSize: 14, fontFamily: 'Outfit-Regular', color: TEXT_3 }}>
                                         No active sessions
                                     </Text>
                                 </View>
                             ) : (
-                                devices.map((device) => (
-                                    <DeviceRow
-                                        key={device._id}
-                                        device={device}
-                                        onLogout={() => handleLogoutDevice(device._id)}
-                                        isLoggingOut={isLoggingOutDevice && loggingOutId === device._id}
-                                    />
-                                ))
+                                devices.map((device, i) => {
+                                    const { Icon, label } = platformMeta(device.platform);
+                                    const isCurrent = i === 0;
+                                    return (
+                                        <View
+                                            key={device._id}
+                                            style={{
+                                                flexDirection: 'row', alignItems: 'center',
+                                                paddingHorizontal: 16, paddingVertical: 14,
+                                                borderTopWidth: i === 0 ? 0 : 1, borderTopColor: HAIR,
+                                            }}
+                                        >
+                                            <View style={{
+                                                width: 36, height: 36, borderRadius: 10,
+                                                backgroundColor: isCurrent ? ORANGE_SOFT : 'rgba(255,255,255,0.05)',
+                                                borderWidth: 1,
+                                                borderColor: isCurrent ? ORANGE_LINE : HAIR,
+                                                alignItems: 'center', justifyContent: 'center',
+                                                marginRight: 12,
+                                            }}>
+                                                <Icon size={18} color={isCurrent ? ORANGE : TEXT_2} />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                                                    <Text style={{ fontSize: 14, fontFamily: 'Outfit-Medium', color: TEXT_0 }}>
+                                                        {label}
+                                                    </Text>
+                                                    {isCurrent && (
+                                                        <View style={{
+                                                            backgroundColor: ORANGE_SOFT,
+                                                            borderWidth: 1, borderColor: ORANGE_LINE,
+                                                            borderRadius: 3, paddingHorizontal: 5, paddingVertical: 1,
+                                                        }}>
+                                                            <Text style={{
+                                                                fontSize: 8, fontFamily: 'SpaceMono-Regular',
+                                                                color: ORANGE, letterSpacing: 0.6, textTransform: 'uppercase',
+                                                            }}>
+                                                                Current
+                                                            </Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                                <Text style={{ fontSize: 12, fontFamily: 'Outfit-Regular', color: TEXT_3, marginTop: 2 }}>
+                                                    {formatLastActive(device.lastActive)}
+                                                    {device.appVersion ? ` · v${device.appVersion}` : ''}
+                                                </Text>
+                                            </View>
+                                            {!isCurrent && (
+                                                <Pressable
+                                                    onPress={() => handleLogoutDevice(device._id)}
+                                                    disabled={isLoggingOutDevice && loggingOutId === device._id}
+                                                    style={({ pressed }) => ({
+                                                        padding: 6,
+                                                        backgroundColor: pressed ? RED_SOFT : 'transparent',
+                                                        borderRadius: 6,
+                                                    })}
+                                                >
+                                                    {isLoggingOutDevice && loggingOutId === device._id
+                                                        ? <ActivityIndicator size="small" color={RED} />
+                                                        : <X size={15} color={TEXT_4} />
+                                                    }
+                                                </Pressable>
+                                            )}
+                                        </View>
+                                    );
+                                })
                             )}
                         </View>
                     </View>
 
-                    {/* ── Section 3: Logout All Devices ── */}
-                    <View className="mt-8">
-                        <Text className="text-zinc-500 text-[12px] font-['Outfit-SemiBold'] uppercase tracking-wider px-5 mb-2">
+                    {/* ── Session Management ── */}
+                    <View style={{ marginTop: 24, marginBottom: 48 }}>
+                        <Text style={{
+                            fontSize: 11, fontFamily: 'Outfit-SemiBold', color: TEXT_3,
+                            letterSpacing: 0.8, textTransform: 'uppercase',
+                            paddingHorizontal: 20, marginBottom: 8,
+                        }}>
                             Session Management
                         </Text>
-                        <View className="bg-white/[0.03] rounded-xl mx-4 overflow-hidden">
-                            <SettingRow
-                                type="danger"
-                                label="Logout All Devices"
-                                description="Signs out every session except this one"
-                                onPress={handleLogoutAll}
-                            />
-                        </View>
-                    </View>
-
-                    {/* ── Section 4: 2FA (Placeholder) ── */}
-                    <View className="mt-8">
-                        <Text className="text-zinc-500 text-[12px] font-['Outfit-SemiBold'] uppercase tracking-wider px-5 mb-2">
-                            Two-Factor Authentication
+                        <Pressable
+                            onPress={handleLogoutAll}
+                            disabled={isLoggingOutAll}
+                            style={({ pressed }) => ({
+                                marginHorizontal: 16, borderRadius: 14,
+                                backgroundColor: pressed ? RED_SOFT : 'rgba(239,68,68,0.06)',
+                                borderWidth: 1, borderColor: 'rgba(239,68,68,0.15)',
+                                paddingVertical: 14, paddingHorizontal: 16,
+                                alignItems: 'center',
+                            })}
+                        >
+                            {isLoggingOutAll
+                                ? <ActivityIndicator size="small" color={RED} />
+                                : <Text style={{ fontSize: 15, fontFamily: 'Outfit-Medium', color: RED }}>
+                                    Sign out of all other devices
+                                  </Text>
+                            }
+                        </Pressable>
+                        <Text style={{
+                            fontSize: 11, fontFamily: 'Outfit-Regular', color: TEXT_3,
+                            paddingHorizontal: 20, marginTop: 8, lineHeight: 16,
+                        }}>
+                            This ends all sessions except your current one. You'll need to sign in again on those devices.
                         </Text>
-                        <View className="bg-white/[0.03] rounded-xl mx-4 overflow-hidden">
-                            <SettingRow
-                                type="toggle"
-                                label="Enable 2FA"
-                                description="Coming soon — adds an extra layer of security"
-                                value={false}
-                                onToggle={() =>
-                                    Alert.alert('Coming Soon', 'Two-factor authentication will be available in a future update.')
-                                }
-                                disabled
-                            />
-                        </View>
                     </View>
 
-                    {/* ── Section 5: Organizer-only — Business Verification ── */}
-                    {role === 'organizer' && (
-                        <View className="mt-8">
-                            <Text className="text-zinc-500 text-[12px] font-['Outfit-SemiBold'] uppercase tracking-wider px-5 mb-2">
-                                Business Verification
-                            </Text>
-                            <View className="bg-white/[0.03] rounded-xl mx-4 overflow-hidden">
-                                <SettingRow
-                                    type="nav"
-                                    label="Verify Organization"
-                                    description="Submit documents to verify your business"
-                                    icon={<BadgeCheck size={20} color="#a78bfa" />}
-                                    onPress={() =>
-                                        Alert.alert('Coming Soon', 'Business verification will be available in a future update.')
-                                    }
-                                />
-                            </View>
-                        </View>
-                    )}
-
-                    {/* Bottom spacer */}
-                    <View className="h-8" />
                 </AppScrollView>
             </View>
-
-            {/* ── Password Change Modal ── */}
-            <ChangePasswordModal
-                visible={showPasswordModal}
-                onClose={() => setShowPasswordModal(false)}
-            />
         </>
     );
 }

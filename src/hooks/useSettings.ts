@@ -17,6 +17,7 @@ export type SettingsUpdate = Partial<{
     notifications: Partial<IUserSettings['notifications']>;
     messaging: Partial<IUserSettings['messaging']>;
     account: Partial<IUserSettings['account']>;
+    availability: Partial<IUserSettings['availability']>;
 }>;
 
 /**
@@ -81,7 +82,7 @@ export const useUpdateSettings = () => {
             // ── 3. Optimistic merge ──
             if (previous) {
                 const next = { ...previous };
-                for (const section of ['privacy', 'notifications', 'messaging', 'account'] as const) {
+                for (const section of ['privacy', 'notifications', 'messaging', 'account', 'availability'] as const) {
                     if (update[section]) {
                         next[section] = { ...next[section], ...update[section] } as any;
                     }

@@ -440,7 +440,7 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                     ))}
                                     {owner && (
                                         <Pressable style={[s.chipPill, s.chipAdd]} onPress={onEditProfile}>
-                                            <Text style={[s.chipText, { color: C.orange }]}>+ Add</Text>
+                                            <Text style={[s.chipText, { color: C.t2 }]}>Add specialties</Text>
                                         </Pressable>
                                     )}
                                 </View>
@@ -472,7 +472,7 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
 
                             {owner && !normalizedWebsite && !igUrl && (
                                 <Pressable onPress={onEditProfile} style={{ marginTop: 14 }}>
-                                    <Text style={s.addTx}>Add your website or Instagram</Text>
+                                    <Text style={s.addTxLink}>Add your website or Instagram</Text>
                                 </Pressable>
                             )}
                         </>
@@ -919,10 +919,10 @@ const s = StyleSheet.create({
 
     // about
     bio: { fontFamily: F.body, fontSize: 13.5, lineHeight: 22, color: C.t1 },
-    // Owner empty-state prompt — orange "Add …" link (mirrors Spotlight's addTx).
-    addTx: { fontFamily: F.body, fontSize: 13, color: C.orange },
     // Greyish placeholder-style prompt (bio) — reads as dimmed placeholder, not a loud CTA.
     addTxMuted: { fontFamily: F.body, fontSize: 13.5, lineHeight: 22, color: C.t3 },
+    // Greyish underlined link prompt (website/Instagram) — quiet, still clearly tappable.
+    addTxLink: { fontFamily: F.body, fontSize: 13, color: C.t3, textDecorationLine: 'underline' },
     // Empty Productions tiles — faint image glyph over a warm gradient (mirrors Spotlight).
     mph: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 7 },
     mphText: { fontFamily: F.semi, fontSize: 13, color: C.t2 },
@@ -1012,7 +1012,7 @@ const s = StyleSheet.create({
     gstatus: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 9 },
     gstatusDot: { width: 6, height: 6, borderRadius: 3 },
     gstatusText: { fontFamily: F.mono, fontSize: 9, letterSpacing: 0.6, textTransform: 'uppercase' },
-    chipAdd: { borderColor: C.orangeB, backgroundColor: C.orangeSoft },
+    chipAdd: { borderColor: C.chipB, borderStyle: 'dashed', backgroundColor: 'transparent' },
 
     // create-event tile + manage + preview bar
     ecardAdd: { width: 128, borderRadius: 14, borderWidth: 1, borderColor: C.hair, borderStyle: 'dashed', backgroundColor: C.well, alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 20 },

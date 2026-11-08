@@ -158,7 +158,7 @@ describe('CreativeLeadProfile smoke', () => {
         // What we do — bio + links prompts instead of a bare/empty section.
         expect(txt).toContain('What we do');
         expect(txt).toContain('Tell artists & clients what your company does'); // bio prompt
-        expect(txt).toContain('+ Add');                                         // services add-chip
+        expect(txt).toContain('Add specialties');                               // specialties add-chip
         expect(txt).toContain('Add your website or Instagram');                 // links prompt
         // Productions stays visible (it vanishes for a visitor) with a dashed CTA.
         expect(txt).toContain('Productions');

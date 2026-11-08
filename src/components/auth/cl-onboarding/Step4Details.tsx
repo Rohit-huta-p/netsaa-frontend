@@ -81,18 +81,21 @@ export default function Step4Details({ data, update, onFinish, onSkip, saving }:
 
         {/* Instagram */}
         <Text style={[s.label, { marginTop: 20 }]}>INSTAGRAM</Text>
-        <TextInput
-          style={[s.input, focused === 'ig' && s.inputFocused]}
-          placeholder="@yourhandle"
-          placeholderTextColor="rgba(245,245,240,0.22)"
-          value={data.instagramHandle ?? ''}
-          onChangeText={v => update({ instagramHandle: v })}
-          onFocus={() => setFocused('ig')}
-          onBlur={() => setFocused(null)}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="done"
-        />
+        <View style={[s.igRow, focused === 'ig' && s.inputFocused]}>
+          <Text style={s.igAt}>@</Text>
+          <TextInput
+            style={s.igInput}
+            placeholder="yourhandle"
+            placeholderTextColor="rgba(245,245,240,0.22)"
+            value={data.instagramHandle ?? ''}
+            onChangeText={v => update({ instagramHandle: v.replace(/^@+/, '') })}
+            onFocus={() => setFocused('ig')}
+            onBlur={() => setFocused(null)}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="done"
+          />
+        </View>
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -121,6 +124,9 @@ const s = StyleSheet.create({
   label:       { fontFamily: 'SpaceMono-Regular', fontSize: 9, letterSpacing: 1.4, color: 'rgba(245,245,240,0.28)', marginBottom: 8 },
   input:       { backgroundColor: '#1C1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontFamily: 'Outfit-Regular', fontSize: 15, color: '#F5F5F0' },
   inputFocused:{ borderColor: '#FF6B35' },
+  igRow:       { backgroundColor: '#1C1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 10, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 13 },
+  igAt:        { fontFamily: 'Outfit-Regular', fontSize: 15, color: 'rgba(245,245,240,0.35)', marginRight: 2 },
+  igInput:     { flex: 1, fontFamily: 'Outfit-Regular', fontSize: 15, color: '#F5F5F0', padding: 0 },
   fieldHint:   { fontFamily: 'Outfit-Light', fontSize: 11, color: 'rgba(245,245,240,0.25)', marginTop: 5 },
   ctaRow:      { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingBottom: 28, paddingTop: 12, backgroundColor: '#121216' },
   skipBtn:     { flex: 1, paddingVertical: 15, alignItems: 'center', borderRadius: 12, backgroundColor: '#1C1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },

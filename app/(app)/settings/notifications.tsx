@@ -3,7 +3,6 @@ import { View, Text, Switch } from 'react-native';
 import { Stack } from 'expo-router';
 import AppScrollView from '@/components/AppScrollView';
 import SettingRow from '@/components/settings/SettingRow';
-import NotificationPreferences from '@/components/settings/NotificationPreferences';
 import { useSettings, useUpdateSettings } from '@/hooks/useSettings';
 import type { INotificationSettings } from '@/types';
 
@@ -152,7 +151,7 @@ export default function NotificationSettings() {
                     </View>
 
                     {/* ── Marketing ── */}
-                    <View style={{ marginTop: 24 }}>
+                    <View style={{ marginTop: 24, marginBottom: 48 }}>
                         <SectionHeader title="Marketing" />
                         <View style={{
                             backgroundColor: SURFACE, borderRadius: 14,
@@ -163,11 +162,6 @@ export default function NotificationSettings() {
                         </View>
                     </View>
 
-                    {/* ── Event Preferences 3×3 matrix ── */}
-                    <View style={{ marginTop: 24, marginBottom: 48 }}>
-                        <SectionHeader title="Event Preferences" />
-                        <NotificationPreferences />
-                    </View>
 
                 </AppScrollView>
             </View>

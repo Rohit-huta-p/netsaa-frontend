@@ -15,8 +15,10 @@
  * is me-scoped and complete). Events via useEventsByOrganizer (public). There is NO
  * public organizerId gig endpoint yet → "Now hiring" is Phase 2 (hidden here).
  *
- * Cold-start safe: every showcase field may be absent — absent sections render
- * nothing, never crash.
+ * Cold-start safe: every showcase field may be absent — never crash. For a VISITOR
+ * an absent section renders nothing; for the OWNER every section stays visible with
+ * an "Add …" affordance (bio, website/Instagram, Productions, gigs, events), mirroring
+ * the artist "Spotlight" page so the owner can always see & fill what's missing.
  *
  * The profile page for every creative_lead / organizer target (artist to apply,
  * client to size up).
@@ -39,7 +41,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight, Image as LucideImage } from 'lucide-react-native';
 
 import { useUser } from '@/hooks/useUser';
 import { useOrganizer } from '@/hooks/useOrganizer';
@@ -78,6 +80,14 @@ const F = {
     semi: 'Outfit-SemiBold',
     bold: 'Outfit-Bold',
 };
+
+// Warm gradient placeholders for the owner's empty Productions tiles (never flat grey —
+// mirrors the artist "Spotlight" showcase bento).
+const GRAD: [string, string][] = [
+    ['#2a1206', '#120a14'],
+    ['#2a0f22', '#120710'],
+    ['#1a1030', '#0d0a16'],
+];
 
 type Props = {
     userId: string;
@@ -413,7 +423,13 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                     <Pressable onPress={onEditProfile} hitSlop={8}><Text style={s.seeall}>EDIT</Text></Pressable>
                                 )}
                             </View>
-                            {!!d.bio && <Text style={s.bio}>{d.bio}</Text>}
+                            {d.bio ? (
+                                <Text style={s.bio}>{d.bio}</Text>
+                            ) : owner ? (
+                                <Pressable onPress={onEditProfile}>
+                                    <Text style={s.addTxMuted}>Tell artists &amp; clients what your company does</Text>
+                                </Pressable>
+                            ) : null}
 
                             {(services.length > 0 || owner) && (
                                 <View style={s.chips}>
@@ -424,7 +440,7 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                     ))}
                                     {owner && (
                                         <Pressable style={[s.chipPill, s.chipAdd]} onPress={onEditProfile}>
-                                            <Text style={[s.chipText, { color: C.orange }]}>+ Add</Text>
+                                            <Text style={[s.chipText, { color: C.t2 }]}>Add specialties</Text>
                                         </Pressable>
                                     )}
                                 </View>
@@ -453,56 +469,89 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                     />
                                 )}
                             </View>
+
+                            {owner && !normalizedWebsite && !igUrl && (
+                                <Pressable onPress={onEditProfile} style={{ marginTop: 14 }}>
+                                    <Text style={s.addTxLink}>Add your website or Instagram</Text>
+                                </Pressable>
+                            )}
                         </>
                     )}
 
-                    {/* ═══ PRODUCTIONS — shared MediaViewer showcase ═══ */}
-                    {photos.length > 0 && (
+                    {/* ═══ PRODUCTIONS — shared MediaViewer showcase (owner sees it even when empty) ═══ */}
+                    {(photos.length > 0 || owner) && (
                         <>
                             <View style={s.divsec} />
                             <View style={s.shead}>
                                 <Text style={s.stitle}>Productions</Text>
-                                {owner ? (
-                                    <Pressable onPress={onEditProfile} hitSlop={8}>
-                                        <Text style={s.seeall}>MANAGE</Text>
-                                    </Pressable>
-                                ) : photos.length > 3 ? (
-                                    <Pressable onPress={() => setViewerIndex(0)} hitSlop={8}>
-                                        <Text style={s.seeall}>See all →</Text>
-                                    </Pressable>
+                                {photos.length > 0 ? (
+                                    owner ? (
+                                        <Pressable onPress={onEditProfile} hitSlop={8}>
+                                            <Text style={s.seeall}>MANAGE</Text>
+                                        </Pressable>
+                                    ) : photos.length > 3 ? (
+                                        <Pressable onPress={() => setViewerIndex(0)} hitSlop={8}>
+                                            <Text style={s.seeall}>See all →</Text>
+                                        </Pressable>
+                                    ) : null
                                 ) : null}
                             </View>
 
-                            <Pressable style={s.mfeature} onPress={() => setViewerIndex(0)}>
-                                <Image source={{ uri: photos[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                                <LinearGradient colors={['transparent', 'rgba(8,6,10,0.78)']} style={s.mfeatureFade} />
-                                {photos.length > 1 && (
-                                    <View style={s.mplay}><Play size={14} color="#fff" fill="#fff" /></View>
-                                )}
-                            </Pressable>
+                            {photos.length > 0 ? (
+                                <>
+                                    <Pressable style={s.mfeature} onPress={() => setViewerIndex(0)}>
+                                        <Image source={{ uri: photos[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                                        <LinearGradient colors={['transparent', 'rgba(8,6,10,0.78)']} style={s.mfeatureFade} />
+                                        {photos.length > 1 && (
+                                            <View style={s.mplay}><Play size={14} color="#fff" fill="#fff" /></View>
+                                        )}
+                                    </Pressable>
 
-                            {photos.length > 1 && (
-                                <View style={s.mgrid}>
-                                    {photos.slice(1, 4).map((url, i) => {
-                                        const idx = i + 1;
-                                        const extra = photos.length - 4;
-                                        const isLast = i === 2 && extra > 0;
-                                        return (
-                                            <Pressable key={`${url}-${idx}`} style={s.mtile} onPress={() => setViewerIndex(idx)}>
-                                                <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                                                {isLast && (
-                                                    <View style={s.mmore}><Text style={s.mmoreText}>+{extra}</Text></View>
-                                                )}
+                                    {photos.length > 1 && (
+                                        <View style={s.mgrid}>
+                                            {photos.slice(1, 4).map((url, i) => {
+                                                const idx = i + 1;
+                                                const extra = photos.length - 4;
+                                                const isLast = i === 2 && extra > 0;
+                                                return (
+                                                    <Pressable key={`${url}-${idx}`} style={s.mtile} onPress={() => setViewerIndex(idx)}>
+                                                        <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                                                        {isLast && (
+                                                            <View style={s.mmore}><Text style={s.mmoreText}>+{extra}</Text></View>
+                                                        )}
+                                                    </Pressable>
+                                                );
+                                            })}
+                                        </View>
+                                    )}
+
+                                    {st?.artistsHired != null && st.artistsHired > 0 && (
+                                        <Text style={s.workedTxt}>
+                                            {st.artistsHired} artists have worked with {name}
+                                        </Text>
+                                    )}
+                                </>
+                            ) : (
+                                // Owner, no photos yet — an empty showcase grid (feature + 3 tiles)
+                                // mirroring the artist page, each tile tappable → company editor.
+                                <View>
+                                    <Pressable style={s.mfeature} onPress={onEditProfile}>
+                                        <LinearGradient colors={['#241a16', '#16131b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                                        <View style={s.mph}>
+                                            <LucideImage size={27} color="rgba(255,255,255,0.16)" strokeWidth={1.6} />
+                                            <Text style={s.mphText}>Add your productions</Text>
+                                            <Text style={s.mphSub}>SHOWCASE YOUR BEST SHOWS &amp; SHOOTS</Text>
+                                        </View>
+                                    </Pressable>
+                                    <View style={s.mgrid}>
+                                        {[0, 1, 2].map((i) => (
+                                            <Pressable key={i} style={s.mtile} onPress={onEditProfile}>
+                                                <LinearGradient colors={GRAD[i % GRAD.length]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                                                <View style={s.mph}><LucideImage size={19} color="rgba(255,255,255,0.13)" strokeWidth={1.7} /></View>
                                             </Pressable>
-                                        );
-                                    })}
+                                        ))}
+                                    </View>
                                 </View>
-                            )}
-
-                            {st?.artistsHired != null && st.artistsHired > 0 && (
-                                <Text style={s.workedTxt}>
-                                    {st.artistsHired} artists have worked with {name}
-                                </Text>
                             )}
                         </>
                     )}
@@ -870,6 +919,14 @@ const s = StyleSheet.create({
 
     // about
     bio: { fontFamily: F.body, fontSize: 13.5, lineHeight: 22, color: C.t1 },
+    // Greyish placeholder-style prompt (bio) — reads as dimmed placeholder, not a loud CTA.
+    addTxMuted: { fontFamily: F.body, fontSize: 13.5, lineHeight: 22, color: C.t3 },
+    // Greyish underlined link prompt (website/Instagram) — quiet, still clearly tappable.
+    addTxLink: { fontFamily: F.body, fontSize: 13, color: C.t3, textDecorationLine: 'underline' },
+    // Empty Productions tiles — faint image glyph over a warm gradient (mirrors Spotlight).
+    mph: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 7 },
+    mphText: { fontFamily: F.semi, fontSize: 13, color: C.t2 },
+    mphSub: { fontFamily: F.mono, fontSize: 8, letterSpacing: 0.8, color: C.t4, textTransform: 'uppercase' },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 14 },
     chipPill: { backgroundColor: C.chip, borderWidth: 1, borderColor: C.chipB, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 },
     chipText: { fontFamily: F.mono, fontSize: 10, color: C.t2, letterSpacing: 0.3 },
@@ -955,7 +1012,7 @@ const s = StyleSheet.create({
     gstatus: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 9 },
     gstatusDot: { width: 6, height: 6, borderRadius: 3 },
     gstatusText: { fontFamily: F.mono, fontSize: 9, letterSpacing: 0.6, textTransform: 'uppercase' },
-    chipAdd: { borderColor: C.orangeB, backgroundColor: C.orangeSoft },
+    chipAdd: { borderColor: C.chipB, borderStyle: 'dashed', backgroundColor: 'transparent' },
 
     // create-event tile + manage + preview bar
     ecardAdd: { width: 128, borderRadius: 14, borderWidth: 1, borderColor: C.hair, borderStyle: 'dashed', backgroundColor: C.well, alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 20 },

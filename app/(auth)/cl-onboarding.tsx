@@ -11,7 +11,7 @@ import Step1Identity from '@/components/auth/cl-onboarding/Step1Identity';
 import Step2Visual from '@/components/auth/cl-onboarding/Step2Visual';
 import Step3About from '@/components/auth/cl-onboarding/Step3About';
 import Step4Details from '@/components/auth/cl-onboarding/Step4Details';
-import DoneCarousel from '@/components/auth/cl-onboarding/DoneCarousel';
+
 import type { CLOFormData } from '@/types/clOnboarding';
 
 export type { CLOFormData };
@@ -89,17 +89,13 @@ export default function CLOnboarding() {
       if (Object.keys(userPatch).length) await authService.updateProfile(userPatch as any);
 
       queryClient.invalidateQueries({ queryKey: ['organizer', 'me'] });
-      setStep(4);
+      router.replace('/(app)/dashboard');
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.message ?? 'Could not save. Please try again.');
     } finally {
       setSaving(false);
     }
   }, [data, queryClient]);
-
-  if (step === 4) {
-    return <DoneCarousel onDone={() => router.replace('/(app)/dashboard')} />;
-  }
 
   const { required } = STEP_INFO[step];
 

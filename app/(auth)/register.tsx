@@ -40,7 +40,7 @@ import CLStep1Identity from '@/components/auth/cl-onboarding/Step1Identity';
 import CLStep2Visual   from '@/components/auth/cl-onboarding/Step2Visual';
 import CLStep3About    from '@/components/auth/cl-onboarding/Step3About';
 import CLStep4Details  from '@/components/auth/cl-onboarding/Step4Details';
-import DoneCarousel    from '@/components/auth/cl-onboarding/DoneCarousel';
+
 import type { CLOFormData } from '@/types/clOnboarding';
 
 const CL_EMPTY: CLOFormData = {
@@ -86,8 +86,7 @@ export default function RegisterScreen() {
     const [loading, setLoading] = useState(false);
     // CL: once the account is created (step 2→3), prevent going back past step 3
     const [clAccountCreated, setClAccountCreated] = useState(false);
-    // CL: show DoneCarousel after final save
-    const [showDone, setShowDone] = useState(false);
+
 
     /* ─── Shared form state (steps 0-2) ─── */
     const [email, setEmail]           = useState('');
@@ -240,7 +239,7 @@ export default function RegisterScreen() {
             if (Object.keys(userPatch).length) await authService.updateProfile(userPatch as any);
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setShowDone(true);
+            router.replace('/(app)/dashboard');
         } catch (err: any) {
             const msg = err?.response?.data?.message ?? 'Could not save. Please try again.';
             Alert.alert('Error', msg);
@@ -399,11 +398,6 @@ export default function RegisterScreen() {
         : (isCL && stepIdx === 2 && loading)
             ? 'Creating your account…'
             : 'Continue';
-
-    // CL: after final save → full-screen DoneCarousel
-    if (showDone) {
-        return <DoneCarousel onDone={() => router.replace('/(app)/dashboard')} />;
-    }
 
     // CL steps 3-6 have their own full-screen layout (KeyboardAvoidingView + ScrollView + CTA)
     const showCLSteps = isCL && stepIdx >= 3;

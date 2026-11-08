@@ -8,7 +8,7 @@
 // — so the facet can be refined while viewing results. A·Minimal chip language.
 
 import React from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
+import { ScrollView, Text, Pressable, StyleSheet } from 'react-native';
 import { Check, X } from 'lucide-react-native';
 import { C, F, ORANGE_SOFT, ORANGE_LINE } from './theme';
 
@@ -53,11 +53,7 @@ export function CraftRail({
             accessibilityState={{ selected: on }}
             accessibilityLabel={`${c.label}${on ? ', selected' : ''}`}
           >
-            {on ? (
-              <Check size={13} color={C.orange} strokeWidth={2.4} />
-            ) : (
-              <View style={[s.dot, { backgroundColor: c.color }]} />
-            )}
+            {on ? <Check size={12} color={C.orange} strokeWidth={2.4} /> : null}
             <Text style={[s.txt, on && s.txtOn]}>{c.label}</Text>
           </Pressable>
         );
@@ -79,29 +75,28 @@ const s = StyleSheet.create({
   // vertical space — opening a large gap above the results. Pin it to its
   // content height. (No-op on native, where the rail already sizes to content.)
   rail: { flexGrow: 0, flexShrink: 0 },
-  row: { flexDirection: 'row', gap: 8, paddingHorizontal: 18, paddingTop: 2, paddingBottom: 14 },
+  row: { flexDirection: 'row', gap: 7, paddingHorizontal: 18, paddingTop: 2, paddingBottom: 12 },
   chip: {
-    height: 34,
-    paddingHorizontal: 13,
-    borderRadius: 10,
+    height: 28,
+    paddingHorizontal: 11,
+    borderRadius: 8,
     backgroundColor: C.chip,
     borderWidth: 1,
     borderColor: C.hairSoft,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-  },
-  chipOn: { backgroundColor: ORANGE_SOFT, borderColor: ORANGE_LINE },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  txt: { fontFamily: F.med, fontSize: 13, color: C.t2 },
-  txtOn: { color: C.orange, fontFamily: F.semi },
-  clear: {
-    height: 34,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 5,
   },
-  clearTxt: { fontFamily: F.med, fontSize: 12.5, color: C.t3 },
+  chipOn: { backgroundColor: ORANGE_SOFT, borderColor: ORANGE_LINE },
+  txt: { fontFamily: F.med, fontSize: 12, color: C.t2 },
+  txtOn: { color: C.orange, fontFamily: F.semi },
+  clear: {
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  clearTxt: { fontFamily: F.med, fontSize: 12, color: C.t3 },
 });

@@ -46,3 +46,5 @@ claude.md
 .gstack/
 
 .env
+# Wix tooling (not part of this project)
+.wix/

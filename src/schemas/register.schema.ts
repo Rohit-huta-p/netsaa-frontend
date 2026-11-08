@@ -49,9 +49,14 @@ export type HirerClientType =
  */
 
 export interface ArtistProfileInput {
-    artistTypes?: string[];       // Dancer, Singer, DJ, ... (max 3)
+    artistTypes?: string[];       // Dancer, Singer, DJ, ...
     experience?: ExperienceLevel;
     primaryCity?: string;
+    /** Single artist type selected in the new 5-step registration flow */
+    artistType?: string;
+    /** Skills selected (predefined + custom) in the new 5-step flow */
+    skills?: string[];
+    bio?: string;
 }
 
 export interface HirerProfileInput {

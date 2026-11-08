@@ -35,6 +35,15 @@ function collectText(node: any, out: string[] = []): string[] {
     return out;
 }
 
+// Text collector for React elements / test-instances (walks props.children).
+function elText(node: any, out: string[] = []): string[] {
+    if (node == null || node === false) return out;
+    if (typeof node === 'string' || typeof node === 'number') { out.push(String(node)); return out; }
+    if (Array.isArray(node)) { node.forEach((n) => elText(n, out)); return out; }
+    if (node.props && node.props.children != null) elText(node.props.children, out);
+    return out;
+}
+
 function renderText(isOwner = false): string {
     let r: any;
     TestRenderer.act(() => {
@@ -105,6 +114,32 @@ describe('CreativeLeadProfile smoke', () => {
         // Public CTAs are replaced in the owner view.
         expect(txt).not.toContain('+ Follow');
         expect(txt).not.toContain('Now hiring');
+    });
+
+    it('owner: "View as visitor" opens the phone-frame preview', () => {
+        mockUser = POPULATED;
+        mockEvents = [];
+        mockGigs = [];
+        mockOwnerGigs = [];
+
+        let r: any;
+        TestRenderer.act(() => {
+            r = TestRenderer.create(<CreativeLeadProfile userId="org1" isOwner />);
+        });
+        // Preview chrome is absent until the owner invokes it.
+        expect(collectText(r.toJSON()).join(' ')).not.toContain('How visitors see your page');
+
+        const triggers = r.root.findAll(
+            (n: any) => typeof n.props?.onPress === 'function'
+                && elText(n.props.children).join(' ').includes('View as visitor'),
+        );
+        expect(triggers.length).toBeGreaterThan(0);
+        TestRenderer.act(() => { triggers[triggers.length - 1].props.onPress(); });
+
+        const after = collectText(r.toJSON()).join(' ');
+        expect(after).toContain('How visitors see your page'); // phone-preview caption
+        expect(after).toContain('Done');                       // exit affordance
+        TestRenderer.act(() => { r.unmount(); });
     });
 
     it('renders a cold-start organizer without crashing', () => {

@@ -22,7 +22,7 @@ interface Props {
 
 const W = Dimensions.get('window').width;
 const COVER_H = 116;
-const LOGO_SIZE = 56;
+const LOGO_SIZE = 80;
 const LOGO_HALF = LOGO_SIZE / 2;
 
 export default function Step2Visual({ data, update, onNext, onSkip }: Props) {
@@ -174,20 +174,20 @@ const s = StyleSheet.create({
   },
   logoOuter: {
     width: LOGO_SIZE, height: LOGO_SIZE,
-    borderRadius: 15,
+    borderRadius: 20,
     backgroundColor: '#121216',
     padding: 3,
     flexShrink: 0,
   },
   logoInner: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 17,
     backgroundColor: '#1C1C23',
     borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.14)', borderStyle: 'dashed',
     alignItems: 'center', justifyContent: 'center', gap: 3,
     overflow: 'hidden',
   },
-  logoImg:  { width: LOGO_SIZE - 6, height: LOGO_SIZE - 6, borderRadius: 12 },
+  logoImg:  { width: LOGO_SIZE - 6, height: LOGO_SIZE - 6, borderRadius: 17 },
   logoLabel:{ fontFamily: 'SpaceMono-Regular', fontSize: 7.5, color: 'rgba(245,245,240,0.22)', textAlign: 'center', lineHeight: 13 },
 
   nameMeta: { paddingBottom: 5, flex: 1, minWidth: 0 },

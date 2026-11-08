@@ -25,7 +25,7 @@ jest.mock('@/components/media/MediaCropper', () => ({ __esModule: true, default:
 jest.mock('@/components/inputs/SearchableMultiSelect', () => ({ SearchableMultiSelect: () => null }));
 jest.mock('@/utils/upload', () => ({ uploadMediaFlow: jest.fn(), validateMediaFile: () => ({ valid: true }) }));
 jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: jest.fn() }) }));
-jest.mock('expo-router', () => ({ router: { back: jest.fn(), push: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { back: jest.fn(), push: jest.fn() }, useLocalSearchParams: () => ({}) }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('expo-image-picker', () => ({ launchImageLibraryAsync: jest.fn(), MediaTypeOptions: { Images: 'Images' } }));
 
@@ -75,6 +75,7 @@ describe('CreativeLeadCompanyEdit smoke', () => {
         expect(txt).toContain('The showcase');     // Productions title
         expect(txt).toContain('Production company'); // org-type option label
         expect(txt).toContain('Weddings & corporate shows, done right.'); // tagline loads (editable now)
+        expect(txt).toContain('Spotify');            // Links: new Spotify field
         expect(txt).toContain('Coming soon');       // Team / Billing (P2)
         expect(txt).toContain('Save changes');
     });

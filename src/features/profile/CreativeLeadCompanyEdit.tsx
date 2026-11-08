@@ -37,11 +37,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import {
-    X, Camera, Plus, Check, Trash2, MapPin, Globe, Instagram, Youtube, Clock,
+    X, Camera, Plus, Check, Trash2, MapPin, Globe, Instagram, Youtube, Music2, Clock,
 } from 'lucide-react-native';
 
 import authService from '@/services/authService';
@@ -120,6 +120,9 @@ export function CreativeLeadCompanyEdit() {
     const userId = user?._id || '';
     const { organizer } = useOrganizer();
     const { pickAndCrop, cropperProps } = usePickAndCrop();
+    // Deep-link target: /client/agency-profile?section=links opens scrolled to Links.
+    const { section } = useLocalSearchParams<{ section?: string }>();
+    const didDeepScroll = useRef(false);
 
     // ── Form state ──
     const [logoUrl, setLogoUrl] = useState('');
@@ -136,6 +139,7 @@ export function CreativeLeadCompanyEdit() {
     const [website, setWebsite] = useState('');
     const [instagram, setInstagram] = useState('');
     const [youtube, setYoutube] = useState('');
+    const [spotify, setSpotify] = useState('');
 
     const [logoUploading, setLogoUploading] = useState(false);
     const [coverUploading, setCoverUploading] = useState(false);
@@ -167,6 +171,7 @@ export function CreativeLeadCompanyEdit() {
         setCity(user?.city || user?.primaryCity || user?.location || '');
         setInstagram(user?.instagramHandle || '');
         setYoutube(user?.youtubeUrl || '');
+        setSpotify(user?.spotifyUrl || '');
         setPrefilled(true);
     }, [organizer, user, prefilled]);
 
@@ -179,6 +184,11 @@ export function CreativeLeadCompanyEdit() {
 
     const onSectionLayout = (id: TabId) => (e: LayoutChangeEvent) => {
         sectionY.current[id] = e.nativeEvent.layout.y;
+        // Deep-link: scroll to the requested section once it has been measured.
+        if (!didDeepScroll.current && section && section === id) {
+            didDeepScroll.current = true;
+            requestAnimationFrame(() => { goTo(id); setActiveTab(id); });
+        }
     };
     const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         const y = e.nativeEvent.contentOffset.y + 28;
@@ -278,6 +288,7 @@ export function CreativeLeadCompanyEdit() {
                 coverImageUrl: coverUrl || '',
                 instagramHandle: instagram.trim(),
                 youtubeUrl: youtube.trim(),
+                spotifyUrl: spotify.trim(),
                 location: city.trim(),
             };
             const updatedUser = await authService.updateProfile(patch);
@@ -491,7 +502,8 @@ export function CreativeLeadCompanyEdit() {
                     <SectionHead num="06" kicker="Links" title="Elsewhere" />
                     <Field label="Website" value={website} onChangeText={(t) => { setWebsite(t); mark(); }} placeholder="yourcompany.in" autoCapitalize="none" keyboardType="url" icon={<Globe size={16} color={C.t3} />} />
                     <Field label="Instagram" value={instagram} onChangeText={(t) => { setInstagram(t); mark(); }} placeholder="@yourcompany" autoCapitalize="none" icon={<Instagram size={16} color={C.t3} />} />
-                    <Field label="YouTube" value={youtube} onChangeText={(t) => { setYoutube(t); mark(); }} placeholder="Link your channel" autoCapitalize="none" keyboardType="url" icon={<Youtube size={16} color={C.t3} />} noMargin />
+                    <Field label="YouTube" value={youtube} onChangeText={(t) => { setYoutube(t); mark(); }} placeholder="Link your channel" autoCapitalize="none" keyboardType="url" icon={<Youtube size={16} color={C.t3} />} />
+                    <Field label="Spotify" value={spotify} onChangeText={(t) => { setSpotify(t); mark(); }} placeholder="Link your artist page" autoCapitalize="none" keyboardType="url" icon={<Music2 size={16} color={C.t3} />} noMargin />
                 </View>
 
                 {/* 07 · BILLING — P2 */}

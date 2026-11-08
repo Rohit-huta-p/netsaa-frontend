@@ -41,7 +41,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight, Image as LucideImage } from 'lucide-react-native';
+import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight, Image as LucideImage, Globe, Instagram, Youtube, Music2 } from 'lucide-react-native';
 
 import { useUser } from '@/hooks/useUser';
 import { useOrganizer } from '@/hooks/useOrganizer';
@@ -116,6 +116,8 @@ type CLData = {
     verified?: boolean;
     trustTier?: 'new' | 'rising' | 'trusted' | 'verified' | string;
     instagramHandle?: string;
+    youtubeUrl?: string;
+    spotifyUrl?: string;
     organizerStats?: {
         gigsPosted?: number;
         eventsCreated?: number;
@@ -194,8 +196,9 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     const photos = (d.photos ?? []).filter(Boolean);
     const website = (d.organizationWebsite || '').trim();
     const ig = (d.instagramHandle || '').trim();
-    const igHandle = ig ? (ig.startsWith('@') ? ig : `@${ig}`) : '';
     const igUrl = ig ? `https://instagram.com/${ig.replace(/^@/, '')}` : null;
+    const youtube = (d.youtubeUrl || '').trim();
+    const spotify = (d.spotifyUrl || '').trim();
     const events = eventsData?.events ?? [];
     const gigs = gigsData?.gigs ?? [];
     const gigsTotal = gigsData?.total ?? 0;
@@ -243,10 +246,23 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     const onCreateEvent = () => router.push('/(app)/create?initialTab=event' as any);
     const onManageGigs = () => router.push('/(app)/dashboard/cl-work?face=hiring' as any);
     const onManageEvents = () => router.push('/(app)/dashboard/cl-work?face=hosting' as any);
+    // Empty socials tap → company editor, scrolled to the Links section.
+    const onEditLinks = () => router.push('/(app)/client/agency-profile?section=links' as any);
 
     const normalizedWebsite = website
         ? (/^https?:\/\//i.test(website) ? website : `https://${website}`)
         : null;
+    const urlify = (v: string) => (/^https?:\/\//i.test(v) ? v : `https://${v}`);
+
+    // Socials row (replaces the Website/Instagram KV rows) — website · instagram ·
+    // youtube · spotify. Present → tap opens the link; empty → greyed, owner-tap opens
+    // the editor's Links section. Website lives on the organizer, the rest on the user.
+    const socials: { key: string; present: boolean; url: string | null; color: string; Icon: typeof Globe }[] = [
+        { key: 'website', present: !!normalizedWebsite, url: normalizedWebsite, color: '#5BC7DE', Icon: Globe },
+        { key: 'instagram', present: !!igUrl, url: igUrl, color: '#E863B0', Icon: Instagram },
+        { key: 'youtube', present: !!youtube, url: youtube ? urlify(youtube) : null, color: '#F06A6A', Icon: Youtube },
+        { key: 'spotify', present: !!spotify, url: spotify ? urlify(spotify) : null, color: '#1DB954', Icon: Music2 },
+    ];
 
     const renderBody = (owner: boolean) => (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 90 }} showsVerticalScrollIndicator={false}>
@@ -415,7 +431,7 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                     )}
 
                     {/* ═══ WHAT WE DO ═══ */}
-                    {(d.bio || services.length > 0 || typeLabel || d.yearsInBusiness != null || d.teamSize != null || website || ig || owner) && (
+                    {(d.bio || services.length > 0 || typeLabel || d.yearsInBusiness != null || d.teamSize != null || website || ig || youtube || spotify || owner) && (
                         <>
                             <View style={s.shead}>
                                 <Text style={s.stitle}>What we do</Text>
@@ -452,28 +468,36 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                     <KV k="Since" v={`${d.yearsInBusiness} ${d.yearsInBusiness === 1 ? 'yr' : 'yrs'}`} />
                                 )}
                                 {d.teamSize != null && <KV k="Team" v={`${d.teamSize} people`} />}
-                                {!!normalizedWebsite && (
-                                    <KV
-                                        k="Website"
-                                        v={website.replace(/^https?:\/\//i, '')}
-                                        link
-                                        onPress={() => Linking.openURL(normalizedWebsite).catch(() => {})}
-                                    />
-                                )}
-                                {!!igUrl && (
-                                    <KV
-                                        k="Instagram"
-                                        v={igHandle}
-                                        link
-                                        onPress={() => Linking.openURL(igUrl!).catch(() => {})}
-                                    />
-                                )}
                             </View>
 
-                            {owner && !normalizedWebsite && !igUrl && (
-                                <Pressable onPress={onEditProfile} style={{ marginTop: 14 }}>
-                                    <Text style={s.addTxLink}>Add your website or Instagram</Text>
-                                </Pressable>
+                            {/* ═══ SOCIALS — website · instagram · youtube · spotify ═══ */}
+                            {(owner || socials.some((x) => x.present)) && (
+                                <View style={s.socialWrap}>
+                                    <Text style={s.socialLabel}>Socials</Text>
+                                    <View style={s.socialRow}>
+                                        {socials.map((soc) =>
+                                            soc.present ? (
+                                                <Pressable
+                                                    key={soc.key}
+                                                    style={[s.social, s.socialOn]}
+                                                    onPress={() => soc.url && Linking.openURL(soc.url).catch(() => {})}
+                                                    accessibilityLabel={soc.key}
+                                                >
+                                                    <soc.Icon size={18} color={soc.color} />
+                                                </Pressable>
+                                            ) : owner ? (
+                                                <Pressable
+                                                    key={soc.key}
+                                                    style={[s.social, s.socialOff]}
+                                                    onPress={onEditLinks}
+                                                    accessibilityLabel={`Add ${soc.key}`}
+                                                >
+                                                    <soc.Icon size={18} color={C.t4} />
+                                                </Pressable>
+                                            ) : null,
+                                        )}
+                                    </View>
+                                </View>
                             )}
                         </>
                     )}
@@ -921,8 +945,13 @@ const s = StyleSheet.create({
     bio: { fontFamily: F.body, fontSize: 13.5, lineHeight: 22, color: C.t1 },
     // Greyish placeholder-style prompt (bio) — reads as dimmed placeholder, not a loud CTA.
     addTxMuted: { fontFamily: F.body, fontSize: 13.5, lineHeight: 22, color: C.t3 },
-    // Greyish underlined link prompt (website/Instagram) — quiet, still clearly tappable.
-    addTxLink: { fontFamily: F.body, fontSize: 13, color: C.t3, textDecorationLine: 'underline' },
+    // Socials — website · instagram · youtube · spotify icon buttons (replaces the Website/IG KV).
+    socialWrap: { marginTop: 18 },
+    socialLabel: { fontFamily: F.mono, fontSize: 8, letterSpacing: 1.2, color: C.t4, textTransform: 'uppercase', marginBottom: 11 },
+    socialRow: { flexDirection: 'row', gap: 10 },
+    social: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+    socialOn: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: C.hair },   // present → active, tap opens link
+    socialOff: { backgroundColor: 'transparent', borderColor: C.hair, borderStyle: 'dashed' }, // empty → greyed, owner-tap → editor
     // Empty Productions tiles — faint image glyph over a warm gradient (mirrors Spotlight).
     mph: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 7 },
     mphText: { fontFamily: F.semi, fontSize: 13, color: C.t2 },

@@ -230,6 +230,8 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
 
     const renderBody = (owner: boolean) => (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 90 }} showsVerticalScrollIndicator={false}>
+                {/* ═══ MASTHEAD — cover + identity; Edit-cover straddles the divider ═══ */}
+                <View style={s.masthead}>
                 {/* ═══ COVER + TOPBAR ═══ */}
                 <View style={s.cover}>
                     {d.coverImageUrl ? (
@@ -245,31 +247,30 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                     <LinearGradient colors={['transparent', C.canvas]} style={s.coverFade} />
                     <SafeAreaView edges={['top']} style={s.topBar}>
                         {owner ? (
-                            <Pressable onPress={onSettings} style={s.circle} hitSlop={10}>
-                                <Settings size={17} color={C.t1} />
-                            </Pressable>
+                            // Owner: empty left slot so the right cluster sits flush-right.
+                            <View style={s.topSpacer} />
                         ) : (
                             <Pressable onPress={() => router.back()} style={s.circle} hitSlop={10}>
                                 <ChevronLeft size={18} color={C.t1} />
                             </Pressable>
                         )}
                         {owner ? (
-                            <Pressable onPress={() => setPreviewAsVisitor(true)} style={s.viewAs} hitSlop={10}>
-                                <Eye size={13} color={C.t1} />
-                                <Text style={s.viewAsText}>View as visitor</Text>
-                            </Pressable>
+                            // Owner: View-as-visitor pill, then the settings gear after it.
+                            <View style={s.topRight}>
+                                <Pressable onPress={() => setPreviewAsVisitor(true)} style={s.viewAs} hitSlop={10}>
+                                    <Eye size={13} color={C.t1} />
+                                    <Text style={s.viewAsText}>View as visitor</Text>
+                                </Pressable>
+                                <Pressable onPress={onSettings} style={s.circle} hitSlop={10}>
+                                    <Settings size={17} color={C.t1} />
+                                </Pressable>
+                            </View>
                         ) : (
                             <Pressable onPress={onShare} style={s.circle} hitSlop={10}>
                                 <MoreHorizontal size={18} color={C.t1} />
                             </Pressable>
                         )}
                     </SafeAreaView>
-                    {owner && (
-                        <Pressable onPress={onEditProfile} style={s.editCover} hitSlop={6}>
-                            <Pencil size={11} color={C.cream} />
-                            <Text style={s.editCoverText}>Edit cover</Text>
-                        </Pressable>
-                    )}
                 </View>
 
                 {/* ═══ IDENTITY ═══ */}
@@ -309,6 +310,14 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                             <Text style={[s.tierText, { color: tierColor }]}>{tier.toUpperCase()}</Text>
                         </View>
                     )}
+                </View>
+                {/* Edit-cover chip — last child, straddles the cover's bottom divider, bottom-right */}
+                {owner && (
+                    <Pressable onPress={onEditProfile} style={s.editCover} hitSlop={6}>
+                        <Pencil size={11} color={C.cream} />
+                        <Text style={s.editCoverText}>Edit cover</Text>
+                    </Pressable>
+                )}
                 </View>
 
                 <View style={s.sect}>
@@ -795,6 +804,8 @@ const s = StyleSheet.create({
     cover: { height: 132, position: 'relative', overflow: 'hidden' },
     coverFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 90 },
     topBar: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8 },
+    topRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    topSpacer: { width: 36, height: 36 },
     circle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(10,10,12,0.55)', borderWidth: 1, borderColor: C.hair, alignItems: 'center', justifyContent: 'center' },
 
     // identity
@@ -890,7 +901,11 @@ const s = StyleSheet.create({
     // masthead owner controls
     viewAs: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: 'rgba(10,10,12,0.55)', borderWidth: 1, borderColor: C.hair },
     viewAsText: { fontFamily: F.semi, fontSize: 11, color: C.t1 },
-    editCover: { position: 'absolute', right: 16, bottom: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(10,10,12,0.6)', borderWidth: 1, borderColor: C.hair, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+    // Masthead wraps cover(132) + identity; relative so Edit-cover can straddle the divider.
+    masthead: { position: 'relative' },
+    // Centred on the cover's bottom edge (the divider, y=132): top 118 = 132 − half the chip.
+    // Last child of masthead + high z, so it paints over both cover and identity.
+    editCover: { position: 'absolute', right: 16, top: 118, zIndex: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(10,10,12,0.72)', borderWidth: 1, borderColor: C.hair, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
     editCoverText: { fontFamily: F.semi, fontSize: 10.5, color: C.cream },
     logoWrap: { width: 84, position: 'relative' },
     logoEdit: { position: 'absolute', right: -4, bottom: -4, width: 26, height: 26, borderRadius: 13, backgroundColor: C.orange, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.canvas },

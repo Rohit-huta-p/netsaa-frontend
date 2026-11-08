@@ -66,6 +66,8 @@ const POPULATED = {
     services: ['Sangeet', 'Bollywood Dance'],
     photos: ['https://img/1.jpg', 'https://img/2.jpg', 'https://img/3.jpg', 'https://img/4.jpg', 'https://img/5.jpg'],
     organizationWebsite: 'mehfil.co',
+    youtubeUrl: 'youtube.com/@mehfil',
+    spotifyUrl: 'spotify.com/mehfil',
     yearsInBusiness: 6,
     teamSize: 8,
     verified: true,
@@ -85,7 +87,7 @@ describe('CreativeLeadProfile smoke', () => {
         const txt = renderText(false);
         expect(txt).toContain('Mehfil Collective');
         expect(txt).toContain('Weddings & corporate shows, choreographed end-to-end.'); // tagline
-        expect(txt).toContain('@mehfil.collective');  // Instagram link
+        expect(txt).toContain('Socials');  // socials row (website/Instagram/YouTube/Spotify icons)
         expect(txt).toContain('What we do');
         expect(txt).toContain('Now hiring');
         expect(txt).toContain('Lead dancer — Diwali gala');
@@ -118,7 +120,7 @@ describe('CreativeLeadProfile smoke', () => {
         expect(txt).toContain('Mehfil Collective');            // org name lifted
         expect(txt).toContain('Nested tagline lifts to the top.');
         expect(txt).toContain('Nested bio should render.');
-        expect(txt).toContain('@mehfil.collective');           // user-level IG still wins
+        expect(txt).toContain('Socials');                       // socials row renders (IG from user-level)
     });
 
     it('renders the OWNER view (Your gigs / insights / manage)', () => {
@@ -159,7 +161,7 @@ describe('CreativeLeadProfile smoke', () => {
         expect(txt).toContain('What we do');
         expect(txt).toContain('Tell artists & clients what your company does'); // bio prompt
         expect(txt).toContain('Add specialties');                               // specialties add-chip
-        expect(txt).toContain('Add your website or Instagram');                 // links prompt
+        expect(txt).toContain('Socials');                                       // socials row (greyed icons, tap → editor)
         // Productions stays visible (it vanishes for a visitor) with a dashed CTA.
         expect(txt).toContain('Productions');
         expect(txt).toContain('Add your productions');
@@ -178,7 +180,7 @@ describe('CreativeLeadProfile smoke', () => {
         const txt = renderText(false);
         expect(txt).toContain('Blank Co');
         expect(txt).not.toContain('Tell artists & clients what your company does');
-        expect(txt).not.toContain('Add your website or Instagram');
+        expect(txt).not.toContain('Socials');            // no socials row for a visitor with none set
         expect(txt).not.toContain('Productions');        // whole section hidden when no photos
         expect(txt).not.toContain('Add your productions');
     });

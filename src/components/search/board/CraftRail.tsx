@@ -37,6 +37,7 @@ export function CraftRail({
   return (
     <ScrollView
       horizontal
+      style={s.rail}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={s.row}
       keyboardShouldPersistTaps="handled"
@@ -73,6 +74,11 @@ export function CraftRail({
 }
 
 const s = StyleSheet.create({
+  // react-native-web gives every ScrollView `flexGrow: 1`, so a horizontal rail
+  // placed directly in the screen's flex column stretches to fill the free
+  // vertical space — opening a large gap above the results. Pin it to its
+  // content height. (No-op on native, where the rail already sizes to content.)
+  rail: { flexGrow: 0, flexShrink: 0 },
   row: { flexDirection: 'row', gap: 8, paddingHorizontal: 18, paddingTop: 2, paddingBottom: 14 },
   chip: {
     height: 34,

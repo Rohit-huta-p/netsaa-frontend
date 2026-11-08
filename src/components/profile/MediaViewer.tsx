@@ -86,6 +86,14 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
         Animated.timing(chromeOpacity, { toValue: chromeOn ? 1 : 0, duration: 220, useNativeDriver: true }).start();
     }, [chromeOn, chromeOpacity]);
 
+    // Keep `cur` in sync as the pager scrolls (web + native) so the active
+    // thumbnail highlights live while swiping — not only after momentum settles
+    // (onMomentumScrollEnd is unreliable with paging/scroll-snap on web).
+    const syncIndex = useCallback((x: number) => {
+        const i = Math.round(x / winW);
+        setCur((c) => (i !== c && i >= 0 && i < items.length ? i : c));
+    }, [winW, items.length]);
+
     const go = useCallback((i: number) => {
         if (i === cur) return;
         pagerRef.current?.scrollToIndex({ index: i, animated: true });
@@ -127,7 +135,9 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
                 initialScrollIndex={index}
                 getItemLayout={(_, i) => ({ length: winW, offset: winW * i, index: i })}
                 onScrollToIndexFailed={() => {}}
-                onMomentumScrollEnd={(e) => setCur(Math.round(e.nativeEvent.contentOffset.x / winW))}
+                onScroll={(e) => syncIndex(e.nativeEvent.contentOffset.x)}
+                scrollEventThrottle={16}
+                onMomentumScrollEnd={(e) => syncIndex(e.nativeEvent.contentOffset.x)}
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={(it, i) => `${it.url}-${i}`}
                 style={StyleSheet.absoluteFill}

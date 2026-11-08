@@ -36,12 +36,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ChevronLeft, MoreHorizontal, Check, Play } from 'lucide-react-native';
+import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight } from 'lucide-react-native';
 
 import { useUser } from '@/hooks/useUser';
 import { useOrganizer } from '@/hooks/useOrganizer';
 import { useEventsByOrganizer } from '@/hooks/useEventsByOrganizer';
 import { useOrganizerGigsPublic } from '@/hooks/useOrganizerGigsPublic';
+import { useOrganizerGigs } from '@/hooks/useGigs';
 import { orgTypeLabel } from '@/constants/orgTypes';
 import MediaViewer, { type MediaViewerItem } from '@/components/profile/MediaViewer';
 
@@ -137,9 +138,17 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     const { organizer } = useOrganizer();
     const { data: eventsData } = useEventsByOrganizer(userId);
     const { data: gigsData } = useOrganizerGigsPublic(userId);
+    // Owner-only, me-scoped gig list (status + applicant counts + drafts). Disabled
+    // for non-owners — the endpoint resolves gigs from req.user, so it must never run
+    // for a visitor viewing someone else's page.
+    const { data: ownerGigsRaw } = useOrganizerGigs(isOwner ? userId : '');
 
     const [following, setFollowing] = useState(false);
+    const [previewAsVisitor, setPreviewAsVisitor] = useState(false);
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+
+    // `owner` gates the owner layer; false while previewing the page as a visitor.
+    const owner = isOwner && !previewAsVisitor;
 
     const d: CLData = useMemo(() => {
         const base = (fetched ?? {}) as CLData;
@@ -164,6 +173,20 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     const gigs = gigsData?.gigs ?? [];
     const gigsTotal = gigsData?.total ?? 0;
 
+    // ── Owner-only derived data ──
+    const ownerGigs: any[] = owner ? ((ownerGigsRaw as any[]) ?? []) : [];
+    const applicantsToReview = ownerGigs.reduce((a, g) => a + (g.applicants ?? 0), 0);
+    // Page completeness — filled showcase fields over the set a company page needs.
+    const completeChecks = [
+        !!logo || !!d.coverImageUrl,
+        !!d.bio,
+        services.length > 0,
+        photos.length > 0,
+        !!website,
+        d.teamSize != null,
+    ];
+    const completePct = Math.round((completeChecks.filter(Boolean).length / completeChecks.length) * 100);
+
     // Stat strip (A·Editorial) — only cells that have data.
     const st = d.organizerStats;
     const stats: { v: string; unit?: string; star?: boolean; l: string }[] = [];
@@ -187,6 +210,10 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
         }).catch(() => {});
     };
     const onEditProfile = () => router.push('/(app)/client/agency-profile' as any);
+    const onSettings = () => router.push('/(app)/settings' as any);
+    const onPostGig = () => router.push('/(app)/create' as any);
+    const onCreateEvent = () => router.push('/(app)/create?initialTab=event' as any);
+    const onManageGigs = () => router.push('/(app)/dashboard/cl-work?tab=hiring' as any);
 
     const normalizedWebsite = website
         ? (/^https?:\/\//i.test(website) ? website : `https://${website}`)
@@ -209,22 +236,48 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                     )}
                     <LinearGradient colors={['transparent', C.canvas]} style={s.coverFade} />
                     <SafeAreaView edges={['top']} style={s.topBar}>
-                        <Pressable onPress={() => router.back()} style={s.circle} hitSlop={10}>
-                            <ChevronLeft size={18} color={C.t1} />
-                        </Pressable>
-                        <Pressable onPress={onShare} style={s.circle} hitSlop={10}>
-                            <MoreHorizontal size={18} color={C.t1} />
-                        </Pressable>
+                        {owner ? (
+                            <Pressable onPress={onSettings} style={s.circle} hitSlop={10}>
+                                <Settings size={17} color={C.t1} />
+                            </Pressable>
+                        ) : (
+                            <Pressable onPress={() => router.back()} style={s.circle} hitSlop={10}>
+                                <ChevronLeft size={18} color={C.t1} />
+                            </Pressable>
+                        )}
+                        {owner ? (
+                            <Pressable onPress={() => setPreviewAsVisitor(true)} style={s.viewAs} hitSlop={10}>
+                                <Eye size={13} color={C.t1} />
+                                <Text style={s.viewAsText}>View as visitor</Text>
+                            </Pressable>
+                        ) : (
+                            <Pressable onPress={onShare} style={s.circle} hitSlop={10}>
+                                <MoreHorizontal size={18} color={C.t1} />
+                            </Pressable>
+                        )}
                     </SafeAreaView>
+                    {owner && (
+                        <Pressable onPress={onEditProfile} style={s.editCover} hitSlop={6}>
+                            <Pencil size={11} color={C.cream} />
+                            <Text style={s.editCoverText}>Edit cover</Text>
+                        </Pressable>
+                    )}
                 </View>
 
                 {/* ═══ IDENTITY ═══ */}
                 <View style={s.identity}>
-                    <View style={s.logo}>
-                        {logo ? (
-                            <Image source={{ uri: logo }} style={s.logoImg} />
-                        ) : (
-                            <Text style={s.logoInitial}>{initial}</Text>
+                    <View style={s.logoWrap}>
+                        <View style={s.logo}>
+                            {logo ? (
+                                <Image source={{ uri: logo }} style={s.logoImg} />
+                            ) : (
+                                <Text style={s.logoInitial}>{initial}</Text>
+                            )}
+                        </View>
+                        {owner && (
+                            <Pressable onPress={onEditProfile} style={s.logoEdit} hitSlop={6}>
+                                <Pencil size={11} color={C.cream} />
+                            </Pressable>
                         )}
                     </View>
 
@@ -232,6 +285,11 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                         <Text style={s.orgName} numberOfLines={2}>{name}</Text>
                         {verified && (
                             <View style={s.vmark}><Check size={10} color={C.green} strokeWidth={3} /></View>
+                        )}
+                        {owner && (
+                            <Pressable onPress={onEditProfile} hitSlop={8}>
+                                <Pencil size={13} color={C.t3} />
+                            </Pressable>
                         )}
                     </View>
 
@@ -265,9 +323,21 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                         </View>
                     )}
 
+                    {/* ═══ OWNER INSIGHTS — private "to review" nudge ═══ */}
+                    {owner && applicantsToReview > 0 && (
+                        <Pressable style={s.pband} onPress={onManageGigs}>
+                            <Text style={s.pbLock}>🔒  Private to you</Text>
+                            <View style={s.pbRow}>
+                                <Text style={s.pbCount}>{applicantsToReview}</Text>
+                                <Text style={s.pbLabel}>applicant{applicantsToReview === 1 ? '' : 's'}{'\n'}to review</Text>
+                                <ChevronRight size={18} color={C.orange} style={{ marginLeft: 'auto' }} />
+                            </View>
+                        </Pressable>
+                    )}
+
                     {/* ═══ ACTIONS ═══ */}
                     <View style={s.actions}>
-                        {isOwner ? (
+                        {owner ? (
                             <>
                                 <Pressable style={[s.btn, s.btnGhostFill]} onPress={onEditProfile}>
                                     <Text style={s.btnGhostFillText}>Edit profile</Text>
@@ -293,19 +363,41 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                         )}
                     </View>
 
+                    {/* ═══ PAGE COMPLETENESS NUDGE (owner) ═══ */}
+                    {owner && completePct < 100 && (
+                        <Pressable style={s.complete} onPress={onEditProfile}>
+                            <View style={s.cring}><Text style={s.cringText}>{completePct}%</Text></View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={s.cTitle}>Your page is nearly there.</Text>
+                                <Text style={s.cBody}>Fill the rest to show up your best to artists &amp; clients.</Text>
+                                <View style={s.cBar}><View style={[s.cFill, { width: `${completePct}%` }]} /></View>
+                            </View>
+                        </Pressable>
+                    )}
+
                     {/* ═══ WHAT WE DO ═══ */}
-                    {(d.bio || services.length > 0 || typeLabel || d.yearsInBusiness != null || d.teamSize != null || website) && (
+                    {(d.bio || services.length > 0 || typeLabel || d.yearsInBusiness != null || d.teamSize != null || website || owner) && (
                         <>
-                            <View style={s.shead}><Text style={s.stitle}>What we do</Text></View>
+                            <View style={s.shead}>
+                                <Text style={s.stitle}>What we do</Text>
+                                {owner && (
+                                    <Pressable onPress={onEditProfile} hitSlop={8}><Text style={s.seeall}>EDIT</Text></Pressable>
+                                )}
+                            </View>
                             {!!d.bio && <Text style={s.bio}>{d.bio}</Text>}
 
-                            {services.length > 0 && (
+                            {(services.length > 0 || owner) && (
                                 <View style={s.chips}>
                                     {services.map((svc, i) => (
                                         <View key={`${svc}-${i}`} style={s.chipPill}>
                                             <Text style={s.chipText}>{svc}</Text>
                                         </View>
                                     ))}
+                                    {owner && (
+                                        <Pressable style={[s.chipPill, s.chipAdd]} onPress={onEditProfile}>
+                                            <Text style={[s.chipText, { color: C.orange }]}>+ Add</Text>
+                                        </Pressable>
+                                    )}
                                 </View>
                             )}
 
@@ -333,11 +425,15 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                             <View style={s.divsec} />
                             <View style={s.shead}>
                                 <Text style={s.stitle}>Productions</Text>
-                                {photos.length > 3 && (
+                                {owner ? (
+                                    <Pressable onPress={onEditProfile} hitSlop={8}>
+                                        <Text style={s.seeall}>MANAGE</Text>
+                                    </Pressable>
+                                ) : photos.length > 3 ? (
                                     <Pressable onPress={() => setViewerIndex(0)} hitSlop={8}>
                                         <Text style={s.seeall}>See all →</Text>
                                     </Pressable>
-                                )}
+                                ) : null}
                             </View>
 
                             <Pressable style={s.mfeature} onPress={() => setViewerIndex(0)}>
@@ -374,8 +470,30 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                         </>
                     )}
 
-                    {/* ═══ NOW HIRING — public open roles (GET /organizers/:id/gigs) ═══ */}
-                    {gigs.length > 0 && (
+                    {/* ═══ YOUR GIGS (owner) / NOW HIRING (public) ═══ */}
+                    {owner ? (
+                        <>
+                            <View style={s.divsec} />
+                            <View style={s.shead}>
+                                <Text style={s.stitle}>Your gigs</Text>
+                                {ownerGigs.length > 0 && (
+                                    <Pressable onPress={onManageGigs} hitSlop={8}>
+                                        <Text style={s.seeall}>MANAGE ALL {ownerGigs.length} →</Text>
+                                    </Pressable>
+                                )}
+                            </View>
+                            <Pressable style={s.postcta} onPress={onPostGig}>
+                                <View style={s.postPlus}><Plus size={18} color={C.orange} /></View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={s.postTitle}>Post a gig</Text>
+                                    <Text style={s.postSub}>HIRE ARTISTS FOR YOUR NEXT SHOW</Text>
+                                </View>
+                            </Pressable>
+                            {ownerGigs.map((g: any) => (
+                                <OwnerGigCard key={g._id} g={g} />
+                            ))}
+                        </>
+                    ) : gigs.length > 0 ? (
                         <>
                             <View style={s.divsec} />
                             <View style={s.shead}>
@@ -388,29 +506,35 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                 <RoleCard key={g._id} g={g} />
                             ))}
                         </>
-                    )}
+                    ) : null}
 
-                    {/* ═══ EVENTS THEY HOST — public ═══ */}
-                    {events.length > 0 && (
+                    {/* ═══ EVENTS — "Your events" (owner) / "Events they host" (public) ═══ */}
+                    {(owner || events.length > 0) && (
                         <>
                             <View style={s.divsec} />
                             <View style={s.shead}>
-                                <Text style={s.stitle}>Events they host</Text>
+                                <Text style={s.stitle}>{owner ? 'Your events' : 'Events they host'}</Text>
                                 {events.length > 2 && (
-                                    <Text style={s.seeall}>See all {events.length} →</Text>
+                                    <Text style={s.seeall}>{owner ? `MANAGE ALL ${events.length} →` : `See all ${events.length} →`}</Text>
                                 )}
                             </View>
                         </>
                     )}
                 </View>
 
-                {events.length > 0 && (
+                {(owner || events.length > 0) && (
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={{ gap: 12, paddingHorizontal: 20 }}
                     >
-                        {events.map((e: any) => <EventCard key={e._id} e={e} />)}
+                        {owner && (
+                            <Pressable style={s.ecardAdd} onPress={onCreateEvent}>
+                                <View style={s.postPlus}><Plus size={18} color={C.orange} /></View>
+                                <Text style={s.ecardAddText}>Create{'\n'}event</Text>
+                            </Pressable>
+                        )}
+                        {events.map((e: any) => <EventCard key={e._id} e={e} owner={owner} />)}
                     </ScrollView>
                 )}
 
@@ -428,6 +552,13 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                     artist={{ id: userId, name, location: city || undefined }}
                     isOwner={isOwner}
                 />
+            )}
+
+            {isOwner && previewAsVisitor && (
+                <Pressable style={s.previewBar} onPress={() => setPreviewAsVisitor(false)}>
+                    <Eye size={13} color="#190B05" />
+                    <Text style={s.previewBarText}>Previewing as visitor — tap to exit</Text>
+                </Pressable>
             )}
         </View>
     );
@@ -519,7 +650,56 @@ function RoleCard({ g }: { g: any }) {
     );
 }
 
-function EventCard({ e }: { e: any }) {
+// Owner "Your gigs" card — status chip (Live/Draft/Closed) + pay + facets +
+// footer action (applicant count, or "Finish & publish" for a draft).
+function gigStatusMeta(status?: string, deadline?: string): { label: string; color: string } {
+    switch (status) {
+        case 'published': {
+            const c = closesLabel(deadline);
+            return { label: c && c !== 'Closed' ? `Live · ${c.replace('Closes', 'closes')}` : 'Live', color: C.green };
+        }
+        case 'draft': return { label: 'Draft · not visible yet', color: C.t3 };
+        case 'paused': return { label: 'Paused', color: C.gold };
+        case 'closed':
+        case 'expired': return { label: 'Closed', color: C.t4 };
+        default: return { label: status || '', color: C.t3 };
+    }
+}
+
+function OwnerGigCard({ g }: { g: any }) {
+    const pay = payLabel(g.compensation);
+    const type = (g.artistTypes?.[0] || g.category || '').toString();
+    const loc = g.location?.isRemote ? 'Remote' : (g.location?.city ? `On-site · ${g.location.city}` : '');
+    const facets = [type, loc].filter(Boolean);
+    const sm = gigStatusMeta(g.status, g.applicationDeadline);
+    const isDraft = g.status === 'draft';
+    const count = g.applicants ?? 0;
+    const go = () => router.push((isDraft ? `/create?gigId=${g._id}` : `/gigs/${g._id}?tab=applicants`) as any);
+    return (
+        <Pressable style={s.gcard} onPress={go}>
+            <View style={s.gstatus}>
+                <View style={[s.gstatusDot, { backgroundColor: sm.color }]} />
+                <Text style={[s.gstatusText, { color: sm.color }]}>{sm.label}</Text>
+            </View>
+            <View style={s.gtop}>
+                <Text style={s.gtitle} numberOfLines={2}>{g.title || 'Untitled gig'}</Text>
+                {!!pay && <Text style={s.gpay}>{pay}</Text>}
+            </View>
+            {facets.length > 0 && (
+                <View style={s.gfacets}>
+                    {facets.map((f, i) => (<View key={`${f}-${i}`} style={s.gf}><Text style={s.gfText}>{f}</Text></View>))}
+                </View>
+            )}
+            <View style={s.gfoot}>
+                <Text style={s.gapply}>
+                    {isDraft ? 'Finish & publish →' : `${count} applicant${count === 1 ? '' : 's'} →`}
+                </Text>
+            </View>
+        </Pressable>
+    );
+}
+
+function EventCard({ e, owner }: { e: any; owner?: boolean }) {
     const title = e.title || e.name || 'Event';
     const kind = (e.eventType || e.type || e.category || '').toString().toUpperCase();
     const place = (e.venue?.city || e.city || e.location || '').toString().toUpperCase();
@@ -532,7 +712,7 @@ function EventCard({ e }: { e: any }) {
     const cover = e.coverImageUrl || e.coverUrl || (Array.isArray(e.media) ? e.media[0]?.url : undefined);
 
     return (
-        <View style={s.ecard}>
+        <Pressable style={s.ecard} onPress={owner ? () => router.push(`/events/${e._id}/manage/overview` as any) : undefined}>
             <View style={s.eposter}>
                 {cover ? (
                     <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -551,8 +731,9 @@ function EventCard({ e }: { e: any }) {
                 <Text style={s.ett} numberOfLines={1}>{title}</Text>
                 {!!place && <Text style={s.emeta}>{place}</Text>}
                 {!!price && <Text style={s.eprice}>{price}</Text>}
+                {owner && <Text style={s.emanage}>MANAGE →</Text>}
             </View>
-        </View>
+        </Pressable>
     );
 }
 
@@ -655,4 +836,46 @@ const s = StyleSheet.create({
     // footer
     frule: { alignSelf: 'center', width: '34%', height: 1, backgroundColor: C.hair, marginTop: 28, marginBottom: 9 },
     fcap: { textAlign: 'center', fontFamily: F.bold, fontSize: 9, letterSpacing: 2, color: C.t4, paddingBottom: 22 },
+
+    // ── Owner layer ──
+    // masthead owner controls
+    viewAs: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: 'rgba(10,10,12,0.55)', borderWidth: 1, borderColor: C.hair },
+    viewAsText: { fontFamily: F.semi, fontSize: 11, color: C.t1 },
+    editCover: { position: 'absolute', right: 16, bottom: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(10,10,12,0.6)', borderWidth: 1, borderColor: C.hair, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+    editCoverText: { fontFamily: F.semi, fontSize: 10.5, color: C.cream },
+    logoWrap: { width: 84, position: 'relative' },
+    logoEdit: { position: 'absolute', right: -4, bottom: -4, width: 26, height: 26, borderRadius: 13, backgroundColor: C.orange, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.canvas },
+
+    // insights band
+    pband: { backgroundColor: '#0D0D12', borderWidth: 1, borderColor: C.hair, borderLeftWidth: 2, borderLeftColor: C.orange, borderRadius: 13, padding: 14, marginTop: 16 },
+    pbLock: { fontFamily: F.mono, fontSize: 8.5, letterSpacing: 1, color: C.t3, textTransform: 'uppercase', marginBottom: 10 },
+    pbRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    pbCount: { fontFamily: F.serif, fontSize: 30, color: C.cream, letterSpacing: -0.5 },
+    pbLabel: { fontFamily: F.mono, fontSize: 9, letterSpacing: 0.6, color: C.t2, textTransform: 'uppercase', lineHeight: 13 },
+
+    // completeness nudge
+    complete: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: C.well, borderWidth: 1, borderColor: C.hair, borderRadius: 13, padding: 14, marginTop: 12 },
+    cring: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: C.orange, alignItems: 'center', justifyContent: 'center' },
+    cringText: { fontFamily: F.bold, fontSize: 12, color: C.orange },
+    cTitle: { fontFamily: F.semi, fontSize: 13.5, color: C.cream },
+    cBody: { fontFamily: F.body, fontSize: 11.5, color: C.t3, marginTop: 2 },
+    cBar: { height: 3, borderRadius: 99, backgroundColor: C.hair, overflow: 'hidden', marginTop: 9 },
+    cFill: { height: '100%', borderRadius: 99, backgroundColor: C.orange },
+
+    // post-a-gig CTA + gig status + add-chip
+    postcta: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.well, borderWidth: 1, borderColor: C.hair, borderStyle: 'dashed', borderRadius: 14, padding: 14, marginBottom: 10 },
+    postPlus: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.orangeSoft, alignItems: 'center', justifyContent: 'center' },
+    postTitle: { fontFamily: F.semi, fontSize: 14.5, color: C.cream },
+    postSub: { fontFamily: F.mono, fontSize: 8.5, letterSpacing: 0.8, color: C.t3, textTransform: 'uppercase', marginTop: 2 },
+    gstatus: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 9 },
+    gstatusDot: { width: 6, height: 6, borderRadius: 3 },
+    gstatusText: { fontFamily: F.mono, fontSize: 9, letterSpacing: 0.6, textTransform: 'uppercase' },
+    chipAdd: { borderColor: C.orangeB, backgroundColor: C.orangeSoft },
+
+    // create-event tile + manage + preview bar
+    ecardAdd: { width: 128, borderRadius: 14, borderWidth: 1, borderColor: C.hair, borderStyle: 'dashed', backgroundColor: C.well, alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 20 },
+    ecardAddText: { fontFamily: F.semi, fontSize: 12, color: C.t1, textAlign: 'center', lineHeight: 15 },
+    emanage: { fontFamily: F.mono, fontSize: 9, letterSpacing: 0.8, color: C.orange, marginTop: 8 },
+    previewBar: { position: 'absolute', left: 20, right: 20, bottom: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.orange, borderRadius: 12, paddingVertical: 12 },
+    previewBarText: { fontFamily: F.bold, fontSize: 12.5, color: '#190B05', letterSpacing: 0.2 },
 });

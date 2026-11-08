@@ -1,7 +1,8 @@
 /**
- * Smoke test — CreativeLeadProfile renders without crashing on both a populated
- * organizer and a cold-start (empty) one. Data hooks + MediaViewer are mocked;
- * we only assert the component mounts and surfaces key text.
+ * Smoke test — CreativeLeadProfile renders without crashing for a public viewer
+ * (populated + cold-start) and for the OWNER (Your gigs / insights / completeness /
+ * manage affordances). Data hooks + MediaViewer are mocked; we assert the component
+ * mounts and surfaces key text.
  */
 import React from 'react';
 
@@ -9,6 +10,7 @@ import React from 'react';
 let mockUser: any;
 let mockEvents: any[];
 let mockGigs: any[];
+let mockOwnerGigs: any[];
 
 jest.mock('@/hooks/useUser', () => ({ useUser: () => ({ data: mockUser }) }));
 jest.mock('@/hooks/useOrganizer', () => ({ useOrganizer: () => ({ organizer: undefined }) }));
@@ -18,6 +20,7 @@ jest.mock('@/hooks/useEventsByOrganizer', () => ({
 jest.mock('@/hooks/useOrganizerGigsPublic', () => ({
     useOrganizerGigsPublic: () => ({ data: { gigs: mockGigs, total: mockGigs.length } }),
 }));
+jest.mock('@/hooks/useGigs', () => ({ useOrganizerGigs: () => ({ data: mockOwnerGigs }) }));
 jest.mock('@/components/profile/MediaViewer', () => ({ __esModule: true, default: () => null }));
 jest.mock('expo-router', () => ({ router: { back: jest.fn(), push: jest.fn() } }));
 
@@ -32,56 +35,84 @@ function collectText(node: any, out: string[] = []): string[] {
     return out;
 }
 
-function renderText(): string {
+function renderText(isOwner = false): string {
     let r: any;
     TestRenderer.act(() => {
-        r = TestRenderer.create(<CreativeLeadProfile userId="org1" />);
+        r = TestRenderer.create(<CreativeLeadProfile userId="org1" isOwner={isOwner} />);
     });
     const txt = collectText(r.toJSON()).join(' ');
-    r.unmount();
+    TestRenderer.act(() => { r.unmount(); });
     return txt;
 }
 
+const POPULATED = {
+    _id: 'org1',
+    role: 'creative_lead',
+    organizationName: 'Mehfil Collective',
+    organizerTypeCategory: 'production_company',
+    primaryCity: 'Pune',
+    bio: 'A Pune production house.',
+    services: ['Sangeet', 'Bollywood Dance'],
+    photos: ['https://img/1.jpg', 'https://img/2.jpg', 'https://img/3.jpg', 'https://img/4.jpg', 'https://img/5.jpg'],
+    organizationWebsite: 'mehfil.co',
+    yearsInBusiness: 6,
+    teamSize: 8,
+    verified: true,
+    trustTier: 'trusted',
+    organizerStats: { gigsPosted: 48, averageRating: 4.8, artistsHired: 120, avgReplyMinutes: 120 },
+};
+
 describe('CreativeLeadProfile smoke', () => {
-    it('renders a populated organizer', () => {
-        mockUser = {
-            _id: 'org1',
-            role: 'creative_lead',
-            organizationName: 'Mehfil Collective',
-            organizerTypeCategory: 'production_company',
-            primaryCity: 'Pune',
-            bio: 'A Pune production house.',
-            services: ['Sangeet', 'Bollywood Dance'],
-            photos: ['https://img/1.jpg', 'https://img/2.jpg', 'https://img/3.jpg', 'https://img/4.jpg', 'https://img/5.jpg'],
-            organizationWebsite: 'mehfil.co',
-            yearsInBusiness: 6,
-            teamSize: 8,
-            verified: true,
-            trustTier: 'trusted',
-            organizerStats: { gigsPosted: 48, averageRating: 4.8, artistsHired: 120, avgReplyMinutes: 120 },
-        };
+    it('renders a populated organizer (public viewer)', () => {
+        mockUser = POPULATED;
         mockEvents = [{ _id: 'e1', title: 'Kathak masterclass', eventType: 'workshop', city: 'Pune', startDate: '2026-11-22', price: 500 }];
         mockGigs = [
             { _id: 'g1', title: 'Lead dancer — Diwali gala', artistTypes: ['Bollywood'], location: { city: 'Pune', isRemote: false }, compensation: { model: 'fixed', amount: 32000 }, schedule: { startDate: '2026-11-07' }, applicationDeadline: '2099-11-05' },
-            { _id: 'g2', title: 'Sangeet choreographer', artistTypes: ['Choreography'], location: { city: 'Pune', isRemote: false }, compensation: { model: 'fixed', amount: 15000 }, schedule: { startDate: '2026-11-02' }, applicationDeadline: '2099-11-01' },
         ];
+        mockOwnerGigs = [];
 
-        const txt = renderText();
+        const txt = renderText(false);
         expect(txt).toContain('Mehfil Collective');
         expect(txt).toContain('What we do');
-        expect(txt).toContain('Productions');
-        expect(txt).toContain('Gigs hosted');
-        expect(txt).toContain('TRUSTED');
         expect(txt).toContain('Now hiring');
         expect(txt).toContain('Lead dancer — Diwali gala');
         expect(txt).toContain('Events they host');
+        // No owner chrome leaks into the public view.
+        expect(txt).not.toContain('Your gigs');
+        expect(txt).not.toContain('View as visitor');
+    });
+
+    it('renders the OWNER view (Your gigs / insights / manage)', () => {
+        mockUser = POPULATED;
+        mockEvents = [{ _id: 'e1', title: 'Kathak masterclass', eventType: 'workshop', city: 'Pune', startDate: '2026-11-22', price: 500 }];
+        mockGigs = [];
+        mockOwnerGigs = [
+            { _id: 'og1', title: 'Lead dancer — gala', status: 'published', applicants: 8, artistTypes: ['Bollywood'], location: { city: 'Pune' }, compensation: { model: 'fixed', amount: 32000 }, applicationDeadline: '2099-11-05' },
+            { _id: 'og2', title: 'Sangeet choreographer', status: 'draft', applicants: 0, artistTypes: ['Choreography'], location: { city: 'Pune' }, compensation: { model: 'fixed', amount: 15000 } },
+        ];
+
+        const txt = renderText(true);
+        expect(txt).toContain('View as visitor');
+        expect(txt).toContain('Private to you');           // insights band
+        expect(txt).toContain('to review');
+        expect(txt).toContain('Your gigs');
+        expect(txt).toContain('Post a gig');
+        expect(txt).toContain('8 applicants →');            // live gig count
+        expect(txt).toContain('Draft · not visible yet');   // draft status
+        expect(txt).toContain('Finish & publish →');
+        expect(txt).toContain('Your events');
+        expect(txt).toContain('Edit profile');
+        // Public CTAs are replaced in the owner view.
+        expect(txt).not.toContain('+ Follow');
+        expect(txt).not.toContain('Now hiring');
     });
 
     it('renders a cold-start organizer without crashing', () => {
         mockUser = { _id: 'org1', role: 'creative_lead' };
         mockEvents = [];
         mockGigs = [];
-        const txt = renderText();
+        mockOwnerGigs = [];
+        const txt = renderText(false);
         expect(txt).toContain('Creative Lead'); // fallback name
     });
 });

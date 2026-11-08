@@ -1,16 +1,16 @@
 /**
  * MEDIA_SPEC — the single source of truth for crop targets.
  *
- * Each "crop surface" (avatar, profile cover, event poster, agency logo) is
- * cropped to a FIXED frame on-device before upload, so what the user frames is
- * exactly what everyone sees. Gallery/showcase photos and video are NOT cropped
- * (they are shown as thumbnails that open full in MediaViewer) and have no entry
- * here. See memory: netsa-media-cropper-plan.
+ * Each "crop surface" (avatar, profile cover, event poster, agency logo,
+ * showcase photo) is cropped to a FIXED frame on-device before upload, so what
+ * the user frames is exactly what everyone sees. Event "more photos" and video
+ * are NOT cropped (they are shown as thumbnails that open full in MediaViewer)
+ * and have no entry here. See memory: netsa-media-cropper-plan.
  */
 
 export type CropShape = 'rect' | 'circle';
 
-export type CropPurpose = 'avatar' | 'cover' | 'eventCover' | 'logo';
+export type CropPurpose = 'avatar' | 'cover' | 'eventCover' | 'logo' | 'showcase';
 
 export interface MediaSpec {
   /** Aspect ratio as width / height. 1 = square, 0.8 = 4:5 portrait, 1.5 = 3:2 landscape. */
@@ -43,6 +43,9 @@ export const MEDIA_SPEC: Record<CropPurpose, MediaSpec> = {
   cover:      { aspect: 3 / 2, shape: 'rect',   outputWidth: 1620, compress: 0.85, title: 'Position your cover',  ratioLabel: '3:2', osAspect: [3, 2] },
   eventCover: { aspect: 16 / 9, shape: 'rect',  outputWidth: 1600, compress: 0.9,  title: 'Position your cover',  ratioLabel: '16:9', osAspect: [16, 9] },
   logo:       { aspect: 1,     shape: 'rect',   outputWidth: 1080, compress: 0.85, title: 'Position your logo',   ratioLabel: '1:1', osAspect: [1, 1] },
+  // Showcase photos sit in the profile's square bento grid → crop to 1:1 so
+  // what the user frames is what the grid shows (was a blind center-crop).
+  showcase:   { aspect: 1,     shape: 'rect',   outputWidth: 1440, compress: 0.85, title: 'Position your photo',  ratioLabel: '1:1', osAspect: [1, 1] },
 };
 
 export default MEDIA_SPEC;

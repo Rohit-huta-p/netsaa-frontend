@@ -664,10 +664,11 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             if (!cropped) return;
             asset = cropped;
         } else {
-            // Gallery is NOT a crop surface — keep the OS picker.
-            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, aspect: [16, 9], quality: 0.8 });
-            if (result.canceled) return;
-            asset = result.assets[0];
+            // Showcase is a crop surface — pick full-res + in-app crop to the 1:1
+            // bento tile (what you frame is what the showcase grid shows).
+            const cropped = await pickAndCrop('showcase');
+            if (!cropped) return;
+            asset = cropped;
         }
         const validation = validateMediaFile(asset, false);
         if (!validation.valid) { Alert.alert('Error', validation.error); return; }

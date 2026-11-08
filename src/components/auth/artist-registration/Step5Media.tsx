@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
     View, Text, TouchableOpacity, Image, Alert,
-    ActivityIndicator, ScrollView, TextInput,
+    ActivityIndicator, ScrollView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Plus, X, Image as ImageIcon, Play, User } from 'lucide-react-native';
+import { Plus, X, Image as ImageIcon, Play, User, Check } from 'lucide-react-native';
 import type { ImagePickerAsset } from 'expo-image-picker';
 import { C, FONT, s } from './shared';
 
@@ -16,8 +16,8 @@ interface Props {
     setPhotos: (p: ImagePickerAsset[]) => void;
     avatar?: ImagePickerAsset | null;
     setAvatar?: (a: ImagePickerAsset | null) => void;
-    videoUrl?: string;
-    setVideoUrl?: (v: string) => void;
+    videoAsset?: ImagePickerAsset | null;
+    setVideoAsset?: (v: ImagePickerAsset | null) => void;
     uploading?: boolean;
     onSkip?: () => void;
 }
@@ -27,14 +27,11 @@ export function Step5Media({
     setPhotos,
     avatar = null,
     setAvatar,
-    videoUrl = '',
-    setVideoUrl,
+    videoAsset = null,
+    setVideoAsset,
     uploading = false,
     onSkip,
 }: Props) {
-    const [videoInput, setVideoInput] = useState(videoUrl);
-    const [videoExpanded, setVideoExpanded] = useState(false);
-
     const pickPhoto = async (idx: number) => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
@@ -73,8 +70,19 @@ export function Step5Media({
         setPhotos(photos.filter((_, i) => i !== idx));
     };
 
-    const commitVideoUrl = () => {
-        setVideoUrl?.(videoInput.trim());
+    const pickVideo = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission needed', 'Allow media access to add a performance video.');
+            return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+            quality: 0.8,
+            videoMaxDuration: 90,
+        });
+        if (result.canceled || !result.assets?.[0]) return;
+        setVideoAsset?.(result.assets[0]);
     };
 
     const filled = photos.length;
@@ -324,61 +332,95 @@ export function Step5Media({
 
                 <TouchableOpacity
                     activeOpacity={0.85}
+                    disabled={uploading}
                     style={{
                         flexDirection: 'row',
                         alignItems: 'center',
                         gap: 10,
                         backgroundColor: C.surface,
                         borderWidth: 1,
-                        borderColor: videoExpanded ? C.orangeBorder : C.border,
+                        borderColor: videoAsset ? C.orangeBorder : C.border,
                         borderRadius: 11,
                         padding: 11,
                     }}
-                    onPress={() => setVideoExpanded(true)}
+                    onPress={pickVideo}
                 >
+                    {/* Thumbnail or icon */}
                     <View style={{
-                        width: 30,
-                        height: 30,
+                        width: 46,
+                        height: 46,
                         borderRadius: 8,
                         backgroundColor: C.surface2,
                         alignItems: 'center',
                         justifyContent: 'center',
+                        overflow: 'hidden',
+                        borderWidth: videoAsset ? 1 : 0,
+                        borderColor: C.orangeBorder,
                     }}>
-                        <Play size={12} color={videoUrl ? C.orange : C.t4} fill={videoUrl ? C.orange : C.t4} />
+                        {videoAsset ? (
+                            <>
+                                <Image
+                                    source={{ uri: videoAsset.uri }}
+                                    style={{ width: 46, height: 46 }}
+                                    resizeMode="cover"
+                                />
+                                <View style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    width: 46,
+                                    height: 46,
+                                    backgroundColor: 'rgba(0,0,0,0.35)',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}>
+                                    <Play size={14} color="#fff" fill="#fff" strokeWidth={0} />
+                                </View>
+                            </>
+                        ) : (
+                            <Play size={14} color={C.t4} fill={C.t4} strokeWidth={0} />
+                        )}
                     </View>
+
                     <View style={{ flex: 1 }}>
-                        {videoExpanded ? (
-                            <TextInput
-                                value={videoInput}
-                                onChangeText={setVideoInput}
-                                placeholder="https://youtube.com/watch?v=…"
-                                placeholderTextColor={C.t4}
-                                autoFocus
-                                autoCapitalize="none"
-                                keyboardType="url"
-                                returnKeyType="done"
-                                onSubmitEditing={() => { commitVideoUrl(); setVideoExpanded(false); }}
-                                onBlur={() => { commitVideoUrl(); setVideoExpanded(false); }}
-                                style={{
-                                    fontFamily: FONT.body,
-                                    fontSize: 12,
-                                    color: C.t1,
-                                    padding: 0,
-                                }}
-                            />
-                        ) : videoUrl ? (
-                            <Text style={{ fontFamily: FONT.bodyMed, fontSize: 12, color: C.t2 }} numberOfLines={1}>
-                                {videoUrl}
-                            </Text>
+                        {videoAsset ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                                <Check size={11} color={C.orange} strokeWidth={2.5} />
+                                <Text style={{ fontFamily: FONT.bodyMed, fontSize: 12, color: C.orange }}>
+                                    Video ready
+                                </Text>
+                            </View>
                         ) : (
                             <Text style={{ fontFamily: FONT.bodyMed, fontSize: 12, color: C.t3 }}>
                                 Add a performance video
                             </Text>
                         )}
                         <Text style={{ fontFamily: FONT.body, fontSize: 9, color: C.t4, marginTop: 2 }}>
-                            YouTube link or upload · Max 90 s
+                            {videoAsset
+                                ? `${Math.round((videoAsset.duration ?? 0) / 1000)}s · tap to change`
+                                : 'Pick from library · Max 90 s'}
                         </Text>
                     </View>
+
+                    {videoAsset && !uploading && (
+                        <TouchableOpacity
+                            onPress={() => setVideoAsset?.(null)}
+                            hitSlop={8}
+                            style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: 11,
+                                backgroundColor: 'rgba(0,0,0,0.5)',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            <X size={11} color="#fff" strokeWidth={2.5} />
+                        </TouchableOpacity>
+                    )}
+
+                    {uploading && videoAsset && (
+                        <ActivityIndicator size="small" color={C.orange} />
+                    )}
                 </TouchableOpacity>
             </View>
         </View>

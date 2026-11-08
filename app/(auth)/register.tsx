@@ -30,7 +30,7 @@ import { Step2Identity }      from '@/components/auth/artist-registration/Step2I
 import { Step3DOB }           from '@/components/auth/artist-registration/Step3DOB';
 import { Step4ArtistProfile } from '@/components/auth/artist-registration/Step4ArtistProfile';
 import { Step5Media }         from '@/components/auth/artist-registration/Step5Media';
-import { uploadMediaFlow }    from '@/utils/upload';
+import { uploadMediaFlow, uploadVideoFlow } from '@/utils/upload';
 
 const C = {
     bg:          '#121216',
@@ -72,7 +72,7 @@ export default function RegisterScreen() {
     const [bio, setBio]           = useState('');
     const [photos, setPhotos]     = useState<ImagePickerAsset[]>([]);
     const [avatar, setAvatar]     = useState<ImagePickerAsset | null>(null);
-    const [videoUrl, setVideoUrl] = useState('');
+    const [videoAsset, setVideoAsset] = useState<ImagePickerAsset | null>(null);
 
     /* ─── Derived age ─── */
     const ageYears = useMemo<number | null>(() => {
@@ -221,8 +221,8 @@ export default function RegisterScreen() {
                 console.warn('[register] profile enrich failed — user can update later', e);
             }
 
-            // Upload avatar + portfolio photos — non-fatal if it fails
-            const hasMedia = avatar || photos.length > 0;
+            // Upload avatar + portfolio photos + video reel — non-fatal if it fails
+            const hasMedia = avatar || photos.length > 0 || videoAsset;
             if (hasMedia) {
                 try {
                     const userId = (user as any)?._id ?? '';
@@ -253,7 +253,19 @@ export default function RegisterScreen() {
                     if (avatarUrl) mediaPatch.profileImageUrl = avatarUrl;
                     else if (galleryUrls.length) mediaPatch.profileImageUrl = galleryUrls[0];
                     if (galleryUrls.length) mediaPatch.galleryUrls = galleryUrls;
-                    if (videoUrl.trim()) mediaPatch.videoUrl = videoUrl.trim();
+
+                    if (videoAsset) {
+                        const vRes = await uploadVideoFlow({
+                            asset: videoAsset,
+                            entityType: 'user',
+                            entityId: userId,
+                            purpose: 'portfolio',
+                        });
+                        if (vRes.success && vRes.uploadId) {
+                            mediaPatch.videoReels = [{ uploadId: vRes.uploadId, status: 'processing', muxPlaybackId: '' }];
+                        }
+                    }
+
                     if (Object.keys(mediaPatch).length) await authService.updateProfile(mediaPatch);
                 } catch (e) {
                     console.warn('[register] media upload failed — user can add from profile', e);
@@ -351,8 +363,8 @@ export default function RegisterScreen() {
                             setPhotos={setPhotos}
                             avatar={avatar}
                             setAvatar={setAvatar}
-                            videoUrl={videoUrl}
-                            setVideoUrl={setVideoUrl}
+                            videoAsset={videoAsset}
+                            setVideoAsset={setVideoAsset}
                             uploading={loading}
                         />
                     )}

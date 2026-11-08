@@ -431,7 +431,7 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                     )}
 
                     {/* ═══ WHAT WE DO ═══ */}
-                    {(d.bio || services.length > 0 || typeLabel || d.yearsInBusiness != null || d.teamSize != null || website || ig || youtube || spotify || owner) && (
+                    {(d.bio || services.length > 0 || website || ig || youtube || spotify || owner) && (
                         <>
                             <View style={s.shead}>
                                 <Text style={s.stitle}>What we do</Text>
@@ -461,14 +461,6 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                     )}
                                 </View>
                             )}
-
-                            <View style={s.kv}>
-                                {!!typeLabel && <KV k="Type" v={typeLabel} />}
-                                {d.yearsInBusiness != null && (
-                                    <KV k="Since" v={`${d.yearsInBusiness} ${d.yearsInBusiness === 1 ? 'yr' : 'yrs'}`} />
-                                )}
-                                {d.teamSize != null && <KV k="Team" v={`${d.teamSize} people`} />}
-                            </View>
 
                             {/* ═══ SOCIALS — website · instagram · youtube · spotify ═══ */}
                             {(owner || socials.some((x) => x.present)) && (
@@ -718,20 +710,6 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
 export default CreativeLeadProfile;
 
 // ── Small building blocks ──
-function KV({ k, v, link, onPress }: { k: string; v: string; link?: boolean; onPress?: () => void }) {
-    const Body = (
-        <>
-            <Text style={s.kvK}>{k.toUpperCase()}</Text>
-            <Text style={[s.kvV, link && s.kvVLink]} numberOfLines={1}>{v}</Text>
-        </>
-    );
-    return link && onPress ? (
-        <Pressable style={s.kvItem} onPress={onPress}>{Body}</Pressable>
-    ) : (
-        <View style={s.kvItem}>{Body}</View>
-    );
-}
-
 function fmtDay(iso?: string): { d: string; m: string } {
     if (!iso) return { d: '', m: '' };
     try {
@@ -959,11 +937,6 @@ const s = StyleSheet.create({
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 14 },
     chipPill: { backgroundColor: C.chip, borderWidth: 1, borderColor: C.chipB, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 },
     chipText: { fontFamily: F.mono, fontSize: 10, color: C.t2, letterSpacing: 0.3 },
-    kv: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 16 },
-    kvItem: { flexBasis: '50%', paddingVertical: 11, borderTopWidth: 1, borderTopColor: C.hairSoft, gap: 3 },
-    kvK: { fontFamily: F.mono, fontSize: 8, letterSpacing: 1.2, color: C.t4, textTransform: 'uppercase' },
-    kvV: { fontFamily: F.body, fontSize: 13, color: C.cream },
-    kvVLink: { color: C.orange },
 
     // productions showcase
     mfeature: { height: 158, borderRadius: 13, overflow: 'hidden', backgroundColor: '#17131c', position: 'relative' },

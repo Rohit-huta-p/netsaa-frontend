@@ -89,11 +89,12 @@ export default function RegisterScreen() {
     const [showDone, setShowDone] = useState(false);
 
     /* ─── Shared form state (steps 0-2) ─── */
-    const [email, setEmail]       = useState('');
-    const [password, setPassword] = useState('');
-    const [fullName, setFullName] = useState('');
-    const [stageName, setStageName] = useState('');
-    const [dob, setDob]           = useState<Date | null>(null);
+    const [email, setEmail]           = useState('');
+    const [password, setPassword]     = useState('');
+    const [fullName, setFullName]     = useState('');
+    const [stageName, setStageName]   = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
+    const [dob, setDob]               = useState<Date | null>(null);
 
     /* ─── Artist-specific form state (steps 3-4) ─── */
     const [artistType, setArtistType] = useState('');
@@ -193,6 +194,7 @@ export default function RegisterScreen() {
                     password,
                     role: 'creative_lead' as const,
                     marketingConsent: false,
+                    ...(phoneNumber.trim() ? { phoneNumber: phoneNumber.trim() } : {}),
                 },
             });
             if (!data.token) throw new Error('No token returned');
@@ -315,6 +317,7 @@ export default function RegisterScreen() {
                     password,
                     role: 'artist' as const,
                     marketingConsent: false,
+                    ...(phoneNumber.trim() ? { phoneNumber: phoneNumber.trim() } : {}),
                 },
             });
             if (!data.token) throw new Error('No token returned');
@@ -483,6 +486,7 @@ export default function RegisterScreen() {
                                 <Step2Identity
                                     fullName={fullName} setFullName={setFullName}
                                     stageName={stageName} setStageName={setStageName}
+                                    phoneNumber={phoneNumber} setPhoneNumber={setPhoneNumber}
                                     onClear={() => setStepError(null)}
                                 />
                             )}

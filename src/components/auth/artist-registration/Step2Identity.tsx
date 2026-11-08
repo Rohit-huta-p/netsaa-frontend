@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import { User as UserIcon, Star, Info } from 'lucide-react-native';
+import { User as UserIcon, Star, Phone, Info } from 'lucide-react-native';
 import { StepInput } from '@/components/auth';
 import { C, FONT, s } from './shared';
 
@@ -9,10 +9,12 @@ interface Props {
     setFullName: (v: string) => void;
     stageName: string;
     setStageName: (v: string) => void;
+    phoneNumber: string;
+    setPhoneNumber: (v: string) => void;
     onClear: () => void;
 }
 
-export function Step2Identity({ fullName, setFullName, stageName, setStageName, onClear }: Props) {
+export function Step2Identity({ fullName, setFullName, stageName, setStageName, phoneNumber, setPhoneNumber, onClear }: Props) {
     return (
         <View>
             <View style={{ marginBottom: 28 }}>
@@ -46,6 +48,7 @@ export function Step2Identity({ fullName, setFullName, stageName, setStageName, 
                 alignItems: 'flex-start',
                 gap: 9,
                 marginTop: 12,
+                marginBottom: 20,
                 padding: 10,
                 borderRadius: 10,
                 backgroundColor: 'rgba(167,139,250,0.08)',
@@ -57,6 +60,19 @@ export function Step2Identity({ fullName, setFullName, stageName, setStageName, 
                     You can change your stage name from Settings at any time.
                 </Text>
             </View>
+
+            <StepInput
+                label="Phone number (optional)"
+                value={phoneNumber}
+                onChangeText={(v) => { setPhoneNumber(v); onClear(); }}
+                placeholder="+91 98765 43210"
+                keyboardType="phone-pad"
+                autoComplete="tel"
+                icon={<Phone size={16} color={C.t4} />}
+            />
+            <Text style={{ fontFamily: FONT.body, fontSize: 10, color: C.t3, marginTop: -6, marginBottom: 4, paddingLeft: 2 }}>
+                Used for booking confirmations — not shown publicly
+            </Text>
         </View>
     );
 }

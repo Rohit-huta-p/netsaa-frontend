@@ -283,7 +283,7 @@ const s = StyleSheet.create({
   },
   body: { flex: 1, minWidth: 0 },
   nmRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  nm: { fontFamily: F.semi, fontSize: 15, color: C.cream, flexShrink: 1 },
+  nm: { fontFamily: F.semi, fontSize: 14, color: C.cream, flexShrink: 1 },
   meta: { fontFamily: F.body, fontSize: 12.5, color: C.t3, marginTop: 3 },
 
   vf: {

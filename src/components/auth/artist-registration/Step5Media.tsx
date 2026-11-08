@@ -33,6 +33,7 @@ export function Step5Media({
     onSkip,
 }: Props) {
     const [videoInput, setVideoInput] = useState(videoUrl);
+    const [videoExpanded, setVideoExpanded] = useState(false);
 
     const pickPhoto = async (idx: number) => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -329,11 +330,11 @@ export function Step5Media({
                         gap: 10,
                         backgroundColor: C.surface,
                         borderWidth: 1,
-                        borderColor: C.border,
+                        borderColor: videoExpanded ? C.orangeBorder : C.border,
                         borderRadius: 11,
                         padding: 11,
                     }}
-                    onPress={() => {/* open link input */}}
+                    onPress={() => setVideoExpanded(true)}
                 >
                     <View style={{
                         width: 30,
@@ -343,10 +344,29 @@ export function Step5Media({
                         alignItems: 'center',
                         justifyContent: 'center',
                     }}>
-                        <Play size={12} color={C.t4} fill={C.t4} />
+                        <Play size={12} color={videoUrl ? C.orange : C.t4} fill={videoUrl ? C.orange : C.t4} />
                     </View>
                     <View style={{ flex: 1 }}>
-                        {videoUrl ? (
+                        {videoExpanded ? (
+                            <TextInput
+                                value={videoInput}
+                                onChangeText={setVideoInput}
+                                placeholder="https://youtube.com/watch?v=…"
+                                placeholderTextColor={C.t4}
+                                autoFocus
+                                autoCapitalize="none"
+                                keyboardType="url"
+                                returnKeyType="done"
+                                onSubmitEditing={() => { commitVideoUrl(); setVideoExpanded(false); }}
+                                onBlur={() => { commitVideoUrl(); setVideoExpanded(false); }}
+                                style={{
+                                    fontFamily: FONT.body,
+                                    fontSize: 12,
+                                    color: C.t1,
+                                    padding: 0,
+                                }}
+                            />
+                        ) : videoUrl ? (
                             <Text style={{ fontFamily: FONT.bodyMed, fontSize: 12, color: C.t2 }} numberOfLines={1}>
                                 {videoUrl}
                             </Text>

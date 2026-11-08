@@ -193,7 +193,7 @@ function Action({
         <ActivityIndicator size="small" color={C.orange} />
       ) : (
         <>
-          {!org ? <UserPlus size={13} color={C.orange} strokeWidth={2.2} /> : null}
+          {!org ? <UserPlus size={12} color={C.t2} strokeWidth={2.2} /> : null}
           <Text style={s.connectTxt}>{org ? 'Follow' : 'Connect'}</Text>
         </>
       )}
@@ -283,7 +283,7 @@ const s = StyleSheet.create({
   },
   body: { flex: 1, minWidth: 0 },
   nmRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  nm: { fontFamily: F.semi, fontSize: 15, color: C.cream, flexShrink: 1 },
+  nm: { fontFamily: F.semi, fontSize: 14, color: C.cream, flexShrink: 1 },
   meta: { fontFamily: F.body, fontSize: 12.5, color: C.t3, marginTop: 3 },
 
   vf: {
@@ -341,25 +341,25 @@ const s = StyleSheet.create({
 
   // person action pills
   connect: {
-    height: 34,
-    paddingHorizontal: 13,
-    borderRadius: 10,
+    height: 28,
+    paddingHorizontal: 11,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: ORANGE_LINE,
-    backgroundColor: ORANGE_SOFT,
+    borderColor: C.hairSoft,
+    backgroundColor: C.chip,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
   },
-  connectTxt: { fontFamily: F.semi, fontSize: 12.5, color: C.orange },
+  connectTxt: { fontFamily: F.semi, fontSize: 12, color: C.t1 },
   ghost: {
-    height: 34,
-    paddingHorizontal: 13,
-    borderRadius: 10,
+    height: 28,
+    paddingHorizontal: 11,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: C.hair,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ghostTxt: { fontFamily: F.med, fontSize: 12.5, color: C.t3 },
+  ghostTxt: { fontFamily: F.med, fontSize: 12, color: C.t3 },
 });

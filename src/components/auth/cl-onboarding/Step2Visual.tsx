@@ -22,8 +22,9 @@ interface Props {
 
 const W = Dimensions.get('window').width;
 const COVER_H = 116;
-const LOGO_SIZE = 100;
-const LOGO_HALF = LOGO_SIZE / 2;
+const LOGO_SIZE = Math.round(W * 0.25); // ~100px on 390px screens, scales with device
+const LOGO_HALF   = LOGO_SIZE / 2;
+const LOGO_RADIUS = Math.round(LOGO_SIZE * 0.24); // ~24px on 100px logo
 
 export default function Step2Visual({ data, update, onNext, onSkip }: Props) {
   const [loadingLogo,  setLoadingLogo]  = useState(false);
@@ -174,20 +175,20 @@ const s = StyleSheet.create({
   },
   logoOuter: {
     width: LOGO_SIZE, height: LOGO_SIZE,
-    borderRadius: 24,
+    borderRadius: LOGO_RADIUS,
     backgroundColor: '#121216',
     padding: 3,
     flexShrink: 0,
   },
   logoInner: {
     flex: 1,
-    borderRadius: 20,
+    borderRadius: LOGO_RADIUS - 3,
     backgroundColor: '#1C1C23',
     borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.14)', borderStyle: 'dashed',
     alignItems: 'center', justifyContent: 'center', gap: 3,
     overflow: 'hidden',
   },
-  logoImg:  { width: LOGO_SIZE - 6, height: LOGO_SIZE - 6, borderRadius: 20 },
+  logoImg:  { width: LOGO_SIZE - 6, height: LOGO_SIZE - 6, borderRadius: LOGO_RADIUS - 3 },
   logoLabel:{ fontFamily: 'SpaceMono-Regular', fontSize: 7.5, color: 'rgba(245,245,240,0.22)', textAlign: 'center', lineHeight: 13 },
 
   nameMeta: { paddingBottom: 5, flex: 1, minWidth: 0 },

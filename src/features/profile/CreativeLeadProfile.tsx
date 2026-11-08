@@ -41,7 +41,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight, Image as LucideImage } from 'lucide-react-native';
 
 import { useUser } from '@/hooks/useUser';
 import { useOrganizer } from '@/hooks/useOrganizer';
@@ -80,6 +80,14 @@ const F = {
     semi: 'Outfit-SemiBold',
     bold: 'Outfit-Bold',
 };
+
+// Warm gradient placeholders for the owner's empty Productions tiles (never flat grey —
+// mirrors the artist "Spotlight" showcase bento).
+const GRAD: [string, string][] = [
+    ['#2a1206', '#120a14'],
+    ['#2a0f22', '#120710'],
+    ['#1a1030', '#0d0a16'],
+];
 
 type Props = {
     userId: string;
@@ -419,7 +427,7 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                 <Text style={s.bio}>{d.bio}</Text>
                             ) : owner ? (
                                 <Pressable onPress={onEditProfile}>
-                                    <Text style={s.addTx}>Tell artists &amp; clients what your company does</Text>
+                                    <Text style={s.addTxMuted}>Tell artists &amp; clients what your company does</Text>
                                 </Pressable>
                             ) : null}
 
@@ -524,13 +532,26 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                     )}
                                 </>
                             ) : (
-                                <Pressable style={s.postcta} onPress={onEditProfile}>
-                                    <View style={s.postPlus}><Plus size={18} color={C.orange} /></View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={s.postTitle}>Add your productions</Text>
-                                        <Text style={s.postSub}>SHOWCASE YOUR BEST SHOWS &amp; SHOOTS</Text>
+                                // Owner, no photos yet — an empty showcase grid (feature + 3 tiles)
+                                // mirroring the artist page, each tile tappable → company editor.
+                                <View>
+                                    <Pressable style={s.mfeature} onPress={onEditProfile}>
+                                        <LinearGradient colors={['#241a16', '#16131b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                                        <View style={s.mph}>
+                                            <LucideImage size={27} color="rgba(255,255,255,0.16)" strokeWidth={1.6} />
+                                            <Text style={s.mphText}>Add your productions</Text>
+                                            <Text style={s.mphSub}>SHOWCASE YOUR BEST SHOWS &amp; SHOOTS</Text>
+                                        </View>
+                                    </Pressable>
+                                    <View style={s.mgrid}>
+                                        {[0, 1, 2].map((i) => (
+                                            <Pressable key={i} style={s.mtile} onPress={onEditProfile}>
+                                                <LinearGradient colors={GRAD[i % GRAD.length]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                                                <View style={s.mph}><LucideImage size={19} color="rgba(255,255,255,0.13)" strokeWidth={1.7} /></View>
+                                            </Pressable>
+                                        ))}
                                     </View>
-                                </Pressable>
+                                </View>
                             )}
                         </>
                     )}
@@ -900,6 +921,12 @@ const s = StyleSheet.create({
     bio: { fontFamily: F.body, fontSize: 13.5, lineHeight: 22, color: C.t1 },
     // Owner empty-state prompt — orange "Add …" link (mirrors Spotlight's addTx).
     addTx: { fontFamily: F.body, fontSize: 13, color: C.orange },
+    // Greyish placeholder-style prompt (bio) — reads as dimmed placeholder, not a loud CTA.
+    addTxMuted: { fontFamily: F.body, fontSize: 13.5, lineHeight: 22, color: C.t3 },
+    // Empty Productions tiles — faint image glyph over a warm gradient (mirrors Spotlight).
+    mph: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 7 },
+    mphText: { fontFamily: F.semi, fontSize: 13, color: C.t2 },
+    mphSub: { fontFamily: F.mono, fontSize: 8, letterSpacing: 0.8, color: C.t4, textTransform: 'uppercase' },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 14 },
     chipPill: { backgroundColor: C.chip, borderWidth: 1, borderColor: C.chipB, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 },
     chipText: { fontFamily: F.mono, fontSize: 10, color: C.t2, letterSpacing: 0.3 },

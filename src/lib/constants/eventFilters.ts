@@ -96,7 +96,7 @@ export const countActiveEventFilters = (filters: EventFilterState): number => {
 
     if ((adv.category?.categories?.length ?? 0) > 0) count++;
     if ((adv.eventType?.eventTypes?.length ?? 0) > 0) count++;
-    if (adv.location?.city && adv.location.city !== 'any') count++;
+    if ((adv.location?.cities?.length ?? 0) > 0) count++;
     if (adv.location?.format && adv.location.format !== 'any') count++;
     if (adv.timing?.timeFrame) count++;
     if (adv.pricing?.mode && adv.pricing.mode !== 'any') count++;

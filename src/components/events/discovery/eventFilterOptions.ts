@@ -2,7 +2,7 @@
 // (Ask bar · Remote · Facet Rail). One source of truth so every surface emits
 // the same values the /v1/events list params expect:
 //   craft  → category (csv, lowercase slugs)
-//   city   → city  ('any' ⇒ undefined)
+//   city   → city  (csv of selected cities, any-of $in; [] ⇒ undefined)
 //   format → location.kind      ('any' | 'in_person' | 'online')
 //   when   → startsAfter/startsBefore window (via timeFrameWindow in the screen)
 //   price  → registrationMode   ('free' ⇒ free_rsvp, 'paid' ⇒ paid_ticket)
@@ -101,7 +101,7 @@ export const craftValue = (f: EventFilterState): string =>
     f.advanced.category.categories?.[0] ?? 'any';
 export const eventTypeValues = (f: EventFilterState): string[] =>
     f.advanced.eventType?.eventTypes ?? [];
-export const cityValue = (f: EventFilterState): string => f.advanced.location.city || 'any';
+export const cityValues = (f: EventFilterState): string[] => f.advanced.location.cities ?? [];
 export const formatValue = (f: EventFilterState): string => f.advanced.location.format || 'any';
 export const whenValue = (f: EventFilterState): string => f.advanced.timing.timeFrame || 'any';
 export const priceValue = (f: EventFilterState): string => f.advanced.pricing.mode || 'any';
@@ -118,8 +118,12 @@ export function setEventType(f: EventFilterState, v: string): EventFilterState {
     const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
     return patchSection(f, 'eventType', { eventTypes: next });
 }
+/** Toggle one city slug in the multi-select (any-of); 'any' clears all cities. */
 export function setCity(f: EventFilterState, v: string): EventFilterState {
-    return patchSection(f, 'location', { city: v === 'any' ? undefined : v });
+    if (v === 'any') return patchSection(f, 'location', { cities: [] });
+    const cur = cityValues(f);
+    const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
+    return patchSection(f, 'location', { cities: next });
 }
 export function setFormat(f: EventFilterState, v: string): EventFilterState {
     return patchSection(f, 'location', { format: v as Advanced['location']['format'] });
@@ -148,7 +152,7 @@ export function describeFilters(f: EventFilterState): string[] {
     const craft = adv.category.categories?.[0];
     if (craft) parts.push(cap(craft));
     eventTypeValues(f).forEach((v) => parts.push(typeLabel(v)));
-    if (adv.location.city && adv.location.city !== 'any') parts.push(cap(adv.location.city));
+    cityValues(f).forEach((c) => parts.push(cap(c)));
     if (adv.location.format && adv.location.format !== 'any') {
         parts.push(adv.location.format === 'in_person' ? 'In person' : 'Online');
     }
@@ -195,7 +199,7 @@ export function distinctEventTypeOptions(events: { eventType?: string }[]): Filt
 export function countEventFacets(f: EventFilterState): number {
     let n = 0;
     if (eventTypeValues(f).length) n++;
-    if (cityValue(f) !== 'any') n++;
+    if (cityValues(f).length) n++;
     if (formatValue(f) !== 'any') n++;
     if (whenValue(f) !== 'any') n++;
     if (priceValue(f) !== 'any') n++;

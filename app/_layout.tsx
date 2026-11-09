@@ -3,7 +3,7 @@ import "../global.css";
 import React, { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Slot, SplashScreen, usePathname } from "expo-router";
-import { View } from "react-native";
+import { View, Platform } from "react-native";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../src/lib/react-query';
@@ -145,8 +145,10 @@ export default function RootLayout() {
                         {/* Navbar hidden on auth screens + the public landing ('/' has its own nav) */}
                         {!isAuthRoute && pathname !== '/' && <Navbar />}
 
-                        {/* App content */}
-                        <Slot />
+                        {/* App content — paddingTop offsets the fixed glass navbar on web */}
+                        <View style={{ flex: 1, paddingTop: (!isAuthRoute && pathname !== '/' && Platform.OS === 'web') ? 72 : 0 }}>
+                            <Slot />
+                        </View>
 
                         {/* Cashfree attendee checkout — renders only during a payment */}
                         <CashfreeCheckoutHost />

@@ -45,6 +45,7 @@ const BY_SUBTYPE: Record<string, NotifVisual> = {
   'connection.request': { semantic: 'orange', Icon: UserPlus },
   'connection.accepted': { semantic: 'green', Icon: UserCheck },
   'connection.rejected': { semantic: 'muted', Icon: MinusCircle },
+  'follow.started': { semantic: 'orange', Icon: UserPlus }, // someone started following you
   'message.new': { semantic: 'purple', Icon: MessageCircle },
   'message.mention': { semantic: 'purple', Icon: MessageCircle },
   'gig.application.received': { semantic: 'orange', Icon: Briefcase },
@@ -53,12 +54,14 @@ const BY_SUBTYPE: Record<string, NotifVisual> = {
   'gig.application.rejected': { semantic: 'muted', Icon: MinusCircle },
   'gig.cancelled': { semantic: 'red', Icon: Ban, eyebrow: 'Cancelled' },
   'gig.deadline.approaching': { semantic: 'amber', Icon: Clock, eyebrow: 'Deadline' },
+  'gig.posted.by_followed': { semantic: 'orange', Icon: Briefcase }, // someone you follow posted a gig
   'event.registration.success': { semantic: 'green', Icon: CalendarCheck },
   'event.reservation.expiring': { semantic: 'amber', Icon: Clock, eyebrow: 'Expiring' },
   'event.cancelled': { semantic: 'red', Icon: Ban, eyebrow: 'Cancelled' },
   'event.updated': { semantic: 'amber', Icon: Calendar },
   'event.reminder': { semantic: 'amber', Icon: Calendar },
   'event.reservation.expired': { semantic: 'muted', Icon: Clock, eyebrow: 'Expired' },
+  'event.posted.by_followed': { semantic: 'amber', Icon: Calendar }, // someone you follow posted an event
   'payment.success': { semantic: 'green', Icon: Banknote },
   'payment.failed': { semantic: 'red', Icon: Banknote, eyebrow: 'Payment failed' },
   'payment.refund.initiated': { semantic: 'amber', Icon: Banknote, eyebrow: 'Refund started' },
@@ -81,6 +84,7 @@ const BY_TYPE: Record<Notification['type'], NotifVisual> = {
   event: { semantic: 'amber', Icon: Calendar },
   payment: { semantic: 'green', Icon: Banknote },
   contract: { semantic: 'orange', Icon: FileText },
+  follow: { semantic: 'orange', Icon: UserPlus },
   system: { semantic: 'muted', Icon: Settings },
   profile: { semantic: 'purple', Icon: Eye },
 };
@@ -150,6 +154,8 @@ export function resolveNotifCopy(n: Notification): { title: string; body?: strin
       return { title: name ? `${name} sent you a message` : (serverTitle || 'New message'), body };
     case 'profile.viewed':
       return { title: name ? `${name} viewed your profile` : (serverTitle || 'Your profile got a view') };
+    case 'follow.started':
+      return { title: name ? `${name} started following you` : (serverTitle || 'New follower') };
 
     /* ── Gigs ── */
     case 'gig.application.received':
@@ -165,6 +171,12 @@ export function resolveNotifCopy(n: Notification): { title: string; body?: strin
       return { title: entity || serverTitle || 'Gig cancelled', body };
     case 'gig.deadline.approaching':      // eyebrow DEADLINE
       return { title: entity || serverTitle || 'Deadline approaching', body };
+    case 'gig.posted.by_followed':
+      // Someone you follow posted a gig. Name leads; the gig title is the detail.
+      return {
+        title: name ? `${name} posted a gig` : (serverTitle || 'New gig from someone you follow'),
+        body: entity || body,
+      };
 
     /* ── Events (eyebrow'd ones put the event name in the title) ── */
     case 'event.registration.success':
@@ -179,6 +191,12 @@ export function resolveNotifCopy(n: Notification): { title: string; body?: strin
       return { title: serverTitle || 'Event reminder', body };
     case 'event.reservation.expired':     // eyebrow EXPIRED
       return { title: entity || serverTitle || 'Reservation expired', body };
+    case 'event.posted.by_followed':
+      // Someone you follow posted an event. Name leads; the event title is the detail.
+      return {
+        title: name ? `${name} posted an event` : (serverTitle || 'New event from someone you follow'),
+        body: entity || body,
+      };
 
     /* ── Payments (pay-as-fact: money stated plainly, no hype) ── */
     case 'payment.success':
@@ -219,7 +237,7 @@ export const CATEGORY_TABS: { key: NotifCategory; label: string }[] = [
 const TYPE_TO_CATEGORY: Record<Notification['type'], Exclude<NotifCategory, 'all'> | null> = {
   gig: 'gigs', contract: 'gigs', payment: 'gigs',
   event: 'events',
-  connection: 'network', message: 'network', profile: 'network',
+  connection: 'network', message: 'network', profile: 'network', follow: 'network',
   system: null, // system notifications appear only under All
 };
 

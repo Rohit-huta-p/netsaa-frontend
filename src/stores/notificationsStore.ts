@@ -12,7 +12,7 @@ export type Notification = {
         profileImageUrl?: string;
         artistType?: string;
     };
-    type: 'connection' | 'message' | 'gig' | 'event' | 'payment' | 'contract' | 'system' | 'profile';
+    type: 'connection' | 'message' | 'gig' | 'event' | 'payment' | 'contract' | 'follow' | 'system' | 'profile';
     subtype: string;
     title: string;
     message: string; // mapped from body on backend

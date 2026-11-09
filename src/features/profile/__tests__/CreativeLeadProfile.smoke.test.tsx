@@ -23,6 +23,18 @@ jest.mock('@/hooks/useOrganizerGigsPublic', () => ({
 jest.mock('@/hooks/useGigs', () => ({ useOrganizerGigs: () => ({ data: mockOwnerGigs }) }));
 jest.mock('@/components/profile/MediaViewer', () => ({ __esModule: true, default: () => null }));
 jest.mock('expo-router', () => ({ router: { back: jest.fn(), push: jest.fn() } }));
+jest.mock('@/features/profile/hooks/useConnectionStatus', () => ({
+    useConnectionStatus: () => ({
+        connectionStatus: 'none', sendRequest: jest.fn(), withdrawRequest: jest.fn(),
+        removeConnection: jest.fn(), isConnectionLoading: false,
+    }),
+}));
+jest.mock('@/hooks/useConnectionMeta', () => ({
+    useMutualConnections: () => ({ data: undefined }),
+    useMyConnectionsCount: () => ({ data: undefined }),
+}));
+jest.mock('@/services/conversationService', () => ({ __esModule: true, default: { createConversation: jest.fn() } }));
+jest.mock('expo-haptics', () => ({ impactAsync: jest.fn(), ImpactFeedbackStyle: { Light: 0 }, notificationAsync: jest.fn(), NotificationFeedbackType: { Success: 0 } }));
 
 const TestRenderer = require('react-test-renderer');
 import { CreativeLeadProfile } from '../CreativeLeadProfile';
@@ -70,6 +82,7 @@ const POPULATED = {
     spotifyUrl: 'spotify.com/mehfil',
     yearsInBusiness: 6,
     teamSize: 8,
+    connections: 214,
     verified: true,
     trustTier: 'trusted',
     organizerStats: { gigsPosted: 48, averageRating: 4.8, artistsHired: 120, avgReplyMinutes: 120 },
@@ -88,6 +101,9 @@ describe('CreativeLeadProfile smoke', () => {
         expect(txt).toContain('Mehfil Collective');
         expect(txt).toContain('Weddings & corporate shows, choreographed end-to-end.'); // tagline
         expect(txt).toContain('Socials');  // socials row (website/Instagram/YouTube/Spotify icons)
+        expect(txt).toContain('214');                  // connections count (quiet meta, like the artist page)
+        expect(txt).toContain('connections');
+        expect(txt).toContain('Connect & Follow');     // visitor primary action (real connect backend)
         expect(txt).toContain('What we do');
         expect(txt).toContain('Now hiring');
         expect(txt).toContain('Lead dancer — Diwali gala');
@@ -218,5 +234,19 @@ describe('CreativeLeadProfile smoke', () => {
         mockOwnerGigs = [];
         const txt = renderText(false);
         expect(txt).toContain('Creative Lead'); // fallback name
+    });
+
+    it('hides the "new" trust pill for a visitor', () => {
+        mockUser = { ...POPULATED, trustTier: 'new' };
+        mockEvents = []; mockGigs = []; mockOwnerGigs = [];
+        const txt = renderText(false);
+        expect(txt).not.toContain('NEW');   // low/default tier no longer wears a badge
+    });
+
+    it('still shows a non-"new" trust pill', () => {
+        mockUser = { ...POPULATED, trustTier: 'trusted' };
+        mockEvents = []; mockGigs = []; mockOwnerGigs = [];
+        const txt = renderText(false);
+        expect(txt).toContain('TRUSTED');
     });
 });

@@ -7,7 +7,7 @@
  * mockup DOCS/04-design/mockups/creative-lead-profile.html.
  *
  * Section order: Masthead (cover · logo · name · verified + tier · type·city · stat
- * strip [A·Editorial] · Follow + Message) → What we do (bio · specialties · details)
+ * strip [A·Editorial] · connections + Connect & Follow) → What we do (bio · specialties · details)
  * → Productions (shared MediaViewer showcase) → [Now hiring — Phase 2] → Events they
  * host (public) → [Reviews — Phase 2] → [Team — Phase 2].
  *
@@ -34,6 +34,8 @@ import {
     Share,
     Linking,
     Modal,
+    Alert,
+    ActivityIndicator,
     useWindowDimensions,
     StyleSheet,
 } from 'react-native';
@@ -41,7 +43,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight, Image as LucideImage, Globe, Instagram, Youtube, Music2 } from 'lucide-react-native';
+import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight, Image as LucideImage, Globe, Instagram, Youtube, Music2, UserPlus, Clock } from 'lucide-react-native';
 
 import { useUser } from '@/hooks/useUser';
 import { useOrganizer } from '@/hooks/useOrganizer';
@@ -50,6 +52,10 @@ import { useOrganizerGigsPublic } from '@/hooks/useOrganizerGigsPublic';
 import { useOrganizerGigs } from '@/hooks/useGigs';
 import { orgTypeLabel } from '@/constants/orgTypes';
 import MediaViewer, { type MediaViewerItem } from '@/components/profile/MediaViewer';
+import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
+import { useMutualConnections, useMyConnectionsCount } from '@/hooks/useConnectionMeta';
+import conversationService from '@/services/conversationService';
+import * as Haptics from 'expo-haptics';
 
 // ── A·Minimal palette (shared with gig detail / artist home / mockup) ──
 const C = {
@@ -118,6 +124,7 @@ type CLData = {
     instagramHandle?: string;
     youtubeUrl?: string;
     spotifyUrl?: string;
+    connections?: number;
     organizerStats?: {
         gigsPosted?: number;
         eventsCreated?: number;
@@ -158,8 +165,13 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     // for non-owners — the endpoint resolves gigs from req.user, so it must never run
     // for a visitor viewing someone else's page.
     const { data: ownerGigsRaw } = useOrganizerGigs(isOwner ? userId : '');
+    // Real connection backend (user-to-user, role-agnostic) — replaces the old local "follow" stub.
+    const { connectionStatus, sendRequest, withdrawRequest, removeConnection, isConnectionLoading } = useConnectionStatus(userId, isOwner);
+    const { data: mutualData } = useMutualConnections(isOwner ? undefined : userId);
+    const { data: myConnectionsCount } = useMyConnectionsCount(isOwner);
 
-    const [following, setFollowing] = useState(false);
+    const [connBusy, setConnBusy] = useState(false);
+    const [msgBusy, setMsgBusy] = useState(false);
     const [previewAsVisitor, setPreviewAsVisitor] = useState(false);
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
@@ -264,6 +276,39 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
         { key: 'spotify', present: !!spotify, url: spotify ? urlify(spotify) : null, color: '#1DB954', Icon: Music2 },
     ];
 
+    // ── Connections as quiet meta (like the artist Spotlight) + connect/follow wiring ──
+    const connections = isOwner ? (myConnectionsCount ?? 0) : (d.connections ?? 0);
+    const mutual = mutualData?.count ?? 0;
+    const connected = connectionStatus === 'connected';
+    const pending = connectionStatus === 'pending';
+
+    const haptic = () => { try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch { /* noop */ } };
+    const onConnect = async () => {
+        if (connBusy || isConnectionLoading) return;
+        haptic();
+        setConnBusy(true);
+        try {
+            if (connectionStatus === 'none') await sendRequest();
+            else if (connectionStatus === 'pending') await withdrawRequest();
+        } catch { /* hook surfaces its own errors */ }
+        finally { setConnBusy(false); }
+    };
+    const openMessage = async () => {
+        if (msgBusy) return;
+        setMsgBusy(true);
+        try {
+            const conv = await conversationService.createConversation(userId);
+            router.push((conv?._id ? `/(app)/inbox?c=${conv._id}` : '/(app)/inbox') as any);
+        } catch { /* user can retry */ }
+        finally { setMsgBusy(false); }
+    };
+    const onManageConnection = () => {
+        Alert.alert(`Connected with ${name}`, undefined, [
+            { text: 'Remove connection', style: 'destructive', onPress: () => { removeConnection().catch(() => {}); } },
+            { text: 'Cancel', style: 'cancel' },
+        ]);
+    };
+
     const renderBody = (owner: boolean) => (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 90 }} showsVerticalScrollIndicator={false}>
                 {/* ═══ MASTHEAD — cover + identity; Edit-cover straddles the divider ═══ */}
@@ -342,12 +387,26 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
 
                     {!!tagline && <Text style={s.tagline} numberOfLines={2}>{tagline}</Text>}
 
-                    {!!tier && (
+                    {!!tier && tier !== 'new' && (
                         <View style={[s.tier, { borderColor: tierColor + '44', backgroundColor: tierColor + '1A' }]}>
                             <View style={[s.tierDot, { backgroundColor: tierColor }]} />
                             <Text style={[s.tierText, { color: tierColor }]}>{tier.toUpperCase()}</Text>
                         </View>
                     )}
+
+                    <Text style={s.cmeta}>
+                        <Text
+                            onPress={() => router.push('/(app)/network' as any)}
+                            suppressHighlighting
+                            accessibilityRole="link"
+                            accessibilityLabel={`${connections} connections`}
+                        >
+                            <Text style={s.cstrong}>{connections}</Text> connections
+                        </Text>
+                        {!owner && mutual > 0 && (
+                            <><Text style={s.csep}>{'   ·   '}</Text><Text style={s.cstrong}>{mutual}</Text> mutual</>
+                        )}
+                    </Text>
                 </View>
                 {/* Edit-cover chip — last child, straddles the cover's bottom divider, bottom-right */}
                 {owner && (
@@ -401,20 +460,23 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                     <Text style={s.btnGhostText}>Share</Text>
                                 </Pressable>
                             </>
-                        ) : (
+                        ) : connected ? (
                             <>
-                                <Pressable
-                                    style={[s.btn, following ? s.btnGhost : s.btnFollow]}
-                                    onPress={() => setFollowing((v) => !v)}
-                                >
-                                    <Text style={following ? s.btnGhostText : s.btnFollowText}>
-                                        {following ? 'Following' : '+ Follow'}
-                                    </Text>
+                                <Pressable style={[s.btn, s.btnRow, s.btnGhost]} onPress={openMessage} disabled={msgBusy} accessibilityLabel="Message">
+                                    {msgBusy ? <ActivityIndicator size="small" color={C.t1} /> : <Text style={s.btnGhostText}>Message</Text>}
                                 </Pressable>
-                                <Pressable style={[s.btn, s.btnGhost]} onPress={() => { /* TODO Phase 2: open message thread */ }}>
-                                    <Text style={s.btnGhostText}>Message</Text>
+                                <Pressable style={[s.btnMore, s.btnGhost]} onPress={onManageConnection} accessibilityLabel="Connected — manage">
+                                    <Check size={16} color={C.green} />
                                 </Pressable>
                             </>
+                        ) : pending ? (
+                            <Pressable style={[s.btn, s.btnRow, s.btnGhost]} onPress={onConnect} disabled={connBusy} accessibilityLabel="Requested — tap to withdraw">
+                                {connBusy ? <ActivityIndicator size="small" color={C.t3} /> : <><Clock size={14} color={C.t3} /><Text style={s.btnGhostText}>Requested</Text></>}
+                            </Pressable>
+                        ) : (
+                            <Pressable style={[s.btn, s.btnRow, s.btnFollow]} onPress={onConnect} disabled={connBusy} accessibilityLabel="Connect and Follow">
+                                {connBusy ? <ActivityIndicator size="small" color="#190B05" /> : <><UserPlus size={15} color="#190B05" /><Text style={s.btnFollowText}>Connect &amp; Follow</Text></>}
+                            </Pressable>
                         )}
                     </View>
 
@@ -912,6 +974,11 @@ const s = StyleSheet.create({
     btnGhostText: { fontFamily: F.bold, fontSize: 12.5, color: C.t1, letterSpacing: 0.2 },
     btnGhostFill: { backgroundColor: C.chip, borderWidth: 1, borderColor: C.chipB },
     btnGhostFillText: { fontFamily: F.bold, fontSize: 12.5, color: C.cream, letterSpacing: 0.2 },
+    btnRow: { flexDirection: 'row', gap: 7, justifyContent: 'center' },
+    btnMore: { paddingVertical: 10, paddingHorizontal: 13, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+    cmeta: { fontFamily: F.body, fontSize: 12.5, color: C.t3, marginTop: 12 },
+    cstrong: { fontFamily: F.semi, color: C.t1 },
+    csep: { color: C.t4 },
 
     // section head
     shead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28, marginBottom: 13 },

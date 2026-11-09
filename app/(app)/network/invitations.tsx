@@ -13,8 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Check, X, Clock } from 'lucide-react-native';
+import { ChevronLeft, Check, X, Clock, Inbox, Send } from 'lucide-react-native';
 import connectionService from '@/services/connectionService';
 import { useAuthStore } from '@/stores/authStore';
 import { interpretConnectionError } from '@/utils/connectionErrors';
@@ -22,16 +21,24 @@ import { Connection, ConnectionRequest } from '@/types/connection';
 import { SentRequestRow } from '@/components/connections/SentRequestRow';
 
 // ── Constants ──
+// A·Minimal palette (locked tokens — same family as /network, gigs, CL home, notifications)
 const C = {
-    bg: '#0a0807',
-    surface: 'rgba(255,255,255,0.03)',
-    surface2: '#1a1822',
-    text1: '#F5F0EB',
-    text2: '#A19BAA',
-    text3: '#4A4656',
-    border: 'rgba(255,255,255,0.06)',
-    pink: '#EC4899',
     orange: '#FF6B35',
+    orangeSoft: 'rgba(255,107,53,0.12)',
+    orangeLine: 'rgba(255,107,53,0.30)',
+    ink: '#190B05',
+    green: '#22C55E',
+    bg: '#121216',
+    surface: '#1C1C23',
+    surface2: '#212129',
+    avatarbg: '#2A2A33',
+    text: '#FFFFFF',
+    text1: '#D4D4D8',
+    text2: '#A1A1AA',
+    text3: '#8B8B99',
+    text4: '#6B6B78',
+    border: 'rgba(255,255,255,0.06)',
+    border2: 'rgba(255,255,255,0.10)',
 };
 
 type TabKey = 'received' | 'sent';
@@ -76,27 +83,25 @@ const Avatar = ({ uri, name, size = 44 }: { uri?: string; name?: string; size?: 
         return (
             <Image
                 source={{ uri }}
-                style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2 }}
+                style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.avatarbg }}
             />
         );
     }
     return (
-        <LinearGradient
-            colors={[C.pink, C.orange]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+        <View
             style={{
                 width: size,
                 height: size,
                 borderRadius: size / 2,
+                backgroundColor: C.avatarbg,
                 alignItems: 'center',
                 justifyContent: 'center',
             }}
         >
-            <Text style={{ color: '#fff', fontWeight: '800', fontSize: size * 0.32 }}>
+            <Text style={{ color: C.text1, fontFamily: 'Outfit-Bold', fontSize: size * 0.32 }}>
                 {initials(name).toUpperCase()}
             </Text>
-        </LinearGradient>
+        </View>
     );
 };
 
@@ -135,17 +140,17 @@ const ReceivedRow = ({
                 onPress={() => u?._id && onPressUser(u._id)}
             >
                 <Text
-                    style={{ color: C.text1, fontFamily: 'Outfit-SemiBold', fontSize: 15 }}
+                    style={{ color: C.text, fontFamily: 'Outfit-SemiBold', fontSize: 15 }}
                     numberOfLines={1}
                 >
                     {name}
                 </Text>
-                <Text style={{ color: C.text2, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                <Text style={{ color: C.text3, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
                     {roleLabel(u)} · {timeAgo(item.createdAt)}
                 </Text>
                 {item.message ? (
                     <Text
-                        style={{ color: C.text3, fontSize: 11, marginTop: 3, fontStyle: 'italic' }}
+                        style={{ color: C.text4, fontSize: 11, marginTop: 3, fontStyle: 'italic' }}
                         numberOfLines={1}
                     >
                         “{item.message}”
@@ -157,36 +162,33 @@ const ReceivedRow = ({
                     onPress={() => onIgnore(item._id)}
                     disabled={busy}
                     style={({ pressed }) => ({
-                        width: 34,
-                        height: 34,
-                        borderRadius: 17,
-                        backgroundColor: 'rgba(255,255,255,0.05)',
+                        width: 36,
+                        height: 36,
+                        borderRadius: 11,
+                        backgroundColor: C.surface2,
+                        borderWidth: 1,
+                        borderColor: C.border,
                         alignItems: 'center',
                         justifyContent: 'center',
                         opacity: pressed ? 0.5 : 1,
                     })}
                 >
-                    <X size={14} color={C.text2} strokeWidth={2.5} />
+                    <X size={15} color={C.text2} strokeWidth={2.5} />
                 </Pressable>
                 <Pressable
                     onPress={() => onAccept(item._id)}
                     disabled={busy}
-                    style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                    style={({ pressed }) => ({
+                        width: 36,
+                        height: 36,
+                        borderRadius: 11,
+                        backgroundColor: C.orange,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: pressed ? 0.7 : 1,
+                    })}
                 >
-                    <LinearGradient
-                        colors={[C.pink, C.orange]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: 17,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}
-                    >
-                        <Check size={14} color="#fff" strokeWidth={2.5} />
-                    </LinearGradient>
+                    <Check size={15} color={C.ink} strokeWidth={2.5} />
                 </Pressable>
             </View>
         </View>
@@ -308,12 +310,12 @@ export default function InvitationsPage() {
         return (
             <Pressable
                 onPress={() => setTab(k)}
-                style={{ marginRight: 24, paddingBottom: 10, position: 'relative' }}
+                style={{ marginRight: 24, paddingBottom: 11, position: 'relative' }}
             >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Text
                         style={{
-                            color: active ? C.text1 : C.text2,
+                            color: active ? C.text : C.text3,
                             fontFamily: 'Outfit-SemiBold',
                             fontSize: 14,
                             letterSpacing: 0.3,
@@ -323,7 +325,7 @@ export default function InvitationsPage() {
                     </Text>
                     <Text
                         style={{
-                            color: active ? C.orange : C.text3,
+                            color: active ? C.orange : C.text4,
                             fontSize: 11,
                             fontFamily: 'SpaceMono',
                             marginLeft: 6,
@@ -360,20 +362,22 @@ export default function InvitationsPage() {
                         alignItems: 'center',
                         paddingHorizontal: 16,
                         paddingTop: 12,
-                        paddingBottom: 8,
+                        paddingBottom: 10,
                     }}
                 >
                     <Pressable
                         onPress={() => router.back()}
                         style={({ pressed }) => ({
-                            width: 36,
-                            height: 36,
-                            borderRadius: 18,
-                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            width: 38,
+                            height: 38,
+                            borderRadius: 12,
+                            backgroundColor: 'rgba(255,255,255,0.04)',
+                            borderWidth: 1,
+                            borderColor: C.border,
                             alignItems: 'center',
                             justifyContent: 'center',
                             opacity: pressed ? 0.6 : 1,
-                            marginRight: 12,
+                            marginRight: 13,
                         })}
                     >
                         <ChevronLeft size={18} color={C.text2} />
@@ -381,7 +385,7 @@ export default function InvitationsPage() {
                     <View>
                         <Text
                             style={{
-                                color: C.text2,
+                                color: C.text3,
                                 fontFamily: 'SpaceMono',
                                 fontSize: 10,
                                 letterSpacing: 3,
@@ -391,7 +395,7 @@ export default function InvitationsPage() {
                         </Text>
                         <Text
                             style={{
-                                color: C.text1,
+                                color: C.text,
                                 fontFamily: 'DMSerifDisplay_400Regular',
                                 fontSize: 24,
                                 ...(Platform.OS === 'web' ? { fontStyle: 'italic' as any } : {}),
@@ -424,13 +428,13 @@ export default function InvitationsPage() {
                         <RefreshControl
                             refreshing={refreshing}
                             onRefresh={onRefresh}
-                            tintColor={C.text2}
+                            tintColor={C.text3}
                         />
                     }
                 >
                     {!loading && tab === 'sent' && sent.length > 0 && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingTop: 2, paddingBottom: 12 }}>
-                            <Clock size={13} color={C.text2} strokeWidth={2} />
+                            <Clock size={13} color={C.text3} strokeWidth={2} />
                             <Text style={{ color: C.text2, fontSize: 12, fontFamily: 'Outfit-Regular' }}>
                                 {sent.length} pending — they join your network once accepted.
                             </Text>
@@ -442,21 +446,41 @@ export default function InvitationsPage() {
                             <ActivityIndicator size="small" color={C.orange} />
                         </View>
                     ) : list.length === 0 ? (
-                        <View style={{ marginTop: 80, alignItems: 'center' }}>
+                        <View style={{ marginTop: 70, alignItems: 'center', paddingHorizontal: 24 }}>
+                            <View
+                                style={{
+                                    width: 64,
+                                    height: 64,
+                                    borderRadius: 32,
+                                    backgroundColor: C.orangeSoft,
+                                    borderWidth: 1,
+                                    borderColor: C.orangeLine,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginBottom: 16,
+                                }}
+                            >
+                                {tab === 'received' ? (
+                                    <Inbox size={26} color={C.orange} strokeWidth={2} />
+                                ) : (
+                                    <Send size={26} color={C.orange} strokeWidth={2} />
+                                )}
+                            </View>
                             <Text
                                 style={{
                                     fontFamily: 'DMSerifDisplay_400Regular',
-                                    color: C.text3,
-                                    fontSize: 28,
+                                    color: C.text,
+                                    fontSize: 21,
                                     marginBottom: 8,
+                                    textAlign: 'center',
                                 }}
                             >
-                                ⋄
+                                {tab === 'received' ? 'No invitations yet' : 'Nothing pending'}
                             </Text>
-                            <Text style={{ color: C.text2, fontSize: 13 }}>
+                            <Text style={{ color: C.text3, fontSize: 12.5, lineHeight: 19, textAlign: 'center', maxWidth: 240 }}>
                                 {tab === 'received'
-                                    ? 'No pending invitations'
-                                    : 'No outgoing requests'}
+                                    ? 'When someone asks to connect, their request lands here for you to accept.'
+                                    : 'Requests you send show here until they’re accepted into your network.'}
                             </Text>
                         </View>
                     ) : tab === 'received' ? (
@@ -484,7 +508,7 @@ export default function InvitationsPage() {
                     )}
 
                     {!loading && tab === 'sent' && sent.length > 0 && (
-                        <Text style={{ textAlign: 'center', color: C.text3, fontSize: 11, marginTop: 8, fontFamily: 'Outfit-Regular' }}>
+                        <Text style={{ textAlign: 'center', color: C.text4, fontSize: 11, marginTop: 8, fontFamily: 'Outfit-Regular' }}>
                             Accepted requests move to your connections
                         </Text>
                     )}

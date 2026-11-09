@@ -115,4 +115,60 @@ describe('resolveNotifCopy', () => {
     expect(c.title).toBe('Scheduled maintenance');
     expect(c.body).toBe('Back at 2am');
   });
+
+  /* ── Follow feature (Phase 2): followed-organizer posts + new follower ── */
+  test('gig posted by a followed organizer: name leads, gig title is the body', () => {
+    const c = resolveNotifCopy(nt({
+      type: 'gig', subtype: 'gig.posted.by_followed', title: 'New gig posted',
+      message: 'Mehfil Collective just posted a gig: "Lead dancer — Diwali gala"',
+      actorId: { _id: 'o', displayName: 'Mehfil Collective' },
+    }));
+    expect(c.title).toBe('Mehfil Collective posted a gig');
+    expect(c.body).toBe('Lead dancer — Diwali gala');
+  });
+
+  test('event posted by a followed organizer: name-led title, event title body', () => {
+    const c = resolveNotifCopy(nt({
+      type: 'event', subtype: 'event.posted.by_followed', title: 'New event posted',
+      message: 'Mehfil Collective just posted an event: "Kathak workshop"',
+      actorId: { _id: 'o', displayName: 'Mehfil Collective' },
+    }));
+    expect(c.title).toBe('Mehfil Collective posted an event');
+    expect(c.body).toBe('Kathak workshop');
+  });
+
+  test('posted-by-followed falls back to server title when there is no actor name', () => {
+    const c = resolveNotifCopy(nt({
+      type: 'gig', subtype: 'gig.posted.by_followed', title: 'New gig posted',
+      message: 'Someone you follow just posted a gig: "Tabla accompanist"', actorId: undefined,
+    }));
+    expect(c.title).toBe('New gig posted');
+    expect(c.body).toBe('Tabla accompanist');
+  });
+
+  test('new follower: name-led, no body; falls back to "New follower"', () => {
+    expect(
+      resolveNotifCopy(nt({
+        type: 'follow', subtype: 'follow.started', title: 'New follower',
+        message: 'Someone started following you', actorId: { _id: 'a', displayName: 'Priya Menon' },
+      })),
+    ).toEqual({ title: 'Priya Menon started following you' });
+    expect(
+      resolveNotifCopy(nt({ type: 'follow', subtype: 'follow.started', title: 'New follower', actorId: undefined })).title,
+    ).toBe('New follower');
+  });
+});
+
+describe('follow feature — config + categories', () => {
+  test('posted-by-followed keeps the gig/event colour; new-follower is orange', () => {
+    expect(getNotifConfig(mk({ type: 'gig', subtype: 'gig.posted.by_followed' })).semantic).toBe('orange');
+    expect(getNotifConfig(mk({ type: 'event', subtype: 'event.posted.by_followed' })).semantic).toBe('amber');
+    expect(getNotifConfig(mk({ type: 'follow', subtype: 'follow.started' })).semantic).toBe('orange');
+  });
+
+  test('new-follower folds into Network; posted gig/event stay in Gigs/Events', () => {
+    expect(matchesCategory({ type: 'follow' } as any, 'network')).toBe(true);
+    expect(matchesCategory({ type: 'gig' } as any, 'gigs')).toBe(true);   // gig.posted.by_followed is type gig
+    expect(matchesCategory({ type: 'event' } as any, 'events')).toBe(true);
+  });
 });

@@ -59,6 +59,8 @@ class DeepLinkService {
         'payment-receipt': '/(app)/profile',
         'payment-retry': '/(app)/profile',
         'contract-details': '/(app)/profile',
+        // follow.started ("X started following you") → your profile (follower count lives here).
+        'profile': '/(app)/profile',
     };
 
     /**

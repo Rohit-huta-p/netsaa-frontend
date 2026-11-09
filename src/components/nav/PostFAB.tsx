@@ -4,22 +4,17 @@ import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Plus } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useMode } from '../../hooks/useMode';
 import { useAuthStore } from '../../stores/authStore';
 import PostComposerPlaceholder from './PostComposerPlaceholder';
 
 export default function PostFAB() {
-  const { mode } = useMode();
   const role = useAuthStore((s) => s.role);
   const router = useRouter();
   const [composerOpen, setComposerOpen] = useState(false);
 
   const isClient = role === 'client';
-  // Artist is single-face — its gradient must not flip just because a stale/
-  // inferred mode='hirer' lingers. Only creative_lead defers to mode.
-  const isArtistFace = role === 'artist' || mode === 'artist';
-  const gradient: [string, string] =
-    isArtistFace ? ['#8B5CF6', '#FF6B35'] : ['#FF6B35', '#8B5CF6'];
+  // FAB only renders for clients (showPostFab = role === 'client').
+  const gradient: [string, string] = ['#FF6B35', '#8B5CF6'];
 
   // Clients post a requirement, not a gig/event.
   const handlePress = () =>

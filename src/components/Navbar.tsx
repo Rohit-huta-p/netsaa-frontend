@@ -8,7 +8,7 @@ import {
     Animated, Keyboard, useWindowDimensions
 } from 'react-native';
 import { useResponsive } from '../hooks/useResponsive';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import useAuthStore from '../stores/authStore';
 import {
     Bell, User as UserIcon, ChevronDown, Settings, LogOut, HelpCircle,
@@ -22,6 +22,7 @@ import conversationService from '@/services/conversationService';
 import { inviteService } from '@/services/inviteService';
 import authService from '@/services/authService';
 import type { User } from '../types';
+import { useNotificationsStore } from '../stores/notificationsStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -432,6 +433,7 @@ export default function Navbar() {
     const { isMobile } = useResponsive();
     const { width } = useWindowDimensions();
     const router = useRouter();
+    const pathname = usePathname();
     const { accessToken, user } = useAuthStore();
     const role = useAuthStore((s) => s.role);
     const isAuthenticated = !!accessToken;
@@ -458,6 +460,7 @@ export default function Navbar() {
     });
     const inboxCount =
         unreadCount + (sentInvites as any[]).filter((i) => i.status === 'sent' || i.status === 'viewed').length;
+    const notifCount = useNotificationsStore((s) => s.unreadCount);
 
     // Profile dropdown
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
@@ -472,15 +475,10 @@ export default function Navbar() {
     const mobileSearchAnim = useRef(new Animated.Value(0)).current;
     const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Full-screen overlay search (for small mobile screens)
-    const [isFullSearchOpen, setIsFullSearchOpen] = useState(false);
-    const fullSearchRef = useRef<TextInput>(null);
-
     const debouncedQuery = useDebouncedValue(searchQuery.trim(), 300);
     const { data: searchResults, isLoading: isSearching } = useSearchPreview(debouncedQuery);
 
     const normalizeResults = (data: SearchPreviewResponse | undefined): SearchResultItem[] => {
-        console.log("search result in normalize: ", data)
         if (!data) return [];
         const out: SearchResultItem[] = [];
         data.gigs?.slice(0, 3).forEach(g => out.push({ id: g.id, type: 'gig', title: g.title, subtitle: g.location }));
@@ -490,25 +488,12 @@ export default function Navbar() {
     };
 
     const results = normalizeResults(searchResults);
-    const showDropdown = debouncedQuery.length >= 2 && (isSearchFocused || isMobileSearchExpanded || isFullSearchOpen);
+    const showDropdown = debouncedQuery.length >= 2 && (isSearchFocused || isMobileSearchExpanded);
 
     const clearSearch = () => {
         setSearchQuery('');
         setIsSearchFocused(false);
         Keyboard.dismiss();
-    };
-
-    const closeFullSearch = () => {
-        setIsFullSearchOpen(false);
-        setSearchQuery('');
-        setIsSearchFocused(false);
-        Keyboard.dismiss();
-    };
-
-    const openFullSearch = () => {
-        setIsFullSearchOpen(true);
-        // slight delay so the overlay is mounted before focus
-        setTimeout(() => fullSearchRef.current?.focus(), 80);
     };
 
     const handleResultClick = (type: string, id: string) => {
@@ -555,7 +540,7 @@ export default function Navbar() {
 
     const mobileSearchWidth = mobileSearchAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [40, width - ICONS_WIDTH - 250],
+        outputRange: [40, Math.max(120, width - ICONS_WIDTH - 250)],
     });
 
     // --- Shared dropdown content ---
@@ -614,7 +599,8 @@ export default function Navbar() {
 
 
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await authService.logout({ token: accessToken });
         useAuthStore.getState().clearAuth();
         setIsProfileDropdownOpen(false);
         router.push('/');
@@ -623,9 +609,23 @@ export default function Navbar() {
     return (
         <View style={{
             flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-            paddingHorizontal: isWeb && !isMobile ? 48 : 12, paddingTop: isWeb ? 20 : 12, paddingBottom: 12,
-            zIndex: 10,
-        }}>
+            paddingHorizontal: isWeb && !isMobile ? 48 : 12,
+            height: 72,
+            zIndex: 100,
+            backgroundColor: 'rgba(7,7,13,0.75)',
+            borderBottomWidth: 1,
+            borderBottomColor: 'rgba(255,255,255,0.07)',
+            borderBottomLeftRadius: 16,
+            borderBottomRightRadius: 16,
+            ...(isWeb ? {
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                backdropFilter: 'blur(28px) saturate(1.8)',
+                WebkitBackdropFilter: 'blur(28px) saturate(1.8)',
+            } : {}),
+        } as any}>
             {/* Logo */}
             <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} onPress={() => router.push('/')}>
                 <Image source={logo} style={{ width: 44, height: 44, borderRadius: 4, backgroundColor: C.coral, alignItems: 'center', justifyContent: 'center' }} />
@@ -634,23 +634,40 @@ export default function Navbar() {
 
             {/* Desktop nav links */}
             {!(isWeb && isMobile) && (
-                <View style={{ flexDirection: 'row', gap: 0, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 20, overflow: 'hidden' }}>
-                    <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 8 }} onPress={() => router.push('/(app)/gigs')}>
-                        <Text style={{ color: C.textSecondary, fontFamily: F.bodyMedium, fontSize: 13 }}>Opportunities</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 8 }} onPress={() => router.push('/(app)/events')}>
-                        <Text style={{ color: C.textSecondary, fontFamily: F.bodyMedium, fontSize: 13 }}>Events</Text>
-                    </TouchableOpacity>
-                    {isAuthenticated && (
-                        <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 8 }} onPress={() => router.push('/(app)/network' as any)}>
-                            <Text style={{ color: C.textSecondary, fontFamily: F.bodyMedium, fontSize: 13 }}>Network</Text>
-                        </TouchableOpacity>
-                    )}
+                <View style={{ flexDirection: 'row', gap: 2, alignItems: 'center' }}>
+                    {[
+                        { label: 'Opportunities', route: '/(app)/gigs',   match: '/gigs'    },
+                        { label: 'Events',        route: '/(app)/events', match: '/events'  },
+                        ...(isAuthenticated ? [{ label: 'Network', route: '/(app)/network', match: '/network' }] : []),
+                    ].map((item) => {
+                        const active = (pathname ?? '').startsWith(item.match);
+                        return (
+                            <TouchableOpacity
+                                key={item.label}
+                                onPress={() => router.push(item.route as any)}
+                                style={{
+                                    paddingHorizontal: 14,
+                                    paddingVertical: 7,
+                                    borderRadius: 999,
+                                    backgroundColor: active ? 'rgba(255,107,53,0.1)' : 'transparent',
+                                }}
+                            >
+                                <Text style={{
+                                    color: active ? C.textPrimary : C.textSecondary,
+                                    fontFamily: F.bodyMedium,
+                                    fontSize: 13,
+                                    letterSpacing: 0.2,
+                                }}>
+                                    {item.label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
             )}
 
             {/* ===== DESKTOP (web, wide screen) ===== */}
-            {isWeb && SCREEN_WIDTH > 768 ? (
+            {isWeb && !isMobile ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24 }}>
 
                     {/* Desktop Search Bar */}
@@ -708,7 +725,11 @@ export default function Navbar() {
                             {/* Notifications */}
                             <TouchableOpacity style={{ position: 'relative' }} onPress={() => router.push('/(app)/notifications')}>
                                 <Bell size={22} color="white" />
-                                <View style={{ position: 'absolute', top: -4, right: -4, width: 8, height: 8, backgroundColor: '#EC4899', borderRadius: 4 }} />
+                                {notifCount > 0 && (
+                                    <View style={{ position: 'absolute', top: -5, right: -5, minWidth: 15, height: 15, borderRadius: 7.5, backgroundColor: '#FF6B35', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, borderWidth: 1.5, borderColor: '#09090b' }}>
+                                        <Text style={{ color: '#fff', fontSize: 8.5, fontFamily: 'Outfit-SemiBold' }}>{notifCount > 9 ? '9+' : String(notifCount)}</Text>
+                                    </View>
+                                )}
                             </TouchableOpacity>
 
                             {/* Profile dropdown */}
@@ -760,125 +781,13 @@ export default function Navbar() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative', height: 40, gap: 8 }}>
                     {isAuthenticated ? (
                         <>
-                            {/* ---- SMALL MOBILE: full-screen search overlay ---- */}
                             {isMobile ? (
-                                <>
-                                    <TouchableOpacity
-                                        // The magnifier now routes to the full /search surface (it owns the
-                                        // input + idle + results). The old full-screen overlay below is
-                                        // superseded and no longer opened.
-                                        onPress={() => { setSearchQuery(''); router.push('/(app)/search'); }}
-                                        style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#1a1a24', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-                                    >
-                                        <Search size={17} color="#A855F7" />
-                                    </TouchableOpacity>
-
-                                    {isFullSearchOpen && (
-                                        <View style={{
-                                            position: 'fixed' as any,
-                                            top: 0, left: 0, right: 0, bottom: 0,
-                                            backgroundColor: '#0c0c14',
-                                            zIndex: 99999,
-                                            paddingTop: 0,
-                                        }}>
-                                            {/* Header row */}
-                                            <View style={{
-                                                flexDirection: 'row', alignItems: 'center',
-                                                paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12,
-                                                borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)',
-                                                gap: 10,
-                                            }}>
-                                                <View style={{
-                                                    flex: 1, flexDirection: 'row', alignItems: 'center',
-                                                    backgroundColor: '#1a1a24', borderRadius: 12,
-                                                    paddingHorizontal: 12, paddingVertical: 10,
-                                                    borderWidth: 1, borderColor: 'rgba(168,85,247,0.4)',
-                                                }}>
-                                                    <Search size={16} color="#A855F7" />
-                                                    <TextInput
-                                                        ref={fullSearchRef}
-                                                        value={searchQuery}
-                                                        onChangeText={(t) => { setSearchQuery(t); setIsSearchFocused(true); }}
-                                                        placeholder="Search gigs, events, people..."
-                                                        placeholderTextColor="#555"
-                                                        style={{ flex: 1, color: '#fff', marginLeft: 8, fontSize: 14, fontFamily: F.bodyMedium, outlineStyle: 'none' } as any}
-                                                        returnKeyType="search"
-                                                        onSubmitEditing={handleViewAll}
-                                                        autoFocus
-                                                    />
-                                                    {searchQuery.length > 0 && (
-                                                        <TouchableOpacity onPress={() => setSearchQuery('')}>
-                                                            <X size={16} color="#888" />
-                                                        </TouchableOpacity>
-                                                    )}
-                                                </View>
-                                                <TouchableOpacity onPress={closeFullSearch}>
-                                                    <Text style={{ color: '#A855F7', fontFamily: F.bodySemiBold, fontSize: 14 }}>Cancel</Text>
-                                                </TouchableOpacity>
-                                            </View>
-
-                                            {/* Results */}
-                                            <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
-                                                {debouncedQuery.length < 2 ? (
-                                                    <View style={{ paddingVertical: 64, alignItems: 'center' }}>
-                                                        <Text style={{ color: '#4A4656', fontFamily: 'DMSerifDisplay_400Regular', fontSize: 32, marginBottom: 8 }}>⋄</Text>
-                                                        <Text style={{ color: '#A19BAA', fontSize: 13 }}>Start typing to search</Text>
-                                                        <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2.5, marginTop: 6 }}>
-                                                            PEOPLE · GIGS · EVENTS
-                                                        </Text>
-                                                    </View>
-                                                ) : results.length === 0 ? (
-                                                    <View style={{ paddingVertical: 48, alignItems: 'center' }}>
-                                                        <Text style={{ color: '#4A4656', fontFamily: 'DMSerifDisplay_400Regular', fontSize: 26, marginBottom: 6 }}>⋄</Text>
-                                                        <Text style={{ color: '#A19BAA', fontSize: 13 }}>
-                                                            Nothing for{' '}
-                                                            <Text style={{ color: '#D4D0CB', fontFamily: 'DMSerifDisplay_400Regular', ...(isWeb ? { fontStyle: 'italic' as any } : {}) }}>
-                                                                "{debouncedQuery}"
-                                                            </Text>
-                                                        </Text>
-                                                    </View>
-                                                ) : (
-                                                    <>
-                                                        {(() => {
-                                                            const people = results.filter(r => r.type === 'artist' || r.type === 'organizer');
-                                                            const gigs   = results.filter(r => r.type === 'gig');
-                                                            const events = results.filter(r => r.type === 'event');
-                                                            const renderGroup = (label: string, items: SearchResultItem[]) => (
-                                                                items.length === 0 ? null : (
-                                                                    <View key={label}>
-                                                                        <DropdownSectionLabel label={label} count={items.length} />
-                                                                        {items.map((item, i) => (
-                                                                            <SearchResultRow
-                                                                                key={`${item.type}-${item.id}`}
-                                                                                item={item}
-                                                                                onPress={() => { closeFullSearch(); handleResultClick(item.type, item.id); }}
-                                                                                isLast={i === items.length - 1}
-                                                                            />
-                                                                        ))}
-                                                                    </View>
-                                                                )
-                                                            );
-                                                            return (
-                                                                <>
-                                                                    {renderGroup('People', people)}
-                                                                    {renderGroup('Gigs', gigs)}
-                                                                    {renderGroup('Events', events)}
-                                                                </>
-                                                            );
-                                                        })()}
-                                                        <TouchableOpacity
-                                                            onPress={() => { closeFullSearch(); handleViewAll(); }}
-                                                            style={{ paddingVertical: 16, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(212, 161, 85, 0.12)', marginTop: 8 }}
-                                                        >
-                                                            <Text style={{ color: '#D4A155', fontSize: 13, fontFamily: 'Outfit-SemiBold' }}>View all results</Text>
-                                                            <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2 }}>TAP</Text>
-                                                        </TouchableOpacity>
-                                                    </>
-                                                )}
-                                            </ScrollView>
-                                        </View>
-                                    )}
-                                </>
+                                <TouchableOpacity
+                                    onPress={() => { setSearchQuery(''); router.push('/(app)/search'); }}
+                                    style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#1a1a24', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                                >
+                                    <Search size={17} color="#A855F7" />
+                                </TouchableOpacity>
                             ) : (
                                 /* ---- TABLET / WIDER MOBILE: animated expand bar ---- */
                                 <>
@@ -950,7 +859,11 @@ export default function Navbar() {
                             {/* Bell */}
                             <TouchableOpacity style={{ position: 'relative' }} onPress={() => router.push('/(app)/notifications')}>
                                 <Bell size={22} color="white" />
-                                <View style={{ position: 'absolute', top: -4, right: -4, width: 8, height: 8, backgroundColor: '#EC4899', borderRadius: 4 }} />
+                                {notifCount > 0 && (
+                                    <View style={{ position: 'absolute', top: -5, right: -5, minWidth: 15, height: 15, borderRadius: 7.5, backgroundColor: '#FF6B35', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, borderWidth: 1.5, borderColor: '#09090b' }}>
+                                        <Text style={{ color: '#fff', fontSize: 8.5, fontFamily: 'Outfit-SemiBold' }}>{notifCount > 9 ? '9+' : String(notifCount)}</Text>
+                                    </View>
+                                )}
                             </TouchableOpacity>
 
                             {/* Profile avatar + dropdown */}

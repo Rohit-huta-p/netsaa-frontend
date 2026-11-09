@@ -12,7 +12,7 @@
 import { create } from 'zustand';
 import {
   type ComposerFormV4, type SpotV4, type OfferV4, type QuestionV4,
-  initialFormV4, buildEventPayload,
+  initialFormV4, buildEventPayload, dirtyKey,
 } from './composerForm';
 
 export type V4Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -28,6 +28,7 @@ export interface V4State {
   isSubmitting: boolean;
   editMode: boolean;
   editEventId: string | null;
+  baselineKey: string;        // dirtyKey(form) at open/hydrate — compared for the leave sheet
 
   setStep: (s: V4Step) => void;
   next: () => void;
@@ -51,6 +52,7 @@ export interface V4State {
   reset: (type?: string) => void;
   hydrate: (form: Partial<ComposerFormV4>, editEventId?: string) => void;
   payload: () => Record<string, any>;
+  isDirty: () => boolean;     // has the host changed anything since open/hydrate?
 }
 
 export const useComposerStoreV4 = create<V4State>((set, get) => ({
@@ -59,6 +61,7 @@ export const useComposerStoreV4 = create<V4State>((set, get) => ({
   isSubmitting: false,
   editMode: false,
   editEventId: null,
+  baselineKey: dirtyKey(initialFormV4('workshop')),
 
   setStep: (step) => set({ step: clampStep(step) }),
   next: () => set((s) => ({ step: clampStep(s.step + 1) })),
@@ -86,7 +89,8 @@ export const useComposerStoreV4 = create<V4State>((set, get) => ({
   removeQuestion: (id) => set((s) => ({ form: { ...s.form, questions: s.form.questions.filter((x) => x.id !== id) } })),
 
   setSubmitting: (isSubmitting) => set({ isSubmitting }),
-  reset: (type = 'workshop') => set({ step: 1, form: initialFormV4(type), isSubmitting: false, editMode: false, editEventId: null }),
-  hydrate: (form, editEventId) => set((s) => ({ form: { ...s.form, ...form }, editMode: !!editEventId, editEventId: editEventId ?? null, step: 1 })),
+  reset: (type = 'workshop') => { const form = initialFormV4(type); set({ step: 1, form, isSubmitting: false, editMode: false, editEventId: null, baselineKey: dirtyKey(form) }); },
+  hydrate: (form, editEventId) => set((s) => { const merged = { ...s.form, ...form }; return { form: merged, editMode: !!editEventId, editEventId: editEventId ?? null, step: 1, baselineKey: dirtyKey(merged) }; }),
   payload: () => buildEventPayload(get().form),
+  isDirty: () => dirtyKey(get().form) !== get().baselineKey,
 }));

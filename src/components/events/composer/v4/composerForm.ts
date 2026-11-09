@@ -219,6 +219,36 @@ export function buildEventPayload(form: ComposerFormV4): Record<string, any> {
 }
 
 /**
+ * A content fingerprint of the form, ignoring volatile ids (spot/offer/question
+ * ids are regenerated on every mount, so they can't be compared directly). The
+ * composer store snapshots this at open (create) or after hydrate (edit); the
+ * leave sheet compares the live key against that baseline to know if the host
+ * actually changed anything. Pure.
+ */
+export function dirtyKey(form: ComposerFormV4): string {
+  const spotIdx = (id?: string) => (id ? form.spots.findIndex((s) => s.id === id) : -1);
+  return JSON.stringify({
+    eventType: form.eventType, eventTypeLabel: form.eventTypeLabel || undefined,
+    title: form.title.trim(),
+    whoFor: form.whoFor, otherArtistTypes: form.otherArtistTypes, openToAll: form.openToAll,
+    levels: form.levels, styles: form.styles, languages: form.languages,
+    people: form.people.map((p) => ({ userId: p.userId, displayName: p.displayName, role: p.role, invited: !!p.invited })),
+    startsAt: form.startsAt, endsAt: form.endsAt, timeTbd: form.timeTbd, durationKind: form.durationKind,
+    format: form.format, location: form.location,
+    paid: form.paid,
+    spots: form.spots.map((s) => ({ name: s.name, note: s.note || '', capacity: s.capacity, price: s.price })),
+    offers: form.offers.map((o) => ({ name: o.name, price: o.price, audience: o.audience, endsAt: o.endsAt ?? null, seatLimit: o.seatLimit ?? null, minSeats: o.minSeats ?? null, spot: spotIdx(o.spotId) })),
+    refundPolicy: form.refundPolicy, refundFullUntil: form.refundFullUntil ?? null, refundPartialUntil: form.refundPartialUntil ?? null, refundPartialPercent: form.refundPartialPercent ?? null, refundNote: form.refundNote || '',
+    door: form.door, ageRestriction: form.ageRestriction,
+    questions: form.questions.map((q) => ({ label: q.label, type: q.type, options: q.options || [], required: !!q.required, spots: (q.spotIds || []).map(spotIdx) })),
+    coverFit: form.coverFit, about: form.about.trim(), tagline: form.tagline || '',
+    cover: form.cover?.url || null, photos: form.photos.map((m) => m.url), videos: form.videos.map((m) => m.muxPlaybackId || m.url),
+    lineup: form.lineup.map((l) => ({ when: l.when || '', title: l.title, detail: l.detail || '' })),
+    included: form.included, visibility: form.visibility,
+  });
+}
+
+/**
  * Inverse of buildEventPayload: hydrate the form from an existing event (edit mode).
  * Reads the v4 embedded fields defensively (`any`) since the shared EventDoc type
  * doesn't carry them yet. Lossy only for the refund enum, which is re-derived

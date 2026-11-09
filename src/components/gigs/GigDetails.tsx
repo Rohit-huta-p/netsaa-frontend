@@ -10,9 +10,9 @@
 // Owners never reach here (the route early-returns HirerGigHub). The
 // create-flow `preview` path renders Details only (no tabs / sticky / modals).
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 import { useGigActions } from '@/hooks/useGigActions';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
@@ -27,9 +27,10 @@ import { StickyApply } from './detail/StickyApply';
 import { C } from './detail/ui';
 
 import { GigApplyModal } from './GigApplyModal';
-import { AuthPromptModal } from '../common/AuthPromptModal';
+import { AuthGateSheet } from '@/components/auth/AuthGateSheet';
+import { ProfileMinimumGateSheet } from './ProfileMinimumGateSheet';
 import { ShareBottomSheet } from '../common/ShareBottomSheet';
-import { ProfileInterviewSheet, enrichMissing } from '@/components/profile/completion';
+import { usePendingAuthActionStore } from '@/stores/pendingAuthActionStore';
 
 interface GigDetailsProps {
     gig: any;
@@ -49,12 +50,23 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, prev
         hasApplied,
         isSaved,
         applyModalVisible, setApplyModalVisible,
-        authPromptVisible, setAuthPromptVisible,
+        authGateVisible, setAuthGateVisible, authGateContext, authGateActionType,
         shareSheetVisible, setShareSheetVisible,
-        profileGateVisible, setProfileGateVisible,
-        profileGateData,
+        profileMinGateVisible, setProfileMinGateVisible,
         handleApply, handleShare, handleSave, isDeadlinePassed,
     } = useGigActions(gig);
+
+    // After login, the router replaces back to this route.
+    // Check if a pending intent targets this gig and resume the action.
+    useFocusEffect(
+        useCallback(() => {
+            const { pendingIntent, clearPendingIntent } = usePendingAuthActionStore.getState();
+            if (pendingIntent?.type === 'apply' && pendingIntent.resourceId === gig._id) {
+                clearPendingIntent();
+                handleApply();
+            }
+        }, [gig._id, handleApply])
+    );
 
     const [activeTab, setActiveTab] = useState<GigTabKey>('details');
 
@@ -138,9 +150,14 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, prev
                 draftId={resumeDraftId}
             />
 
-            {authPromptVisible && (
-                <AuthPromptModal visible={authPromptVisible} onClose={() => setAuthPromptVisible(false)} />
-            )}
+            <AuthGateSheet
+                visible={authGateVisible}
+                onClose={() => setAuthGateVisible(false)}
+                actionType={authGateActionType}
+                contextLabel={authGateContext.contextLabel}
+                resourceId={authGateContext.resourceId}
+                returnPath={authGateContext.returnPath}
+            />
 
             <ShareBottomSheet
                 visible={shareSheetVisible}
@@ -149,11 +166,13 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, prev
                 data={gig}
             />
 
-            <ProfileInterviewSheet
-                visible={profileGateVisible}
-                fields={enrichMissing(profileGateData.missing)}
-                onClose={() => setProfileGateVisible(false)}
-                onComplete={() => setProfileGateVisible(false)}
+            <ProfileMinimumGateSheet
+                visible={profileMinGateVisible}
+                onClose={() => setProfileMinGateVisible(false)}
+                onMinimumsMet={() => {
+                    setProfileMinGateVisible(false);
+                    setApplyModalVisible(true);
+                }}
             />
         </View>
     );

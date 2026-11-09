@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import {
     MapPin, Edit3, Settings, Share2, UserPlus, Check,
     Briefcase, Award, ChevronRight, ChevronLeft,
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react-native';
 
 import { useAuthStore } from '@/stores/authStore';
+import { AuthGateSheet } from '@/components/auth/AuthGateSheet';
 import conversationService from '@/services/conversationService';
 import { useUser } from '@/hooks/useUser';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
@@ -63,6 +64,8 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
     const { user: authUser } = useAuthStore();
     const trustTier = useAuthStore((s) => s.trustTier);
     const trustScore = useAuthStore((s) => s.trustScore);
+    const pathname = usePathname();
+    const [authGateVisible, setAuthGateVisible] = useState(false);
     const { data: fetchedUser, isLoading, error } = useUser(isOwner ? undefined : userId);
     const {
         connectionStatus, isConnectionLoading, handleConnect, sendRequest,
@@ -414,7 +417,9 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                                 thing left to do here — while keeping each state's own colour:
                                 green connected, grey pending, pink→orange not-yet-connected. */}
                             <Pressable
-                                onPress={connectionStatus === 'connected' ? openMessage : handleConnect}
+                                onPress={connectionStatus === 'connected'
+                                    ? openMessage
+                                    : (!authUser ? () => setAuthGateVisible(true) : handleConnect)}
                                 disabled={isConnectionLoading || msgBusy}
                                 style={({ pressed }) => [s.ctaPillWrap, pressed && { opacity: 0.85 }]}
                                 accessibilityRole="button"
@@ -753,6 +758,16 @@ export const ProfileScreen: React.FC<Props> = ({ userId, isOwner, gigContext, hi
                     }}
                 />
             )}
+
+            {/* Guest trying to connect — show auth gate */}
+            <AuthGateSheet
+                visible={authGateVisible}
+                onClose={() => setAuthGateVisible(false)}
+                actionType="connect"
+                contextLabel={displayName}
+                resourceId={userId ?? ''}
+                returnPath={pathname ?? ''}
+            />
         </View>
     );
 };

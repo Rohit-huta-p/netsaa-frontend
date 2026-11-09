@@ -446,6 +446,12 @@ export const eventService = {
     return r.data.data;
   },
 
+  // DELETE /v1/events/:id (host only). Used to throw away an auto-saved draft
+  // when the host chooses "Discard" on the leave sheet.
+  remove: async (id: string): Promise<void> => {
+    await client.delete(`/v1/events/${id}`);
+  },
+
   addWalkup: async (
     eventId: string,
     body: { fullName: string; phone: string; quantity: number; payment: 'free' | 'cash' },

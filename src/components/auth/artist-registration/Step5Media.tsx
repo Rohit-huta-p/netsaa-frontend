@@ -9,7 +9,7 @@ import type { ImagePickerAsset } from 'expo-image-picker';
 import { C, FONT, s } from './shared';
 
 const MIN_PHOTOS = 2;
-const FRAME_SIZE = 68;
+const FRAME_SIZE = 84;
 
 interface Props {
     photos: ImagePickerAsset[];
@@ -343,13 +343,12 @@ export function Step5Media({
                         const asset = videoAssets[idx];
                         if (asset) {
                             return (
-                                <View key={idx} style={{ position: 'relative' }}>
+                                <View key={idx} style={{ position: 'relative', flex: 1, aspectRatio: 3 / 4 }}>
                                     <TouchableOpacity
                                         onPress={() => !uploading && pickVideo(idx)}
                                         activeOpacity={0.85}
                                         style={{
-                                            width: FRAME_SIZE,
-                                            height: FRAME_SIZE,
+                                            flex: 1,
                                             borderRadius: 10,
                                             overflow: 'hidden',
                                             borderWidth: 1,
@@ -358,14 +357,12 @@ export function Step5Media({
                                     >
                                         <Image
                                             source={{ uri: asset.uri }}
-                                            style={{ width: FRAME_SIZE, height: FRAME_SIZE }}
+                                            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                                             resizeMode="cover"
                                         />
                                         <View style={{
                                             position: 'absolute',
-                                            inset: 0,
-                                            width: FRAME_SIZE,
-                                            height: FRAME_SIZE,
+                                            top: 0, left: 0, right: 0, bottom: 0,
                                             backgroundColor: 'rgba(0,0,0,0.35)',
                                             alignItems: 'center',
                                             justifyContent: 'center',
@@ -404,8 +401,8 @@ export function Step5Media({
                                 onPress={() => pickVideo(idx)}
                                 activeOpacity={0.8}
                                 style={{
-                                    width: FRAME_SIZE,
-                                    height: FRAME_SIZE,
+                                    flex: 1,
+                                    aspectRatio: 3 / 4,
                                     borderRadius: 10,
                                     backgroundColor: C.surface,
                                     borderWidth: 1.5,

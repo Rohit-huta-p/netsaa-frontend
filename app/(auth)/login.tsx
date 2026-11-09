@@ -49,7 +49,7 @@ import type { VerifyOtpResponse } from "@/types/index";
 const C = {
     bg: "#000",
     bg2: "#0E0C12",
-    cardBg: "rgba(14,12,18,0.82)",
+    cardBg: "#121216",
     surface: "rgba(255,255,255,0.05)",
     surfaceHi: "rgba(255,255,255,0.07)",
     hairline: "rgba(255,255,255,0.07)",
@@ -77,6 +77,8 @@ const FONT = {
     med: "Outfit-Medium",
     semi: "Outfit-SemiBold",
     bold: "Outfit-Bold",
+    mono: "SpaceMono-Regular",
+    monoBold: "SpaceMono-Bold",
 };
 
 type Mode = "phone" | "otp" | "email";
@@ -137,13 +139,12 @@ export default function LoginScreen() {
     const captionFade = useRef(new Animated.Value(0)).current;
     const captionSlide = useRef(new Animated.Value(20)).current;
     const kbdShift = useRef(new Animated.Value(0)).current;
+    const captionModeFade = useRef(new Animated.Value(1)).current;
+    const isFirstModeRender = useRef(true);
 
     /* ── Hero swap: one Animated.Value per hero; cross-fades on state change ── */
-    const heroKey: HeroKey =
-        mode === "otp" ? "otp" :
-            mode === "email" && showPassword ? "password" :
-                mode === "email" ? "email" :
-                    "phone";
+    const [autoHeroIdx, setAutoHeroIdx] = useState(0);
+    const heroKey: HeroKey = HERO_KEYS[autoHeroIdx];
     const heroOpacities = useRef({
         phone: new Animated.Value(1),
         otp: new Animated.Value(0),
@@ -154,11 +155,19 @@ export default function LoginScreen() {
         HERO_KEYS.forEach((k) => {
             Animated.timing(heroOpacities[k], {
                 toValue: k === heroKey ? 1 : 0,
-                duration: 550,
+                duration: 900,
                 useNativeDriver: true,
             }).start();
         });
     }, [heroKey]);
+
+    /* Auto-cycle heroes every 5 s */
+    useEffect(() => {
+        const t = setInterval(() => {
+            setAutoHeroIdx((i) => (i + 1) % HERO_KEYS.length);
+        }, 5000);
+        return () => clearInterval(t);
+    }, []);
 
     useEffect(() => {
         Animated.parallel([
@@ -180,18 +189,26 @@ export default function LoginScreen() {
         ]).start();
     }, []);
 
-    /* ── Keyboard shift ── */
+    /* ── Keyboard shift — lifts card by actual keyboard height so inputs stay visible ── */
     useEffect(() => {
         const show = Keyboard.addListener(
             Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-            () => {
-                Animated.timing(kbdShift, { toValue: -40, duration: 260, useNativeDriver: true }).start();
+            (e) => {
+                Animated.timing(kbdShift, {
+                    toValue: -e.endCoordinates.height,
+                    duration: Platform.OS === "ios" ? e.duration : 260,
+                    useNativeDriver: true,
+                }).start();
             }
         );
         const hide = Keyboard.addListener(
             Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-            () => {
-                Animated.timing(kbdShift, { toValue: 0, duration: 220, useNativeDriver: true }).start();
+            (e) => {
+                Animated.timing(kbdShift, {
+                    toValue: 0,
+                    duration: Platform.OS === "ios" ? e.duration : 220,
+                    useNativeDriver: true,
+                }).start();
             }
         );
         return () => {
@@ -199,6 +216,18 @@ export default function LoginScreen() {
             hide.remove();
         };
     }, []);
+
+    /* ── Caption cross-fade on mode / step switch ── */
+    useEffect(() => {
+        if (isFirstModeRender.current) {
+            isFirstModeRender.current = false;
+            return;
+        }
+        Animated.sequence([
+            Animated.timing(captionModeFade, { toValue: 0, duration: 160, useNativeDriver: true }),
+            Animated.timing(captionModeFade, { toValue: 1, duration: 280, useNativeDriver: true }),
+        ]).start();
+    }, [mode, showPassword]);
 
     /* ── Resend countdown ── */
     useEffect(() => {
@@ -349,9 +378,7 @@ export default function LoginScreen() {
 
     const renderPhoneCard = () => (
         <>
-            <Text style={s.cardEyebrow}>Welcome back</Text>
-            <Text style={s.cardTitle}>Enter the wings.</Text>
-            <Text style={s.cardSub}>One-time code sent to your phone. No password.</Text>
+            {renderTabToggle("phone")}
 
             <View style={[s.input, phone.length > 0 && s.inputFocused, loginError && s.inputError]}>
                 <TouchableOpacity
@@ -377,6 +404,7 @@ export default function LoginScreen() {
             </View>
 
             {renderErrorBanner()}
+            {!loginError && <Text style={s.helper}>One-time code. No password needed.</Text>}
 
             <TouchableOpacity
                 onPress={handleSendOtp}
@@ -411,8 +439,6 @@ export default function LoginScreen() {
                 )}
             </TouchableOpacity>
 
-            {renderTabToggle("phone")}
-
             <TouchableOpacity onPress={() => router.push("/(auth)/welcome")} activeOpacity={0.7}>
                 <Text style={s.altCreate}>
                     First time here?{" "}
@@ -424,11 +450,9 @@ export default function LoginScreen() {
 
     const renderOtpCard = () => (
         <>
-            <Text style={s.cardEyebrow}>Step 2 of 2</Text>
-            <Text style={s.cardTitle}>Enter the 6-digit code</Text>
-            <Text style={s.cardSub}>
-                Sent to <Text style={s.cardSubStrong}>{countryCode} {phone}</Text>.
-                It should arrive in seconds.
+            <Text style={s.sentTo}>
+                Code sent to{" "}
+                <Text style={s.sentToStrong}>{countryCode} {phone}</Text>
             </Text>
 
             <View style={s.otpRow}>
@@ -528,9 +552,7 @@ export default function LoginScreen() {
 
     const renderEmailCard = () => (
         <>
-            <Text style={s.cardEyebrow}>Step 1 of 2</Text>
-            <Text style={s.cardTitle}>Your email address</Text>
-            <Text style={s.cardSub}>We'll ask for the password on the next step.</Text>
+            {renderTabToggle("email")}
 
             <View style={[s.input, email.length > 0 && s.inputFocused, loginError && s.inputError]}>
                 <View style={s.inputIcon}>
@@ -553,6 +575,7 @@ export default function LoginScreen() {
             </View>
 
             {renderErrorBanner()}
+            {!loginError && <Text style={[s.helper, { opacity: 0 }]}>One-time code. No password needed.</Text>}
 
             <TouchableOpacity
                 onPress={handleLogin}
@@ -572,8 +595,6 @@ export default function LoginScreen() {
                 )}
             </TouchableOpacity>
 
-            {renderTabToggle("email")}
-
             <TouchableOpacity onPress={() => router.push("/(auth)/welcome")} activeOpacity={0.7}>
                 <Text style={s.altCreate}>
                     First time here?{" "}
@@ -585,12 +606,6 @@ export default function LoginScreen() {
 
     const renderPasswordCard = () => (
         <>
-            <Text style={s.cardEyebrow}>Step 2 of 2</Text>
-            <Text style={s.cardTitle}>Enter your password</Text>
-            <Text style={s.cardSub}>
-                Signing in as <Text style={s.cardSubStrong}>{email}</Text>.
-            </Text>
-
             {/* locked email */}
             <View style={[s.input, s.inputLocked, { marginBottom: 10 }]}>
                 <View style={s.inputIcon}>
@@ -766,7 +781,7 @@ export default function LoginScreen() {
             {/* ── FOREGROUND CONTENT ── */}
             <SafeAreaView style={[s.safeArea, isSplit && s.safeAreaSplit]} edges={["top"]}>
                 <View style={s.topNav}>
-                    {mode !== "phone" || (mode === "phone" && false) ? (
+                    {mode !== "phone" ? (
                         <TouchableOpacity
                             onPress={() => {
                                 if (mode === "otp") {
@@ -794,24 +809,20 @@ export default function LoginScreen() {
                         <View style={{ width: 38, height: 38 }} />
                     )}
                     <View style={{ flex: 1 }} />
-                    <TouchableOpacity activeOpacity={0.7}>
-                        <Text style={s.navHelp}>Need help?</Text>
-                    </TouchableOpacity>
                 </View>
 
-                {/* Brand mark (landing only) */}
-                {(isSplit || mode === "phone") && (
-                    <Animated.View
-                        style={[
-                            s.brand,
-                            isSplit && s.brandSplit,
-                            { opacity: captionFade, transform: [{ translateY: captionSlide }] },
-                        ]}
-                    >
-                        <Text style={[s.brandMark, isSplit && s.brandMarkSplit]}>NETSA</Text>
-                        <Text style={[s.brandSub, isSplit && s.brandSubSplit]}>कला · कलाकार</Text>
-                    </Animated.View>
-                )}
+                {/* Brand mark */}
+                <Animated.View
+                    style={[
+                        s.brand,
+                        isSplit && s.brandSplit,
+                        { opacity: captionFade, transform: [{ translateY: captionSlide }] },
+                    ]}
+                >
+                    <Text style={[s.brandMark, isSplit && s.brandMarkSplit]}>
+                        NET<Text style={{ color: C.orange }}>·</Text>SA
+                    </Text>
+                </Animated.View>
 
                 {/* Photo caption */}
                 {(isSplit || mode === "phone") && (
@@ -819,12 +830,12 @@ export default function LoginScreen() {
                         style={[
                             s.caption,
                             isSplit && { top: undefined as unknown as number, bottom: 40, paddingHorizontal: 26 },
-                            { opacity: captionFade, transform: [{ translateY: captionSlide }] },
+                            { opacity: Animated.multiply(captionFade, captionModeFade), transform: [{ translateY: captionSlide }] },
                         ]}
                     >
                         <Text style={s.kicker}>— Est. 2026 · Pune</Text>
                         <Text style={[s.captionH2, isSplit && s.captionH2Split]}>
-                            Every movement{"\n"}needs an audience.
+                            Enter{"\n"}the wings.
                         </Text>
                     </Animated.View>
                 )}
@@ -834,7 +845,7 @@ export default function LoginScreen() {
                     <Animated.View
                         style={[
                             s.caption,
-                            { opacity: captionFade, transform: [{ translateY: captionSlide }], top: 100 },
+                            { opacity: Animated.multiply(captionFade, captionModeFade), transform: [{ translateY: captionSlide }], top: 100 },
                         ]}
                     >
                         <Text style={s.kicker}>— Verifying · {countryCode}</Text>
@@ -847,11 +858,11 @@ export default function LoginScreen() {
                     <Animated.View
                         style={[
                             s.caption,
-                            { opacity: captionFade, transform: [{ translateY: captionSlide }], top: 140 },
+                            { opacity: Animated.multiply(captionFade, captionModeFade), transform: [{ translateY: captionSlide }] },
                         ]}
                     >
                         <Text style={s.kicker}>— Sign in · email</Text>
-                        <Text style={s.captionH2}>Same account,{"\n"}different door.</Text>
+                        <Text style={s.captionH2}>Same door,{"\n"}different key.</Text>
                     </Animated.View>
                 )}
 
@@ -859,7 +870,7 @@ export default function LoginScreen() {
                     <Animated.View
                         style={[
                             s.caption,
-                            { opacity: captionFade, transform: [{ translateY: captionSlide }], top: 120 },
+                            { opacity: Animated.multiply(captionFade, captionModeFade), transform: [{ translateY: captionSlide }], top: 120 },
                         ]}
                     >
                         <Text style={s.kicker}>— Sign in · email</Text>
@@ -870,10 +881,9 @@ export default function LoginScreen() {
 
             {/* ── GLASS CARD (bottom, centered, max-width) ── */}
             <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                behavior={undefined}
                 style={[
                     s.cardWrap,
-                    { paddingBottom: 20 + Math.max(insets.bottom - 8, 0) },
                     isSplit && s.cardWrapSplit,
                 ]}
                 pointerEvents="box-none"
@@ -883,6 +893,7 @@ export default function LoginScreen() {
                         s.card,
                         isSplit && s.cardSplit,
                         {
+                            paddingBottom: isSplit ? 22 : (22 + Math.max(insets.bottom, 0)),
                             opacity: cardFade,
                             transform: [{ translateY: cardSlide }, { translateY: kbdShift }],
                         },
@@ -953,7 +964,7 @@ const s = StyleSheet.create({
     cardSplit: { backgroundColor: "transparent" as const, borderWidth: 0, padding: 0, maxWidth: 400 },
     /* V1 editorial · left-panel branding top-left + caption to bottom */
     brandSplit: { flexDirection: "row" as const, alignItems: "center" as const, gap: 10, marginTop: 6, alignSelf: "flex-start" as const, paddingHorizontal: 26 },
-    brandMarkSplit: { fontSize: 20, letterSpacing: 3 },
+    brandMarkSplit: { fontSize: 11, letterSpacing: 3.5 },
     brandSubSplit: { marginTop: 0 },
     captionH2Split: { fontSize: 27, lineHeight: 30, maxWidth: 340 },
 
@@ -988,17 +999,18 @@ const s = StyleSheet.create({
         marginTop: 28,
     },
     brandMark: {
-        fontFamily: FONT.serif,
-        color: C.text0,
-        fontSize: 26,
-        letterSpacing: 6.5,
+        fontFamily: FONT.monoBold,
+        color: "rgba(255,255,255,0.84)",
+        fontSize: 12,
+        letterSpacing: 4.5,
+        textTransform: "uppercase" as const,
     },
     brandSub: {
-        color: "rgba(243,239,232,0.5)",
-        fontSize: 14,
-        fontFamily: FONT.body,
-        marginTop: 6,
-        letterSpacing: 0.4,
+        color: "rgba(243,239,232,0.4)",
+        fontSize: 10,
+        fontFamily: FONT.mono,
+        marginTop: 5,
+        letterSpacing: 1.5,
     },
 
     caption: {
@@ -1035,8 +1047,6 @@ const s = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        paddingHorizontal: 20,
-        paddingBottom: 20,
         alignItems: "center",
     },
     card: {
@@ -1045,7 +1055,10 @@ const s = StyleSheet.create({
         backgroundColor: C.cardBg,
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.08)",
-        borderRadius: 22,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
         padding: 22,
     },
 
@@ -1078,9 +1091,9 @@ const s = StyleSheet.create({
     input: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.05)",
+        backgroundColor: "#1C1C23",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.12)",
+        borderColor: "rgba(255,255,255,0.09)",
         borderRadius: 12,
         minHeight: 52,
         marginBottom: 12,
@@ -1138,9 +1151,9 @@ const s = StyleSheet.create({
     otpBox: {
         flex: 1,
         height: 54,
-        backgroundColor: "rgba(255,255,255,0.05)",
+        backgroundColor: "#1C1C23",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.12)",
+        borderColor: "rgba(255,255,255,0.09)",
         borderRadius: 10,
         alignItems: "center",
         justifyContent: "center",
@@ -1264,28 +1277,33 @@ const s = StyleSheet.create({
     /* Tab toggle */
     tabToggle: {
         flexDirection: "row",
-        justifyContent: "center",
-        gap: 26,
-        paddingTop: 4,
-        marginBottom: 14,
+        marginBottom: 18,
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(255,255,255,0.055)",
     },
     tabItem: {
+        flex: 1,
         alignItems: "center",
-        paddingBottom: 5,
+        paddingBottom: 10,
+        marginBottom: -1,
+        position: "relative" as const,
     },
     tabLabel: {
-        color: "rgba(243,239,232,0.55)",
-        fontFamily: FONT.med,
-        fontSize: 12.5,
-        letterSpacing: 0.3,
+        color: "rgba(243,239,232,0.45)",
+        fontFamily: FONT.mono,
+        fontSize: 11,
+        letterSpacing: 1.5,
+        textTransform: "uppercase" as const,
     },
     tabLabelActive: {
         color: C.text0,
-        fontFamily: FONT.bold,
+        fontFamily: FONT.monoBold,
     },
     tabUnderline: {
-        marginTop: 4,
-        width: "100%",
+        position: "absolute" as const,
+        bottom: -1,
+        left: 0,
+        right: 0,
         height: 2,
         backgroundColor: C.orange,
         borderRadius: 1,
@@ -1302,5 +1320,29 @@ const s = StyleSheet.create({
         color: C.orange,
         fontFamily: FONT.bold,
         textDecorationLine: "underline",
+    },
+
+    /* Helper text below input */
+    helper: {
+        color: C.text3,
+        fontSize: 11,
+        fontFamily: FONT.mono,
+        letterSpacing: 0.5,
+        marginBottom: 14,
+        marginTop: -4,
+    },
+
+    /* OTP sent-to indicator */
+    sentTo: {
+        fontFamily: FONT.mono,
+        fontSize: 10,
+        letterSpacing: 0.6,
+        color: C.text3,
+        textAlign: "center" as const,
+        marginBottom: 18,
+    },
+    sentToStrong: {
+        color: C.text2,
+        fontFamily: FONT.monoBold,
     },
 });

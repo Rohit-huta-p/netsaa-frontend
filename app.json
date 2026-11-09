@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "NETSA - The Artist's Network",
-    "slug": "netsa",
+    "slug": "netsa-mobile",
     "version": "1.0.0",
     "scheme": "netsa",
     "orientation": "portrait",

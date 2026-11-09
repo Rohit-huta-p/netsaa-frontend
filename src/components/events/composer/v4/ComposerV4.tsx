@@ -6,6 +6,7 @@ import { eventToForm } from './composerForm';
 import { useCreateEvent, useUpdateEvent, useEvent } from '@/hooks/useEvents';
 import ComposerShellV4 from './ComposerShellV4';
 import ItsLive from './ItsLive';
+import LeaveComposerSheet from './LeaveComposerSheet';
 import { C } from './theme';
 
 type Published = { _id: string; status: string };
@@ -31,6 +32,8 @@ export default function ComposerV4({ eventId }: { eventId?: string }) {
 
   const [published, setPublished] = useState<Published | null>(null);
   const [hydrated, setHydrated] = useState(!eventId); // create mode is ready immediately
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [leaveSaving, setLeaveSaving] = useState(false);
 
   // Clear any leftover edit state when opening a fresh "create".
   useEffect(() => {
@@ -71,6 +74,31 @@ export default function ComposerV4({ eventId }: { eventId?: string }) {
 
   const close = () => { reset(); router.back(); };
 
+  // Leaving the composer. Only interrupt with the sheet when the host has
+  // actually entered something — an untouched composer just exits (no sheet).
+  const requestClose = () => {
+    if (useComposerStoreV4.getState().isDirty()) setLeaveOpen(true);
+    else close();
+  };
+  const keepEditing = () => setLeaveOpen(false);
+  const discardAndLeave = () => { setLeaveOpen(false); close(); };
+  // "Safe by default": keep the work. create → save as a draft; edit → PATCH.
+  const saveAndLeave = () => {
+    setLeaveSaving(true);
+    const done = () => { setLeaveSaving(false); setLeaveOpen(false); reset(); };
+    if (eventId) {
+      update.mutate(payload() as any, {
+        onSuccess: () => { done(); router.replace(`/(app)/events/${eventId}`); },
+        onError: (e) => { setLeaveSaving(false); Alert.alert('Could not save changes', errMsg(e, 'Please try again.')); },
+      });
+    } else {
+      create.mutate({ ...payload(), status: 'draft' } as any, {
+        onSuccess: () => { done(); router.back(); },
+        onError: (e) => { setLeaveSaving(false); Alert.alert('Could not save draft', errMsg(e, 'Please try again.')); },
+      });
+    }
+  };
+
   if (eventId && !hydrated) {
     return (
       <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
@@ -92,5 +120,17 @@ export default function ComposerV4({ eventId }: { eventId?: string }) {
     );
   }
 
-  return <ComposerShellV4 onPublish={handleSubmit} onClose={close} publishing={submitting} />;
+  return (
+    <>
+      <ComposerShellV4 onPublish={handleSubmit} onClose={requestClose} publishing={submitting} />
+      <LeaveComposerSheet
+        visible={leaveOpen}
+        mode={eventId ? 'edit' : 'create'}
+        saving={leaveSaving}
+        onLeaveSave={saveAndLeave}
+        onKeepEditing={keepEditing}
+        onDiscard={discardAndLeave}
+      />
+    </>
+  );
 }

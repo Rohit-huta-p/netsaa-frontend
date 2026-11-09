@@ -55,18 +55,22 @@ function WebVideoPlayer({
     if (!video) return;
     const src = muxHls(playbackId);
 
-    // Dynamic import avoids bundling hls.js on native (tree-shaken at compile time).
+    // iOS Safari & iOS Chrome (WebKit): native HLS — set src SYNCHRONOUSLY so the
+    // browser is ready when the user taps the play button on the poster overlay.
+    // If we waited for the async hls.js import the tap would fire with no src set.
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = src;
+      return;
+    }
+
+    // Desktop Chrome / Firefox: no native HLS — load via hls.js + MSE.
     import('hls.js').then(({ default: Hls }) => {
+      if (!videoRef.current) return;
       if (Hls.isSupported()) {
-        // Chrome / Firefox: native <video> can't play HLS — use hls.js via MSE.
         const hls = new Hls({ enableWorker: false });
         hls.loadSource(src);
         hls.attachMedia(video);
-        // Cleanup captured in a ref so the effect can return synchronously.
         (videoRef as any)._hls = hls;
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // Safari: native HLS support.
-        video.src = src;
       }
     });
 

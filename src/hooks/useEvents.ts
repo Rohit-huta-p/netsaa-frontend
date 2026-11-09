@@ -110,6 +110,17 @@ export function useUpdateEvent(id: string) {
   });
 }
 
+/** Delete an event (host only). Used to discard an auto-saved composer draft. Invalidates the host's event lists so it drops out immediately. */
+export function useDeleteEvent() {
+  const qc = useQueryClient();
+  return useMutation<void, unknown, string>({
+    mutationFn: (id: string) => eventService.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: eventKeys.lists() });
+    },
+  });
+}
+
 export function useWalkupAdd(eventId: string) {
   const qc = useQueryClient();
   return useMutation({

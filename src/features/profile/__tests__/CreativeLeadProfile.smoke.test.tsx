@@ -35,6 +35,7 @@ jest.mock('@/hooks/useConnectionMeta', () => ({
 }));
 jest.mock('@/services/conversationService', () => ({ __esModule: true, default: { createConversation: jest.fn() } }));
 jest.mock('expo-haptics', () => ({ impactAsync: jest.fn(), ImpactFeedbackStyle: { Light: 0 }, notificationAsync: jest.fn(), NotificationFeedbackType: { Success: 0 } }));
+jest.mock('@/hooks/useFollow', () => ({ useFollow: () => ({ isFollowing: false, followerCount: 1280, toggle: jest.fn(), busy: false }) }));
 
 const TestRenderer = require('react-test-renderer');
 import { CreativeLeadProfile } from '../CreativeLeadProfile';
@@ -103,7 +104,10 @@ describe('CreativeLeadProfile smoke', () => {
         expect(txt).toContain('Socials');  // socials row (website/Instagram/YouTube/Spotify icons)
         expect(txt).toContain('214');                  // connections count (quiet meta, like the artist page)
         expect(txt).toContain('connections');
-        expect(txt).toContain('Connect & Follow');     // visitor primary action (real connect backend)
+        expect(txt).toContain('1280');                 // follower count (from useFollow)
+        expect(txt).toContain('followers');
+        expect(txt).toContain('Connect');              // split header — two separate buttons now
+        expect(txt).toContain('Follow');
         expect(txt).toContain('What we do');
         expect(txt).toContain('Now hiring');
         expect(txt).toContain('Lead dancer — Diwali gala');

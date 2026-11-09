@@ -7,7 +7,7 @@
  * mockup DOCS/04-design/mockups/creative-lead-profile.html.
  *
  * Section order: Masthead (cover · logo · name · verified + tier · type·city · stat
- * strip [A·Editorial] · connections + Connect & Follow) → What we do (bio · specialties · details)
+ * strip [A·Editorial] · connections·followers · Connect + Follow) → What we do (bio · specialties · details)
  * → Productions (shared MediaViewer showcase) → [Now hiring — Phase 2] → Events they
  * host (public) → [Reviews — Phase 2] → [Team — Phase 2].
  *
@@ -43,7 +43,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight, Image as LucideImage, Globe, Instagram, Youtube, Music2, UserPlus, Clock } from 'lucide-react-native';
+import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight, Image as LucideImage, Globe, Instagram, Youtube, Music2, UserPlus, Clock, Bell } from 'lucide-react-native';
 
 import { useUser } from '@/hooks/useUser';
 import { useOrganizer } from '@/hooks/useOrganizer';
@@ -53,9 +53,10 @@ import { useOrganizerGigs } from '@/hooks/useGigs';
 import { orgTypeLabel } from '@/constants/orgTypes';
 import MediaViewer, { type MediaViewerItem } from '@/components/profile/MediaViewer';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
-import { useMutualConnections, useMyConnectionsCount } from '@/hooks/useConnectionMeta';
+import { useMyConnectionsCount } from '@/hooks/useConnectionMeta';
 import conversationService from '@/services/conversationService';
 import * as Haptics from 'expo-haptics';
+import { useFollow } from '@/hooks/useFollow';
 
 // ── A·Minimal palette (shared with gig detail / artist home / mockup) ──
 const C = {
@@ -167,11 +168,13 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     const { data: ownerGigsRaw } = useOrganizerGigs(isOwner ? userId : '');
     // Real connection backend (user-to-user, role-agnostic) — replaces the old local "follow" stub.
     const { connectionStatus, sendRequest, withdrawRequest, removeConnection, isConnectionLoading } = useConnectionStatus(userId, isOwner);
-    const { data: mutualData } = useMutualConnections(isOwner ? undefined : userId);
     const { data: myConnectionsCount } = useMyConnectionsCount(isOwner);
+    // Follow = one-way, instant subscription (notified when they post a gig/event).
+    const { isFollowing, followerCount, toggle: toggleFollow, busy: followBusy } = useFollow(userId);
 
     const [connBusy, setConnBusy] = useState(false);
     const [msgBusy, setMsgBusy] = useState(false);
+    const [sheetOpen, setSheetOpen] = useState(false);
     const [previewAsVisitor, setPreviewAsVisitor] = useState(false);
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
@@ -278,9 +281,9 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
 
     // ── Connections as quiet meta (like the artist Spotlight) + connect/follow wiring ──
     const connections = isOwner ? (myConnectionsCount ?? 0) : (d.connections ?? 0);
-    const mutual = mutualData?.count ?? 0;
     const connected = connectionStatus === 'connected';
     const pending = connectionStatus === 'pending';
+    const recentGig = gigs[0];
 
     const haptic = () => { try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch { /* noop */ } };
     const onConnect = async () => {
@@ -288,7 +291,8 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
         haptic();
         setConnBusy(true);
         try {
-            if (connectionStatus === 'none') await sendRequest();
+            // Request sent → open the sheet that nudges Follow ("don't miss their next gig or event").
+            if (connectionStatus === 'none') { await sendRequest(); setSheetOpen(true); }
             else if (connectionStatus === 'pending') await withdrawRequest();
         } catch { /* hook surfaces its own errors */ }
         finally { setConnBusy(false); }
@@ -308,6 +312,7 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
             { text: 'Cancel', style: 'cancel' },
         ]);
     };
+    const onFollow = () => { haptic(); toggleFollow(); };
 
     const renderBody = (owner: boolean) => (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 90 }} showsVerticalScrollIndicator={false}>
@@ -403,8 +408,8 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                         >
                             <Text style={s.cstrong}>{connections}</Text> connections
                         </Text>
-                        {!owner && mutual > 0 && (
-                            <><Text style={s.csep}>{'   ·   '}</Text><Text style={s.cstrong}>{mutual}</Text> mutual</>
+                        {followerCount > 0 && (
+                            <><Text style={s.csep}>{'   ·   '}</Text><Text style={s.cstrong}>{followerCount}</Text> followers</>
                         )}
                     </Text>
                 </View>
@@ -460,23 +465,29 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                                     <Text style={s.btnGhostText}>Share</Text>
                                 </Pressable>
                             </>
-                        ) : connected ? (
+                        ) : (
                             <>
-                                <Pressable style={[s.btn, s.btnRow, s.btnGhost]} onPress={openMessage} disabled={msgBusy} accessibilityLabel="Message">
-                                    {msgBusy ? <ActivityIndicator size="small" color={C.t1} /> : <Text style={s.btnGhostText}>Message</Text>}
-                                </Pressable>
-                                <Pressable style={[s.btnMore, s.btnGhost]} onPress={onManageConnection} accessibilityLabel="Connected — manage">
-                                    <Check size={16} color={C.green} />
+                                {/* Connect — a relationship (pending until they accept); long-press Message to manage */}
+                                {connected ? (
+                                    <Pressable style={[s.btn, s.btnRow, s.btnGhost]} onPress={openMessage} onLongPress={onManageConnection} disabled={msgBusy} accessibilityLabel="Message · long-press to manage">
+                                        {msgBusy ? <ActivityIndicator size="small" color={C.t1} /> : <Text style={s.btnGhostText}>Message</Text>}
+                                    </Pressable>
+                                ) : pending ? (
+                                    <Pressable style={[s.btn, s.btnRow, s.btnGhost]} onPress={onConnect} disabled={connBusy} accessibilityLabel="Requested — tap to withdraw">
+                                        {connBusy ? <ActivityIndicator size="small" color={C.t3} /> : <><Clock size={14} color={C.t3} /><Text style={s.btnGhostText}>Requested</Text></>}
+                                    </Pressable>
+                                ) : (
+                                    <Pressable style={[s.btn, s.btnRow, s.btnFollow]} onPress={onConnect} disabled={connBusy} accessibilityLabel="Connect">
+                                        {connBusy ? <ActivityIndicator size="small" color="#190B05" /> : <><UserPlus size={15} color="#190B05" /><Text style={s.btnFollowText}>Connect</Text></>}
+                                    </Pressable>
+                                )}
+                                {/* Follow — one-way, instant alerts for their gigs & events */}
+                                <Pressable style={[s.btn, s.btnRow, isFollowing ? s.btnFollowing : s.btnGhost]} onPress={onFollow} disabled={followBusy} accessibilityLabel={isFollowing ? 'Following — tap to unfollow' : 'Follow for gig and event alerts'}>
+                                    {followBusy
+                                        ? <ActivityIndicator size="small" color={isFollowing ? C.orange : C.t1} />
+                                        : <><Bell size={15} color={isFollowing ? C.orange : C.t1} />{isFollowing ? <Text style={s.btnFollowingText}>Following</Text> : <Text style={s.btnGhostText}>Follow</Text>}</>}
                                 </Pressable>
                             </>
-                        ) : pending ? (
-                            <Pressable style={[s.btn, s.btnRow, s.btnGhost]} onPress={onConnect} disabled={connBusy} accessibilityLabel="Requested — tap to withdraw">
-                                {connBusy ? <ActivityIndicator size="small" color={C.t3} /> : <><Clock size={14} color={C.t3} /><Text style={s.btnGhostText}>Requested</Text></>}
-                            </Pressable>
-                        ) : (
-                            <Pressable style={[s.btn, s.btnRow, s.btnFollow]} onPress={onConnect} disabled={connBusy} accessibilityLabel="Connect and Follow">
-                                {connBusy ? <ActivityIndicator size="small" color="#190B05" /> : <><UserPlus size={15} color="#190B05" /><Text style={s.btnFollowText}>Connect &amp; Follow</Text></>}
-                            </Pressable>
                         )}
                     </View>
 
@@ -765,6 +776,48 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
                     </BlurView>
                 </Modal>
             )}
+
+            {/* ═══ CONNECT SHEET — "don't miss their next gig or event" → nudge Follow ═══ */}
+            {sheetOpen && (
+                <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={() => setSheetOpen(false)}>
+                    <Pressable style={s.sheetScrim} onPress={() => setSheetOpen(false)}>
+                        <Pressable style={s.sheet} onPress={() => {}}>
+                            <View style={s.sheetGrab} />
+                            <View style={s.okChip}>
+                                <Check size={12} color={C.green} />
+                                <Text style={s.okChipText}>Connection requested</Text>
+                            </View>
+                            <Text style={s.sheetH}>Don't miss their{'\n'}<Text style={{ color: C.orange }}>next gig or event.</Text></Text>
+                            {recentGig ? (
+                                <View style={s.gigPeek}>
+                                    <Text style={s.gpKick}>They posted recently</Text>
+                                    <Text style={s.gpTitle} numberOfLines={1}>{recentGig.title}</Text>
+                                    <Text style={s.gpMeta} numberOfLines={1}>
+                                        {[payLabel(recentGig.compensation), recentGig.location?.city].filter(Boolean).join('   ·   ')}
+                                    </Text>
+                                </View>
+                            ) : null}
+                            <Text style={s.gpNote}>
+                                {recentGig
+                                    ? 'Follow and the next one lands in your notifications.'
+                                    : 'Follow to get a ping the moment they post a gig or event.'}
+                            </Text>
+                            <Pressable
+                                style={[s.sheetPrimary, isFollowing && s.sheetPrimaryDone]}
+                                onPress={() => { if (!isFollowing) onFollow(); setSheetOpen(false); }}
+                                accessibilityLabel={isFollowing ? 'Following' : 'Follow for alerts'}
+                            >
+                                {isFollowing
+                                    ? <><Check size={16} color={C.orange} /><Text style={s.sheetPrimaryDoneText}>Following</Text></>
+                                    : <><Bell size={16} color="#190B05" /><Text style={s.sheetPrimaryText}>Follow for alerts</Text></>}
+                            </Pressable>
+                            <Pressable onPress={() => setSheetOpen(false)} hitSlop={8}>
+                                <Text style={s.sheetGhostText}>Maybe later</Text>
+                            </Pressable>
+                        </Pressable>
+                    </Pressable>
+                </Modal>
+            )}
         </View>
     );
 }
@@ -970,6 +1023,8 @@ const s = StyleSheet.create({
     btn: { flex: 1, paddingVertical: 10, borderRadius: 11, alignItems: 'center' },
     btnFollow: { backgroundColor: C.orange },
     btnFollowText: { fontFamily: F.bold, fontSize: 12.5, color: '#190B05', letterSpacing: 0.2 },
+    btnFollowing: { backgroundColor: C.orangeSoft, borderWidth: 1, borderColor: C.orangeB },
+    btnFollowingText: { fontFamily: F.bold, fontSize: 12.5, color: C.orange, letterSpacing: 0.2 },
     btnGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: C.hair },
     btnGhostText: { fontFamily: F.bold, fontSize: 12.5, color: C.t1, letterSpacing: 0.2 },
     btnGhostFill: { backgroundColor: C.chip, borderWidth: 1, borderColor: C.chipB },
@@ -979,6 +1034,24 @@ const s = StyleSheet.create({
     cmeta: { fontFamily: F.body, fontSize: 12.5, color: C.t3, marginTop: 12 },
     cstrong: { fontFamily: F.semi, color: C.t1 },
     csep: { color: C.t4 },
+
+    // connect sheet — "don't miss their next gig or event" → nudge Follow
+    sheetScrim: { flex: 1, backgroundColor: 'rgba(5,5,8,0.62)', justifyContent: 'flex-end' },
+    sheet: { backgroundColor: '#16161C', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderColor: C.hair, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 30 },
+    sheetGrab: { width: 38, height: 4, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.16)', alignSelf: 'center', marginBottom: 16 },
+    okChip: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', backgroundColor: 'rgba(34,197,94,0.10)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.26)', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 },
+    okChipText: { fontFamily: F.mono, fontSize: 9.5, letterSpacing: 0.4, color: C.green },
+    sheetH: { fontFamily: F.serif, fontSize: 24, lineHeight: 28, color: C.cream, letterSpacing: -0.3, marginTop: 14 },
+    gigPeek: { backgroundColor: C.well, borderWidth: 1, borderColor: C.hair, borderRadius: 14, paddingHorizontal: 15, paddingVertical: 13, marginTop: 15 },
+    gpKick: { fontFamily: F.mono, fontSize: 7.5, letterSpacing: 1, color: C.orange, textTransform: 'uppercase' },
+    gpTitle: { fontFamily: F.serif, fontSize: 17, color: C.cream, marginTop: 7 },
+    gpMeta: { fontFamily: F.body, fontSize: 12.5, color: C.t2, marginTop: 5 },
+    gpNote: { fontFamily: F.body, fontSize: 12, color: C.t4, marginTop: 11, textAlign: 'center' },
+    sheetPrimary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.orange, borderRadius: 13, paddingVertical: 13, marginTop: 18 },
+    sheetPrimaryText: { fontFamily: F.bold, fontSize: 14, color: '#190B05', letterSpacing: 0.2 },
+    sheetPrimaryDone: { backgroundColor: C.orangeSoft, borderWidth: 1, borderColor: C.orangeB },
+    sheetPrimaryDoneText: { fontFamily: F.bold, fontSize: 14, color: C.orange, letterSpacing: 0.2 },
+    sheetGhostText: { fontFamily: F.semi, fontSize: 12.5, color: C.t3, textAlign: 'center', paddingVertical: 12, marginTop: 2 },
 
     // section head
     shead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28, marginBottom: 13 },

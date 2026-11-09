@@ -16,35 +16,42 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Pencil, Share2, Eye, Landmark, Ticket, Settings, XCircle, ChevronRight } from 'lucide-react-native';
+import { Pencil, Share2, Eye, Landmark, Ticket, Settings, XCircle, Trash2, ChevronRight } from 'lucide-react-native';
 import { C, F } from './hubTokens';
 
 type Props = {
   visible: boolean;
   eventTitle: string;
   statusLabel: string;
-  isPaid: boolean;
-  priceRupees: number;
-  payoutVerified: boolean;
-  payoutLine?: string;
-  acceptingRsvps: boolean;
-  seatsTaken: number;
-  seatsTotal: number;
-  canCancel: boolean;
   onClose: () => void;
-  onEdit: () => void;
-  onShare: () => void;
-  onPreview: () => void;
-  onPayouts: () => void;
-  onToggleAcceptingRsvps: (next: boolean) => void;
-  onSettings: () => void;
-  onCancel: () => void;
+  // Draft mode: a trimmed sheet whose only action is Delete event (nothing to
+  // toggle or refund before publish). The live-event props below are ignored.
+  isDraft?: boolean;
+  onDelete?: () => void;
+  isPaid?: boolean;
+  priceRupees?: number;
+  payoutVerified?: boolean;
+  payoutLine?: string;
+  acceptingRsvps?: boolean;
+  seatsTaken?: number;
+  seatsTotal?: number;
+  canCancel?: boolean;
+  onEdit?: () => void;
+  onShare?: () => void;
+  onPreview?: () => void;
+  onPayouts?: () => void;
+  onToggleAcceptingRsvps?: (next: boolean) => void;
+  onSettings?: () => void;
+  onCancel?: () => void;
 };
 
 export default function EventActionsSheet({
-  visible, eventTitle, statusLabel, isPaid, priceRupees, payoutVerified, payoutLine,
-  acceptingRsvps, seatsTaken, seatsTotal, canCancel,
-  onClose, onEdit, onShare, onPreview, onPayouts, onToggleAcceptingRsvps, onSettings, onCancel,
+  visible, eventTitle, statusLabel, onClose,
+  isDraft = false, onDelete = () => {},
+  isPaid = false, priceRupees = 0, payoutVerified = false, payoutLine,
+  acceptingRsvps = false, seatsTaken = 0, seatsTotal = 0, canCancel = false,
+  onEdit = () => {}, onShare = () => {}, onPreview = () => {}, onPayouts = () => {},
+  onToggleAcceptingRsvps = () => {}, onSettings = () => {}, onCancel = () => {},
 }: Props) {
   const insets = useSafeAreaInsets();
   if (!visible) return null;
@@ -68,6 +75,10 @@ export default function EventActionsSheet({
           <Text style={{ fontFamily: F.body, fontSize: 13, color: C.t2, marginTop: 4 }}>{eventTitle} · {statusLabel}</Text>
 
           <View style={{ marginTop: 14 }}>
+            {isDraft ? (
+              <Row icon={Trash2} tint={C.coral} tintBg={C.coralSoft} title="Delete event" subtitle="Permanently remove this draft · can't be undone" onPress={onDelete} danger chevron />
+            ) : (
+            <>
             <Row icon={Pencil} tint={C.blue} tintBg="rgba(59,130,246,0.14)" title="Edit event" subtitle="Details, story, cover, agenda" onPress={onEdit} chevron />
             <Row icon={Share2} tint={C.t2} tintBg="rgba(255,255,255,0.06)" title="Share" subtitle="Send the event link" onPress={onShare} chevron />
             <Row icon={Eye} tint={C.t2} tintBg="rgba(255,255,255,0.06)" title="Preview" subtitle="How viewers see it" onPress={onPreview} chevron />
@@ -123,6 +134,8 @@ export default function EventActionsSheet({
             {canCancel ? (
               <Row icon={XCircle} tint={C.coral} tintBg={C.coralSoft} title="Cancel event" subtitle="Refund all · can't be undone" onPress={onCancel} danger chevron />
             ) : null}
+            </>
+            )}
           </View>
         </Pressable>
       </Pressable>

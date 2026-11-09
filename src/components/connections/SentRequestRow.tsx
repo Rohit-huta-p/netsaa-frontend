@@ -1,28 +1,36 @@
 // src/components/connections/SentRequestRow.tsx
 //
 // A single outgoing (pending) connection request in the Network › Invitations › Sent tab.
-// Elevated card + neutral "Pending" pill. Tapping Withdraw opens an inline confirm that
+// A·Minimal tile + neutral "Pending" pill. Tapping Withdraw opens an inline confirm that
 // surfaces the real 14-day re-send cooldown the gigs/users service enforces on withdraw
 // (see connectionService.withdrawConnectionRequest). onWithdraw fires only after confirm.
+// Destructive red on the confirm action is a semantic accent, not decoration.
 
 import React, { useState } from 'react';
 import { View, Text, Pressable, Image, ActivityIndicator, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { AlertCircle } from 'lucide-react-native';
 import { Connection } from '@/types/connection';
 
+// A·Minimal palette (locked tokens — same family as /network, gigs, CL home, notifications)
 const C = {
-    card: '#151019',
-    cardConfirm: '#170f14',
-    text1: '#F5F0EB',
-    text2: '#A19BAA',
-    text3: '#6B6878',
-    border: 'rgba(255,255,255,0.07)',
-    borderConfirm: 'rgba(255,107,53,0.35)',
-    pink: '#EC4899',
     orange: '#FF6B35',
+    ink: '#190B05',
+    green: '#22C55E',
+    card: '#1C1C23',
+    avatarbg: '#2A2A33',
+    well: '#212129',
+    text0: '#FFFFFF',
+    text1: '#D4D4D8',
+    text2: '#A1A1AA',
+    text3: '#8B8B99',
+    text4: '#6B6B78',
+    border: 'rgba(255,255,255,0.06)',
+    border2: 'rgba(255,255,255,0.10)',
+    borderConfirm: 'rgba(255,107,53,0.30)',
     danger: '#E24B4A',
     dangerText: '#F0958F',
+    dangerSoft: 'rgba(226,75,74,0.12)',
+    dangerLine: 'rgba(226,75,74,0.40)',
 };
 
 const initials = (name?: string) => {
@@ -58,21 +66,25 @@ const Avatar = ({ uri, name, size = 44 }: { uri?: string; name?: string; size?: 
         return (
             <Image
                 source={{ uri }}
-                style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#1a1822' }}
+                style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.avatarbg }}
             />
         );
     }
     return (
-        <LinearGradient
-            colors={[C.pink, C.orange]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center' }}
+        <View
+            style={{
+                width: size,
+                height: size,
+                borderRadius: size / 2,
+                backgroundColor: C.avatarbg,
+                alignItems: 'center',
+                justifyContent: 'center',
+            }}
         >
-            <Text style={{ color: '#fff', fontWeight: '800', fontSize: size * 0.32 }}>
+            <Text style={{ color: C.text1, fontFamily: 'Outfit-Bold', fontSize: size * 0.32 }}>
                 {initials(name).toUpperCase()}
             </Text>
-        </LinearGradient>
+        </View>
     );
 };
 
@@ -118,7 +130,7 @@ export const SentRequestRow = ({ item, currentUserId, onWithdraw, onPressUser, b
                 <View style={styles.rowTop}>{Identity}</View>
                 <View style={styles.cooldown}>
                     <View style={styles.cooldownWarn}>
-                        <AlertCircle size={15} color={C.text2} strokeWidth={2} style={{ marginTop: 1 }} />
+                        <AlertCircle size={15} color={C.text3} strokeWidth={2} style={{ marginTop: 1 }} />
                         <Text style={styles.cooldownText}>
                             Withdraw this request? You won't be able to re-send to {firstName} for{' '}
                             <Text style={styles.cooldownStrong}>14 days</Text>.
@@ -178,23 +190,17 @@ const styles = StyleSheet.create({
         paddingVertical: 13,
         paddingHorizontal: 14,
         marginBottom: 10,
-        shadowColor: '#000',
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
-        elevation: 4,
     },
     cardConfirm: {
         flexDirection: 'column',
         alignItems: 'stretch',
         gap: 0,
-        backgroundColor: C.cardConfirm,
         borderColor: C.borderConfirm,
     },
     rowTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     info: { flex: 1, minWidth: 0 },
-    name: { color: C.text1, fontFamily: 'Outfit-SemiBold', fontSize: 15 },
-    meta: { color: C.text2, fontSize: 12, marginTop: 2, fontFamily: 'Outfit-Regular' },
+    name: { color: C.text0, fontFamily: 'Outfit-SemiBold', fontSize: 15 },
+    meta: { color: C.text3, fontSize: 12, marginTop: 2, fontFamily: 'Outfit-Regular' },
 
     pill: {
         flexDirection: 'row',
@@ -202,20 +208,20 @@ const styles = StyleSheet.create({
         gap: 5,
         alignSelf: 'flex-start',
         marginTop: 7,
-        backgroundColor: 'rgba(255,255,255,0.06)',
+        backgroundColor: C.well,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.12)',
+        borderColor: C.border2,
         borderRadius: 999,
         paddingHorizontal: 9,
         paddingVertical: 2,
     },
-    pillDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.text2 },
-    pillText: { color: '#C9C2CC', fontSize: 10, fontFamily: 'Outfit-SemiBold', letterSpacing: 0.4 },
+    pillDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.text3 },
+    pillText: { color: C.text2, fontSize: 10, fontFamily: 'Outfit-SemiBold', letterSpacing: 0.4 },
 
     withdrawBtn: {
         alignSelf: 'flex-start',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.18)',
+        borderColor: C.border2,
         borderRadius: 999,
         paddingHorizontal: 14,
         paddingVertical: 7,
@@ -226,17 +232,17 @@ const styles = StyleSheet.create({
         marginTop: 12,
         paddingTop: 12,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.08)',
+        borderTopColor: C.border,
     },
     cooldownWarn: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-    cooldownText: { flex: 1, color: '#C9C2CC', fontSize: 12, lineHeight: 18, fontFamily: 'Outfit-Regular' },
-    cooldownStrong: { color: C.text1, fontFamily: 'Outfit-Bold' },
+    cooldownText: { flex: 1, color: C.text2, fontSize: 12, lineHeight: 18, fontFamily: 'Outfit-Regular' },
+    cooldownStrong: { color: C.text0, fontFamily: 'Outfit-Bold' },
     cooldownBtns: { flexDirection: 'row', gap: 9, marginTop: 12 },
     keepBtn: {
         flex: 1,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.14)',
+        borderColor: C.border2,
         borderRadius: 11,
         paddingVertical: 9,
     },
@@ -244,9 +250,9 @@ const styles = StyleSheet.create({
     confirmBtn: {
         flex: 1,
         alignItems: 'center',
-        backgroundColor: 'rgba(226,75,74,0.14)',
+        backgroundColor: C.dangerSoft,
         borderWidth: 1,
-        borderColor: 'rgba(226,75,74,0.4)',
+        borderColor: C.dangerLine,
         borderRadius: 11,
         paddingVertical: 9,
     },

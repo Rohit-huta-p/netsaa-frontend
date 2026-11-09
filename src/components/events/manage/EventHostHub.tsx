@@ -24,7 +24,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Pressable, ActivityIndicator,
-  Alert, useWindowDimensions,
+  Alert, Modal, useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,7 +36,7 @@ import {
 import { useEventHubData, type EventHubStage } from '@/hooks/useEventHubData';
 import {
   useWaitlistPromote, useUpdateRegistrationStatus, usePublishEvent, useUpdateEvent,
-  useCheckInByRegistration, useCancelRegistrationByOrganizer,
+  useCheckInByRegistration, useCancelRegistrationByOrganizer, useDeleteEvent,
 } from '@/hooks/useEvents';
 import { useApproveRequest, useDeclineRequest } from '@/hooks/useEventRequests';
 import {
@@ -88,6 +88,7 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [walkupOpen, setWalkupOpen] = useState(false);
   const [detailRow, setDetailRow] = useState<EventRosterRow | null>(null);
   const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
@@ -103,6 +104,7 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
   const checkIn = useCheckInByRegistration(eventId);
   const cancelAttendee = useCancelRegistrationByOrganizer(eventId);
   const publish = usePublishEvent(eventId);
+  const del = useDeleteEvent();
   const updateEvent = useUpdateEvent(eventId);
 
   if (data.isLoading) {
@@ -379,12 +381,12 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
               <Text style={{ fontFamily: F.bold, fontSize: 15, color: C.ink }}>{publish.isPending ? 'Publishing…' : 'Publish event'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setPreviewOpen(true)}
+              onPress={goEdit}
               accessibilityRole="button"
-              accessibilityLabel="Preview how it will look"
+              accessibilityLabel="Edit event details"
               style={{ width: '100%', maxWidth: 260, height: 50, borderRadius: 14, borderWidth: 1, borderColor: C.hairline, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}
             >
-              <Text style={{ fontFamily: F.semibold, fontSize: 15, color: C.t2 }}>Preview how it’ll look</Text>
+              <Text style={{ fontFamily: F.semibold, fontSize: 15, color: C.t2 }}>Edit details</Text>
             </TouchableOpacity>
           </View>
 
@@ -403,6 +405,49 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
         </ScrollView>
 
         <EventPreviewModal event={event} visible={previewOpen} onClose={() => setPreviewOpen(false)} />
+
+        {/* ⋯ menu on a draft: the only action is Delete (nothing live to manage yet). */}
+        <EventActionsSheet
+          visible={actionsOpen}
+          eventTitle={event.title}
+          statusLabel={statusPill.label.toLowerCase()}
+          isDraft
+          onClose={() => setActionsOpen(false)}
+          onDelete={() => { setActionsOpen(false); setDeleteOpen(true); }}
+        />
+
+        {/* Delete-draft confirm (a sheet, not Alert — Alert is a no-op on web). */}
+        <Modal visible={deleteOpen} transparent animationType="slide" onRequestClose={() => setDeleteOpen(false)}>
+          <Pressable onPress={() => setDeleteOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.58)', justifyContent: 'flex-end' }}>
+            <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: C.sheet, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderTopColor: C.hairline, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 28 }}>
+              <View style={{ width: 36, height: 4, borderRadius: 99, backgroundColor: C.t3, alignSelf: 'center', marginBottom: 16 }} />
+              <Text style={{ fontFamily: F.serif, fontSize: 21, color: C.cream }}>Delete this draft?</Text>
+              <Text style={{ fontFamily: F.body, fontSize: 13.5, color: C.t2, marginTop: 8, lineHeight: 20 }}>
+                This permanently removes "{event.title}". It can't be undone.
+              </Text>
+              {del.isError ? (
+                <Text style={{ fontFamily: F.body, fontSize: 12.5, color: C.coral, marginTop: 10 }}>Couldn't delete. Please try again.</Text>
+              ) : null}
+              <TouchableOpacity
+                onPress={() => del.mutate(eventId, { onSuccess: () => { setDeleteOpen(false); back(); } })}
+                disabled={del.isPending}
+                accessibilityRole="button"
+                accessibilityLabel="Delete event"
+                style={{ height: 50, borderRadius: 14, backgroundColor: C.coral, alignItems: 'center', justifyContent: 'center', marginTop: 20, opacity: del.isPending ? 0.6 : 1 }}
+              >
+                <Text style={{ fontFamily: F.bold, fontSize: 15, color: C.ink }}>{del.isPending ? 'Deleting…' : 'Delete event'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setDeleteOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Keep draft"
+                style={{ height: 50, borderRadius: 14, borderWidth: 1, borderColor: C.hairline, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}
+              >
+                <Text style={{ fontFamily: F.semibold, fontSize: 15, color: C.t2 }}>Keep</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </View>
     );
   }

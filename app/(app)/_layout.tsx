@@ -7,11 +7,24 @@ import { useModeStore } from "@/stores/modeStore";
 import { resolveBootstrapMode } from "@/lib/modeInference";
 import { useState, useEffect } from "react";
 
+// Routes guests may browse without an account. Auth-gated *actions* on these
+// pages (apply, save, connect, etc.) still trigger the AuthGateSheet.
+const PUBLIC_APP_ROUTE_PREFIXES = [
+    '/gigs/',
+    '/events/',
+    '/profile/',
+    '/search',
+    '/client/',
+];
+
+function isPublicAppRoute(path: string): boolean {
+    return PUBLIC_APP_ROUTE_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix + '/') || path === prefix.replace(/\/$/, ''));
+}
+
 /**
- * App Layout - All routes under (app) require authentication.
- * Unauthenticated users are redirected to "/(auth)/login" (a protected route
- * should bounce to login, not the marketing landing). The bare root "/" is
- * what shows the landing page — see app/index.tsx.
+ * App Layout - Most routes under (app) require authentication.
+ * Public browse routes (gig/event/profile detail, search) are open to guests.
+ * Unauthenticated users on private routes are redirected to "/(auth)/login".
  */
 export default function AppLayout() {
     const { isHydrated, isAuthLoading, user, accessToken } = useAuthStore();
@@ -25,12 +38,14 @@ export default function AppLayout() {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [showDeletionModal, setShowDeletionModal] = useState(false);
 
-    // Redirect unauthenticated users to login page
+    const isPublic = isPublicAppRoute(pathname ?? '');
+
+    // Redirect unauthenticated users to login — but skip public browse routes.
     useEffect(() => {
-        if (isHydrated && !isAuthLoading && !accessToken) {
+        if (isHydrated && !isAuthLoading && !accessToken && !isPublic) {
             router.replace('/(auth)/login');
         }
-    }, [isHydrated, isAuthLoading, accessToken]);
+    }, [isHydrated, isAuthLoading, accessToken, isPublic]);
 
     useEffect(() => {
         if (isHydrated && !isAuthLoading && user) {
@@ -79,17 +94,19 @@ export default function AppLayout() {
         return null; // Or a loading spinner
     }
 
-    // If not authenticated, don't render protected routes (redirect will fire)
-    if (!accessToken) {
+    // Block non-public routes for unauthenticated users (redirect will fire)
+    if (!accessToken && !isPublic) {
         return null;
     }
 
+    // Guests on public routes see the page but no BottomNav.
     // Hide the global BottomNav where it gets in the way of bottom affordances.
     // The /inbox launcher keeps the nav; only an open conversation (?c=<id>,
     // i.e. the full-screen chat on mobile) hides it. The /create flow and the
     // company profile editor both have their own pinned footer, so the nav would
     // collide with it — hide it on those too.
     const hideBottomNav =
+        !accessToken ||
         ((pathname?.startsWith('/inbox') ?? false) && !!openConversationId) ||
         pathname === '/create' ||
         (pathname?.startsWith('/client/agency-profile') ?? false);

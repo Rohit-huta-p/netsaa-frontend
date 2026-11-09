@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { Alert } from 'react-native';
+import { usePathname } from 'expo-router';
 import useAuthStore from '@/stores/authStore';
 import { useGigApplications, useUpdateApplicationStatus } from '@/hooks/useGigApplications';
-import { meetsMinimumApplyGate, computeOverallScore } from '@/components/profile/ProfileStrengthWidget';
+import { checkGigApplyMinimums } from '@/lib/gigApplyMinimums';
 import gigService from '@/services/gigService';
 
 /**
@@ -21,16 +22,14 @@ export function useGigActions(gig: any) {
     const isOrganizer = !!user?._id && !!organizerId && user._id === organizerId;
     const hasApplied = gig?.viewerContext?.hasApplied;
 
+    const pathname = usePathname();
+
     // Modal visibility states
     const [settingsModalVisible, setSettingsModalVisible] = useState(false);
     const [applyModalVisible, setApplyModalVisible] = useState(false);
-    const [authPromptVisible, setAuthPromptVisible] = useState(false);
+    const [authGateVisible, setAuthGateVisible] = useState(false);
     const [shareSheetVisible, setShareSheetVisible] = useState(false);
-    const [profileGateVisible, setProfileGateVisible] = useState(false);
-    const [profileGateData, setProfileGateData] = useState<{ score: number; missing: string[] }>({
-        score: 0,
-        missing: [],
-    });
+    const [profileMinGateVisible, setProfileMinGateVisible] = useState(false);
     // Hydrate from the server's viewer context so an already-saved gig shows
     // its bookmark filled on load (previously always started "unsaved").
     const [isSaved, setIsSaved] = useState<boolean>(!!gig?.viewerContext?.saved);
@@ -67,6 +66,14 @@ export function useGigActions(gig: any) {
         ? new Date(gig.applicationDeadline) < new Date()
         : false;
 
+    // Auth gate context — set per action so the sheet shows the right copy
+    const authGateContext = {
+        contextLabel: gig?.title as string | undefined,
+        resourceId: (gig?._id as string) ?? '',
+        returnPath: pathname ?? '',
+    };
+    const [authGateActionType, setAuthGateActionType] = useState<'apply' | 'save'>('apply');
+
     // Handlers
     const handleApply = () => {
         if (isDeadlinePassed) {
@@ -75,17 +82,14 @@ export function useGigActions(gig: any) {
         }
 
         if (!user) {
-            setAuthPromptVisible(true);
+            setAuthGateActionType('apply');
+            setAuthGateVisible(true);
             return;
         }
 
-        const gate = meetsMinimumApplyGate(user);
+        const gate = checkGigApplyMinimums(user);
         if (!gate.passes) {
-            setProfileGateData({
-                score: computeOverallScore(user),
-                missing: gate.missing,
-            });
-            setProfileGateVisible(true);
+            setProfileMinGateVisible(true);
             return;
         }
 
@@ -101,7 +105,8 @@ export function useGigActions(gig: any) {
 
     const handleSave = async () => {
         if (!user) {
-            setAuthPromptVisible(true);
+            setAuthGateActionType('save');
+            setAuthGateVisible(true);
             return;
         }
 
@@ -133,13 +138,14 @@ export function useGigActions(gig: any) {
         setSettingsModalVisible,
         applyModalVisible,
         setApplyModalVisible,
-        authPromptVisible,
-        setAuthPromptVisible,
+        authGateVisible,
+        setAuthGateVisible,
+        authGateContext,
+        authGateActionType,
         shareSheetVisible,
         setShareSheetVisible,
-        profileGateVisible,
-        setProfileGateVisible,
-        profileGateData,
+        profileMinGateVisible,
+        setProfileMinGateVisible,
         bottomSheetVisible,
         setBottomSheetVisible,
 

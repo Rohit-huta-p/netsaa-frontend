@@ -26,6 +26,7 @@ import { useCheckEmail } from '@/hooks/useAuthQueries';
 import { MIN_REGISTRATION_AGE, MAJORITY_AGE } from '@/constants/registration';
 import authService from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
+import { usePendingAuthActionStore } from '@/stores/pendingAuthActionStore';
 
 // Artist steps
 import { Step1Credentials }   from '@/components/auth/artist-registration/Step1Credentials';
@@ -374,7 +375,14 @@ export default function RegisterScreen() {
             }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            router.replace('/(app)/gigs');
+            const store = usePendingAuthActionStore.getState();
+            if (store.pendingIntent?.returnPath) {
+                const returnPath = store.pendingIntent.returnPath;
+                store.clearPendingIntent();
+                router.replace(returnPath as any);
+            } else {
+                router.replace('/(app)/gigs');
+            }
         } catch (err: any) {
             const msg = err.response?.data?.msg || err.response?.data?.message || err.message || 'Registration failed.';
             setStepError(msg);

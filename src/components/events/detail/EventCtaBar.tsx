@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { View, Pressable, Text, Modal, ActivityIndicator, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import type { EventDoc } from '@/services/eventService';
+import { useAuthStore } from '@/stores/authStore';
+import { AuthGateSheet } from '@/components/auth/AuthGateSheet';
 import { eventService } from '@/services/eventService';
 import { eventKeys } from '@/hooks/useEvents';
 import { isWithdrawable, withdrawConfirmCopy } from '@/lib/eventWithdraw';
@@ -42,6 +44,9 @@ const PAD = 20;
 
 export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed, preview, v3 }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const authUser = useAuthStore((s) => s.user);
+  const [authGateVisible, setAuthGateVisible] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [consentOpen, setConsentOpen] = useState(false);
@@ -59,6 +64,10 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
 
   // Open the register sheet, gating first-timers through one-time DPDP consent.
   const openRegister = () => {
+    if (!authUser) {
+      setAuthGateVisible(true);
+      return;
+    }
     const consented = !!dpdpConsentAt && isConsentValid();
     if (consented) setSheetOpen(true);
     else setConsentOpen(true);
@@ -551,6 +560,14 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
           }}
         />
       )}
+      <AuthGateSheet
+        visible={authGateVisible}
+        onClose={() => setAuthGateVisible(false)}
+        actionType="register_event"
+        contextLabel={(event as any).title}
+        resourceId={event._id}
+        returnPath={pathname ?? ''}
+      />
     </View>
   );
 }

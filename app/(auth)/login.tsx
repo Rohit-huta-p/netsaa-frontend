@@ -310,9 +310,15 @@ export default function LoginScreen() {
                     }
                     const user = data.data.user || (await authService.getMe());
                     setAuth({ user, accessToken: token });
-                    const { pendingAction } = usePendingAuthActionStore.getState();
-                    if (pendingAction) {
-                        await usePendingAuthActionStore.getState().executePendingAction();
+                    const store = usePendingAuthActionStore.getState();
+                    if (store.pendingIntent?.returnPath) {
+                        // Guest was viewing a public page and tapped an action.
+                        // Go back to that page; useFocusEffect there resumes the action.
+                        const returnPath = store.pendingIntent.returnPath;
+                        store.clearPendingIntent();
+                        router.replace(returnPath as any);
+                    } else if (store.pendingAction) {
+                        await store.executePendingAction();
                         router.back();
                     } else if (user?.roles?.includes("organizer")) {
                         router.replace("/(app)/dashboard");

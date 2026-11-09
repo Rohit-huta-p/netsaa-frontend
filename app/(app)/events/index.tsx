@@ -45,6 +45,7 @@ import {
     setSort,
     whenValue,
     eventTypeValues,
+    cityValues,
     countEventFacets,
     distinctEventTypeOptions,
 } from '@/components/events/discovery/eventFilterOptions';
@@ -172,7 +173,9 @@ export default function EventsPage() {
                 : undefined;
         const eventTypes = eventTypeValues(filters);
         const eventType = eventTypes.length ? eventTypes.join(',') : undefined;
-        const city = adv.location.city && adv.location.city !== 'any' ? adv.location.city : undefined;
+        // City — multi-select (any-of): comma-separated → $in server-side (netsaa-backend#52).
+        const cities = cityValues(filters);
+        const city = cities.length ? cities.join(',') : undefined;
         const format =
             adv.location.format === 'in_person' || adv.location.format === 'online' ? adv.location.format : undefined;
         const mode =

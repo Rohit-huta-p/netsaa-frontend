@@ -22,7 +22,9 @@ export interface EventTypeFilters {
 }
 
 export interface LocationFilters {
-    city?: string;                              // undefined ⇒ any city
+    cities?: string[];                          // [] / undefined ⇒ any city. MULTI (any-of):
+                                                // sent comma-separated to GET /v1/events → $in
+                                                // (mirrors eventType; netsaa-backend#52).
     format?: 'any' | 'in_person' | 'online';    // maps to location.kind server-side
 }
 

@@ -42,7 +42,7 @@ import {
     PRICE_OPTIONS,
     FilterOption,
     eventTypeValues,
-    cityValue,
+    cityValues,
     whenValue,
     formatValue,
     priceValue,
@@ -183,13 +183,15 @@ export const EventFilterSheet: React.FC<EventFilterSheetProps> = ({
                             />
                         </View>
 
-                        {/* Location — Anywhere · (Near me, disabled) · cities */}
+                        {/* Location — Anywhere · (Near me, disabled) · cities (multi-select) */}
                         <View style={styles.group}>
-                            <Text style={styles.gLabel}>Location</Text>
+                            <Text style={styles.gLabel}>
+                                Location <Text style={styles.hint}>· pick any</Text>
+                            </Text>
                             <View style={styles.chips}>
                                 <Chip
                                     label="Anywhere"
-                                    active={cityValue(draft) === 'any'}
+                                    active={cityValues(draft).length === 0}
                                     onPress={() => setDraft(setCity(draft, 'any'))}
                                 />
                                 {/* Near me — mocked + disabled until geolocation + a backend geo query exist. */}
@@ -202,7 +204,7 @@ export const EventFilterSheet: React.FC<EventFilterSheetProps> = ({
                                     <Chip
                                         key={o.value}
                                         label={o.label}
-                                        active={cityValue(draft) === o.value}
+                                        active={cityValues(draft).includes(o.value)}
                                         onPress={() => setDraft(setCity(draft, o.value))}
                                     />
                                 ))}

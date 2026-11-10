@@ -21,7 +21,7 @@ import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 import { useUpdateGig } from '@/hooks/useGigs';
 import { HireConfirmModal } from '@/components/gigs/applications/HireConfirmModal';
 import { ContactActionSheet, type ContactTarget } from '@/features/team/ContactActionSheet';
-import { useMobileTabBarHeight } from '@/components/MobileTabBar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HubOverview } from './components/HubOverview';
 import { HubTeamSection } from './components/HubTeamSection';
@@ -86,9 +86,10 @@ export function HirerGigHub({ gigId }: Props) {
     const data = useGigHubData(gigId);
     const scrollRef = useRef<ScrollView>(null);
     const overviewYRef = useRef<number>(0);
-    // Tab-bar height — keeps the sticky CTA above the global bottom nav
-    // on mobile. Returns 0 on tablet/desktop widths (no nav rendered).
-    const tabBarHeight = useMobileTabBarHeight();
+    // Gig detail hides the global bottom nav (see HIDE_NAV_PATTERNS in
+    // BottomNav), so the sticky CTA + scroll padding reserve the safe-area
+    // inset at the true bottom edge — not the nav's height.
+    const insets = useSafeAreaInsets();
     // The chevron header is mobile-only. On tablet/desktop the global
     // app shell (Navbar) provides navigation, so this duplicate is hidden.
     const { width } = useWindowDimensions();
@@ -333,7 +334,7 @@ export function HirerGigHub({ gigId }: Props) {
             <ScrollView
                 ref={scrollRef}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: tabBarHeight + 100 }}
+                contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
             >
                 {/* Mobile-only back affordance. Desktop relies on the global
                     Navbar; the status pill + ⋯ live in the ghead below. */}
@@ -458,7 +459,7 @@ export function HirerGigHub({ gigId }: Props) {
                 </View>
             </ScrollView>
 
-            <View style={{ position: 'absolute', bottom: tabBarHeight + 16, left: 0, right: 0 }}>
+            <View style={{ position: 'absolute', bottom: insets.bottom + 16, left: 0, right: 0 }}>
                 <HubStickyCTA cta={sticky} onPress={handleSticky} />
             </View>
 

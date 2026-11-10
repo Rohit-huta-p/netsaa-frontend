@@ -69,11 +69,12 @@ const AGENCY_TABS: TabDef[] = [
   { id: 'talent',   label: 'Talent',    icon: Users,     route: '/(app)/talent' },
 ];
 
-// Deep event screens hide the bottom nav so sticky CTAs / wizard footers
-// have full edge access. The /events listing keeps the nav visible.
+// Deep event + gig screens hide the bottom nav so sticky CTAs / wizard footers
+// have full edge access. The /events and /gigs listings keep the nav visible.
 const HIDE_NAV_PATTERNS: RegExp[] = [
   /^\/events\/[^/]+(\/.*)?$/,   // /events/:id detail + nested (manage tabs, register, manage/overview, manage/roster)
   /^\/events\/compose$/,        // 7-step composer
+  /^\/gigs\/[^/]+(\/.*)?$/,     // /gigs/:id detail (applicant + owner hub) + nested (team, booking-terms); /gigs board stays
 ];
 
 function shouldHideNav(pathname: string | null): boolean {

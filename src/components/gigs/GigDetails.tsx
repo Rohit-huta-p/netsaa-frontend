@@ -15,7 +15,7 @@ import { View, ScrollView, StyleSheet } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 
 import { useGigActions } from '@/hooks/useGigActions';
-import { useMobileTabBarHeight } from '@/components/MobileTabBar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DiscussionTab from '@/components/common/DiscussionTab';
 
 import { buildGigDetailVM } from './detail/gigDetailVM';
@@ -44,7 +44,10 @@ interface GigDetailsProps {
 
 export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, preview }) => {
     const router = useRouter();
-    const tabBarHeight = useMobileTabBarHeight();
+    // The gig detail route hides the global bottom nav (see HIDE_NAV_PATTERNS in
+    // BottomNav), so the sticky Apply + scroll padding reserve the safe-area
+    // inset at the true bottom edge — not the nav's height.
+    const insets = useSafeAreaInsets();
 
     const {
         hasApplied,
@@ -89,13 +92,13 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, prev
         if (organizerId) router.push(`/profile/${organizerId}` as any);
     };
 
-    const bottomInset = tabBarHeight > 0 ? tabBarHeight + 10 : 16;
+    const bottomInset = insets.bottom + 12;
 
     return (
         <View style={styles.root}>
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: preview ? 28 : tabBarHeight + 130 }}
+                contentContainerStyle={{ paddingBottom: preview ? 28 : insets.bottom + 130 }}
             >
                 <GigHeaderBlock
                     vm={vm}

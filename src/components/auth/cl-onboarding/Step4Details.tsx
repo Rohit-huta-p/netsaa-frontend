@@ -121,7 +121,7 @@ const s = StyleSheet.create({
   content:     { paddingHorizontal: 20, paddingTop: 12 },
   headline:    { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 34, color: '#F5F5F0', lineHeight: 42, marginBottom: 6 },
   sub:         { fontFamily: 'Outfit-Light', fontSize: 13, color: 'rgba(245,245,240,0.45)', lineHeight: 19, marginBottom: 28 },
-  label:       { fontFamily: 'SpaceMono-Regular', fontSize: 9, letterSpacing: 1.4, color: 'rgba(245,245,240,0.28)', marginBottom: 8 },
+  label:       { fontFamily: 'SpaceMono-Regular', fontSize: 10, letterSpacing: 1.3, color: 'rgba(245,245,240,0.78)', marginBottom: 8 },
   input:       { backgroundColor: '#1C1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontFamily: 'Outfit-Regular', fontSize: 15, color: '#F5F5F0' },
   inputFocused:{ borderColor: '#FF6B35' },
   igRow:       { backgroundColor: '#1C1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 10, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 13 },

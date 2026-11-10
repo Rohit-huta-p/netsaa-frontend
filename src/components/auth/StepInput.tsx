@@ -21,7 +21,7 @@ export const StepInput = ({
     label, value, onChangeText, icon, prefix, rightIcon, onRightIconPress, error, hideLabel, ...props 
 }: StepInputProps) => (
     <View style={{ marginBottom: 16 }}>
-        {!hideLabel && <Text style={{ color: C.w30, fontSize: 12, fontWeight: '500', marginBottom: 6 }}>{label}</Text>}
+        {!hideLabel && <Text style={{ color: 'rgba(255,255,255,0.78)', fontSize: 12, fontWeight: '500', marginBottom: 6 }}>{label}</Text>}
         <View style={{
             flexDirection: 'row', alignItems: 'center', height: 48, borderRadius: 16,
             borderWidth: 1, borderColor: error ? 'rgba(239,68,68,0.5)' : C.w08,

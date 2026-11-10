@@ -63,9 +63,9 @@ export const s = StyleSheet.create({
     },
     sectionLabel: {
         fontFamily: FONT.mono,
-        fontSize: 9,
-        color: C.t3,
-        letterSpacing: 2,
+        fontSize: 10,
+        color: 'rgba(245,245,240,0.78)',
+        letterSpacing: 1.3,
         textTransform: 'uppercase',
         marginTop: 24,
         marginBottom: 10,

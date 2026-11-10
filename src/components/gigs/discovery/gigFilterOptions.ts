@@ -42,7 +42,9 @@ export const CITY_OPTIONS: FilterOption[] = [
     { value: 'pune', label: 'Pune' },
     { value: 'mumbai', label: 'Mumbai' },
     { value: 'delhi', label: 'Delhi' },
-    { value: 'bangalore', label: 'Bangalore' },
+    // Slug stays 'bangalore' (matches the events board payload); the backend
+    // expands it to also match the stored 'Bengaluru' spelling via cityAliases.
+    { value: 'bangalore', label: 'Bengaluru' },
     { value: 'remote', label: 'Remote' },
 ];
 

@@ -178,12 +178,17 @@ export const buildQueryParamsFromFilters = (filters: any): Record<string, any> =
         params.gigType = advanced.timing.gigType;
     }
 
-    // City
-    if (advanced.location?.city && advanced.location.city !== 'any') {
+    // City — multi-select (any-of): cities[] → comma-separated `city` param, so
+    // when the gig filter→search pipeline is reconnected it emits multi-city for
+    // free (split → $in server-side, mirroring events). Falls back to the legacy
+    // single `city` if that's all that's set.
+    if (advanced.location?.cities?.length > 0) {
+        params.city = advanced.location.cities.join(',');
+    } else if (advanced.location?.city && advanced.location.city !== 'any') {
         params.city = advanced.location.city;
     }
 
-    // Remote Only
+    // Remote Only (exclusive with city)
     if (advanced.location?.remoteOnly === true) {
         params.remoteOnly = true;
     }

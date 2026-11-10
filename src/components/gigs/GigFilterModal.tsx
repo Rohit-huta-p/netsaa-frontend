@@ -38,7 +38,8 @@ import {
     FilterOption,
     artistValues,
     payValue,
-    cityValue,
+    cityValues,
+    isRemote,
     expValues,
     sortValue,
     setArtist,
@@ -172,12 +173,29 @@ export const GigFilterModal: React.FC<GigFilterModalProps> = ({
                             isActive={(v) => payValue(draft) === v}
                             onSelect={(v) => setDraft(setPay(draft, v))}
                         />
-                        <Group
-                            label="City"
-                            options={CITY_OPTIONS}
-                            isActive={(v) => cityValue(draft) === v}
-                            onSelect={(v) => setDraft(setCity(draft, v))}
-                        />
+                        {/* City — cities multi-select (any-of); Remote is an exclusive
+                            toggle; "Any" clears everything. */}
+                        <View style={styles.group}>
+                            <Text style={styles.gLabel}>
+                                City <Text style={styles.hint}>· pick any</Text>
+                            </Text>
+                            <View style={styles.chips}>
+                                {CITY_OPTIONS.map((o) => (
+                                    <Chip
+                                        key={o.value}
+                                        label={o.label}
+                                        active={
+                                            o.value === 'remote'
+                                                ? isRemote(draft)
+                                                : o.value === 'any'
+                                                    ? cityValues(draft).length === 0 && !isRemote(draft)
+                                                    : cityValues(draft).includes(o.value)
+                                        }
+                                        onPress={() => setDraft(setCity(draft, o.value))}
+                                    />
+                                ))}
+                            </View>
+                        </View>
                         <Group
                             label="Experience"
                             options={EXPERIENCE_OPTIONS}

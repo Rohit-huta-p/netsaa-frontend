@@ -54,6 +54,12 @@ export const EXPERIENCE_OPTIONS: FilterOption[] = [
 ];
 
 // Mirrors the search service's sortMode values ('relevance' is the no-op default).
+// NOTE: sort is a separate, still-inert concern (out of scope for the filter
+// reconnection): 'compensation' here doesn't match the backend's 'highestPay',
+// AND the search pipeline inserts its $sort after the $project that drops
+// compensation.amount/publishedAt, so neither Newest nor Top-pay reorders yet.
+// Reconnecting sort = a follow-up (align this value + retain the sort fields in
+// buildGigsPipeline's $project).
 export const SORT_OPTIONS: FilterOption[] = [
     { value: 'relevance', label: 'Relevant' },
     { value: 'newest', label: 'Newest' },

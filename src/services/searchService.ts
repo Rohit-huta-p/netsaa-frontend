@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';
+import { buildQueryParamsFromFilters } from '../lib/constants/filters';
+import { FilterState } from '../types/filters';
 
 // Use env var or production fallback
 const getSearchBaseUrl = () => {
@@ -58,19 +60,40 @@ export const searchService = {
     },
 
     /**
-     * Search Gigs. POST /search/gigs with the craft facet as `filters.artistTypes`.
+     * Search Gigs. POST /search/gigs.
+     *
+     * Two caller shapes are supported and merged:
+     *  - `filters` (a FilterState, from the gig board) → converted to the flat
+     *    GigSearchFilters DTO the search-service expects via
+     *    buildQueryParamsFromFilters: artistTypes[], experienceLevel[], `city`
+     *    (comma-joined multi-city from location.cities[]), remoteOnly,
+     *    minCompensation, sortMode, …
+     *  - `crafts` (a craft facet, from global search) → unioned into artistTypes.
+     *
+     * Previously this only read `crafts` and dropped the FilterState entirely,
+     * so every advanced gig facet (city/pay/experience/artist/sort) was inert
+     * end-to-end. Forwarding the whole FilterState reconnects the pipeline.
      */
     searchGigs: async (request: {
         q?: string;
         crafts?: string[];
+        filters?: FilterState;
         page?: number;
         pageSize?: number;
     }) => {
-        const { q, crafts, page, pageSize } = request;
-        const filters: Record<string, any> = {};
-        if (crafts && crafts.length) filters.artistTypes = crafts;
+        const { q, crafts, filters, page, pageSize } = request;
 
-        const { data } = await SEARCH_API.post('/search/gigs', { q, filters, page, pageSize });
+        // Flat GigSearchFilters DTO from the nested FilterState (handles the
+        // multi-city location.cities[] → `city` CSV mapping, among others).
+        const payload: Record<string, any> = filters ? buildQueryParamsFromFilters(filters) : {};
+
+        // Merge the craft facet from either channel so neither is dropped.
+        if (crafts && crafts.length) {
+            const existing: string[] = Array.isArray(payload.artistTypes) ? payload.artistTypes : [];
+            payload.artistTypes = Array.from(new Set([...existing, ...crafts]));
+        }
+
+        const { data } = await SEARCH_API.post('/search/gigs', { q, filters: payload, page, pageSize });
 
         // The backend returns the full gig document under `item.raw`; use it
         // verbatim. No client-side fabrication — we never invent a rating,

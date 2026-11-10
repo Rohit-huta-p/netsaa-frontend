@@ -1,7 +1,7 @@
 // app/(auth)/welcome.tsx
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
-import { Briefcase, Crown, Star } from 'lucide-react-native';
+import { Crown, Star } from 'lucide-react-native';
 
 const C = {
     bg: '#121216',
@@ -11,55 +11,16 @@ const C = {
     text2: '#71717a',
     text3: '#52525b',
     hair: 'rgba(255,255,255,0.08)',
-    hairOrange: 'rgba(255,107,53,0.28)',
-    bgOrange: 'rgba(255,107,53,0.055)',
-    bgPurple: 'rgba(139,92,246,0.055)',
-    iconOrange: 'rgba(255,107,53,0.14)',
+    hairPurple: 'rgba(139,92,246,0.3)',
+    bgPurple: 'rgba(139,92,246,0.06)',
     iconPurple: 'rgba(139,92,246,0.14)',
 };
-
-const CARDS = [
-    {
-        role: 'client',
-        Icon: Briefcase,
-        tint: C.orange,
-        iconBg: C.iconOrange,
-        cardBg: C.bgOrange,
-        cardBorder: C.hairOrange,
-        title: "I'm a Client",
-        blurb: 'Post work, get proposals from Creative Leads',
-    },
-    {
-        role: 'creative_lead',
-        Icon: Crown,
-        tint: C.purple,
-        iconBg: C.iconPurple,
-        cardBg: 'rgba(255,255,255,0.03)',
-        cardBorder: C.hair,
-        title: "I'm a Creative Lead",
-        blurb: 'Win client work, hire artists to deliver it',
-    },
-    {
-        role: 'artist',
-        Icon: Star,
-        tint: C.purple,
-        iconBg: C.iconPurple,
-        cardBg: 'rgba(255,255,255,0.03)',
-        cardBorder: C.hair,
-        title: "I'm an Artist",
-        blurb: 'Find gigs from Creative Leads, get hired',
-    },
-] as const;
 
 export default function Welcome() {
     const router = useRouter();
 
     const pick = (role: string) => {
-        if (role === 'client') {
-            router.push('/(auth)/client-signup' as any);
-        } else {
-            router.push({ pathname: '/(auth)/register', params: { role } } as any);
-        }
+        router.push({ pathname: '/(auth)/register', params: { role } } as any);
     };
 
     return (
@@ -73,29 +34,57 @@ export default function Welcome() {
                     </Text>
 
                     <Text style={s.headline}>
-                        How will you{'\n'}use NETSA?
+                        Who are you{'\n'}in the arts?
                     </Text>
-                    <Text style={s.sub}>Pick one to get started. Switch anytime in Settings.</Text>
+                    <Text style={s.sub}>
+                        Choose your role to get the right experience.{'\n'}You can switch later in Settings.
+                    </Text>
 
-                    {CARDS.map((c) => (
-                        <Pressable
-                            key={c.role}
-                            onPress={() => pick(c.role)}
-                            style={[s.card, { backgroundColor: c.cardBg, borderColor: c.cardBorder }]}
-                        >
-                            <View style={[s.iconWrap, { backgroundColor: c.iconBg }]}>
-                                <c.Icon size={16} color={c.tint} strokeWidth={2} />
+                    {/* Artist card — the familiar path */}
+                    <Pressable
+                        onPress={() => pick('artist')}
+                        style={[s.card, s.cardArtist]}
+                    >
+                        <View style={[s.iconWrap, { backgroundColor: C.iconPurple }]}>
+                            <Star size={16} color={C.purple} strokeWidth={2} />
+                        </View>
+                        <View style={s.cardText}>
+                            <Text style={s.cardTitle}>I'm an Artist</Text>
+                            <Text style={s.cardBlurb}>
+                                Build a profile, apply to gigs, get booked for performances.
+                            </Text>
+                        </View>
+                    </Pressable>
+
+                    {/* Creative Lead card — new concept, needs more context */}
+                    <Pressable
+                        onPress={() => pick('creative_lead')}
+                        style={[s.card, s.cardCL]}
+                    >
+                        <View style={[s.iconWrap, { backgroundColor: 'rgba(139,92,246,0.2)', marginTop: 2 }]}>
+                            <Crown size={16} color={C.purple} strokeWidth={2} />
+                        </View>
+                        <View style={s.cardText}>
+                            <View style={s.clTitleRow}>
+                                <Text style={s.cardTitle}>I'm a Creative Lead</Text>
+                                <View style={s.newBadge}>
+                                    <Text style={s.newBadgeText}>NEW</Text>
+                                </View>
                             </View>
-                            <View style={s.cardText}>
-                                <Text style={s.cardTitle}>{c.title}</Text>
-                                <Text style={s.cardBlurb}>{c.blurb}</Text>
-                            </View>
-                        </Pressable>
-                    ))}
+                            <Text style={s.cardBlurb}>
+                                You lead projects — win work from clients, then hire artists to execute it.
+                            </Text>
+                            <Text style={s.cardExample}>
+                                Choreographers · Bandleaders · Event production companies
+                            </Text>
+                        </View>
+                    </Pressable>
 
-                    <Text style={s.hint}>Role can be changed later in Settings</Text>
-
-                    <Pressable onPress={() => router.push('/(auth)/login' as any)} style={s.loginRow}>
+                    {/* Login link */}
+                    <Pressable
+                        onPress={() => router.push('/(auth)/login' as any)}
+                        style={s.loginRow}
+                    >
                         <Text style={s.loginText}>
                             Already have an account?{' '}
                             <Text style={s.loginAccent}>Log in</Text>
@@ -137,17 +126,25 @@ const s = StyleSheet.create({
         color: C.text2,
         fontSize: 12.5,
         lineHeight: 18,
-        marginBottom: 22,
+        marginBottom: 24,
     },
     card: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         gap: 12,
         paddingHorizontal: 14,
-        paddingVertical: 13,
+        paddingVertical: 14,
         borderWidth: 1,
         borderRadius: 12,
         marginBottom: 10,
+    },
+    cardArtist: {
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderColor: C.hair,
+    },
+    cardCL: {
+        backgroundColor: C.bgPurple,
+        borderColor: C.hairPurple,
     },
     iconWrap: {
         width: 34,
@@ -158,28 +155,47 @@ const s = StyleSheet.create({
         flexShrink: 0,
     },
     cardText: { flex: 1 },
+    clTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 7,
+        marginBottom: 2,
+    },
     cardTitle: {
         fontFamily: 'Outfit-Bold',
         color: C.text0,
         fontSize: 13.5,
-        marginBottom: 2,
+    },
+    newBadge: {
+        backgroundColor: 'rgba(139,92,246,0.18)',
+        borderRadius: 4,
+        paddingHorizontal: 5,
+        paddingVertical: 2,
+    },
+    newBadgeText: {
+        fontFamily: 'SpaceMono-Regular',
+        color: C.purple,
+        fontSize: 8,
+        letterSpacing: 0.8,
     },
     cardBlurb: {
         fontFamily: 'Outfit-Regular',
         color: C.text3,
         fontSize: 11.5,
         lineHeight: 16,
+        marginBottom: 5,
     },
-    hint: {
-        fontFamily: 'SpaceMono-Regular',
-        color: 'rgba(255,255,255,0.22)',
-        fontSize: 9.5,
-        letterSpacing: 0.6,
-        textAlign: 'center' as const,
-        marginTop: 8,
-        marginBottom: 18,
+    cardExample: {
+        fontFamily: 'Outfit-Regular',
+        color: 'rgba(139,92,246,0.5)',
+        fontSize: 10.5,
+        lineHeight: 15,
+        fontStyle: 'italic' as const,
     },
-    loginRow: { alignItems: 'center' },
+    loginRow: {
+        alignItems: 'center',
+        marginTop: 24,
+    },
     loginText: {
         fontFamily: 'Outfit-Regular',
         color: 'rgba(255,255,255,0.4)',

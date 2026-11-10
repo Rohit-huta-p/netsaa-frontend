@@ -4,7 +4,8 @@
 // (searchService.searchGigs → GigSearchFilters DTO) already expects:
 //   artist type → advanced.artistType.artistTypes  (MULTI, any-of)
 //   pay         → advanced.compensation.minCompensation  (0 ⇒ Any)
-//   city        → advanced.location.city / .remoteOnly   ('remote' ⇒ remoteOnly)
+//   city        → advanced.location.cities[] (MULTI, any-of) + .remoteOnly
+//                 ('remote' ⇒ remoteOnly, exclusive with cities; 'any' clears)
 //   experience  → advanced.experience.experienceLevel     (MULTI, any-of)
 //   sort        → advanced.sorting.sortBy  ('relevance' is the no-op default)
 //
@@ -110,8 +111,11 @@ const toggle = (arr: string[] = [], v: string): string[] =>
 
 export const artistValues = (f: FilterState): string[] => f.advanced.artistType.artistTypes ?? [];
 export const payValue = (f: FilterState): string => String(f.advanced.compensation.minCompensation ?? 0);
-export const cityValue = (f: FilterState): string =>
-    f.advanced.location.remoteOnly ? 'remote' : f.advanced.location.city || 'any';
+// City is MULTI-select (any-of) via location.cities[]; Remote is a separate,
+// mutually-exclusive toggle (remoteOnly). A gig can't be both in a city and
+// remote, so selecting one clears the other (see setCity).
+export const cityValues = (f: FilterState): string[] => f.advanced.location.cities ?? [];
+export const isRemote = (f: FilterState): boolean => f.advanced.location.remoteOnly === true;
 export const expValues = (f: FilterState): string[] => f.advanced.experience.experienceLevel ?? [];
 export const sortValue = (f: FilterState): string => f.advanced.sorting.sortBy || 'relevance';
 
@@ -123,10 +127,18 @@ export const setArtist = (f: FilterState, v: string): FilterState =>
 export const setPay = (f: FilterState, v: string): FilterState =>
     patchSection(f, 'compensation', { minCompensation: Number(v) });
 
-export const setCity = (f: FilterState, v: string): FilterState =>
-    v === 'remote'
-        ? patchSection(f, 'location', { city: 'any', remoteOnly: true })
-        : patchSection(f, 'location', { city: v, remoteOnly: false });
+/**
+ * Toggle city selection. Cities are multi-select (any-of); 'remote' is an
+ * exclusive toggle; 'any' clears everything. Picking a city clears remote and
+ * vice-versa (a gig can't be both in a city and remote). The legacy single
+ * `city` is always cleared so it can't linger as a stale active filter.
+ */
+export const setCity = (f: FilterState, v: string): FilterState => {
+    if (v === 'any') return patchSection(f, 'location', { cities: [], city: undefined, remoteOnly: false });
+    if (v === 'remote')
+        return patchSection(f, 'location', { cities: [], city: undefined, remoteOnly: !isRemote(f) });
+    return patchSection(f, 'location', { cities: toggle(cityValues(f), v), city: undefined, remoteOnly: false });
+};
 
 export const setExperience = (f: FilterState, v: string): FilterState =>
     patchSection(f, 'experience', { experienceLevel: toggle(expValues(f), v) });
@@ -141,7 +153,8 @@ export function describeGigFilters(f: FilterState): string[] {
     const parts: string[] = [];
     artistValues(f).forEach((v) => parts.push(labelOf(ARTIST_OPTIONS, v)));
     if (payValue(f) !== '0') parts.push(labelOf(PAY_OPTIONS, payValue(f)));
-    if (cityValue(f) !== 'any') parts.push(labelOf(CITY_OPTIONS, cityValue(f)));
+    cityValues(f).forEach((v) => parts.push(labelOf(CITY_OPTIONS, v)));
+    if (isRemote(f)) parts.push('Remote');
     expValues(f).forEach((v) => parts.push(labelOf(EXPERIENCE_OPTIONS, v)));
     return parts.filter(Boolean);
 }
@@ -155,7 +168,7 @@ export function countGigFacets(f: FilterState): number {
     let n = 0;
     if (artistValues(f).length) n++;
     if (payValue(f) !== '0') n++;
-    if (cityValue(f) !== 'any') n++;
+    if (cityValues(f).length || isRemote(f)) n++;
     if (expValues(f).length) n++;
     return n;
 }

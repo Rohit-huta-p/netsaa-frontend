@@ -54,16 +54,15 @@ export const EXPERIENCE_OPTIONS: FilterOption[] = [
 ];
 
 // Mirrors the search service's sortMode values ('relevance' is the no-op default).
-// NOTE: sort is a separate, still-inert concern (out of scope for the filter
-// reconnection): 'compensation' here doesn't match the backend's 'highestPay',
-// AND the search pipeline inserts its $sort after the $project that drops
-// compensation.amount/publishedAt, so neither Newest nor Top-pay reorders yet.
-// Reconnecting sort = a follow-up (align this value + retain the sort fields in
-// buildGigsPipeline's $project).
+// These values are sent verbatim as `sortMode` (buildQueryParamsFromFilters) and
+// must match the backend's GigSearchSortMode exactly: 'newest' and 'highestPay'
+// (NOT 'compensation' — that silently fell through to relevance). The search
+// pipeline now sorts on computed keys (_sortDate / _sortPay) retained past the
+// $project, so Newest and Top pay actually reorder.
 export const SORT_OPTIONS: FilterOption[] = [
     { value: 'relevance', label: 'Relevant' },
     { value: 'newest', label: 'Newest' },
-    { value: 'compensation', label: 'Top pay' },
+    { value: 'highestPay', label: 'Top pay' },
 ];
 
 // Active/selected pill state — neutral + dim (NOT bright white), shared with the

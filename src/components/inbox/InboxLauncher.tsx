@@ -13,7 +13,7 @@
 //   • An "INBOX" mono wordmark sits beside the mobile back chevron (desktop 2-pane has no header).
 //   • Invites is PARKED behind INVITES_ENABLED (kept, not deleted): the launcher surfaces
 //     Messages only, with no Messages/Invites tab bar. Flip the flag to bring it back.
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, Image, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -22,6 +22,7 @@ import conversationService, { PopulatedConversation } from '@/services/conversat
 import { inviteService, type Invite } from '@/services/inviteService';
 import { useAuthStore } from '@/stores/authStore';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
+import { usePresence } from '@/hooks/usePresence';
 
 // Invites is PARKED for now ("we don't need invites… just keep Messages"). Everything below
 // for invites — the queries, the merged rows and the status pills — is kept intact; this flag
@@ -73,6 +74,20 @@ export default function InboxLauncher({ activeId, onSelectConversation, hideBack
         useQuery<any[]>({ queryKey: ['invites', 'sent'], queryFn: () => inviteService.sent() as any, retry: false });
     const { data: received = [], isFetching: recvFetching, refetch: refetchRecv } =
         useQuery<Invite[]>({ queryKey: ['invites', 'received'], queryFn: inviteService.received, retry: false });
+
+    // Real-time online presence for each conversation's counterpart → green dot on the row.
+    // Same hook (+ backend presence events) the /network screen uses.
+    const conversationUserIds = useMemo(
+        () =>
+            (conversations as any[])
+                .map((c) => {
+                    const o = (c.participants || []).find((p: any) => String(p._id) !== String(selfId)) || c.participants?.[0];
+                    return o?._id ? String(o._id) : null;
+                })
+                .filter((id): id is string => !!id),
+        [conversations, selfId]
+    );
+    const onlineUsers = usePresence(conversationUserIds);
 
     const unread = (conversations as any[]).reduce((s, c) => s + (c.unreadCount ?? 0), 0);
     const invitePending =
@@ -147,6 +162,7 @@ export default function InboxLauncher({ activeId, onSelectConversation, hideBack
                             const active = !!activeId && String(c._id) === String(activeId);
                             const unreadRow = (c.unreadCount ?? 0) > 0;
                             const stamp = timeAgo(c.lastMessageAt || c.updatedAt);
+                            const isOnline = !!other._id && onlineUsers.has(String(other._id));
                             return (
                                 <Pressable
                                     key={c._id}
@@ -164,13 +180,19 @@ export default function InboxLauncher({ activeId, onSelectConversation, hideBack
                                         borderTopColor: 'rgba(255,255,255,0.06)',
                                     }}
                                 >
-                                    {avatar ? (
-                                        <Image source={{ uri: avatar }} style={{ width: 46, height: 46, borderRadius: 23 }} />
-                                    ) : (
-                                        <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,107,53,0.14)', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Text style={{ fontFamily: 'Outfit-SemiBold', color: '#FF6B35', fontSize: 15 }}>{initialsOf(name)}</Text>
-                                        </View>
-                                    )}
+                                    <View style={{ width: 46, height: 46 }}>
+                                        {avatar ? (
+                                            <Image source={{ uri: avatar }} style={{ width: 46, height: 46, borderRadius: 23 }} />
+                                        ) : (
+                                            <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,107,53,0.14)', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Text style={{ fontFamily: 'Outfit-SemiBold', color: '#FF6B35', fontSize: 15 }}>{initialsOf(name)}</Text>
+                                            </View>
+                                        )}
+                                        {isOnline && (
+                                            // "Active now" dot — matches the /network + open-chat presence treatment.
+                                            <View style={{ position: 'absolute', right: 0, bottom: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#121216' }} />
+                                        )}
+                                    </View>
                                     <View style={{ flex: 1, minWidth: 0 }}>
                                         <Text style={{ fontFamily: 'Outfit-SemiBold', color: '#FFFFFF', fontSize: 14.5 }} numberOfLines={1}>{name}</Text>
                                         <Text style={{ fontFamily: unreadRow ? 'Outfit-Medium' : 'Outfit-Regular', color: unreadRow ? '#D4D4D8' : '#A1A1AA', fontSize: 12.5, marginTop: 3 }} numberOfLines={1}>{c.lastMessage || 'Say hello'}</Text>

@@ -62,7 +62,7 @@ export default function Welcome() {
                     {/* Stage */}
                     <View style={s.stage}>
                         <Glow id="glowCL" color="#FF8A4C" style={{ right: -14, top: -8, width: 185, height: 212 }} />
-                        <Glow id="glowArtist" color="#FF8A4C" style={{ left: -6, top: 360, width: 208, height: 150 }} />
+                        <Glow id="glowArtist" color="#FF8A4C" style={{ left: -6, top: 306, width: 208, height: 150 }} />
 
                         {/* Creative Lead card */}
                         <Pressable
@@ -137,11 +137,11 @@ const s = StyleSheet.create({
         textAlign: 'center',
     },
 
-    stage: { position: 'relative', height: 492, marginTop: 20 },
+    stage: { position: 'relative', height: 466, marginTop: 20 },
 
     card: {
         position: 'absolute',
-        width: 206,
+        width: 300,
         minHeight: 148,
         borderRadius: 20,
         borderWidth: 1,
@@ -151,14 +151,16 @@ const s = StyleSheet.create({
     },
     cardCL: {
         top: 12,
-        left: 0,
+        left: -40,
+        paddingLeft: 38,
         backgroundColor: C.cardCL,
         borderColor: C.bdCL,
         alignItems: 'flex-start',
     },
     cardArtist: {
-        top: 254,
-        right: 0,
+        top: 250,
+        right: -40,
+        paddingRight: 38,
         backgroundColor: C.cardArtist,
         borderColor: C.bdArtist,
         alignItems: 'flex-end',
@@ -189,8 +191,8 @@ const s = StyleSheet.create({
     },
     right: { textAlign: 'right' },
 
-    figCL: { position: 'absolute', right: -6, top: 4, width: 150, height: 220, zIndex: 3 },
-    figArtist: { position: 'absolute', left: -22, top: 354, width: 230, height: 118, zIndex: 3 },
+    figCL: { position: 'absolute', right: -6, top: 10, width: 150, height: 220, zIndex: 3 },
+    figArtist: { position: 'absolute', left: -22, top: 300, width: 230, height: 118, zIndex: 3 },
     figImg: { width: '100%', height: '100%' },
 
     login: { alignItems: 'center', marginTop: 'auto', paddingTop: 20 },

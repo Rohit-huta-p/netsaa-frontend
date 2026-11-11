@@ -129,6 +129,23 @@ class SocketService {
         };
     }
 
+    /**
+     * Subscribe to `conversation:updated`. The users-service emits this to the
+     * caller's `user:<id>` room whenever one of their conversations changes (e.g. a
+     * new message) — even when the thread isn't open — so the inbox list and unread
+     * badge can refresh live. Returns an unsubscribe fn — call it on cleanup.
+     */
+    public onConversationUpdated(callback: (payload: { conversationId: string }) => void): () => void {
+        if (this.socket) {
+            this.socket.on('conversation:updated', callback);
+        }
+        return () => {
+            if (this.socket) {
+                this.socket.off('conversation:updated', callback);
+            }
+        };
+    }
+
     private setupListeners() {
         if (!this.socket) return;
 

@@ -7,6 +7,7 @@ import { View, Platform } from "react-native";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../src/lib/react-query';
+import { queryKeys } from "@/constants/queryKeys";
 import {
     useFonts,
     Outfit_100Thin,
@@ -109,10 +110,22 @@ export default function RootLayout() {
         // Real-time notifications: the users-service emits `notification:new`
         // to this user's room. Prepend into the store so the bell badge +
         // notifications screen update live (deduped by _id in the store).
-        const unsubscribe = socketService.onNotificationNew((payload) => {
+        const unsubscribeNotif = socketService.onNotificationNew((payload) => {
             useNotificationsStore.getState().incrementUnread(normalizeSocketNotification(payload));
         });
-        return unsubscribe;
+
+        // Real-time inbox: the users-service emits `conversation:updated` to this
+        // user's room on every new message (even when no thread is open), so refresh
+        // the conversation list + unread badge live wherever they're mounted.
+        const unsubscribeConvo = socketService.onConversationUpdated(() => {
+            queryClient.invalidateQueries({ queryKey: ['conversations'] });
+            queryClient.invalidateQueries({ queryKey: queryKeys.artist.conversations() });
+        });
+
+        return () => {
+            unsubscribeNotif();
+            unsubscribeConvo();
+        };
     }, [accessToken]);
 
     // Initialize deep link and notification services

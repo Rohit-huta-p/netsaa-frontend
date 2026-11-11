@@ -52,11 +52,6 @@ export default function Welcome() {
                     contentContainerStyle={s.scroll}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Brand */}
-                    <Text style={s.brand}>
-                        NET<Text style={{ color: C.orange }}>·</Text>SA
-                    </Text>
-
                     {/* Header */}
                     <View style={s.head}>
                         <Text style={s.kick}>THE STAGE IS YOURS</Text>
@@ -67,7 +62,7 @@ export default function Welcome() {
                     {/* Stage */}
                     <View style={s.stage}>
                         <Glow id="glowCL" color="#FF8A4C" style={{ right: -14, top: -8, width: 185, height: 212 }} />
-                        <Glow id="glowArtist" color="#FF8A4C" style={{ left: -6, top: 300, width: 208, height: 152 }} />
+                        <Glow id="glowArtist" color="#FF8A4C" style={{ left: -6, top: 360, width: 208, height: 150 }} />
 
                         {/* Creative Lead card */}
                         <Pressable
@@ -76,7 +71,7 @@ export default function Welcome() {
                         >
                             <Text style={s.lbl}>I AM A</Text>
                             <Text style={s.role}>Creative{'\n'}Lead</Text>
-                            <Text style={s.cardsub}>You win the work,{'\n'}then build the team.</Text>
+                            <Text style={s.cardsub}>Post gigs to hire artists,{'\n'}and events they register for.</Text>
                         </Pressable>
 
                         {/* Creative Lead figure */}
@@ -96,7 +91,7 @@ export default function Welcome() {
                         >
                             <Text style={[s.lbl, s.right]}>I AM AN</Text>
                             <Text style={[s.role, s.right]}>Artist</Text>
-                            <Text style={[s.cardsub, s.right]}>You take the stage{'\n'}and get booked.</Text>
+                            <Text style={[s.cardsub, s.right]}>Your craft, center stage —{'\n'}get seen, get booked.</Text>
                         </Pressable>
                     </View>
 
@@ -116,21 +111,14 @@ const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
     scroll: { flexGrow: 1, paddingHorizontal: 22, paddingBottom: 20 },
 
-    brand: {
-        fontFamily: 'SpaceMono-Bold',
-        color: 'rgba(243,239,232,0.78)',
-        fontSize: 12,
-        letterSpacing: 4,
-        marginTop: 10,
-    },
-
-    head: { marginTop: 26 },
+    head: { marginTop: 40, alignItems: 'center' },
     kick: {
         fontFamily: 'SpaceMono-Regular',
         color: C.orange,
         fontSize: 9.5,
         letterSpacing: 2.5,
         marginBottom: 10,
+        textAlign: 'center',
     },
     h: {
         fontFamily: 'DMSerifDisplay_400Regular',
@@ -138,6 +126,7 @@ const s = StyleSheet.create({
         fontSize: 31,
         lineHeight: 34,
         letterSpacing: -0.4,
+        textAlign: 'center',
     },
     sub0: {
         fontFamily: 'Outfit-Regular',
@@ -145,9 +134,10 @@ const s = StyleSheet.create({
         fontSize: 12.5,
         lineHeight: 18,
         marginTop: 8,
+        textAlign: 'center',
     },
 
-    stage: { position: 'relative', height: 454, marginTop: 20 },
+    stage: { position: 'relative', height: 492, marginTop: 20 },
 
     card: {
         position: 'absolute',
@@ -167,11 +157,12 @@ const s = StyleSheet.create({
         alignItems: 'flex-start',
     },
     cardArtist: {
-        top: 256,
+        top: 254,
         right: 0,
         backgroundColor: C.cardArtist,
         borderColor: C.bdArtist,
         alignItems: 'flex-end',
+        justifyContent: 'flex-start',
     },
     pressed: { opacity: 0.88 },
 
@@ -199,7 +190,7 @@ const s = StyleSheet.create({
     right: { textAlign: 'right' },
 
     figCL: { position: 'absolute', right: -6, top: 4, width: 150, height: 220, zIndex: 3 },
-    figArtist: { position: 'absolute', left: -16, top: 300, width: 248, height: 128, zIndex: 3 },
+    figArtist: { position: 'absolute', left: -22, top: 354, width: 230, height: 118, zIndex: 3 },
     figImg: { width: '100%', height: '100%' },
 
     login: { alignItems: 'center', marginTop: 'auto', paddingTop: 20 },

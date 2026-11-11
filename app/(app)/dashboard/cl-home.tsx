@@ -4,11 +4,11 @@
 // (DOCS/04-design/mockups/creative-lead-home-v2.html, locked 2026-10-29).
 // The CL is the inverse of an artist (it posts and is applied to), so the
 // sections mirror the artist home's grammar over organizer data:
-//   1. CreativeLeadGreet      — company monogram + greeting + name + bell
-//   2. CreativeLeadFocusCard  — "NEEDS YOU FIRST" (applicants nudge / all-clear)
-//   3. CreativeLeadWork       — Hiring · Hosting · Pitching (tabbed)
-// (Discover rail, company-completeness card and the ＋Post dial land in a
-// follow-up; create today still runs through the existing Post FAB.)
+//   1. CreativeLeadGreet       — company monogram + greeting + name + bell
+//   2. CreativeLeadCompanyCard — "Your company page · N%" completeness nudge
+//   3. CreativeLeadFocusCard   — "NEEDS YOU FIRST" (applicants nudge / all-clear)
+//   4. CreativeLeadWork        — Hiring · Hosting · Pitching (tabbed)
+//   5. CreativeLeadDiscover    — Client briefs / Talent peek rail
 
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
@@ -50,6 +50,7 @@ export default function CreativeLeadHome() {
         }
       >
         <CreativeLeadGreet />
+        <CreativeLeadCompanyCard />
         <CreativeLeadFocusCard />
 
         <View style={styles.divider} />
@@ -57,8 +58,6 @@ export default function CreativeLeadHome() {
         <CreativeLeadWork />
 
         <CreativeLeadDiscover />
-
-        <CreativeLeadCompanyCard />
 
         <View style={styles.footer}>
           <View style={styles.footerRule} />

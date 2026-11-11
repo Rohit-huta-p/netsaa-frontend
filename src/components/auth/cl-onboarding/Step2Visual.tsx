@@ -193,7 +193,7 @@ const s = StyleSheet.create({
 
   nameMeta: { paddingBottom: 5, flex: 1, minWidth: 0 },
   orgName:  { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 19, color: '#F5F5F0', lineHeight: 24, marginBottom: 3 },
-  orgMeta:  { fontFamily: 'SpaceMono-Regular', fontSize: 9, color: 'rgba(245,245,240,0.28)', textTransform: 'uppercase', letterSpacing: 0.7 },
+  orgMeta:  { fontFamily: 'SpaceMono-Regular', fontSize: 10, color: 'rgba(245,245,240,0.78)', textTransform: 'uppercase', letterSpacing: 1.3 },
 
   /* ─── Note ─── */
   note:     { borderLeftWidth: 2, borderLeftColor: 'rgba(255,107,53,0.2)', paddingLeft: 12, marginBottom: 8 },

@@ -49,61 +49,76 @@ export function GigBoardCard({
   const metaParts = [city, date].filter(Boolean).join(' · ');
 
   return (
-    <Pressable onPress={onPress} style={[s.card, isSelected && s.cardSel]}>
-      <View style={s.top}>
-        {craft ? (
-          <View style={s.chip}>
-            <Text style={s.chipTxt}>{String(craft).toUpperCase()}</Text>
-          </View>
-        ) : null}
-        {urg ? (
-          <View style={[s.urg, urg.soon ? s.urgSoon : s.urgNew]}>
-            <Text style={[s.urgTxt, { color: urg.soon ? AMBER : C.orange }]}>
-              {urg.label.toUpperCase()}
-            </Text>
-          </View>
-        ) : null}
-        <Pressable onPress={toggleSave} hitSlop={8} style={[s.save, saved && s.saveOn]}>
-          <Bookmark size={14} color={saved ? C.orange : C.t3} fill={saved ? C.orange : 'transparent'} />
-        </Pressable>
-      </View>
-
-      <Text style={s.title} numberOfLines={2}>
-        {gig?.title || 'Untitled role'}
-      </Text>
-
-      {poster ? (
-        <View style={s.byline}>
-          <View style={s.avatar}>
-            {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={s.avatarImg} resizeMode="cover" />
-            ) : (
-              <Text style={s.avatarInit}>{initialOf(poster)}</Text>
-            )}
-          </View>
-          <Text style={s.by} numberOfLines={1}>
-            {poster}
-          </Text>
-          {verified ? <Check size={10} color={C.green} /> : null}
-        </View>
-      ) : null}
-
-      <View style={s.foot}>
-        <View style={s.sub}>
-          {metaParts ? (
-            <Text style={s.dim} numberOfLines={1}>
-              {metaParts}
-            </Text>
+    // Root is a plain View so the save button can be a SIBLING of the navigable
+    // Pressable (not a descendant). On React Native Web a tap on a nested
+    // Pressable bubbles to the parent — which previously fired the card's onPress
+    // and navigated to the gig detail instead of saving. As a sibling, the save
+    // tap can never reach the navigable area.
+    <View style={[s.card, isSelected && s.cardSel]}>
+      <Pressable onPress={onPress} style={s.cardInner}>
+        <View style={s.top}>
+          {craft ? (
+            <View style={s.chip}>
+              <Text style={s.chipTxt}>{String(craft).toUpperCase()}</Text>
+            </View>
+          ) : null}
+          {urg ? (
+            <View style={[s.urg, urg.soon ? s.urgSoon : s.urgNew]}>
+              <Text style={[s.urgTxt, { color: urg.soon ? AMBER : C.orange }]}>
+                {urg.label.toUpperCase()}
+              </Text>
+            </View>
           ) : null}
         </View>
-        <View style={s.payWrap}>
-          <Text style={s.pay}>
-            {pay.amount}
-            {pay.unit ? <Text style={s.payU}> {pay.unit.toUpperCase()}</Text> : null}
-          </Text>
+
+        <Text style={s.title} numberOfLines={2}>
+          {gig?.title || 'Untitled role'}
+        </Text>
+
+        {poster ? (
+          <View style={s.byline}>
+            <View style={s.avatar}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={s.avatarImg} resizeMode="cover" />
+              ) : (
+                <Text style={s.avatarInit}>{initialOf(poster)}</Text>
+              )}
+            </View>
+            <Text style={s.by} numberOfLines={1}>
+              {poster}
+            </Text>
+            {verified ? <Check size={10} color={C.green} /> : null}
+          </View>
+        ) : null}
+
+        <View style={s.foot}>
+          <View style={s.sub}>
+            {metaParts ? (
+              <Text style={s.dim} numberOfLines={1}>
+                {metaParts}
+              </Text>
+            ) : null}
+          </View>
+          <View style={s.payWrap}>
+            <Text style={s.pay}>
+              {pay.amount}
+              {pay.unit ? <Text style={s.payU}> {pay.unit.toUpperCase()}</Text> : null}
+            </Text>
+          </View>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+
+      {/* Save bookmark — sibling of the navigable Pressable, absolutely positioned
+          over the card's top-right corner, so its tap toggles save without navigating. */}
+      <Pressable
+        onPress={toggleSave}
+        hitSlop={8}
+        style={[s.save, saved && s.saveOn]}
+        accessibilityLabel={saved ? 'Saved' : 'Save gig'}
+      >
+        <Bookmark size={14} color={saved ? C.orange : C.t3} fill={saved ? C.orange : 'transparent'} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -113,11 +128,13 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.hair,
     borderRadius: 16,
-    padding: 16,
     marginBottom: 12,
   },
+  cardInner: { padding: 16 },
   cardSel: { borderColor: 'rgba(255,107,53,0.5)' },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
+  // minHeight 30 reserves the strip's former height (the save button used to be
+  // the tallest item here) so the title keeps its position now that save is absolute.
+  top: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12, minHeight: 30 },
   chip: {
     borderWidth: 1,
     borderColor: C.hair,
@@ -131,7 +148,9 @@ const s = StyleSheet.create({
   urgNew: { backgroundColor: 'rgba(255,107,53,0.13)' },
   urgTxt: { fontFamily: F.bold, fontSize: 8, letterSpacing: 1 },
   save: {
-    marginLeft: 'auto',
+    position: 'absolute',
+    top: 16,
+    right: 16,
     width: 30,
     height: 30,
     borderRadius: 999,

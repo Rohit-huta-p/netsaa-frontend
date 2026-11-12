@@ -4,7 +4,7 @@ import { Stack, Slot } from 'expo-router';
 
 export default function AuthLayout() {
     return (
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#121216' } }}>
             <Slot />
         </Stack>
     );

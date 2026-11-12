@@ -190,7 +190,7 @@ const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
     scroll: { flexGrow: 1, paddingHorizontal: 22, paddingBottom: 20 },
 
-    head: { marginTop: 40, alignItems: 'center' },
+    head: { marginTop: 24, alignItems: 'center' },
     kick: {
         fontFamily: 'SpaceMono-Regular',
         color: C.orange,
@@ -216,7 +216,7 @@ const s = StyleSheet.create({
         textAlign: 'center',
     },
 
-    stage: { position: 'relative', height: 466, marginTop: 20 },
+    stage: { position: 'relative', height: 424, marginTop: 12 },
 
     card: {
         position: 'absolute',

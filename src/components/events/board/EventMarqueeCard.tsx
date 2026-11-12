@@ -55,57 +55,65 @@ export function EventMarqueeCard({ event, onPress }: { event: EventDoc; onPress:
     const grad = eventGradient(event._id || event.title);
 
     return (
-        <Pressable onPress={onPress} style={s.card}>
-            {/* Cover */}
-            <View style={s.cover}>
-                {imageUri ? (
-                    <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                ) : (
-                    <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill}>
-                        <View style={s.monoWrap}>
-                            <Text style={s.mono}>{monogramOf(event.title)}</Text>
-                        </View>
-                    </LinearGradient>
-                )}
+        // Root is a plain View so the save button can be a SIBLING of the
+        // navigable Pressable (not a descendant). On React Native Web a tap on a
+        // nested Pressable bubbles to the parent — which previously fired the
+        // card's onPress and navigated to the event detail instead of saving.
+        // As a sibling, the save tap can never reach the navigable area.
+        <View style={s.card}>
+            <Pressable onPress={onPress}>
+                {/* Cover */}
+                <View style={s.cover}>
+                    {imageUri ? (
+                        <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                    ) : (
+                        <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill}>
+                            <View style={s.monoWrap}>
+                                <Text style={s.mono}>{monogramOf(event.title)}</Text>
+                            </View>
+                        </LinearGradient>
+                    )}
 
-                {/* Bottom scrim — keeps the price pill legible over any cover. */}
-                <LinearGradient
-                    colors={SCRIM}
-                    style={s.scrim}
-                    pointerEvents="none"
-                />
+                    {/* Bottom scrim — keeps the price pill legible over any cover. */}
+                    <LinearGradient
+                        colors={SCRIM}
+                        style={s.scrim}
+                        pointerEvents="none"
+                    />
 
-                {/* Event-type chip (top-left) */}
-                <View style={[s.cc, s.chip]}>
-                    <Text style={s.chipTxt} numberOfLines={1}>{chip.toUpperCase()}</Text>
+                    {/* Event-type chip (top-left) */}
+                    <View style={[s.cc, s.chip]}>
+                        <Text style={s.chipTxt} numberOfLines={1}>{chip.toUpperCase()}</Text>
+                    </View>
+
+                    {/* Pay-as-fact price pill (bottom-right) */}
+                    <View style={[s.cc, s.price, price.free && s.priceFree]}>
+                        <Text style={[s.priceTxt, price.free && s.priceTxtFree]}>{price.label}</Text>
+                    </View>
                 </View>
 
-                {/* Save bookmark (top-right) — nested Pressable wins the touch, card stays tappable */}
-                <Pressable onPress={toggleSave} hitSlop={8} style={[s.cc, s.save, saved && s.saveOn]} accessibilityLabel={saved ? 'Saved' : 'Save event'}>
-                    <Bookmark size={13} color={saved ? C.orange : '#fff'} fill={saved ? C.orange : 'transparent'} />
-                </Pressable>
+                {/* Body */}
+                <View style={s.body}>
+                    <Text style={s.title} numberOfLines={2}>{event.title}</Text>
+                    <View style={s.meta}>
+                        <Calendar size={10} color={C.t3} />
+                        <Text style={s.metaTxt} numberOfLines={1}>
+                            {fmtMarqueeDate(event.startsAt)} · {cityOf(event)}
+                        </Text>
+                    </View>
+                    <View style={s.going}>
+                        <Users size={10} color={C.t3} />
+                        <Text style={s.metaTxt}>{goingLabel(event)}</Text>
+                    </View>
+                </View>
+            </Pressable>
 
-                {/* Pay-as-fact price pill (bottom-right) */}
-                <View style={[s.cc, s.price, price.free && s.priceFree]}>
-                    <Text style={[s.priceTxt, price.free && s.priceTxtFree]}>{price.label}</Text>
-                </View>
-            </View>
-
-            {/* Body */}
-            <View style={s.body}>
-                <Text style={s.title} numberOfLines={2}>{event.title}</Text>
-                <View style={s.meta}>
-                    <Calendar size={10} color={C.t3} />
-                    <Text style={s.metaTxt} numberOfLines={1}>
-                        {fmtMarqueeDate(event.startsAt)} · {cityOf(event)}
-                    </Text>
-                </View>
-                <View style={s.going}>
-                    <Users size={10} color={C.t3} />
-                    <Text style={s.metaTxt}>{goingLabel(event)}</Text>
-                </View>
-            </View>
-        </Pressable>
+            {/* Save bookmark (top-right) — sibling of the navigable Pressable, absolutely
+                positioned over the cover's corner, so its tap toggles save without navigating. */}
+            <Pressable onPress={toggleSave} hitSlop={8} style={[s.cc, s.save, saved && s.saveOn]} accessibilityLabel={saved ? 'Saved' : 'Save event'}>
+                <Bookmark size={13} color={saved ? C.orange : '#fff'} fill={saved ? C.orange : 'transparent'} />
+            </Pressable>
+        </View>
     );
 }
 

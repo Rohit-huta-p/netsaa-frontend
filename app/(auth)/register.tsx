@@ -6,16 +6,16 @@
 //   Artist: POST /auth/register at step 5
 //   CL:     POST /auth/register transitioning step 2→3, then PATCH /organizers/me at step 7
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Alert, View, Text, Pressable, StyleSheet,
     ActivityIndicator, ScrollView,
 } from 'react-native';
 import Animated, {
     useSharedValue, useAnimatedStyle,
-    withTiming, withSpring, Easing, runOnJS,
+    withTiming, withSpring, Easing, runOnJS, useReducedMotion,
 } from 'react-native-reanimated';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 import type { ImagePickerAsset } from 'expo-image-picker';
@@ -78,11 +78,22 @@ export default function RegisterScreen() {
     const checkEmailMutation = useCheckEmail();
 
     // Role from welcome.tsx params
-    const { role: roleParam } = useLocalSearchParams<{ role?: string }>();
+    const { role: roleParam, enter } = useLocalSearchParams<{ role?: string; enter?: string }>();
     const isCL = roleParam === 'creative_lead';
     const TOTAL_STEPS = isCL ? CL_TOTAL : ARTIST_TOTAL;
     const roleKey = roleKeyFromParam(roleParam);
     const accent = ROLE_ACCENT[roleKey];
+
+    // Entry transition — a full-screen accent cover (handed off from the welcome
+    // card's expanding disk) fades out to reveal step 1.
+    const reduced = useReducedMotion();
+    const entering = enter === '1' && !reduced;
+    const coverOpacity = useSharedValue(entering ? 1 : 0);
+    const coverStyle = useAnimatedStyle(() => ({ opacity: coverOpacity.get() }));
+    useEffect(() => {
+        if (entering) coverOpacity.set(withTiming(0, { duration: 380, easing: EASE_OUT }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     /* ─── Wizard cursor ─── */
     const [stepIdx, setStepIdx] = useState(0);
@@ -416,6 +427,7 @@ export default function RegisterScreen() {
     return (
         <AccentProvider role={roleKey}>
         <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+            <Stack.Screen options={{ animation: entering ? 'none' : 'default' }} />
             {/* Nav row: back button + pill/dot progress */}
             <View style={styles.header}>
                 <Pressable onPress={handleBack} hitSlop={12} style={styles.backBtn}>
@@ -591,6 +603,12 @@ export default function RegisterScreen() {
                         )}
                     </View>
                 </>
+            )}
+            {entering && (
+                <Animated.View
+                    pointerEvents="none"
+                    style={[StyleSheet.absoluteFill, { backgroundColor: accent.base }, coverStyle]}
+                />
             )}
         </SafeAreaView>
         </AccentProvider>

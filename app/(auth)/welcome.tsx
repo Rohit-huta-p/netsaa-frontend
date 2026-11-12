@@ -1,10 +1,14 @@
 // app/(auth)/welcome.tsx
 // Variant A — "Diagonal Stage" role picker.
 // Two warm cards staggered diagonally, cutout performer illustrations floating over them.
-import { View, Text, Pressable, Image, ScrollView, StatusBar, StyleSheet } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { View, Text, Pressable, Image, ScrollView, StatusBar, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
+import Animated, {
+    useSharedValue, useAnimatedStyle, withTiming, Easing, runOnJS, useReducedMotion,
+} from 'react-native-reanimated';
 
 const C = {
     bg: '#121216',
@@ -22,6 +26,16 @@ const C = {
     lbl: '#FFC79E',
 };
 
+// Role → step entry transition: a disk bursts from the tapped card and fills the screen,
+// carrying the role's accent into the first register step.
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const DIAG = Math.sqrt(SCREEN_W * SCREEN_W + SCREEN_H * SCREEN_H);
+const DISK_D = 48;                           // base disk diameter
+const FULL_SCALE = (2 * DIAG) / DISK_D + 1;  // large enough to cover from any origin
+const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+const EASE_EXPAND = Easing.out(Easing.cubic); // gentler decelerate — the disk grows smoothly, no hard burst
+const ACCENT: Record<string, string> = { creative_lead: C.cardCL, artist: C.cardArtist };
+
 function Glow({ style, color, id }: { style: any; color: string; id: string }) {
     return (
         <Svg style={[{ position: 'absolute' }, style]} pointerEvents="none">
@@ -38,9 +52,51 @@ function Glow({ style, color, id }: { style: any; color: string; id: string }) {
 
 export default function Welcome() {
     const router = useRouter();
+    const reduced = useReducedMotion();
+
+    const clRef = useRef<View>(null);
+    const artistRef = useRef<View>(null);
+
+    const [disk, setDisk] = useState<{ color: string; cx: number; cy: number } | null>(null);
+    const scale = useSharedValue(0);
+    const contentOpacity = useSharedValue(1);
+
+    const diskStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
+    const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.get() }));
+
+    // Reset when the screen regains focus (e.g. back-swipe from register)
+    useFocusEffect(
+        useCallback(() => {
+            scale.set(0);
+            contentOpacity.set(1);
+            setDisk(null);
+        }, [])
+    );
+
+    const go = (role: string) => {
+        router.push({ pathname: '/(auth)/register', params: { role, enter: '1' } } as any);
+    };
 
     const pick = (role: string) => {
-        router.push({ pathname: '/(auth)/register', params: { role } } as any);
+        if (reduced) {
+            router.push({ pathname: '/(auth)/register', params: { role } } as any);
+            return;
+        }
+        const ref = role === 'creative_lead' ? clRef : artistRef;
+        const launch = (cx: number, cy: number) => {
+            setDisk({ color: ACCENT[role] ?? C.cardArtist, cx, cy });
+            scale.set(0);
+            contentOpacity.set(withTiming(0.12, { duration: 500, easing: EASE_EXPAND }));
+            scale.set(withTiming(FULL_SCALE, { duration: 640, easing: EASE_EXPAND }, (fin) => {
+                'worklet';
+                if (fin) runOnJS(go)(role);
+            }));
+        };
+        if (ref.current?.measureInWindow) {
+            ref.current.measureInWindow((x, y, w, h) => launch(x + w / 2, y + h / 2));
+        } else {
+            launch(SCREEN_W / 2, SCREEN_H / 2);
+        }
     };
 
     return (
@@ -48,6 +104,7 @@ export default function Welcome() {
             <Stack.Screen options={{ headerShown: false }} />
             <StatusBar barStyle="light-content" backgroundColor={C.bg} />
             <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+                <Animated.View style={[{ flex: 1 }, contentStyle]}>
                 <ScrollView
                     contentContainerStyle={s.scroll}
                     showsVerticalScrollIndicator={false}
@@ -66,6 +123,7 @@ export default function Welcome() {
 
                         {/* Creative Lead card */}
                         <Pressable
+                            ref={clRef}
                             onPress={() => pick('creative_lead')}
                             style={({ pressed }) => [s.card, s.cardCL, pressed && s.pressed]}
                         >
@@ -86,6 +144,7 @@ export default function Welcome() {
 
                         {/* Artist card */}
                         <Pressable
+                            ref={artistRef}
                             onPress={() => pick('artist')}
                             style={({ pressed }) => [s.card, s.cardArtist, pressed && s.pressed]}
                         >
@@ -102,7 +161,27 @@ export default function Welcome() {
                         </Text>
                     </Pressable>
                 </ScrollView>
+                </Animated.View>
             </SafeAreaView>
+
+            {disk && (
+                <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+                    <Animated.View
+                        style={[
+                            {
+                                position: 'absolute',
+                                width: DISK_D,
+                                height: DISK_D,
+                                borderRadius: DISK_D / 2,
+                                backgroundColor: disk.color,
+                                left: disk.cx - DISK_D / 2,
+                                top: disk.cy - DISK_D / 2,
+                            },
+                            diskStyle,
+                        ]}
+                    />
+                </View>
+            )}
         </View>
     );
 }

@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { ArrowRight } from 'lucide-react-native';
 import { useOrganizerPosts } from '@/hooks/useOrganizerPosts';
 import { useApplicantsInbox } from '@/hooks/useApplicantsInbox';
-import { HC, HF } from '@/components/dashboard/artist/home/ui';
+import { HC, HF, SkeletonBlock } from '@/components/dashboard/artist/home/ui';
 
 function unwrapApplicants(data: any): any[] {
   if (!data) return [];
@@ -34,6 +34,13 @@ export default function CreativeLeadFocusCard() {
     const apps = unwrapApplicants(appData);
     return { totalApplicants: total, openGigs: open, oldest: apps[0] };
   }, [active.allItems, appData]);
+
+  // While the posted-gigs call is in flight, show a skeleton instead of
+  // defaulting to the "all clear" card — otherwise a CL with applicants waiting
+  // sees "Nothing needs you yet" flash before it flips.
+  if (active.isLoading) {
+    return <FocusSkeleton />;
+  }
 
   const create = (tab: 'gig' | 'event') =>
     router.push(`/(app)/create?initialTab=${tab}` as any);
@@ -88,6 +95,21 @@ export default function CreativeLeadFocusCard() {
   );
 }
 
+function FocusSkeleton() {
+  return (
+    <View
+      style={[styles.card, styles.cardClear]}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <SkeletonBlock style={styles.skKicker} />
+      <SkeletonBlock style={styles.skTitle} />
+      <SkeletonBlock style={styles.skSub} />
+      <SkeletonBlock style={styles.skBtn} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   card: {
     marginHorizontal: 20,
@@ -138,4 +160,9 @@ const styles = StyleSheet.create({
   solidPurple: { backgroundColor: HC.purple },
   solidTxt: { fontFamily: HF.bold, fontSize: 12.5, color: '#190B05' },
   solidTxtPurple: { color: '#FFFFFF' },
+
+  skKicker: { width: 92, height: 9, borderRadius: 4, marginBottom: 11 },
+  skTitle: { width: '60%', height: 17, borderRadius: 6 },
+  skSub: { width: '42%', height: 11, borderRadius: 5, marginTop: 8 },
+  skBtn: { width: 150, height: 34, borderRadius: 10, marginTop: 12 },
 });

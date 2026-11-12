@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
 import { ShieldAlert, Lock } from 'lucide-react-native';
 import { DatePickerInput } from '@/components/ui/DatePickerInput/DatePickerInput';
 import { MIN_REGISTRATION_AGE, MAJORITY_AGE } from '@/constants/registration';
-import { C, FONT, s } from './shared';
+import { StepHeader, Note, RK } from '@/components/auth/register-kit';
 
 interface Props {
     dob: Date | null;
@@ -11,16 +11,17 @@ interface Props {
     ageYears: number | null;
     isMinor: boolean;
     onClear: () => void;
+    totalSteps?: number;
 }
 
-export function Step3DOB({ dob, setDob, ageYears, isMinor, onClear }: Props) {
+export function Step3DOB({ dob, setDob, ageYears, isMinor, onClear, totalSteps = 5 }: Props) {
     return (
         <View>
-            <View style={{ marginBottom: 28 }}>
-                <Text style={s.eyebrow}>STEP 3 OF 5</Text>
-                <Text style={s.headline}>Date of birth</Text>
-                <Text style={s.subhead}>Required by the DPDP Act · not shown publicly.</Text>
-            </View>
+            <StepHeader
+                eyebrow={`STEP 3 OF ${totalSteps}`}
+                title="Date of birth"
+                sub="Required by the DPDP Act · not shown publicly."
+            />
 
             <DatePickerInput
                 label="Date of birth"
@@ -33,46 +34,15 @@ export function Step3DOB({ dob, setDob, ageYears, isMinor, onClear }: Props) {
             />
 
             {isMinor && ageYears !== null && ageYears >= MIN_REGISTRATION_AGE && (
-                <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'flex-start',
-                    gap: 10,
-                    marginTop: 16,
-                    padding: 14,
-                    borderRadius: 12,
-                    backgroundColor: C.minorBg,
-                    borderWidth: 1,
-                    borderColor: C.minorBorder,
-                }}>
-                    <ShieldAlert size={16} color={C.gold} strokeWidth={2} />
-                    <Text style={{ flex: 1, fontSize: 12, lineHeight: 17, color: C.t1, fontFamily: FONT.body }}>
-                        You're under {MAJORITY_AGE}. You can use NETSA, but a parent or guardian
-                        will need to co-sign any booking contracts.
-                    </Text>
-                </View>
+                <Note variant="warn" icon={<ShieldAlert size={14} color="#E3B55F" strokeWidth={2} />}>
+                    You're under {MAJORITY_AGE}. You can use NETSA, but a parent or guardian will need to
+                    co-sign any booking contracts.
+                </Note>
             )}
 
-            <View style={{
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                gap: 9,
-                marginTop: 16,
-                padding: 12,
-                borderRadius: 11,
-                backgroundColor: C.surface,
-                borderWidth: 1,
-                borderColor: C.border,
-            }}>
-                <Lock size={14} color={C.t3} strokeWidth={1.75} style={{ marginTop: 1 }} />
-                <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: FONT.bodyMed, fontSize: 11, color: C.t2, marginBottom: 2 }}>
-                        Private & encrypted
-                    </Text>
-                    <Text style={{ fontFamily: FONT.body, fontSize: 10, color: C.t3, lineHeight: 15 }}>
-                        Your date of birth is never shown to hirers. Used only for age verification.
-                    </Text>
-                </View>
-            </View>
+            <Note variant="muted" icon={<Lock size={14} color={RK.dim} strokeWidth={1.75} />}>
+                Private & encrypted. Your date of birth is never shown to hirers — used only for age verification.
+            </Note>
         </View>
     );
 }

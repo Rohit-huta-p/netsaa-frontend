@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
 import { User as UserIcon, Star, Phone, Info } from 'lucide-react-native';
-import { StepInput } from '@/components/auth';
-import { C, FONT, s } from './shared';
+import { StepHeader, Field, Note, useAccent, RK } from '@/components/auth/register-kit';
 
 interface Props {
     fullName: string;
@@ -12,67 +11,56 @@ interface Props {
     phoneNumber: string;
     setPhoneNumber: (v: string) => void;
     onClear: () => void;
+    totalSteps?: number;
 }
 
-export function Step2Identity({ fullName, setFullName, stageName, setStageName, phoneNumber, setPhoneNumber, onClear }: Props) {
+export function Step2Identity({
+    fullName, setFullName, stageName, setStageName, phoneNumber, setPhoneNumber, onClear, totalSteps = 5,
+}: Props) {
+    const accent = useAccent();
     return (
         <View>
-            <View style={{ marginBottom: 28 }}>
-                <Text style={s.eyebrow}>STEP 2 OF 5</Text>
-                <Text style={s.headline}>How do people{'\n'}recognize you?</Text>
-                <Text style={s.subhead}>Your name on the platform.</Text>
-            </View>
+            <StepHeader
+                eyebrow={`STEP 2 OF ${totalSteps}`}
+                title={'How do people\nrecognize you?'}
+                sub="Your name on the platform."
+            />
 
-            <StepInput
-                label="Full name"
+            <Field
+                label="FULL NAME"
                 value={fullName}
                 onChangeText={(v) => { setFullName(v); onClear(); }}
                 placeholder="e.g. Priya Sharma"
                 autoCapitalize="words"
                 autoComplete="name"
-                icon={<UserIcon size={16} color={C.t4} />}
+                icon={<UserIcon size={16} color={RK.muted} />}
+                helper="Legal name — not shown publicly"
             />
-            <Text style={{ fontFamily: FONT.body, fontSize: 10, color: C.t3, marginTop: -6, marginBottom: 10, paddingLeft: 2 }}>
-                Legal name — not shown publicly
-            </Text>
-            <StepInput
-                label="Stage name (optional)"
+            <Field
+                label="STAGE NAME"
+                optional
                 value={stageName}
                 onChangeText={(v) => { setStageName(v); onClear(); }}
                 placeholder="Name shown publicly on your profile"
                 autoCapitalize="words"
-                icon={<Star size={16} color={C.t4} />}
+                icon={<Star size={16} color={RK.muted} />}
             />
-            <View style={{
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                gap: 9,
-                marginTop: 12,
-                marginBottom: 20,
-                padding: 10,
-                borderRadius: 10,
-                backgroundColor: 'rgba(167,139,250,0.08)',
-                borderWidth: 1,
-                borderColor: 'rgba(167,139,250,0.2)',
-            }}>
-                <Info size={14} color='#A78BFA' strokeWidth={1.75} style={{ marginTop: 1 }} />
-                <Text style={{ flex: 1, fontFamily: FONT.body, fontSize: 11, color: '#C4B5FD', lineHeight: 16 }}>
-                    You can change your stage name from Settings at any time.
-                </Text>
-            </View>
+            <Note variant="accent" icon={<Info size={14} color={accent.border} strokeWidth={1.75} />}>
+                You can change your stage name from Settings at any time.
+            </Note>
 
-            <StepInput
-                label="Phone number"
+            <View style={{ height: 18 }} />
+
+            <Field
+                label="PHONE NUMBER"
                 value={phoneNumber}
                 onChangeText={(v) => { setPhoneNumber(v); onClear(); }}
                 placeholder="+91 98765 43210"
                 keyboardType="phone-pad"
                 autoComplete="tel"
-                icon={<Phone size={16} color={C.t4} />}
+                icon={<Phone size={16} color={RK.muted} />}
+                helper="Used for booking confirmations — not shown publicly"
             />
-            <Text style={{ fontFamily: FONT.body, fontSize: 10, color: C.t3, marginTop: -6, marginBottom: 4, paddingLeft: 2 }}>
-                Used for booking confirmations — not shown publicly
-            </Text>
         </View>
     );
 }

@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Mail, Lock } from 'lucide-react-native';
-import { StepInput } from '@/components/auth';
-import { C, FONT, s } from './shared';
+import { StepHeader, Field, RK, RK_FONT } from '@/components/auth/register-kit';
 
 interface Props {
     email: string;
@@ -15,33 +14,33 @@ interface Props {
 export function Step1Credentials({ email, setEmail, password, setPassword, onClear }: Props) {
     return (
         <View>
-            <View style={{ marginBottom: 28 }}>
-                <Text style={s.eyebrow}>CREATE ACCOUNT</Text>
-                <Text style={s.headline}>Let's start</Text>
-                <Text style={s.subhead}>Use an email you check regularly.</Text>
-            </View>
+            <StepHeader eyebrow="CREATE ACCOUNT" title="Let's start" sub="Use an email you check regularly." />
 
-            <StepInput
-                label="Email"
+            <Field
+                label="EMAIL"
                 value={email}
                 onChangeText={(v) => { setEmail(v); onClear(); }}
                 placeholder="you@example.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
-                icon={<Mail size={16} color={C.t4} />}
+                icon={<Mail size={16} color={RK.muted} />}
             />
-            <StepInput
-                label="Password"
+            <Field
+                label="PASSWORD"
                 value={password}
                 onChangeText={(v) => { setPassword(v); onClear(); }}
                 placeholder="At least 8 characters"
                 secureTextEntry
-                icon={<Lock size={16} color={C.t4} />}
+                icon={<Lock size={16} color={RK.muted} />}
             />
-            <Text style={s.fineprint}>
+            <Text style={styles.legal}>
                 By continuing, you agree to the NETSA Terms of Service and Privacy Policy.
             </Text>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    legal: { fontFamily: RK_FONT.body, fontSize: 11, color: RK.dim, lineHeight: 16, marginTop: 6 },
+});

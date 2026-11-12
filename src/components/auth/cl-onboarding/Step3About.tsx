@@ -1,11 +1,14 @@
-// Step 3 — optional. Bio + specialties/services.
-import React, { useState } from 'react';
+// CL Step 3 (register step 6) — optional. Bio + specialties/services.
+import React from 'react';
 import {
-  View, Text, TextInput, Pressable, ScrollView,
+  View, Text, Pressable, ScrollView,
   KeyboardAvoidingView, Platform, StyleSheet,
 } from 'react-native';
 import { SearchableMultiSelect } from '@/components/inputs/SearchableMultiSelect';
 import type { CLOFormData } from '@/types/clOnboarding';
+import {
+  AccentProvider, StepHeader, Field, PrimaryButton, RK, RK_FONT,
+} from '@/components/auth/register-kit';
 
 interface Props {
   data: CLOFormData;
@@ -65,8 +68,6 @@ const SERVICES_OPTIONS = [
 ];
 
 export default function Step3About({ data, update, onNext, onSkip }: Props) {
-  const [focused, setFocused] = useState(false);
-
   function toggleService(v: string) {
     const next = data.services.includes(v)
       ? data.services.filter(s => s !== v)
@@ -75,78 +76,64 @@ export default function Step3About({ data, update, onNext, onSkip }: Props) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={s.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={60}
-    >
-      <ScrollView
-        style={s.scroll}
-        contentContainerStyle={s.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <AccentProvider role="creative_lead">
+      <KeyboardAvoidingView
+        style={s.root}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={60}
       >
-        <Text style={s.headline}>About your{'\n'}company</Text>
-        <Text style={s.sub}>Help hirers and artists understand what you do.</Text>
+        <ScrollView
+          style={s.scroll}
+          contentContainerStyle={s.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <StepHeader title={'About your\ncompany'} sub="Help hirers and artists understand what you do." />
 
-        {/* Bio */}
-        <Text style={s.label}>BIO</Text>
-        <TextInput
-          style={[s.bioInput, focused && s.bioFocused]}
-          placeholder="Tell people about your company — what you create, who you work with, what makes you distinct."
-          placeholderTextColor="rgba(245,245,240,0.22)"
-          value={data.bio}
-          onChangeText={v => update({ bio: v })}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          multiline
-          textAlignVertical="top"
-          returnKeyType="default"
-        />
-        <Text style={s.charCount}>{data.bio.length} / 500</Text>
+          <Field
+            label="BIO"
+            multiline
+            value={data.bio}
+            onChangeText={v => update({ bio: v })}
+            placeholder="Tell people about your company — what you create, who you work with, what makes you distinct."
+            counter={`${data.bio.length} / 500`}
+            maxLength={500}
+          />
 
-        {/* Services */}
-        <Text style={[s.label, { marginTop: 24 }]}>SPECIALTIES</Text>
-        <Text style={s.fieldSub}>What kinds of performances or events does your company work with?</Text>
-        <SearchableMultiSelect
-          selected={data.services}
-          options={SERVICES_OPTIONS}
-          onToggle={toggleService}
-          placeholder="Select specialties"
-          searchPlaceholder="Search or add your own…"
-          emptyText="No specialties match."
-          allowCustom
-        />
+          {/* Services */}
+          <Text style={[s.label, { marginTop: 8 }]}>SPECIALTIES</Text>
+          <Text style={s.fieldSub}>What kinds of performances or events does your company work with?</Text>
+          <SearchableMultiSelect
+            selected={data.services}
+            options={SERVICES_OPTIONS}
+            onToggle={toggleService}
+            placeholder="Select specialties"
+            searchPlaceholder="Search or add your own…"
+            emptyText="No specialties match."
+            allowCustom
+          />
 
-        <View style={{ height: 100 }} />
-      </ScrollView>
+          <View style={{ height: 80 }} />
+        </ScrollView>
 
-      <View style={s.ctaRow}>
-        <Pressable style={s.skipBtn} onPress={onSkip}>
-          <Text style={s.skipText}>Skip for now</Text>
-        </Pressable>
-        <Pressable style={s.nextBtn} onPress={onNext}>
-          <Text style={s.nextText}>Next</Text>
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+        <View style={s.footer}>
+          <PrimaryButton label="Next" onPress={onNext} />
+          <Pressable onPress={onSkip} style={s.skipLink}>
+            <Text style={s.skipText}>Skip for now</Text>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </AccentProvider>
   );
 }
 
 const s = StyleSheet.create({
-  root:       { flex: 1 },
-  scroll:     { flex: 1 },
-  content:    { paddingHorizontal: 20, paddingTop: 12 },
-  headline:   { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 34, color: '#F5F5F0', lineHeight: 42, marginBottom: 6 },
-  sub:        { fontFamily: 'Outfit-Light', fontSize: 13, color: 'rgba(245,245,240,0.45)', lineHeight: 19, marginBottom: 28 },
-  label:      { fontFamily: 'SpaceMono-Regular', fontSize: 10, letterSpacing: 1.3, color: 'rgba(245,245,240,0.78)', marginBottom: 8 },
-  fieldSub:   { fontFamily: 'Outfit-Light', fontSize: 12, color: 'rgba(245,245,240,0.35)', marginBottom: 10, lineHeight: 17 },
-  bioInput:   { backgroundColor: '#1C1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'Outfit-Regular', fontSize: 14, color: '#F5F5F0', minHeight: 110, lineHeight: 21 },
-  bioFocused: { borderColor: '#FF6B35' },
-  charCount:  { fontFamily: 'SpaceMono-Regular', fontSize: 9, color: 'rgba(245,245,240,0.18)', textAlign: 'right', marginTop: 6 },
-  ctaRow:     { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingBottom: 28, paddingTop: 12, backgroundColor: '#121216' },
-  skipBtn:    { flex: 1, paddingVertical: 15, alignItems: 'center', borderRadius: 12, backgroundColor: '#1C1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  skipText:   { fontFamily: 'Outfit-Regular', fontSize: 14, color: 'rgba(245,245,240,0.45)' },
-  nextBtn:    { flex: 2, paddingVertical: 15, alignItems: 'center', borderRadius: 12, backgroundColor: '#FF6B35' },
-  nextText:   { fontFamily: 'Outfit-SemiBold', fontSize: 15, color: '#0A0A0F' },
+  root:     { flex: 1 },
+  scroll:   { flex: 1 },
+  content:  { paddingHorizontal: 24, paddingTop: 12 },
+  label:    { fontFamily: RK_FONT.mono, fontSize: 9, letterSpacing: 1.6, color: RK.muted, marginBottom: 7 },
+  fieldSub: { fontFamily: RK_FONT.body, fontSize: 12, color: RK.dim, marginBottom: 10, lineHeight: 17 },
+  footer:   { paddingHorizontal: 24, paddingBottom: 28, paddingTop: 12, backgroundColor: RK.bg },
+  skipLink: { paddingVertical: 10, alignItems: 'center' },
+  skipText: { fontFamily: RK_FONT.body, fontSize: 13, color: RK.muted },
 });

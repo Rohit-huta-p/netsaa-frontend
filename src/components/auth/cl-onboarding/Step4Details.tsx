@@ -1,10 +1,13 @@
-// Step 4 — optional. Website + years + team size. Triggers the PATCH on Finish.
-import React, { useState } from 'react';
+// CL Step 4 (register step 7) — optional. Website + years + team size + Instagram. Triggers the PATCH on Finish.
+import React from 'react';
 import {
-  View, Text, TextInput, Pressable, ScrollView, ActivityIndicator,
+  View, Text, Pressable, ScrollView,
   KeyboardAvoidingView, Platform, StyleSheet,
 } from 'react-native';
 import type { CLOFormData } from '@/types/clOnboarding';
+import {
+  AccentProvider, StepHeader, Field, PrimaryButton, RK, RK_FONT,
+} from '@/components/auth/register-kit';
 
 interface Props {
   data: CLOFormData;
@@ -15,122 +18,86 @@ interface Props {
 }
 
 export default function Step4Details({ data, update, onFinish, onSkip, saving }: Props) {
-  const [focused, setFocused] = useState<string | null>(null);
-
   return (
-    <KeyboardAvoidingView
-      style={s.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={60}
-    >
-      <ScrollView
-        style={s.scroll}
-        contentContainerStyle={s.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <AccentProvider role="creative_lead">
+      <KeyboardAvoidingView
+        style={s.root}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={60}
       >
-        <Text style={s.headline}>A few more{'\n'}details</Text>
-        <Text style={s.sub}>Optional — but they help build trust with artists and hirers.</Text>
+        <ScrollView
+          style={s.scroll}
+          contentContainerStyle={s.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <StepHeader
+            title={'A few more\ndetails'}
+            sub="Optional — but they help build trust with artists and hirers."
+          />
 
-        {/* Website */}
-        <Text style={s.label}>WEBSITE</Text>
-        <TextInput
-          style={[s.input, focused === 'web' && s.inputFocused]}
-          placeholder="https://yourcompany.com"
-          placeholderTextColor="rgba(245,245,240,0.22)"
-          value={data.organizationWebsite}
-          onChangeText={v => update({ organizationWebsite: v })}
-          onFocus={() => setFocused('web')}
-          onBlur={() => setFocused(null)}
-          autoCapitalize="none"
-          keyboardType="url"
-          returnKeyType="done"
-        />
+          <Field
+            label="WEBSITE"
+            value={data.organizationWebsite}
+            onChangeText={v => update({ organizationWebsite: v })}
+            placeholder="https://yourcompany.com"
+            autoCapitalize="none"
+            keyboardType="url"
+            returnKeyType="done"
+          />
 
-        {/* Years active */}
-        <Text style={[s.label, { marginTop: 20 }]}>YEARS ACTIVE</Text>
-        <TextInput
-          style={[s.input, focused === 'years' && s.inputFocused]}
-          placeholder="e.g. 5"
-          placeholderTextColor="rgba(245,245,240,0.22)"
-          value={data.yearsInBusiness}
-          onChangeText={v => update({ yearsInBusiness: v.replace(/\D/g, '') })}
-          onFocus={() => setFocused('years')}
-          onBlur={() => setFocused(null)}
-          keyboardType="number-pad"
-          returnKeyType="done"
-          maxLength={2}
-        />
-        <Text style={s.fieldHint}>How many years has the company been active?</Text>
+          <Field
+            label="YEARS ACTIVE"
+            value={data.yearsInBusiness}
+            onChangeText={v => update({ yearsInBusiness: v.replace(/\D/g, '') })}
+            placeholder="e.g. 5"
+            keyboardType="number-pad"
+            returnKeyType="done"
+            maxLength={2}
+            helper="How many years has the company been active?"
+          />
 
-        {/* Team size */}
-        <Text style={[s.label, { marginTop: 20 }]}>TEAM SIZE</Text>
-        <TextInput
-          style={[s.input, focused === 'team' && s.inputFocused]}
-          placeholder="e.g. 12"
-          placeholderTextColor="rgba(245,245,240,0.22)"
-          value={data.teamSize}
-          onChangeText={v => update({ teamSize: v.replace(/\D/g, '') })}
-          onFocus={() => setFocused('team')}
-          onBlur={() => setFocused(null)}
-          keyboardType="number-pad"
-          returnKeyType="done"
-          maxLength={4}
-        />
-        <Text style={s.fieldHint}>Full-time + regular freelancers you work with</Text>
+          <Field
+            label="TEAM SIZE"
+            value={data.teamSize}
+            onChangeText={v => update({ teamSize: v.replace(/\D/g, '') })}
+            placeholder="e.g. 12"
+            keyboardType="number-pad"
+            returnKeyType="done"
+            maxLength={4}
+            helper="Full-time + regular freelancers you work with"
+          />
 
-        {/* Instagram */}
-        <Text style={[s.label, { marginTop: 20 }]}>INSTAGRAM</Text>
-        <View style={[s.igRow, focused === 'ig' && s.inputFocused]}>
-          <Text style={s.igAt}>@</Text>
-          <TextInput
-            style={s.igInput}
-            placeholder="yourhandle"
-            placeholderTextColor="rgba(245,245,240,0.22)"
+          <Field
+            label="INSTAGRAM"
+            prefix="@"
             value={data.instagramHandle ?? ''}
             onChangeText={v => update({ instagramHandle: v.replace(/^@+/, '') })}
-            onFocus={() => setFocused('ig')}
-            onBlur={() => setFocused(null)}
+            placeholder="yourhandle"
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="done"
           />
+
+          <View style={{ height: 80 }} />
+        </ScrollView>
+
+        <View style={s.footer}>
+          <PrimaryButton label="Finish setup" onPress={onFinish} loading={saving} />
+          <Pressable onPress={onSkip} style={s.skipLink} disabled={saving}>
+            <Text style={[s.skipText, saving && { opacity: 0.4 }]}>Skip</Text>
+          </Pressable>
         </View>
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
-
-      <View style={s.ctaRow}>
-        <Pressable style={s.skipBtn} onPress={onSkip} disabled={saving}>
-          <Text style={s.skipText}>Skip</Text>
-        </Pressable>
-        <Pressable style={s.finishBtn} onPress={onFinish} disabled={saving}>
-          {saving
-            ? <ActivityIndicator color="#0A0A0F" />
-            : <Text style={s.finishText}>Finish setup</Text>
-          }
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </AccentProvider>
   );
 }
 
 const s = StyleSheet.create({
-  root:        { flex: 1 },
-  scroll:      { flex: 1 },
-  content:     { paddingHorizontal: 20, paddingTop: 12 },
-  headline:    { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 34, color: '#F5F5F0', lineHeight: 42, marginBottom: 6 },
-  sub:         { fontFamily: 'Outfit-Light', fontSize: 13, color: 'rgba(245,245,240,0.45)', lineHeight: 19, marginBottom: 28 },
-  label:       { fontFamily: 'SpaceMono-Regular', fontSize: 10, letterSpacing: 1.3, color: 'rgba(245,245,240,0.78)', marginBottom: 8 },
-  input:       { backgroundColor: '#1C1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontFamily: 'Outfit-Regular', fontSize: 15, color: '#F5F5F0' },
-  inputFocused:{ borderColor: '#FF6B35' },
-  igRow:       { backgroundColor: '#1C1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 10, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 13 },
-  igAt:        { fontFamily: 'Outfit-Regular', fontSize: 15, color: 'rgba(245,245,240,0.35)', marginRight: 2 },
-  igInput:     { flex: 1, fontFamily: 'Outfit-Regular', fontSize: 15, color: '#F5F5F0', padding: 0 },
-  fieldHint:   { fontFamily: 'Outfit-Light', fontSize: 11, color: 'rgba(245,245,240,0.25)', marginTop: 5 },
-  ctaRow:      { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingBottom: 28, paddingTop: 12, backgroundColor: '#121216' },
-  skipBtn:     { flex: 1, paddingVertical: 15, alignItems: 'center', borderRadius: 12, backgroundColor: '#1C1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  skipText:    { fontFamily: 'Outfit-Regular', fontSize: 14, color: 'rgba(245,245,240,0.45)' },
-  finishBtn:   { flex: 2, paddingVertical: 15, alignItems: 'center', borderRadius: 12, backgroundColor: '#FF6B35' },
-  finishText:  { fontFamily: 'Outfit-SemiBold', fontSize: 15, color: '#0A0A0F' },
+  root:     { flex: 1 },
+  scroll:   { flex: 1 },
+  content:  { paddingHorizontal: 24, paddingTop: 12 },
+  footer:   { paddingHorizontal: 24, paddingBottom: 28, paddingTop: 12, backgroundColor: RK.bg },
+  skipLink: { paddingVertical: 10, alignItems: 'center' },
+  skipText: { fontFamily: RK_FONT.body, fontSize: 13, color: RK.muted },
 });

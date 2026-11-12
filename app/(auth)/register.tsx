@@ -17,7 +17,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft } from 'lucide-react-native';
 import type { ImagePickerAsset } from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -43,6 +42,9 @@ import CLStep3About    from '@/components/auth/cl-onboarding/Step3About';
 import CLStep4Details  from '@/components/auth/cl-onboarding/Step4Details';
 
 import type { CLOFormData } from '@/types/clOnboarding';
+import {
+    AccentProvider, ProgressPills, roleKeyFromParam, ROLE_ACCENT,
+} from '@/components/auth/register-kit';
 
 const CL_EMPTY: CLOFormData = {
     organizationName: '', organizerTypeCategory: '', city: '',
@@ -54,7 +56,6 @@ const CL_EMPTY: CLOFormData = {
 
 const C = {
     bg:     '#121216',
-    orange: '#FF6B35',
     t1:     '#F2F0EB',
     t3:     '#706C6A',
     t4:     '#4A4648',
@@ -80,6 +81,8 @@ export default function RegisterScreen() {
     const { role: roleParam } = useLocalSearchParams<{ role?: string }>();
     const isCL = roleParam === 'creative_lead';
     const TOTAL_STEPS = isCL ? CL_TOTAL : ARTIST_TOTAL;
+    const roleKey = roleKeyFromParam(roleParam);
+    const accent = ROLE_ACCENT[roleKey];
 
     /* ─── Wizard cursor ─── */
     const [stepIdx, setStepIdx] = useState(0);
@@ -411,27 +414,14 @@ export default function RegisterScreen() {
     const showCLSteps = isCL && stepIdx >= 3;
 
     return (
+        <AccentProvider role={roleKey}>
         <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
             {/* Nav row: back button + pill/dot progress */}
             <View style={styles.header}>
                 <Pressable onPress={handleBack} hitSlop={12} style={styles.backBtn}>
                     <ChevronLeft size={22} color={C.t3} strokeWidth={2} />
                 </Pressable>
-                <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center' }}>
-                    {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-                        <View
-                            key={i}
-                            style={{
-                                height: 5,
-                                width: i === stepIdx ? 18 : 5,
-                                borderRadius: 2.5,
-                                backgroundColor: i === stepIdx
-                                    ? C.orange
-                                    : i < stepIdx ? '#52525B' : '#2A2A30',
-                            }}
-                        />
-                    ))}
-                </View>
+                <ProgressPills total={TOTAL_STEPS} current={stepIdx} />
             </View>
 
             {showCLSteps ? (
@@ -492,6 +482,7 @@ export default function RegisterScreen() {
                                     stageName={stageName} setStageName={setStageName}
                                     phoneNumber={phoneNumber} setPhoneNumber={setPhoneNumber}
                                     onClear={() => setStepError(null)}
+                                    totalSteps={TOTAL_STEPS}
                                 />
                             )}
                             {stepIdx === 2 && (
@@ -499,6 +490,7 @@ export default function RegisterScreen() {
                                     dob={dob} setDob={setDob}
                                     ageYears={ageYears} isMinor={isMinor}
                                     onClear={() => setStepError(null)}
+                                    totalSteps={TOTAL_STEPS}
                                 />
                             )}
                             {!isCL && stepIdx === 3 && (
@@ -507,6 +499,7 @@ export default function RegisterScreen() {
                                     onTypeChange={handleTypeChange}
                                     skills={skills} setSkills={setSkills}
                                     bio={bio} setBio={setBio}
+                                    totalSteps={TOTAL_STEPS}
                                 />
                             )}
                             {!isCL && stepIdx === 4 && (
@@ -515,6 +508,7 @@ export default function RegisterScreen() {
                                     avatar={avatar} setAvatar={setAvatar}
                                     videoAssets={videoAssets} setVideoAssets={setVideoAssets}
                                     uploading={loading}
+                                    totalSteps={TOTAL_STEPS}
                                 />
                             )}
                         </Animated.View>
@@ -545,17 +539,12 @@ export default function RegisterScreen() {
                                         <Text style={[styles.ctaLabel, { color: C.t4 }]}>{ctaLabel}</Text>
                                     </View>
                                 ) : (
-                                    <LinearGradient
-                                        colors={['#FF8C5A', '#FF6B35', '#E55A20']}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.ctaGrad}
-                                    >
+                                    <View style={[styles.ctaGrad, { backgroundColor: accent.base }]}>
                                         {loading
-                                            ? <ActivityIndicator color="#fff" size="small" />
-                                            : <Text style={styles.ctaLabel}>{ctaLabel}</Text>
+                                            ? <ActivityIndicator color={accent.on} size="small" />
+                                            : <Text style={[styles.ctaLabel, { color: accent.on }]}>{ctaLabel}</Text>
                                         }
-                                    </LinearGradient>
+                                    </View>
                                 )}
                             </Pressable>
                         </Animated.View>
@@ -596,7 +585,7 @@ export default function RegisterScreen() {
                             <Pressable onPress={() => router.replace('/(auth)/login')} style={{ marginTop: 16 }}>
                                 <Text style={{ fontFamily: FONT.body, fontSize: 13, color: C.t4, textAlign: 'center' }}>
                                     Already have an account?{' '}
-                                    <Text style={{ color: C.orange }}>Log in</Text>
+                                    <Text style={{ color: accent.base }}>Log in</Text>
                                 </Text>
                             </Pressable>
                         )}
@@ -604,6 +593,7 @@ export default function RegisterScreen() {
                 </>
             )}
         </SafeAreaView>
+        </AccentProvider>
     );
 }
 

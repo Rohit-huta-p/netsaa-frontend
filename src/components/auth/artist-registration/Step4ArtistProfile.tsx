@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { X, Plus } from 'lucide-react-native';
-import { ARTIST_TYPES, ARTIST_SKILLS, ARTIST_SKILL_DEFAULTS, ARTIST_SKILL_HINTS } from '@/constants/registration';
-import { C, FONT, s } from './shared';
+import {
+    ARTIST_TYPES, ARTIST_SKILLS, ARTIST_SKILL_DEFAULTS, ARTIST_SKILL_HINTS,
+} from '@/constants/registration';
+import { StepHeader, Chip, Field, RK, RK_FONT, useAccent } from '@/components/auth/register-kit';
 
 interface Props {
     artistType: string;
@@ -11,225 +13,141 @@ interface Props {
     setSkills: (s: string[]) => void;
     bio: string;
     setBio: (v: string) => void;
+    totalSteps?: number;
 }
 
-export function Step4ArtistProfile({ artistType, onTypeChange, skills, setSkills, bio, setBio }: Props) {
+export function Step4ArtistProfile({
+    artistType, onTypeChange, skills, setSkills, bio, setBio, totalSteps = 5,
+}: Props) {
+    const accent = useAccent();
     const [customInput, setCustomInput] = useState('');
 
     const predefinedForType = ARTIST_SKILLS[artistType] ?? [];
     const customSkills = skills.filter(sk => !predefinedForType.includes(sk));
 
     function handleTypeSelect(id: string) {
-        const defaults = ARTIST_SKILL_DEFAULTS[id] ?? [];
-        onTypeChange(id, defaults);
+        onTypeChange(id, ARTIST_SKILL_DEFAULTS[id] ?? []);
     }
-
     function toggleSkill(skill: string) {
-        if (skills.includes(skill)) {
-            setSkills(skills.filter(s => s !== skill));
-        } else {
-            setSkills([...skills, skill]);
-        }
+        setSkills(skills.includes(skill) ? skills.filter(s => s !== skill) : [...skills, skill]);
     }
-
     function addCustomSkill() {
         const val = customInput.trim();
         if (!val || skills.includes(val)) { setCustomInput(''); return; }
         setSkills([...skills, val]);
         setCustomInput('');
     }
-
     function removeCustomSkill(skill: string) {
         setSkills(skills.filter(s => s !== skill));
     }
 
     const skillHint = artistType ? (ARTIST_SKILL_HINTS[artistType] ?? 'Skills') : 'Skills';
+    const customActive = customInput.trim().length > 0;
 
     return (
         <View>
-            <View style={{ marginBottom: 28 }}>
-                <Text style={s.eyebrow}>STEP 4 OF 5</Text>
-                <Text style={s.headline}>Your craft</Text>
-                <Text style={s.subhead}>Hirers filter by type and skill.</Text>
+            <StepHeader
+                eyebrow={`STEP 4 OF ${totalSteps}`}
+                title="Your craft"
+                sub="Hirers filter by type and skill."
+            />
+
+            {/* Artist type */}
+            <Text style={s.label}>ARTIST TYPE</Text>
+            <View style={s.chipWrap}>
+                {ARTIST_TYPES.filter(t => t.id !== 'other').map(type => (
+                    <Chip
+                        key={type.id}
+                        label={type.label}
+                        selected={artistType === type.id}
+                        onPress={() => handleTypeSelect(type.id)}
+                    />
+                ))}
             </View>
 
-            {/* Artist type chips */}
-            <Text style={s.sectionLabel}>ARTIST TYPE</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
-                {ARTIST_TYPES.filter(t => t.id !== 'other').map(type => {
-                    const Icon = type.icon;
-                    const selected = artistType === type.id;
-                    return (
-                        <TouchableOpacity
-                            key={type.id}
-                            onPress={() => handleTypeSelect(type.id)}
-                            style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 6,
-                                paddingHorizontal: 14,
-                                paddingVertical: 9,
-                                borderRadius: 20,
-                                backgroundColor: selected ? C.orangeDim : C.surface,
-                                borderWidth: 1,
-                                borderColor: selected ? C.orangeBorder : C.border,
-                            }}
-                        >
-                            <Icon size={13} color={selected ? C.orange : C.t3} strokeWidth={2} />
-                            <Text style={{
-                                fontFamily: FONT.bodyMed,
-                                fontSize: 13,
-                                color: selected ? C.orange : C.t2,
-                                lineHeight: 18,
-                            }}>
-                                {type.label}
-                            </Text>
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
-
-            {/* Skills — only shown when a type is selected */}
+            {/* Skills — only once a type is chosen */}
             {artistType && predefinedForType.length > 0 && (
                 <>
-                    <Text style={[s.sectionLabel, { marginTop: 20 }]}>{skillHint.toUpperCase()}</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        {predefinedForType.map(skill => {
-                            const on = skills.includes(skill);
-                            return (
-                                <TouchableOpacity
-                                    key={skill}
-                                    onPress={() => toggleSkill(skill)}
-                                    style={{
-                                        paddingHorizontal: 12,
-                                        paddingVertical: 7,
-                                        borderRadius: 16,
-                                        backgroundColor: on ? C.orangeDim : C.surface,
-                                        borderWidth: 1,
-                                        borderColor: on ? C.orangeBorder : C.border,
-                                    }}
-                                >
-                                    <Text style={{
-                                        fontFamily: FONT.body,
-                                        fontSize: 13,
-                                        color: on ? C.orange : C.t3,
-                                    }}>
-                                        {skill}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
+                    <Text style={[s.label, { marginTop: 22 }]}>{skillHint.toUpperCase()}</Text>
+                    <View style={s.chipWrap}>
+                        {predefinedForType.map(skill => (
+                            <Chip
+                                key={skill}
+                                label={skill}
+                                selected={skills.includes(skill)}
+                                onPress={() => toggleSkill(skill)}
+                            />
+                        ))}
                         {customSkills.map(skill => (
-                            <TouchableOpacity
+                            <Pressable
                                 key={skill}
                                 onPress={() => removeCustomSkill(skill)}
-                                style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 5,
-                                    paddingLeft: 12,
-                                    paddingRight: 8,
-                                    paddingVertical: 7,
-                                    borderRadius: 16,
-                                    backgroundColor: C.orangeDim,
-                                    borderWidth: 1,
-                                    borderColor: C.orangeBorder,
-                                }}
+                                style={[s.customChip, { backgroundColor: accent.base, borderColor: accent.base }]}
                             >
-                                <Text style={{
-                                    fontFamily: FONT.body,
-                                    fontSize: 13,
-                                    color: C.orange,
-                                }}>
-                                    {skill}
-                                </Text>
-                                <X size={11} color={C.orange} strokeWidth={2.5} />
-                            </TouchableOpacity>
+                                <Text style={[s.customChipLabel, { color: accent.on }]}>{skill}</Text>
+                                <X size={11} color={accent.on} strokeWidth={2.5} />
+                            </Pressable>
                         ))}
                     </View>
 
                     {/* Custom skill input */}
-                    <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 8,
-                        marginTop: 12,
-                    }}>
-                        <View style={{
-                            flex: 1,
-                            height: 40,
-                            paddingHorizontal: 12,
-                            borderRadius: 10,
-                            backgroundColor: C.surface,
-                            borderWidth: 1,
-                            borderColor: C.border,
-                            justifyContent: 'center',
-                        }}>
+                    <View style={s.customRow}>
+                        <View style={s.customInputBox}>
                             <TextInput
                                 value={customInput}
                                 onChangeText={setCustomInput}
                                 onSubmitEditing={addCustomSkill}
                                 placeholder="Add your own…"
-                                placeholderTextColor={C.t4}
+                                placeholderTextColor={RK.dim}
                                 returnKeyType="done"
-                                style={{
-                                    fontFamily: FONT.body,
-                                    fontSize: 13,
-                                    color: C.t1,
-                                    padding: 0,
-                                }}
+                                selectionColor={accent.base}
+                                style={s.customInput}
                             />
                         </View>
-                        <TouchableOpacity
+                        <Pressable
                             onPress={addCustomSkill}
-                            style={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: 10,
-                                backgroundColor: customInput.trim() ? C.orangeDim : C.surface,
-                                borderWidth: 1,
-                                borderColor: customInput.trim() ? C.orangeBorder : C.border,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
+                            style={[
+                                s.addBtn,
+                                customActive
+                                    ? { backgroundColor: accent.base, borderColor: accent.base }
+                                    : { backgroundColor: RK.surface, borderColor: RK.hair },
+                            ]}
                         >
-                            <Plus size={16} color={customInput.trim() ? C.orange : C.t4} strokeWidth={2} />
-                        </TouchableOpacity>
+                            <Plus size={16} color={customActive ? accent.on : RK.dim} strokeWidth={2} />
+                        </Pressable>
                     </View>
                 </>
             )}
 
             {/* Bio */}
-            <Text style={[s.sectionLabel, { marginTop: 24 }]}>BIO (OPTIONAL)</Text>
-            <View style={{
-                borderRadius: 12,
-                backgroundColor: C.surface,
-                borderWidth: 1,
-                borderColor: C.border,
-                padding: 14,
-                minHeight: 90,
-            }}>
-                <TextInput
+            <View style={{ marginTop: 24 }}>
+                <Field
+                    label="BIO"
+                    optional
+                    multiline
                     value={bio}
                     onChangeText={setBio}
-                    multiline
-                    numberOfLines={4}
                     placeholder="Describe your practice, style, or what makes you unique…"
-                    placeholderTextColor={C.t4}
-                    style={{
-                        fontFamily: FONT.body,
-                        fontSize: 14,
-                        color: C.t1,
-                        lineHeight: 20,
-                        padding: 0,
-                        textAlignVertical: 'top',
-                        minHeight: 70,
-                    }}
+                    helper="Appears on your public profile. Keep it concise — 2 sentences work well."
                 />
             </View>
-            <Text style={s.fineprint}>
-                Your bio appears on your public profile. Keep it concise — 2 sentences work well.
-            </Text>
         </View>
     );
 }
+
+const s = StyleSheet.create({
+    label: { fontFamily: RK_FONT.mono, fontSize: 9, letterSpacing: 1.6, color: RK.muted, marginBottom: 9 },
+    chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+    customChip: {
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        paddingLeft: 12, paddingRight: 9, paddingVertical: 8, borderRadius: 9, borderWidth: 1,
+    },
+    customChipLabel: { fontFamily: RK_FONT.body, fontSize: 11.5 },
+    customRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+    customInputBox: {
+        flex: 1, height: 42, paddingHorizontal: 12, borderRadius: 11,
+        backgroundColor: RK.surface, borderWidth: 1, borderColor: RK.hair, justifyContent: 'center',
+    },
+    customInput: { fontFamily: RK_FONT.body, fontSize: 13, color: RK.cream, padding: 0 },
+    addBtn: { width: 42, height: 42, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+});

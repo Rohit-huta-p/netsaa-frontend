@@ -86,8 +86,8 @@ export default function Welcome() {
         const launch = (cx: number, cy: number) => {
             setDisk({ color: ACCENT[role] ?? C.cardArtist, cx, cy });
             scale.set(0);
-            contentOpacity.set(withTiming(0.12, { duration: 500, easing: EASE_EXPAND }));
-            scale.set(withTiming(FULL_SCALE, { duration: 640, easing: EASE_EXPAND }, (fin) => {
+            contentOpacity.set(withTiming(0.12, { duration: 660, easing: EASE_EXPAND }));
+            scale.set(withTiming(FULL_SCALE, { duration: 820, easing: EASE_EXPAND }, (fin) => {
                 'worklet';
                 if (fin) runOnJS(go)(role);
             }));

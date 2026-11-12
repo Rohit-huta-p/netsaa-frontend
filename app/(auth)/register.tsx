@@ -91,7 +91,7 @@ export default function RegisterScreen() {
     const coverOpacity = useSharedValue(entering ? 1 : 0);
     const coverStyle = useAnimatedStyle(() => ({ opacity: coverOpacity.get() }));
     useEffect(() => {
-        if (entering) coverOpacity.set(withTiming(0, { duration: 380, easing: EASE_OUT }));
+        if (entering) coverOpacity.set(withTiming(0, { duration: 480, easing: EASE_OUT }));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

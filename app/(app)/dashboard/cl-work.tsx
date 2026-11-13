@@ -24,9 +24,9 @@ import PitchingComingSoon from '@/components/dashboard/creativeLead/home/Pitchin
 type Face = 'hiring' | 'hosting' | 'pitching';
 
 const FACES: { key: Face; label: string }[] = [
-  { key: 'hiring', label: 'Hiring' },
-  { key: 'hosting', label: 'Hosting' },
-  { key: 'pitching', label: 'Pitching' },
+  { key: 'hiring', label: 'Gigs' },
+  { key: 'hosting', label: 'Events' },
+  { key: 'pitching', label: 'Clients' },
 ];
 
 const HIRE_SUBS: HireSub[] = ['live', 'draft', 'closed'];

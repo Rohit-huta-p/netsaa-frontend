@@ -114,9 +114,9 @@ export default function CreativeLeadWork() {
         value={face}
         onChange={setFace}
         options={[
-          { key: 'hiring', label: 'Hiring' },
-          { key: 'hosting', label: 'Hosting' },
-          { key: 'pitching', label: 'Pitching' },
+          { key: 'hiring', label: 'Gigs' },
+          { key: 'hosting', label: 'Events' },
+          { key: 'pitching', label: 'Clients' },
         ]}
       />
       {subtabs}

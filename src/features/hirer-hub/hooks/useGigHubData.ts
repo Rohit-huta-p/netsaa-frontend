@@ -5,7 +5,7 @@
 // useUserContracts doesn't support a gigId server filter yet — at MVP scale
 // (typically < 50 contracts per user) the client filter is fine.
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useGig } from '@/hooks/useGigs';
 import { useGigApplications } from '@/hooks/useGigApplications';
 import { useUserContracts } from '@/hooks/usePayments';
@@ -127,6 +127,18 @@ export function useGigHubData(gigId: string) {
         return undefined;
     }, [teamRows]);
 
+    // Manual refresh for the hub's "New applicants" header button. Refetches the
+    // gig + its applications (NOT contracts — those are out of scope and the
+    // query is `enabled:false`, so refetching would call the forbidden
+    // /users/me/contracts). `isRefetching` is true only for a refresh over
+    // already-loaded data, so the header icon spins on an owner-triggered
+    // refresh, never on first mount.
+    const refetch = useCallback(
+        () => Promise.all([gigQuery.refetch(), appsQuery.refetch()]),
+        [gigQuery, appsQuery]
+    );
+    const isRefetching = appsQuery.isRefetching || gigQuery.isRefetching;
+
     return {
         gig,
         applications,
@@ -141,6 +153,8 @@ export function useGigHubData(gigId: string) {
         urgentTeamRowCount,
         firstUrgentLabel,
         kpis,
+        refetch,
+        isRefetching,
         isLoading: gigQuery.isLoading || appsQuery.isLoading,
         // Contracts are optional/disabled — a contracts failure must NOT block
         // the hub. The page needs the gig + applications; contracts only

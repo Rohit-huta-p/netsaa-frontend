@@ -719,9 +719,6 @@ export default function Navbar() {
                     {/* Auth actions */}
                     {isAuthenticated ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                            {/* Messages / inbox */}
-                            <InboxButton count={inboxCount} onPress={() => router.push('/(app)/inbox' as any)} />
-
                             {/* Notifications */}
                             <TouchableOpacity style={{ position: 'relative' }} onPress={() => router.push('/(app)/notifications')}>
                                 <Bell size={22} color="white" />
@@ -852,9 +849,6 @@ export default function Navbar() {
                                     )}
                                 </>
                             )}
-
-                            {/* Messages / inbox */}
-                            <InboxButton count={inboxCount} onPress={() => router.push('/(app)/inbox' as any)} />
 
                             {/* Bell */}
                             <TouchableOpacity style={{ position: 'relative' }} onPress={() => router.push('/(app)/notifications')}>

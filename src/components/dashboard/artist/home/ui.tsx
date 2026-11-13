@@ -5,8 +5,9 @@
 // A·Minimal #121216 surfaces + the editorial type the home kept (DM Serif
 // headlines, Space Mono labels, Outfit body). StyleSheet-only.
 
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, Pressable, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { Bookmark, ArrowRight } from 'lucide-react-native';
 
 // A·Minimal palette (mirrors the gig-detail #121216 family) + brand accents.
@@ -203,6 +204,47 @@ export function Row({
   );
 }
 
+// ─── skeleton (loading placeholder) ──────────────────────────────────────
+// A·Minimal loading shimmer — one opacity pulse on the UI thread (mirrors
+// SearchSkeleton). RowsSkeleton stands in for a "Your work" list while its
+// posted gigs/events call is in flight, so the section never flashes a false
+// empty state; SkeletonBlock is the primitive for one-off placeholders.
+export const SKELETON = 'rgba(255,255,255,0.06)';
+
+/** One shared opacity pulse for skeleton blocks (UI-thread, infinite). */
+export function useShimmerStyle() {
+  const pulse = useSharedValue(0.5);
+  useEffect(() => {
+    pulse.value = withRepeat(withTiming(1, { duration: 750, easing: Easing.inOut(Easing.ease) }), -1, true);
+  }, [pulse]);
+  return useAnimatedStyle(() => ({ opacity: pulse.value }));
+}
+
+/** A single shimmering block — size/radius come from `style`. */
+export function SkeletonBlock({ style }: { style?: StyleProp<ViewStyle> }) {
+  const shimmer = useShimmerStyle();
+  return <Animated.View style={[{ backgroundColor: SKELETON }, style, shimmer]} />;
+}
+
+/** Placeholder rows that mirror <Row> while a list is loading. */
+export function RowsSkeleton({ rows = 3 }: { rows?: number }) {
+  const shimmer = useShimmerStyle();
+  return (
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {Array.from({ length: rows }).map((_, i) => (
+        <View key={i} style={s.row}>
+          <Animated.View style={[s.skThumb, shimmer]} />
+          <View style={s.rb}>
+            <Animated.View style={[s.skLine, s.skLineA, shimmer]} />
+            <Animated.View style={[s.skLine, s.skLineB, shimmer]} />
+          </View>
+          <Animated.View style={[s.skRight, shimmer]} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ─── see-all link ────────────────────────────────────────────────────────
 export function SeeAll({ label, onPress }: { label: string; onPress: () => void }) {
   return (
@@ -270,4 +312,10 @@ const s = StyleSheet.create({
   emptyCopy: { fontFamily: HF.body, fontSize: 13, color: HC.t2, textAlign: 'center', lineHeight: 19, marginBottom: 12 },
   emptyCta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   emptyCtaTxt: { fontFamily: HF.mono, fontSize: 10, letterSpacing: 1.3, color: HC.orange },
+
+  skThumb: { width: 40, height: 40, borderRadius: 10, backgroundColor: SKELETON },
+  skLine: { backgroundColor: SKELETON, borderRadius: 6 },
+  skLineA: { height: 13, width: '58%', marginBottom: 7 },
+  skLineB: { height: 10, width: '34%' },
+  skRight: { width: 34, height: 15, borderRadius: 6, backgroundColor: SKELETON },
 });

@@ -12,7 +12,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SegTabs, SubTabs, SeeAll, EmptyState, HC, HF } from '@/components/dashboard/artist/home/ui';
+import { SegTabs, SubTabs, SeeAll, EmptyState, HC, HF, RowsSkeleton } from '@/components/dashboard/artist/home/ui';
 import useCreativeLeadInvolvement from './useCreativeLeadInvolvement';
 import { hiringRow, hostingRow } from './clWorkRows';
 import PitchingComingSoon from './PitchingComingSoon';
@@ -62,6 +62,8 @@ export default function CreativeLeadWork() {
     );
     rows = hasItems ? (
       items.slice(0, LIMIT).map((p) => hiringRow(p, hireSub, { newByGig: inv.newByGig, router }))
+    ) : inv.isLoading ? (
+      <RowsSkeleton rows={LIMIT} />
     ) : (
       <EmptyState copy="No gigs here yet." cta="Post a gig" onPress={() => router.push('/(app)/create?initialTab=gig' as any)} />
     );
@@ -83,6 +85,8 @@ export default function CreativeLeadWork() {
     );
     rows = hasItems ? (
       items.slice(0, LIMIT).map((p) => hostingRow(p, hostSub, { router }))
+    ) : inv.isLoading ? (
+      <RowsSkeleton rows={LIMIT} />
     ) : (
       <EmptyState copy="Nothing scheduled." cta="Create event" onPress={() => router.push('/(app)/create?initialTab=event' as any)} />
     );

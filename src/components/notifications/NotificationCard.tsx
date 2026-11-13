@@ -33,12 +33,17 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({ notification
     const actorImage = actor?.profileImageUrl;
 
     // Inline connection actions — only when the payload carries a connectionId
-    // AND the user hasn't already responded. The outcome lives in the store
-    // (not local state) so the row stays resolved across refetch / refocus /
-    // remount — otherwise the server keeps re-sending the request row and the
-    // Accept/Decline buttons wrongly reappear.
+    // AND the request is still unresolved. Resolution comes from two layers:
+    //   1. respondedConnections — the instant-optimistic flag set when the user
+    //      taps Accept/Decline on THIS card (flips before any refetch lands).
+    //   2. data.params.status — the durable truth the backend stamps onto the
+    //      request row at accept/decline time, on ANY surface. This is what keeps
+    //      the CTAs gone after an app reload, or when the request was handled from
+    //      the Network / Invitations screen rather than from this card.
     const connectionId = notification.data?.params?.connectionId;
-    const resolved = typeof connectionId === 'string' ? respondedConnections[connectionId] : undefined;
+    const serverStatus = notification.data?.params?.status as 'accepted' | 'rejected' | undefined;
+    const localStatus = typeof connectionId === 'string' ? respondedConnections[connectionId] : undefined;
+    const resolved = localStatus ?? serverStatus;
     const canAct = typeof connectionId === 'string' && !resolved;
     const [pending, setPending] = useState(false);
 

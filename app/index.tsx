@@ -6,13 +6,12 @@ import { Redirect } from 'expo-router';
 import useAuthStore from '@/stores/authStore';
 import AppLoadingScreen from '@/components/ui/AppLoadingScreen';
 import HeroSection from '@/components/landing/HeroSection';
-import MarqueeSection from '@/components/landing/MarqueeSection';
-import WhatsAppSection from '@/components/landing/WhatsAppSection';
-import SolutionSection from '@/components/landing/SolutionSection';
-import HowItWorksSection from '@/components/landing/HowItWorksSection';
-import TrustSection from '@/components/landing/TrustSection';
-import ManifestoSection from '@/components/landing/ManifestoSection';
-import WaitlistSection from '@/components/landing/WaitlistSection';
+import RoleSpotlightSection from '@/components/landing/RoleSpotlightSection';
+import CreativeCommunitySection from '@/components/landing/CreativeCommunitySection';
+import DiscoverSection from '@/components/landing/DiscoverSection';
+import EventsScrollSection from '@/components/landing/EventsScrollSection';
+import QuoteSection from '@/components/landing/QuoteSection';
+import VoicesSection from '@/components/landing/VoicesSection';
 import FinaleSection, { FooterSection } from '@/components/landing/FinaleSection';
 import { LANDING } from '@/constants/landingTheme';
 
@@ -20,13 +19,7 @@ import { LANDING } from '@/constants/landingTheme';
  * Root route `/` — auth gate.
  *
  *   logged OUT → public landing page
- *   logged IN  → role-dispatched home (/(app)/dashboard → client:/client ·
- *                artist:artist-home · creative_lead:hirer-home)
- *
- * Flash-safe: waits for SecureStore rehydration (isHydrated) before deciding,
- * so a logged-in user never sees a landing-page flash on cold start. We gate on
- * accessToken only (not isAuthLoading) — token presence is enough to send the
- * user inward; the (app) layer revalidates via getMe() and bounces to /login on 401.
+ *   logged IN  → role-dispatched home (/(app)/dashboard)
  */
 export default function Index() {
   const isHydrated = useAuthStore((s) => s.isHydrated);
@@ -40,19 +33,18 @@ export default function Index() {
 }
 
 /**
- * NETSA Landing Page — Palette 18: Sunset Gradient + Cool Accents
+ * NETSA Landing Page — Figma clone v2 design
  *
  * Section flow:
- *   1. HERO — Giant serif headline, performer photo, gradient CTAs
- *   2. MARQUEE — Horizontal scrolling art forms ticker
- *   3. WHATSAPP — "Sound familiar?" conversation mockup + punchlines
- *   4. SOLUTION — 3 pillars + app phone mockup
- *   5. HOW IT WORKS — 3 steps (Show Up, Gigs Find You, Get Paid)
- *   6. TRUST — Before/After comparison + trust tier progression
- *   7. MANIFESTO — White interrupt: "Performing Art Is Not Just a Hobby."
- *   8. WAITLIST — "Be Among the First 200" + phone input
- *   9. FINALE — "Your Art Has Value. Own It."
- *   10. FOOTER
+ *   1. HERO — Centered "THE STAGE IS / REVOLUTIONIZED", LOG IN nav, proof avatars
+ *   2. ROLE SPOTLIGHT — 3 expandable role panels (Client / CL / Artist)
+ *   3. CREATIVE COMMUNITY — 4 tilted artist cards with discipline accents
+ *   4. DISCOVER — Right-aligned heading + 2-col opportunity grid
+ *   5. EVENTS SCROLL — Horizontal FlatList of event cards
+ *   6. QUOTE — White bg, staggered "PERFORMING ART IS NOT JUST A HOBBY." serif
+ *   7. VOICES — Testimonial cards from the community
+ *   8. FINALE — "Ready to take center stage?" + 2 CTAs
+ *   9. FOOTER
  */
 function LandingScreen() {
   return (
@@ -65,13 +57,12 @@ function LandingScreen() {
         bounces={true}
       >
         <HeroSection />
-        <MarqueeSection />
-        <WhatsAppSection />
-        <SolutionSection />
-        <HowItWorksSection />
-        <TrustSection />
-        <ManifestoSection />
-        <WaitlistSection />
+        <RoleSpotlightSection />
+        <CreativeCommunitySection />
+        <DiscoverSection />
+        <EventsScrollSection />
+        <QuoteSection />
+        <VoicesSection />
         <FinaleSection />
         <FooterSection />
       </ScrollView>

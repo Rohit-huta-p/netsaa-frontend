@@ -1,58 +1,55 @@
 /**
- * NETSA Landing Page Theme — Palette 18: Sunset Gradient + Cool Accents
+ * NETSA Landing Page Theme — v2 Figma Clone
  *
- * Brand gradient: Pink (#EC4899) > Orange (#F97316) > Gold (#EAB308)
- * System accents: Cyan (#06B6D4) for info/badges, Green (#34D399) for trust
- * Canvas: Deep dark (#0A0A10) with elevated (#121018)
+ * Matches the web landing (index.web.tsx / NETSA_figma_clone_v2photos.html):
+ * Rose (#ff4d88) → Orange (#ff822e) → Peach (#ff976b) on near-black (#09090b)
  */
 
 export const LANDING = {
-  // Brand gradient colors
   gradient: {
-    pink: '#EC4899',
-    orange: '#F97316',
-    gold: '#EAB308',
-    colors: ['#EC4899', '#F97316'] as const,
-    colorsFull: ['#EC4899', '#F97316', '#EAB308'] as const,
+    rose: '#ff4d88',
+    orange: '#ff822e',
+    peach: '#ff976b',
+    colors: ['#ff4d88', '#ff822e'] as const,
+    colorsFull: ['#ff4d88', '#ff822e', '#ff976b'] as const,
+    // kept for legacy refs in existing components
+    pink: '#ff4d88',
+    gold: '#ff976b',
   },
 
-  // System accent colors
   accent: {
     cyan: '#06B6D4',
     green: '#34D399',
     purple: '#8B5CF6',
   },
 
-  // Backgrounds
   bg: {
-    primary: '#0A0A10',
-    elevated: '#121018',
+    primary: '#09090b',
+    elevated: '#111113',
+    card: '#111113',
     white: '#FFFFFF',
   },
 
-  // Text
   text: {
-    primary: '#F0ECE6',
-    mid: '#6B6878',
-    dim: '#4A4656',
+    primary: '#f5f5f5',
+    mid: '#a7a7ae',
+    dim: '#6b6b72',
     black: '#000000',
   },
 
-  // Borders
   border: {
     default: 'rgba(255,255,255,0.06)',
-    strong: 'rgba(255,255,255,0.1)',
+    strong: 'rgba(255,255,255,0.10)',
+    card: 'rgba(39,39,42,0.45)',
   },
 
-  // Trust tiers
   trust: {
     new: '#6B7280',
     rising: '#3B82F6',
     trusted: '#34D399',
-    verified: '#EAB308',
+    verified: '#f59e0b',
   },
 
-  // WhatsApp mockup colors
   wa: {
     bg: '#0B141A',
     header: '#1F2C34',
@@ -64,13 +61,11 @@ export const LANDING = {
     dateBg: '#1B2831',
   },
 
-  // Glow/shadow
   glow: {
-    orange: 'rgba(249,115,22,0.25)',
-    pink: 'rgba(236,72,153,0.2)',
+    orange: 'rgba(255,130,46,0.25)',
+    pink: 'rgba(255,77,136,0.20)',
   },
 
-  // Fonts
   fonts: {
     serif: 'DMSerifDisplay_400Regular',
     sans: 'Outfit-Regular',
@@ -79,12 +74,11 @@ export const LANDING = {
     sansSemiBold: 'Outfit-SemiBold',
     sansMedium: 'Outfit-Medium',
     sansLight: 'Outfit-Light',
-    mono: 'Outfit-Medium', // Using Outfit-Medium for label/mono role since Space Grotesk isn't loaded
+    mono: 'Outfit-Medium',
   },
 
-  // Spacing
   spacing: {
-    px: 20, // Side padding on mobile
+    px: 24,
     sectionVertical: 80,
     sectionVerticalLarge: 120,
   },

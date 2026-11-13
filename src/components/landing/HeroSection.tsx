@@ -1,185 +1,156 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Pressable, Dimensions, StyleSheet, Animated, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowRight, Search } from 'lucide-react-native';
 import MaskedView from '@react-native-masked-view/masked-view';
+import { useRouter } from 'expo-router';
 import { LANDING } from '@/constants/landingTheme';
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const PROOF_AVATARS = [
+  'https://netsaa.com/landing/imgContainer.jpg',
+  'https://netsaa.com/landing/imgContainer1.jpg',
+  'https://netsaa.com/landing/imgContainer2.jpg',
+  'https://netsaa.com/landing/imgContainer3.jpg',
+];
 
 export default function HeroSection() {
+  const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const scrollBounce = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(24)).current;
 
   useEffect(() => {
-    Animated.stagger(150, [
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
-      ]),
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 900, useNativeDriver: true }),
     ]).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(scrollBounce, { toValue: 1, duration: 1200, useNativeDriver: true }),
-        Animated.timing(scrollBounce, { toValue: 0, duration: 1200, useNativeDriver: true }),
-      ])
-    ).start();
   }, []);
-
-  const scrollHeight = scrollBounce.interpolate({
-    inputRange: [0, 1],
-    outputRange: [36, 48],
-  });
 
   return (
     <View style={styles.hero}>
-      {/* Ambient orbs */}
-      {/* <View style={[styles.orb, styles.orbPink]} /> */}
-      {/* <View style={[styles.orb, styles.orbOrange]} /> */}
+      {/* Glow blobs */}
+      <View style={[styles.glow, styles.glowRose]} />
+      <View style={[styles.glow, styles.glowOrange]} />
+      <View style={[styles.glow, styles.glowPeach]} />
 
-      {/* Performer photo */}
-      <View style={styles.heroImage}>
-        <Image
-          source={{ uri: 'https://images.unsplash.com/photo-1508700929628-666bc8bd84ea?w=900&q=75' }}
-          style={styles.heroPhoto}
-          resizeMode="cover"
-        />
-        <LinearGradient
-          colors={[LANDING.bg.primary, 'rgba(10,10,16,0.7)', 'rgba(10,10,16,0.3)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <LinearGradient
-          colors={['rgba(10,10,16,0.3)', 'transparent', 'rgba(10,10,16,0.8)', LANDING.bg.primary]}
-          locations={[0, 0.3, 0.8, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
-
-      {/* Nav
+      {/* Nav */}
       <Animated.View style={[styles.nav, { opacity: fadeAnim }]}>
-        <MaskedView
-          maskElement={<Text style={styles.navLogoMask}>NETSA</Text>}
-        >
+        <MaskedView maskElement={<Text style={styles.navLogo}>NETSA</Text>}>
           <LinearGradient colors={[...LANDING.gradient.colors]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-            <Text style={[styles.navLogoMask, { opacity: 0 }]}>NETSA</Text>
+            <Text style={[styles.navLogo, { opacity: 0 }]}>NETSA</Text>
           </LinearGradient>
         </MaskedView>
-
-        <Pressable style={styles.navCta}>
-          <Text style={styles.navCtaText}>JOIN WAITLIST</Text>
-        </Pressable>
-      </Animated.View> */}
-
-      {/* Hero content */}
-      <Animated.View style={[styles.heroContent, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-        {/* Label */}
-        <MaskedView
-          maskElement={<Text style={styles.heroLabel}>FOR INDIAN PERFORMING ARTISTS</Text>}
-        >
-          <LinearGradient colors={[...LANDING.gradient.colors]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-            <Text style={[styles.heroLabel, { opacity: 0 }]}>FOR INDIAN PERFORMING ARTISTS</Text>
-          </LinearGradient>
-        </MaskedView>
-
-        {/* Title */}
-        <View style={styles.titleWrap}>
-          <Text style={styles.heroTitle}>Your Art{'\n'}Deserves a </Text>
-          <MaskedView
-            maskElement={<Text style={[styles.heroTitle, styles.heroTitleAccent]}>Stage.</Text>}
-          >
-            <LinearGradient colors={[...LANDING.gradient.colors]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-              <Text style={[styles.heroTitle, styles.heroTitleAccent, { opacity: 0 }]}>Stage.</Text>
-            </LinearGradient>
-          </MaskedView>
+        <Pressable style={styles.navCta} onPress={() => router.push('/(auth)/login')}>
           <LinearGradient
             colors={[...LANDING.gradient.colors]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.titleUnderline}
-          />
-        </View>
+            style={styles.navCtaGrad}
+          >
+            <Text style={styles.navCtaText}>LOG IN</Text>
+          </LinearGradient>
+        </Pressable>
+      </Animated.View>
+
+      {/* Hero content — centered */}
+      <Animated.View style={[styles.heroContent, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        {/* Headline */}
+        <Text style={styles.headLine1}>THE STAGE IS</Text>
+        <MaskedView maskElement={<Text style={styles.headLine2}>REVOLUTIONIZED</Text>}>
+          <LinearGradient
+            colors={['#ff4d88', '#ff822e', '#ff976b']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <Text style={[styles.headLine2, { opacity: 0 }]}>REVOLUTIONIZED</Text>
+          </LinearGradient>
+        </MaskedView>
 
         {/* Subtitle */}
-        <Text style={styles.heroSub}>
-          The platform where performing artists in India get discovered, get booked, and get paid. Directly.
+        <Text style={styles.sub}>
+          Empowering India's performing artists with a transparent, direct, and professional ecosystem.
         </Text>
 
         {/* CTAs */}
-        <View style={styles.heroActions}>
-          <Pressable style={({ pressed }) => [styles.btnWrap, pressed && { transform: [{ scale: 0.97 }] }]}>
+        <View style={styles.ctas}>
+          <Pressable
+            style={({ pressed }) => [styles.btnWrap, pressed && { transform: [{ scale: 0.97 }] }]}
+            onPress={() => router.push('/(auth)/register')}
+          >
             <LinearGradient
               colors={[...LANDING.gradient.colors]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.btnPrimary}
+              style={styles.btnFill}
             >
-              <Text style={styles.btnPrimaryText}>I'm an Artist</Text>
-              <ArrowRight size={18} color="#fff" strokeWidth={2} />
+              <Text style={styles.btnFillText}>Join NETSA</Text>
             </LinearGradient>
           </Pressable>
 
-          <Pressable style={styles.btnSecondary}>
-            <Text style={styles.btnSecondaryText}>I Need Talent</Text>
-            <Search size={18} color={LANDING.accent.purple} strokeWidth={2} />
+          <Pressable
+            style={({ pressed }) => [styles.btnOutline, pressed && { opacity: 0.7 }]}
+            onPress={() => router.push('/(app)/gigs')}
+          >
+            <Text style={styles.btnOutlineText}>Explore Gigs</Text>
           </Pressable>
         </View>
+
+        {/* Proof strip */}
+        <View style={styles.proof}>
+          <View style={styles.avatars}>
+            {PROOF_AVATARS.map((uri, i) => (
+              <Image
+                key={i}
+                source={{ uri }}
+                style={[styles.avatar, { marginLeft: i === 0 ? 0 : -14 }]}
+              />
+            ))}
+          </View>
+          <Text style={styles.proofLabel}>26M+ Aspiring Artists in India</Text>
+        </View>
       </Animated.View>
-
-      {/* Scroll indicator */}
-      {/* <View style={styles.scrollHint}>
-        <Animated.View style={[styles.scrollLine, { height: scrollHeight }]} />
-        <Text style={styles.scrollText}>SCROLL</Text>
-      </View> */}
-
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   hero: {
-    minHeight: SCREEN_HEIGHT - 120,
-    justifyContent: 'flex-end',
-    position: 'relative',
-    overflow: 'hidden',
-    paddingBottom: 60,
+    minHeight: 680,
     backgroundColor: LANDING.bg.primary,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 64,
+    paddingTop: 0,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  orb: {
+  glow: {
     position: 'absolute',
-    borderRadius: 999,
+    borderRadius: 9999,
   },
-  orbPink: {
-    width: 400,
-    height: 400,
-    top: -80,
+  glowRose: {
+    width: 500,
+    height: 500,
+    top: -180,
+    left: -60,
+    backgroundColor: LANDING.gradient.rose,
+    opacity: 0.05,
+  },
+  glowOrange: {
+    width: 420,
+    height: 420,
+    top: -120,
     right: -60,
-    backgroundColor: LANDING.gradient.pink,
-    opacity: 0.08,
-  },
-  orbOrange: {
-    width: 320,
-    height: 320,
-    bottom: 80,
-    left: -80,
     backgroundColor: LANDING.gradient.orange,
     opacity: 0.06,
   },
-  heroImage: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: SCREEN_WIDTH * 0.6,
-    height: '100%',
-    overflow: 'hidden',
-  },
-  heroPhoto: {
-    width: '100%',
-    height: '100%',
-    opacity: 0.4,
+  glowPeach: {
+    width: 360,
+    height: 360,
+    top: '30%',
+    left: '30%',
+    backgroundColor: LANDING.gradient.peach,
+    opacity: 0.04,
   },
   nav: {
     position: 'absolute',
@@ -193,115 +164,107 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 10,
   },
-  navLogoMask: {
+  navLogo: {
     fontFamily: LANDING.fonts.serif,
     fontSize: 22,
     letterSpacing: 2,
   },
   navCta: {
+    borderRadius: 9999,
+    overflow: 'hidden',
+  },
+  navCtaGrad: {
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: LANDING.border.default,
-    borderRadius: 100,
+    borderRadius: 9999,
   },
   navCtaText: {
     fontFamily: LANDING.fonts.sansMedium,
     fontSize: 11,
     letterSpacing: 1,
-    color: LANDING.text.mid,
+    color: '#fff',
     textTransform: 'uppercase',
   },
   heroContent: {
+    alignItems: 'center',
     paddingHorizontal: LANDING.spacing.px,
-    zIndex: 5,
+    zIndex: 2,
+    width: '100%',
   },
-  heroLabel: {
-    fontFamily: LANDING.fonts.sansMedium,
-    fontSize: 11,
-    letterSpacing: 4,
-    textTransform: 'uppercase',
-    marginBottom: 20,
-    color: LANDING.gradient.orange,
+  headLine1: {
+    fontFamily: LANDING.fonts.serif,
+    fontSize: 38,
+    letterSpacing: -1.5,
+    color: LANDING.text.primary,
+    textAlign: 'center',
+    lineHeight: 42,
   },
-  titleWrap: {
-    marginBottom: 28,
-  },
-  heroTitle: {
+  headLine2: {
     fontFamily: LANDING.fonts.serif,
     fontSize: 48,
-    lineHeight: 48 * 0.95,
     letterSpacing: -2,
-    color: LANDING.text.primary,
+    textAlign: 'center',
+    lineHeight: 52,
+    marginBottom: 24,
   },
-  heroTitleAccent: {
-    fontStyle: 'italic',
-  },
-  titleUnderline: {
-    width: 120,
-    height: 3,
-    borderRadius: 2,
-    opacity: 0.25,
-    marginTop: 4,
-  },
-  heroSub: {
-    fontFamily: LANDING.fonts.sansLight,
-    fontSize: 16,
-    lineHeight: 16 * 1.7,
+  sub: {
+    fontFamily: LANDING.fonts.sans,
+    fontSize: 15,
+    lineHeight: 24,
     color: LANDING.text.mid,
-    maxWidth: 340,
+    textAlign: 'center',
+    maxWidth: SCREEN_WIDTH - 64,
     marginBottom: 32,
   },
-  heroActions: {
-    flexDirection: 'column',
+  ctas: {
+    flexDirection: 'row',
     gap: 12,
+    marginBottom: 32,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   btnWrap: {},
-  btnPrimary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
+  btnFill: {
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 9999,
   },
-  btnPrimaryText: {
+  btnFillText: {
     fontFamily: LANDING.fonts.sansSemiBold,
     fontSize: 15,
     color: '#fff',
   },
-  btnSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: 'rgba(139,92,246,0.25)',
+  btnOutline: {
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
   },
-  btnSecondaryText: {
+  btnOutlineText: {
     fontFamily: LANDING.fonts.sansSemiBold,
     fontSize: 15,
-    color: LANDING.accent.purple,
+    color: LANDING.text.primary,
   },
-  scrollHint: {
-    alignSelf: 'center',
+  proof: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 40,
+    gap: 10,
   },
-  scrollLine: {
-    width: 1,
-    backgroundColor: LANDING.text.dim,
-    marginBottom: 8,
+  avatars: {
+    flexDirection: 'row',
   },
-  scrollText: {
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: LANDING.bg.primary,
+    backgroundColor: LANDING.bg.elevated,
+  },
+  proofLabel: {
     fontFamily: LANDING.fonts.sansMedium,
-    fontSize: 9,
-    letterSpacing: 3,
-    color: LANDING.text.dim,
-    textTransform: 'uppercase',
+    fontSize: 13,
+    color: '#fff',
   },
 });

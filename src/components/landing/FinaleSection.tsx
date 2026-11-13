@@ -13,16 +13,16 @@ export default function FinaleSection() {
 
       {/* Heading */}
       <Text style={styles.heading}>
-        Your Art{'\n'}Has Value.{'\n'}
-        <MaskedView maskElement={<Text style={styles.headingAccent}>Own It.</Text>}>
+        Ready to take{'\n'}
+        <MaskedView maskElement={<Text style={styles.headingAccent}>center stage?</Text>}>
           <LinearGradient colors={[...LANDING.gradient.colors]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-            <Text style={[styles.headingAccent, { opacity: 0 }]}>Own It.</Text>
+            <Text style={[styles.headingAccent, { opacity: 0 }]}>center stage?</Text>
           </LinearGradient>
         </MaskedView>
       </Text>
 
       <Text style={styles.sub}>
-        Join the first 200 artists shaping the future of performing arts in India.
+        Join a growing community of performing artists finding work, building reputation, and owning their craft.
       </Text>
 
       {/* CTAs */}
@@ -34,13 +34,13 @@ export default function FinaleSection() {
             end={{ x: 1, y: 0 }}
             style={styles.btnPrimary}
           >
-            <Text style={styles.btnPrimaryText}>Join NETSA — It's Free</Text>
+            <Text style={styles.btnPrimaryText}>Join NETSA</Text>
             <ArrowRight size={18} color="#fff" strokeWidth={2} />
           </LinearGradient>
         </Pressable>
 
         <Pressable style={styles.btnSecondary}>
-          <Text style={styles.btnSecondaryText}>I Need Talent</Text>
+          <Text style={styles.btnSecondaryText}>Explore Gigs</Text>
         </Pressable>
       </View>
 

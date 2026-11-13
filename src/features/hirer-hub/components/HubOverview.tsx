@@ -19,9 +19,10 @@
 // The stage state is owned by HirerGigHub (lifted) so the sticky CTA, the
 // "Fill slot" shortcuts and the overview all drive the same selection.
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { MoreHorizontal, ChevronDown } from 'lucide-react-native';
+import { MoreHorizontal, ChevronDown, RefreshCw } from 'lucide-react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, cancelAnimation, Easing } from 'react-native-reanimated';
 import type { HubStage } from '../hooks/useGigHubData';
 
 const COLORS = {
@@ -61,6 +62,9 @@ type Props = {
     onToggleSort?: () => void;
     /** ⋯ manage-gig menu. Inert (undefined) until B4. */
     onMenu?: () => void;
+    /** Manual refresh for the applicant list; the header icon spins while `refreshing`. */
+    onRefresh?: () => void;
+    refreshing?: boolean;
 };
 
 const STAGE_ORDER: { key: HubStage; label: string }[] = [
@@ -69,9 +73,45 @@ const STAGE_ORDER: { key: HubStage; label: string }[] = [
     { key: 'hired', label: 'Hired' },
 ];
 
+// Small refresh affordance at the end of the list header (manage-gig.html's
+// `.refresh` — a bordered-square glyph). Mobile has no hover, so instead of the
+// mockup's hover-rotate it spins continuously while a refresh is in flight and
+// is disabled meanwhile to swallow double-taps.
+function HubRefreshButton({ refreshing, onPress }: { refreshing?: boolean; onPress?: () => void }) {
+    const spin = useSharedValue(0);
+    useEffect(() => {
+        if (refreshing) {
+            spin.value = withRepeat(withTiming(360, { duration: 850, easing: Easing.linear }), -1, false);
+        } else {
+            cancelAnimation(spin);
+            spin.value = withTiming(0, { duration: 220 });
+        }
+    }, [refreshing, spin]);
+    const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${spin.value}deg` }] }));
+    return (
+        <TouchableOpacity
+            onPress={onPress}
+            disabled={!onPress || refreshing}
+            accessibilityLabel="Refresh applicants"
+            accessibilityRole="button"
+            accessibilityState={{ busy: !!refreshing }}
+            hitSlop={8}
+            style={{
+                width: 26, height: 26, borderRadius: 8,
+                borderWidth: 1, borderColor: COLORS.menuLine,
+                alignItems: 'center', justifyContent: 'center',
+            }}>
+            <Animated.View style={style}>
+                <RefreshCw size={13} color={COLORS.orangeTint} strokeWidth={2.2} />
+            </Animated.View>
+        </TouchableOpacity>
+    );
+}
+
 export function HubOverview({
     title, statusKey, metaLine, counts, slotsTotal,
     activeStage, onSelectStage, sortLabel = 'RATING', onToggleSort, onMenu,
+    onRefresh, refreshing,
 }: Props) {
     const pill = STATUS_PILL[statusKey ?? ''] ?? STATUS_PILL.published;
     const filled = counts.hired;
@@ -180,26 +220,33 @@ export function HubOverview({
                 <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 9.5, letterSpacing: 1.5, textTransform: 'uppercase', color: COLORS.text2 }}>
                     {lsecLabel}
                 </Text>
-                {activeStage === 'hired' ? (
-                    <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: open > 0 ? COLORS.orangeTint : COLORS.text3 }}>
-                        {open > 0 ? `${open} Open` : 'Full'}
-                    </Text>
-                ) : (
-                    <TouchableOpacity
-                        onPress={onToggleSort}
-                        disabled={!onToggleSort}
-                        accessibilityLabel={`Sort by ${sortLabel.toLowerCase()}`}
-                        hitSlop={8}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 9, letterSpacing: 0.6, color: COLORS.orangeTint }}>
-                            SORT
+                {/* right group: the per-stage sort toggle / "N Open" readout,
+                    then a manual refresh that refetches the applicant list
+                    (manage-gig.html .lsec .refresh). The refresh sits at the end
+                    on every stage so it never jumps when the stage changes. */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    {activeStage === 'hired' ? (
+                        <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: open > 0 ? COLORS.orangeTint : COLORS.text3 }}>
+                            {open > 0 ? `${open} Open` : 'Full'}
                         </Text>
-                        <ChevronDown size={11} color={COLORS.orangeTint} strokeWidth={2.2} />
-                        <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 9, letterSpacing: 0.6, color: COLORS.orangeTint }}>
-                            {sortLabel}
-                        </Text>
-                    </TouchableOpacity>
-                )}
+                    ) : (
+                        <TouchableOpacity
+                            onPress={onToggleSort}
+                            disabled={!onToggleSort}
+                            accessibilityLabel={`Sort by ${sortLabel.toLowerCase()}`}
+                            hitSlop={8}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 9, letterSpacing: 0.6, color: COLORS.orangeTint }}>
+                                SORT
+                            </Text>
+                            <ChevronDown size={11} color={COLORS.orangeTint} strokeWidth={2.2} />
+                            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 9, letterSpacing: 0.6, color: COLORS.orangeTint }}>
+                                {sortLabel}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                    {onRefresh ? <HubRefreshButton refreshing={refreshing} onPress={onRefresh} /> : null}
+                </View>
             </View>
         </View>
     );

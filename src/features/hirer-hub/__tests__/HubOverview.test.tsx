@@ -63,4 +63,27 @@ describe('HubOverview', () => {
         fireEvent.press(getByLabelText('Sort by rating'));
         expect(onToggleSort).toHaveBeenCalled();
     });
+
+    it('shows the refresh button only when onRefresh is given, and firing it calls onRefresh', () => {
+        // Without onRefresh (the default baseProps) there is no refresh affordance.
+        const { queryByLabelText } = render(<HubOverview {...baseProps} activeStage="applied" />);
+        expect(queryByLabelText('Refresh applicants')).toBeNull();
+
+        // With onRefresh it renders and presses through.
+        const onRefresh = jest.fn();
+        const { getByLabelText } = render(
+            <HubOverview {...baseProps} activeStage="applied" onRefresh={onRefresh} />
+        );
+        fireEvent.press(getByLabelText('Refresh applicants'));
+        expect(onRefresh).toHaveBeenCalled();
+    });
+
+    it('keeps the refresh button on the Hired stage (end of the header, next to the readout)', () => {
+        const onRefresh = jest.fn();
+        const { getByLabelText } = render(
+            <HubOverview {...baseProps} activeStage="hired" onRefresh={onRefresh} />
+        );
+        fireEvent.press(getByLabelText('Refresh applicants'));
+        expect(onRefresh).toHaveBeenCalled();
+    });
 });

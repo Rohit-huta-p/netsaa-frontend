@@ -357,6 +357,10 @@ export function HirerGigHub({ gigId }: Props) {
                         onSelectStage={setActiveStage}
                         sortLabel={sortKey === 'rating' ? 'RATING' : 'RECENT'}
                         onToggleSort={toggleSort}
+                        // Manual refresh for the applicant list — refetches gig +
+                        // applications; the header icon spins while in flight.
+                        onRefresh={data.refetch}
+                        refreshing={data.isRefetching}
                         // ⋯ manage-gig menu is inert until B4.
                         onMenu={() => setMenuOpen(true)}
                     />

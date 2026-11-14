@@ -13,11 +13,16 @@ import { View, Text, TextInput, StyleProp, ViewStyle } from 'react-native';
 // Spotlight palette — warm near-black editorial. One orange accent; the old
 // per-tab rainbow is gone (section headers / chrome now use `orange`).
 export const P = {
-    pink: '#EC4899', orange: '#FF6B35', gold: '#EAB308',
-    cyan: '#06B6D4', green: '#22C55E',
-    bg: '#0A0A10', surface: '#121216', surfaceLight: '#17171C',
-    border: 'rgba(255,255,255,0.07)', borderActive: 'rgba(255,107,53,0.5)',
-    textPrimary: '#F4F4F5', textInput: '#D4D4D8', textSecondary: '#71717A', textMuted: '#52525B',
+    // Register-flow ("sign-up") language with the Artist indigo accent. `orange`
+    // keeps its key name (referenced widely) but now holds the LIGHTENED indigo
+    // used for accent text / thin borders / dots; `accent` is the solid indigo
+    // base for fills (active pill, Save, filled CTAs) paired with cream/white.
+    pink: '#9385DB', orange: '#9385DB', gold: '#9385DB',
+    cyan: '#9385DB', green: '#22C55E',
+    accent: '#362A93',
+    bg: '#121216', surface: '#1b1b21', surfaceLight: '#26262c',
+    border: 'rgba(255,255,255,0.08)', borderActive: 'rgba(147,133,219,0.55)',
+    textPrimary: '#F3EFE8', textInput: '#D9D4CC', textSecondary: '#71717A', textMuted: '#52525B',
     danger: '#EF4444',
 };
 

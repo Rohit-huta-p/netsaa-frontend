@@ -42,12 +42,14 @@ export type NotificationSocketPayload = {
     title: string;
     body?: string;
     data?: Notification['data'];
+    actor?: { _id: string; displayName?: string; profileImageUrl?: string } | null;
     createdAt: string;
 };
 
 /** Normalize a socket payload into a store Notification so it renders like a
- *  fetched one (actorId absent → the card shows the semantic icon, not an avatar,
- *  until the next fetch backfills it). */
+ *  fetched one. The server now sends `actor`, so the card shows the real
+ *  avatar + name-led copy ("{name} wants to connect") live, not the generic
+ *  fallback. */
 export function normalizeSocketNotification(p: NotificationSocketPayload): Notification {
     return {
         _id: p.id,
@@ -58,6 +60,7 @@ export function normalizeSocketNotification(p: NotificationSocketPayload): Notif
         message: p.body ?? '',
         body: p.body,
         data: p.data,
+        actorId: p.actor ?? undefined,
         isRead: false,
         createdAt: p.createdAt,
         updatedAt: p.createdAt,
@@ -214,13 +217,28 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
 
     // Prepend a new notification received in real time via socket.
     // Deduped by _id so a socket insert + a later fetch (or a double emit)
-    // can't create a duplicate row.
+    // can't create a duplicate row. For a connection request, also supersede any
+    // prior request card for the same connection (a re-send reuses the connectionId)
+    // and clear its stale accepted/declined flag, so a fresh request shows as one
+    // clean pending row — not "Request declined" on a brand-new request.
     incrementUnread: (notification: Notification) => {
-        set(state =>
-            state.notifications.some(n => n._id === notification._id)
-                ? state
-                : { notifications: [notification, ...state.notifications] }
-        );
+        set(state => {
+            if (state.notifications.some(n => n._id === notification._id)) return state;
+
+            const cid = notification.subtype === 'connection.request'
+                ? notification.data?.params?.connectionId
+                : undefined;
+            if (typeof cid !== 'string') {
+                return { notifications: [notification, ...state.notifications] };
+            }
+
+            const notifications = [
+                notification,
+                ...state.notifications.filter(n => n.data?.params?.connectionId !== cid),
+            ];
+            const { [cid]: _stale, ...respondedConnections } = state.respondedConnections;
+            return { notifications, respondedConnections };
+        });
     },
 
     // Reset unread count when notification screen opens

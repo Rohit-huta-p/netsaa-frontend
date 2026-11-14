@@ -1,9 +1,9 @@
 // src/components/connections/SentRequestRow.tsx
 //
 // A single outgoing (pending) connection request in the Network › Invitations › Sent tab.
-// A·Minimal tile + neutral "Pending" pill. Tapping Withdraw opens an inline confirm that
-// surfaces the real 14-day re-send cooldown the gigs/users service enforces on withdraw
-// (see connectionService.withdrawConnectionRequest). onWithdraw fires only after confirm.
+// A·Minimal tile + neutral "Pending" pill. Tapping Withdraw opens an inline confirm;
+// onWithdraw then cancels the pending request — the recipient stops seeing it and the
+// user can send a new one anytime (see connectionService.withdrawConnectionRequest).
 // Destructive red on the confirm action is a semantic accent, not decoration.
 
 import React, { useState } from 'react';
@@ -132,8 +132,7 @@ export const SentRequestRow = ({ item, currentUserId, onWithdraw, onPressUser, b
                     <View style={styles.cooldownWarn}>
                         <AlertCircle size={15} color={C.text3} strokeWidth={2} style={{ marginTop: 1 }} />
                         <Text style={styles.cooldownText}>
-                            Withdraw this request? You won't be able to re-send to {firstName} for{' '}
-                            <Text style={styles.cooldownStrong}>14 days</Text>.
+                            Withdraw this request? <Text style={styles.cooldownStrong}>{firstName}</Text> won't see it anymore — you can send a new one anytime.
                         </Text>
                     </View>
                     <View style={styles.cooldownBtns}>

@@ -43,12 +43,12 @@ describe('SentRequestRow', () => {
         expect(screen.getByText('Pending')).toBeTruthy();
     });
 
-    it('does NOT withdraw on first tap — it opens a confirm surfacing the 14-day cooldown', () => {
+    it('does NOT withdraw on first tap — it opens a confirm first', () => {
         const { onWithdraw } = setup();
         fireEvent.press(screen.getByTestId('sent-withdraw-c1'));
 
         expect(onWithdraw).not.toHaveBeenCalled();
-        expect(screen.getByText('14 days')).toBeTruthy();
+        expect(screen.getByText(/Withdraw this request/)).toBeTruthy();
         expect(screen.getByTestId('sent-keep-c1')).toBeTruthy();
         expect(screen.getByTestId('sent-confirm-c1')).toBeTruthy();
         // Pending pill is hidden while confirming

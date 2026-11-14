@@ -47,7 +47,22 @@ const GIG_ICONS: Record<string, string> = {
 
 /* ─────────────── Helpers ─────────────── */
 
-const getCategoryKey = (cat?: string) => (cat || 'default').toLowerCase();
+// Tolerant of whatever the API sends for `category`: a plain string, an array
+// of categories, or a populated object ({ name|slug|label|... }). Anything
+// else (number, null, empty) falls back to 'default'. Guards against
+// ".toLowerCase is not a function" when the shape isn't a bare string.
+const getCategoryKey = (cat?: unknown): string => {
+    if (typeof cat === 'string') return cat.toLowerCase();
+    if (Array.isArray(cat)) {
+        const first = cat.find((c): c is string => typeof c === 'string');
+        if (first) return first.toLowerCase();
+    } else if (cat && typeof cat === 'object') {
+        const o = cat as Record<string, unknown>;
+        const v = o.name ?? o.slug ?? o.label ?? o.value ?? o.title;
+        if (typeof v === 'string') return v.toLowerCase();
+    }
+    return 'default';
+};
 
 const formatDate = (dateString?: string): string => {
     if (!dateString) return 'Date TBD';

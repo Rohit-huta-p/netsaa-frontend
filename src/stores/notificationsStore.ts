@@ -71,9 +71,6 @@ type NotificationsState = {
     // State
     notifications: Notification[];
 
-    // Derived state - unread count is computed from notifications array
-    get unreadCount(): number;
-
     // Pagination state
     page: number;
     hasMore: boolean;
@@ -110,11 +107,6 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
     page: 1,
     hasMore: true,
     isLoadingMore: false,
-
-    // Derived state - unread count computed from notifications
-    get unreadCount() {
-        return get().notifications.filter(n => !n.isRead).length;
-    },
 
     // Fetch all notifications from the API (first page)
     fetchNotifications: async () => {

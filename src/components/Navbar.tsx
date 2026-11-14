@@ -460,7 +460,13 @@ export default function Navbar() {
     });
     const inboxCount =
         unreadCount + (sentInvites as any[]).filter((i) => i.status === 'sent' || i.status === 'viewed').length;
-    const notifCount = useNotificationsStore((s) => s.unreadCount);
+    // Count unread from the array directly: a derived store getter gets frozen to a
+    // stale value by Zustand's Object.assign on every set(), so the badge never moved.
+    const notifCount = useNotificationsStore((s) => s.notifications.filter((n) => !n.isRead).length);
+    // The web navbar is the only notification surface on web (NotificationsBell isn't
+    // mounted here), so it owns the initial fetch; live socket events keep it current.
+    const fetchNotifications = useNotificationsStore((s) => s.fetchNotifications);
+    useEffect(() => { if (isAuthenticated) fetchNotifications(); }, [isAuthenticated, fetchNotifications]);
 
     // Profile dropdown
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);

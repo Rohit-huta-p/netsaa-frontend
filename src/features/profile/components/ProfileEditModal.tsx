@@ -6,7 +6,7 @@ import {
     type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
 import {
-    X, Check, ShieldCheck, Plus, Minus, Search, ChevronDown, ChevronUp, Trash2,
+    X, Check, ShieldCheck, Plus, Minus, Search, ChevronDown, ChevronUp, Trash2, Play,
     Video as VideoIcon, Sparkles, User as UserIcon, FileText,
     Briefcase, Image as ImageIcon, Link2, Building2, CreditCard,
     Zap, MapPin, Edit3, Instagram, Youtube, Music, Headphones,
@@ -35,6 +35,10 @@ import { INDIAN_STATES } from '@/constants/indianStates';
 import { citiesForState } from '@/constants/indianCities';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Lazy so the editor (and its test env) don't eagerly pull in expo-video; the
+// Mux player module only loads when a reel is actually opened in the lightbox.
+const LazyVideoPlayer = React.lazy(() => import('@/components/media/NetsaVideoPlayer'));
 
 const SKILL_OPTIONS = [
     'Contemporary', 'Kathak', 'Hip Hop', 'Jazz', 'Classical',
@@ -363,6 +367,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const [videoReels, setVideoReels] = useState<ProfileVideoReel[]>([]);
     const [uploadingState, setUploadingState] = useState<any>({});
     const [experience, setExperience] = useState<ExperienceEntry[]>([]);
+    // Tap-to-view/play lightbox for a gallery photo or a ready reel (view only).
+    const [viewer, setViewer] = useState<{ type: 'photo' | 'video'; url?: string; playbackId?: string; poster?: string } | null>(null);
 
     const [dirtyTabs, setDirtyTabs] = useState<Set<TabKey>>(new Set());
     const [discardPromptVisible, setDiscardPromptVisible] = useState(false);
@@ -1002,7 +1008,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             const uploadKey = `${type}-${index}`; const state = uploadingState[uploadKey]; const isUploading = state?.uploading;
             return (
                 <View style={{ flex: 1, aspectRatio: 1, backgroundColor: `${P.orange}06`, borderWidth: 1, borderColor: `${P.orange}15`, borderRadius: 16, overflow: 'hidden' }}>
-                    {url ? (<View style={{ flex: 1 }}><Image source={{ uri: url }} style={{ width: '100%', height: '100%' }} /><TouchableOpacity onPress={() => removeMedia(index)} style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} color={P.danger} /></TouchableOpacity></View>)
+                    {url ? (<Pressable style={{ flex: 1 }} onPress={() => setViewer({ type: 'photo', url })}><Image source={{ uri: url }} style={{ width: '100%', height: '100%' }} /><TouchableOpacity onPress={() => removeMedia(index)} style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} color={P.danger} /></TouchableOpacity></Pressable>)
                     : isUploading ? (<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color={P.orange} /><Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Bold', fontSize: 10, marginTop: 4 }}>{state?.progress || 0}%</Text></View>)
                     : (<TouchableOpacity onPress={() => handlePickMedia(type, index)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed' }}><Plus size={20} color={P.orange} /><Text style={{ color: P.orange, fontFamily: 'Outfit-Bold', fontSize: 9, marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Photo</Text></TouchableOpacity>)}
                 </View>
@@ -1026,10 +1032,14 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                         <TouchableOpacity onPress={() => removeReel(videoReels.indexOf(reel))} style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} color={P.danger} /></TouchableOpacity>
                     </View>
                 ) : reel ? (
-                    <View style={{ flex: 1 }}>
+                    <Pressable style={{ flex: 1 }} onPress={() => reel.muxPlaybackId && setViewer({ type: 'video', playbackId: reel.muxPlaybackId, poster: reel.thumbnailUrl })}>
                         {reel.thumbnailUrl ? <Image source={{ uri: reel.thumbnailUrl }} style={{ width: '100%', height: '100%' }} /> : null}
+                        {/* play affordance — signals the reel is tappable to play */}
+                        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+                            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' }}><Play size={18} color="#fff" fill="#fff" /></View>
+                        </View>
                         <TouchableOpacity onPress={() => removeReel(videoReels.indexOf(reel))} style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} color={P.danger} /></TouchableOpacity>
-                    </View>
+                    </Pressable>
                 ) : (
                     <TouchableOpacity onPress={handlePickVideo} accessibilityLabel="Add reel" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed' }}>
                         <VideoIcon size={20} color={P.orange} />
@@ -1333,6 +1343,24 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                             />
 
                             <MediaCropper {...cropperProps} />
+
+                            {/* Tap-to-view/play lightbox — view a photo or play a reel, nothing else */}
+                            {viewer && (
+                                <Modal visible transparent animationType="fade" onRequestClose={() => setViewer(null)}>
+                                    <Pressable onPress={() => setViewer(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center' }}>
+                                        <TouchableOpacity onPress={() => setViewer(null)} accessibilityLabel="Close viewer" style={{ position: 'absolute', top: Platform.OS === 'ios' ? 56 : 28, right: 18, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}><X size={18} color="#fff" /></TouchableOpacity>
+                                        {viewer.type === 'photo' ? (
+                                            <Image source={{ uri: viewer.url }} style={{ width: '100%', height: '82%' }} resizeMode="contain" />
+                                        ) : (
+                                            <Pressable onPress={() => {}} style={{ width: '94%', height: '78%' }}>
+                                                <React.Suspense fallback={<ActivityIndicator size="large" color="#fff" />}>
+                                                    <LazyVideoPlayer playbackId={viewer.playbackId!} poster={viewer.poster || (viewer.playbackId ? `https://image.mux.com/${viewer.playbackId}/thumbnail.jpg?time=1` : undefined)} fill contentFit="contain" />
+                                                </React.Suspense>
+                                            </Pressable>
+                                        )}
+                                    </Pressable>
+                                </Modal>
+                            )}
 
                         </TouchableOpacity>
                     </Animated.View>

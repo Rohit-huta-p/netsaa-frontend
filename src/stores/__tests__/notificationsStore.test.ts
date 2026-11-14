@@ -25,6 +25,14 @@ describe('normalizeSocketNotification', () => {
     const n = normalizeSocketNotification({ ...payload, body: undefined });
     expect(n.message).toBe('');
   });
+
+  test('maps actor → actorId so the live card shows name + avatar', () => {
+    const n = normalizeSocketNotification({
+      ...payload,
+      actor: { _id: 'u2', displayName: 'Rohit Hutagonna', profileImageUrl: 'http://img' },
+    });
+    expect(n.actorId).toEqual({ _id: 'u2', displayName: 'Rohit Hutagonna', profileImageUrl: 'http://img' });
+  });
 });
 
 describe('incrementUnread', () => {
@@ -45,6 +53,26 @@ describe('incrementUnread', () => {
     store.incrementUnread(n);
     store.incrementUnread(n);
     expect(useNotificationsStore.getState().notifications).toHaveLength(1);
+  });
+
+  test('a re-sent connection request supersedes the old row + clears its stale status', () => {
+    const req: NotificationSocketPayload = {
+      id: 'n1', type: 'connection', subtype: 'connection.request',
+      title: 'New connection request', body: 'wants to connect',
+      data: { route: 'connections', params: { connectionId: 'c9' } },
+      createdAt: new Date().toISOString(),
+    };
+    // Prior declined request for the same connection, plus its lingering flag.
+    useNotificationsStore.setState({
+      notifications: [normalizeSocketNotification(req)],
+      respondedConnections: { c9: 'rejected' },
+    });
+    // New request arrives: same connectionId, new _id.
+    useNotificationsStore.getState().incrementUnread(normalizeSocketNotification({ ...req, id: 'n2' }));
+    const { notifications, respondedConnections } = useNotificationsStore.getState();
+    expect(notifications).toHaveLength(1);          // one row, not a declined+new stack
+    expect(notifications[0]._id).toBe('n2');         // the fresh pending one
+    expect(respondedConnections.c9).toBeUndefined(); // stale 'rejected' cleared → shows pending
   });
 });
 

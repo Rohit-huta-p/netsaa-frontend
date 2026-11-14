@@ -93,23 +93,20 @@ describe('ProfileEditModal — Display Name is always editable', () => {
 describe('ProfileEditModal — 8 tabs always visible', () => {
     it('renders all 8 tab labels including Org and Billing', () => {
         const { getAllByText } = render(<ProfileEditModal profileData={baseProfile} />);
-        // Discrete tabs: the tab bar always shows every label (and the active
-        // section repeats its own label as a header), so assert at least one match.
+        // The tab bar always shows every label; section headers use editorial
+        // titles (distinct strings), so each tab label matches once. Assert >= 1.
         ['Basic', 'Bio', 'Skills', 'Experience', 'Media', 'Social', 'Org', 'Billing'].forEach(
             label => expect(getAllByText(label).length).toBeGreaterThanOrEqual(1)
         );
     });
 
-    it('shows the Org Name input only when the Org tab is selected', () => {
-        const { getAllByText, getByPlaceholderText, queryByPlaceholderText } = render(
+    it('renders the Org Name input (all sections share one scroll)', () => {
+        const { getByPlaceholderText } = render(
             <ProfileEditModal profileData={baseProfile} />
         );
-        // Discrete tabs: only the active tab's section renders. The Org Name input
-        // (in the Org section) is absent until the Org tab is selected.
-        expect(queryByPlaceholderText('Organization name')).toBeNull();
-        // Tap the Org tab → its section mounts with the Org Name input.
-        // ([0] = the tab-bar pill.)
-        fireEvent.press(getAllByText('Org')[0]);
+        // Scroll-spy: every section is stacked in one scroll, so the Org Name
+        // input (in the Org section) is mounted from the start — no tab press
+        // needed. Tapping a tab scrolls to it rather than mounting it.
         expect(getByPlaceholderText('Organization name')).toBeTruthy();
     });
 

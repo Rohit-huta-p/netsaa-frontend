@@ -64,7 +64,7 @@ export function EditModalTabBar<K extends string>({ tabs, active, onChange }: Pr
                             bottom: 0,
                             width: indicatorW,
                             transform: [{ translateX: indicatorX }],
-                            backgroundColor: `${P.orange}18`,
+                            backgroundColor: P.accent,
                             borderRadius: 999,
                         }}
                     />

@@ -3,9 +3,10 @@ import {
     View, Text, TextInput, TouchableOpacity, Modal, ScrollView,
     Animated, Dimensions, KeyboardAvoidingView, Platform,
     ActivityIndicator, Image, Alert, Pressable,
+    type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
 import {
-    X, Check, ShieldCheck, Plus, Minus, Search, ChevronDown, ChevronUp, Trash2, Camera,
+    X, Check, ShieldCheck, Plus, Minus, Search, ChevronDown, ChevronUp, Trash2,
     Video as VideoIcon, Sparkles, User as UserIcon, FileText,
     Briefcase, Image as ImageIcon, Link2, Building2, CreditCard,
     Zap, MapPin, Edit3, Instagram, Youtube, Music, Headphones,
@@ -98,6 +99,20 @@ const SECTION_TO_TAB: Record<string, TabKey> = {
     verify: 'verify', header: 'header', basic: 'about', about: 'about', identity: 'identity',
     experience: 'experience', media: 'media', socials: 'socials',
     organization: 'organization', contact: 'organization',
+};
+
+// Register-language section headers (editorial DM-Serif titles, kept distinct
+// from the short tab labels above so text selectors still resolve to the pills).
+const SECTION_META: Record<TabKey, { eyebrow: string; title: string; sub?: string }> = {
+    verify: { eyebrow: 'VERIFY', title: 'Get the blue tick', sub: 'Verified artists rank higher in search.' },
+    header: { eyebrow: 'BASIC', title: 'The basics', sub: 'Photo, name, type and where you’re based.' },
+    about: { eyebrow: 'BIO', title: 'About you', sub: 'Your story, in your words.' },
+    identity: { eyebrow: 'SKILLS', title: 'Your skills', sub: 'What you’re known for — hirers filter by these.' },
+    experience: { eyebrow: 'EXPERIENCE', title: 'Your experience', sub: 'Credits that build trust.' },
+    media: { eyebrow: 'MEDIA', title: 'Show your art', sub: 'Your portfolio is how hirers find you.' },
+    socials: { eyebrow: 'SOCIAL', title: 'Find me on', sub: 'Where else people can follow you.' },
+    organization: { eyebrow: 'ORG', title: 'Your organization', sub: 'For posting gigs as a company.' },
+    billing: { eyebrow: 'BILLING', title: 'Billing details', sub: 'Only if you invoice as a business.' },
 };
 
 type Props = { profileData: ProfileData };
@@ -277,13 +292,35 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const initialTab = section ? (SECTION_TO_TAB[section] || 'header') : 'header';
     const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
 
-    // ── Tabbed view: tap a tab → show only that tab's content ──
+    // ── Scroll-spy: every section is stacked in one scroll; the tab bar tracks
+    //    the active section and tapping a tab scrolls to it. Mirrors the proven
+    //    pattern in CreativeLeadCompanyEdit.tsx (plain ScrollView + JS onScroll).
     const scrollRef = useRef<ScrollView>(null);
+    const sectionY = useRef<Record<string, number>>({});
+    const didDeepScroll = useRef(false);
 
-    const handleTabPress = (k: TabKey) => {
+    const goTo = (k: TabKey) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
         setActiveTab(k);
-        scrollRef.current?.scrollTo({ y: 0, animated: false });
+        const y = sectionY.current[k];
+        if (y != null) scrollRef.current?.scrollTo({ y: Math.max(0, y - 4), animated: true });
+    };
+    const onSectionLayout = (k: TabKey) => (e: LayoutChangeEvent) => {
+        sectionY.current[k] = e.nativeEvent.layout.y;
+        // Deep-link: once the requested section is measured, scroll to it.
+        if (!didDeepScroll.current && section && (SECTION_TO_TAB[section] || 'header') === k) {
+            didDeepScroll.current = true;
+            requestAnimationFrame(() => goTo(k));
+        }
+    };
+    const onBodyScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const y = e.nativeEvent.contentOffset.y + 28;
+        let current: TabKey = visibleTabs[0]?.key ?? 'header';
+        for (const t of visibleTabs) {
+            const sy = sectionY.current[t.key];
+            if (sy != null && sy <= y) current = t.key;
+        }
+        if (current !== activeTab) setActiveTab(current);
     };
 
     const [isSaving, setIsSaving] = useState(false);
@@ -355,8 +392,10 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         const tab = section ? (SECTION_TO_TAB[section] || 'header') : 'header';
         setActiveTab(tab); setJustSaved(false); setExpandedEntries(new Set()); setDirtyTabs(new Set());
         setDiscardPromptVisible(false);
-        // Tabbed view: show the requested tab, scrolled to top.
-        scrollRef.current?.scrollTo({ y: 0, animated: false });
+        // Scroll-spy: clear measured offsets + deep-link guard; onSectionLayout
+        // will scroll to the requested section once it has been measured.
+        didDeepScroll.current = false;
+        sectionY.current = {};
         setDisplayName(profileData.fullName || ''); setHeadline(profileData.headline || '');
         setArtistType(profileData.artistType || ''); setLocation(profileData.location || '');
         { const lp = (profileData.location || '').split(',').map(s => s.trim()); setLocCity(lp[0] || ''); setLocState(lp[1] || ''); }
@@ -613,7 +652,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                     <>
                         <Field label="Backup email"><Input value={verifyEmail} onChangeText={setVerifyEmail} placeholder="name@email.com" keyboardType="email-address" autoCapitalize="none" /></Field>
                         <Pressable onPress={onSend} disabled={verifyBusy} style={{ opacity: verifyBusy ? 0.6 : 1 }}>
-                            <View style={{ paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: P.orange }}>
+                            <View style={{ paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: P.accent }}>
                                 {verifyBusy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>Send code</Text>}
                             </View>
                         </Pressable>
@@ -628,7 +667,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                         </Field>
                         <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textSecondary, marginBottom: 14 }}>Sent to {verifyEmail} · <Text style={{ color: P.orange }} onPress={() => setVerifyStage('idle')}>Change</Text></Text>
                         <Pressable onPress={onVerify} disabled={verifyBusy} style={{ opacity: verifyBusy ? 0.6 : 1 }}>
-                            <View style={{ paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: P.orange }}>
+                            <View style={{ paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: P.accent }}>
                                 {verifyBusy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>Verify</Text>}
                             </View>
                         </Pressable>
@@ -676,6 +715,33 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     };
     const profileState = uploadingState['profile'];
 
+    // Dashed profile-photo avatar — matches the sign-up "Show your art" screen.
+    // Shared by Basic and Media (both drive profileImageUrl via handlePickMedia).
+    const renderAvatar = () => (
+        <View style={{ alignItems: 'center', marginBottom: 20 }}>
+            <View style={{ position: 'relative' }}>
+                <TouchableOpacity
+                    onPress={() => handlePickMedia('profile')}
+                    disabled={profileState?.uploading}
+                    style={{ width: 94, height: 94, borderRadius: 47, borderWidth: 2, borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.22)', backgroundColor: P.surface, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+                    {profileImageUrl ? (
+                        <Image source={{ uri: profileImageUrl }} style={{ width: '100%', height: '100%' }} />
+                    ) : profileState?.uploading ? (
+                        <><ActivityIndicator size="small" color={P.accent} /><Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Bold', fontSize: 10, marginTop: 4 }}>{profileState?.progress || 0}%</Text></>
+                    ) : (
+                        <><Plus size={20} color={P.textMuted} /><Text style={{ color: P.textMuted, fontFamily: 'Outfit-Regular', fontSize: 8.5, marginTop: 3, maxWidth: 66, textAlign: 'center', lineHeight: 11 }}>Tap to add profile photo</Text></>
+                    )}
+                </TouchableOpacity>
+                {!profileImageUrl && !profileState?.uploading && (
+                    <View style={{ position: 'absolute', top: -5, right: -8, backgroundColor: P.surface, borderWidth: 1, borderColor: P.border, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 }}>
+                        <Text style={{ fontFamily: 'SpaceMono-Regular', fontSize: 7, letterSpacing: 1, color: P.textSecondary }}>OPTIONAL</Text>
+                    </View>
+                )}
+            </View>
+            {profileImageUrl ? <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 12, color: P.orange, marginTop: 9 }}>Change photo</Text> : null}
+        </View>
+    );
+
     // Location is stored as a single "City, State" string; the editor splits it
     // into two dropdowns and recombines on change.
     const pickArtist = (t: string) => { setArtistType(t); markDirty('header'); setShowArtistPicker(false); };
@@ -686,20 +752,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         const set = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); markDirty('header'); };
         return (
             <>
-                {/* Profile photo — moved to the top of Basic, above the name */}
-                <View style={{ alignItems: 'center', marginBottom: 22 }}>
-                    <TouchableOpacity onPress={() => handlePickMedia('profile')} disabled={profileState?.uploading}>
-                        <LinearGradient colors={[P.orange, '#FF8C46']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 110, height: 110, borderRadius: 55, padding: 3, alignItems: 'center', justifyContent: 'center' }}>
-                            <View style={{ width: 104, height: 104, borderRadius: 52, backgroundColor: P.bg, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
-                                {profileImageUrl ? <Image source={{ uri: profileImageUrl }} style={{ width: '100%', height: '100%' }} />
-                                    : profileState?.uploading ? <><ActivityIndicator size="small" color={P.orange} /><Text style={{ color: P.textPrimary, fontFamily: 'Outfit-Bold', fontSize: 10, marginTop: 4 }}>{profileState?.progress || 0}%</Text></>
-                                        : <Camera size={26} color={P.textMuted} />}
-                            </View>
-                        </LinearGradient>
-                        <View style={{ position: 'absolute', right: 0, bottom: 0, width: 32, height: 32, borderRadius: 16, backgroundColor: P.orange, borderWidth: 3, borderColor: P.bg, alignItems: 'center', justifyContent: 'center' }}><Camera size={15} color="#fff" /></View>
-                    </TouchableOpacity>
-                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 12.5, color: P.orange, marginTop: 9 }}>{profileImageUrl ? 'Change photo' : 'Add photo'}</Text>
-                </View>
+                {/* Profile photo — dashed avatar (register "Show your art" style) */}
+                {renderAvatar()}
                 <Field label="Display Name" highlighted={isFieldMissing('display name')} accent={P.orange}>
                     <Input value={displayName} onChangeText={set(setDisplayName)} placeholder="Your name" />
                 </Field>
@@ -987,8 +1041,8 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
 
         return (
             <>
-                {/* Profile photo now lives in the Basic tab. */}
-                <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: P.textMuted, marginBottom: 16, lineHeight: 18 }}>Your profile photo is set in the <Text style={{ color: P.textSecondary, fontFamily: 'Outfit-SemiBold' }}>Basic</Text> tab. Add up to 5 photos and 3 reels here.</Text>
+                {/* Profile photo — same dashed avatar as Basic */}
+                {renderAvatar()}
                 {/* Gallery — 2+3 bento */}
                 <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 10, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Gallery ({galleryUrls.filter(Boolean).length}/5)</Text>
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>{[0, 1].map(i => <MediaSlot key={i} type="gallery" index={i} url={galleryUrls[i] || ''} />)}</View>
@@ -1120,7 +1174,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         <Modal visible transparent animationType="none" onRequestClose={handleClose}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                 <TouchableOpacity activeOpacity={1} onPress={handleClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' }}>
-                    <Animated.View style={{ transform: [{ translateY: slideAnim }], flex: 1, marginTop: Platform.OS === 'ios' ? 56 : 36, backgroundColor: P.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: P.border, overflow: 'hidden' }}>
+                    <Animated.View style={{ transform: [{ translateY: slideAnim }], flex: 1, marginTop: Platform.OS === 'ios' ? 56 : 36, backgroundColor: P.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: P.border, overflow: 'hidden' }}>
                         <TouchableOpacity activeOpacity={1} style={{ flex: 1 }}>
 
                             {/* Handle + Header */}
@@ -1148,28 +1202,31 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                     isDirty: dirtyTabs.has(t.key),
                                 }))}
                                 active={activeTab}
-                                onChange={handleTabPress}
+                                onChange={goTo}
                             />
 
-                            {/* Content — only the active tab's section (discrete tabs, no scrollspy) */}
+                            {/* Content — all sections stacked in one scroll; the tab bar scroll-spies */}
                             <ScrollView
                                 ref={scrollRef}
-                                contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 120 }}
+                                contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 150 }}
                                 keyboardShouldPersistTaps="handled"
+                                onScroll={onBodyScroll}
+                                scrollEventThrottle={16}
                                 showsVerticalScrollIndicator={false}>
-                                {SECTION_RENDERERS.filter(s => s.key === activeTab && visibleTabs.some(t => t.key === s.key)).map(({ key, render }) => {
+                                {SECTION_RENDERERS.filter(s => visibleTabs.some(t => t.key === s.key)).map(({ key, render }, idx) => {
                                     const def = visibleTabs.find(t => t.key === key);
                                     if (!def) return null;
+                                    const meta = SECTION_META[key];
                                     return (
-                                        <View key={key}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                                                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: P.orange }} />
-                                                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 11, color: P.textSecondary, textTransform: 'uppercase', letterSpacing: 2 }}>{def.label}</Text>
-                                                {def.optional && (
-                                                    <View style={{ borderWidth: 1, borderColor: `${P.textMuted}40`, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1 }}>
-                                                        <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 8, color: P.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>Optional</Text>
-                                                    </View>
-                                                )}
+                                        <View key={key} onLayout={onSectionLayout(key)} style={{ marginBottom: 30 }}>
+                                            <View style={{ marginBottom: 16 }}>
+                                                <Text style={{ fontFamily: 'SpaceMono-Regular', fontSize: 9, letterSpacing: 2.2, color: P.textMuted, marginBottom: 7 }}>
+                                                    {String(idx + 1).padStart(2, '0')} · {meta?.eyebrow || def.label.toUpperCase()}{def.optional ? '  ·  OPTIONAL' : ''}
+                                                </Text>
+                                                <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', fontSize: 23, color: P.textPrimary, letterSpacing: -0.3 }}>
+                                                    {meta?.title || def.label}
+                                                </Text>
+                                                {meta?.sub ? <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11.5, color: P.textMuted, marginTop: 6, lineHeight: 16 }}>{meta.sub}</Text> : null}
                                             </View>
                                             {render()}
                                         </View>
@@ -1178,12 +1235,12 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                             </ScrollView>
 
                             {/* Footer — neutral Save (no longer tied to the active section) */}
-                            <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingVertical: 14, paddingBottom: Platform.OS === 'ios' ? 34 : 14, backgroundColor: P.surface, borderTopWidth: 1, borderTopColor: P.border, flexDirection: 'row', gap: 12 }}>
+                            <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingVertical: 14, paddingBottom: Platform.OS === 'ios' ? 34 : 14, backgroundColor: P.bg, borderTopWidth: 1, borderTopColor: P.border, flexDirection: 'row', gap: 12 }}>
                                 <TouchableOpacity onPress={handleClose} style={{ flex: 1, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: P.border, alignItems: 'center' }}>
                                     <Text style={{ color: P.textSecondary, fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>Cancel</Text>
                                 </TouchableOpacity>
                                 <Pressable onPress={handleSaveAll} disabled={isSaving} style={({ pressed }) => ({ flex: 1, opacity: isSaving ? 0.6 : pressed ? 0.9 : 1 })}>
-                                    <LinearGradient colors={isSaved ? [P.green, '#059669'] : [P.orange, '#E85A2A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 14, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                    <LinearGradient colors={isSaved ? [P.green, '#059669'] : [P.accent, P.accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 14, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                                         {isSaving ? <ActivityIndicator size="small" color="#fff" /> : isSaved ? <Check size={16} color="#fff" /> : null}
                                         <Text style={{ color: '#fff', fontFamily: 'Outfit-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>
                                             {isSaving ? 'Saving…' : isSaved ? 'Saved!' : 'Save changes'}
@@ -1204,7 +1261,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
                                     {/* centered dialog — floats in the middle of the form */}
                                     <View style={{
                                         width: '100%', maxWidth: 360,
-                                        backgroundColor: P.surface, borderWidth: 1, borderColor: P.border, borderRadius: 20,
+                                        backgroundColor: P.surfaceLight, borderWidth: 1, borderColor: P.border, borderRadius: 20,
                                         padding: 22, gap: 10,
                                         shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 28, shadowOffset: { width: 0, height: 14 }, elevation: 16,
                                     }}>

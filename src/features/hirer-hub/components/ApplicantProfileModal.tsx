@@ -2,26 +2,29 @@
 //
 // Applicant profile modal — the in-place triage view that replaces the old
 // "Applicant detail · opened" screen. Tapping a card's name / avatar / View
-// profile icon opens the artist's profile as a solid centred card floating over
-// the blurred hub, with a stage-aware decision bar. Swipe / chevrons page
-// between applicants in the (frozen) stage list.
+// profile icon opens the artist's profile as a solid card floating over the
+// blurred hub, with a stage-aware decision bar. Swipe / chevrons page between
+// applicants in the (frozen) stage list.
 // Design: DOCS/04-design/mockups/manage-gig.html + applicant-profile-modal-PLAN.md
 //
-// Pager = a paged horizontal FlatList (web + native), the same approach as
-// MediaViewer — react-native-pager-view is native-only, and the hub ships on
-// web. The list of applicants is FROZEN at open (the hub snapshots it), so
-// Pass/Shortlist mutations can't reindex the pager or drift the "N / total"
-// counter; the live list resumes when the modal closes.
+// WHOLE-CARD PAGING: the horizontal pager (a paged FlatList — web + native, the
+// MediaViewer approach) IS the card layer. Each page is a COMPLETE card (its own
+// ✕ header, scrollable body, pitch strip and decision bar), so the whole card
+// slides as a unit when you move to the next applicant — not just the content
+// inside a frozen frame. The side chevrons, the "N / total" counter and the
+// blurred backdrop are the fixed chrome you swipe cards past. Each card's bar +
+// pitch read THAT applicant (status / coverNote), so every card is self-contained.
 //
-// PR2 — gestures + haptics: drag the header (grabber) down to dismiss (a non-
-// scrolling zone, so it never fights the body's vertical scroll or the pager's
-// horizontal swipe); haptics on open, page change and every decision. A Modal
-// is its own view tree, so gestures inside need their own GestureHandlerRootView.
+// The applicant list is FROZEN at open (the hub snapshots it), so Pass/Shortlist
+// mutations can't reindex the pager or drift the counter; the live list resumes
+// on close. Pass/Shortlist auto-advance; Hire/Remove/Message and "Open full
+// profile" close the modal so the hub can open its confirm sheet (no nested Modal).
 //
-// This component mutates nothing itself — it calls back to the hub, which owns
-// the status mutations and the keep-alive/Undo state. Pass/Shortlist auto-
-// advance here; Hire/Remove/Message and "Open full profile" close the modal so
-// the hub can open the matching confirm sheet (avoids nested-Modal flake).
+// Gestures + haptics: drag a card's header (grabber) down to dismiss — the whole
+// card slides down (the pager sits in an Animated wrapper that translates, so the
+// drag isn't clipped) and the backdrop fades; failOffsetX lets a horizontal drag
+// page instead. Haptics on open, page change and every decision. A Modal is its
+// own view tree, so gestures inside need their own GestureHandlerRootView.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, FlatList, Modal, StyleSheet, useWindowDimensions } from 'react-native';
@@ -38,7 +41,6 @@ const C = {
     card: '#16161D', tint: 'rgba(10,10,14,0.55)',
     t1: '#FFFFFF', t2: '#D4D4D8', t3: '#A1A1AA', t4: '#8B8B99', t5: '#5C5C66',
     orange: '#FF6B35', orangeTint: '#FFCBB2', onOrange: '#160A04', red: '#F0858A',
-    line: 'rgba(255,255,255,0.07)', chev: 'rgba(255,255,255,0.5)', chevLine: 'rgba(255,255,255,0.14)',
     passBorder: '#2E2E38', grabber: 'rgba(255,255,255,0.22)',
 };
 
@@ -87,15 +89,15 @@ export function ApplicantProfileModal({
         return () => popFullscreenOverlay();
     }, []);
 
-    // Card geometry — a centred inset card with gutters for the chevrons/counter.
+    // Card geometry — a centred window (the pager) with gutters for the chevrons
+    // and counter; each page fills the window with a full card.
     const cardLeft = GUT_H;
     const cardW = Math.max(200, winW - GUT_H * 2);
     const cardTop = insets.top + GUT_V;
     const cardH = Math.max(320, winH - insets.top - insets.bottom - GUT_V * 2);
-    const itemW = cardW;
 
-    // Reserve the pitch band only if some applicant actually has a note, so the
-    // pager height stays stable page-to-page.
+    // Reserve the pitch band iff some applicant has a note, so every card is the
+    // same height and the pager snaps cleanly.
     const anyPitch = useMemo(
         () => applications.some((a) => (a?.coverNote ?? '').trim().length > 0),
         [applications]
@@ -103,46 +105,41 @@ export function ApplicantProfileModal({
     const PITCH_H = anyPitch ? 70 : 0;
     const listH = Math.max(160, cardH - HEADER_H - PITCH_H - BAR_H);
 
-    const current = applications[cur];
-    const currentId: string | undefined = current?._id;
-    const status = statusOf(current);
-    const pitch: string = (current?.coverNote ?? '').trim();
-
     const syncIndex = useCallback((x: number) => {
-        const i = Math.round(x / itemW);
-        if (i !== cur && i >= 0 && i < applications.length) { setCur(i); tap(); }
-    }, [cur, itemW, applications.length]);
+        const i = Math.round(x / cardW);
+        setCur((c) => {
+            if (i !== c && i >= 0 && i < applications.length) { tap(); return i; }
+            return c;
+        });
+    }, [cardW, applications.length]);
 
     const goTo = useCallback((i: number) => {
-        if (i < 0 || i >= applications.length || i === cur) return;
+        if (i < 0 || i >= applications.length) return;
         try { pagerRef.current?.scrollToIndex({ index: i, animated: true }); } catch { /* no layout yet */ }
-        setCur(i);
-        tap();
-    }, [cur, applications.length]);
+        setCur((c) => (i !== c ? (tap(), i) : c));
+    }, [applications.length]);
 
-    const close = () => onClose(currentId);
+    // Pass / Shortlist keep the card in the frozen list, so advancing is safe;
+    // the last one closes the run.
+    const advanceFrom = useCallback((i: number) => {
+        if (i < applications.length - 1) goTo(i + 1);
+        else onClose(applications[i]?._id);
+    }, [applications, goTo, onClose]);
 
-    // Pass / Shortlist don't remove the card from the frozen list, so advancing
-    // to the next index is safe; closing on the last one ends the run.
-    const advance = () => {
-        if (cur < applications.length - 1) goTo(cur + 1);
-        else close();
-    };
-
-    // ── Drag-to-dismiss (header grabber only — a non-scrolling zone, so it
-    // never contends with the body's vertical scroll or the pager's swipe) ──
+    // ── Drag-to-dismiss: the pager lives in this Animated wrapper, so a header
+    // drag slides the WHOLE card down without the pager clipping it. ──
     const dragY = useSharedValue(0);
-    const cardAnimStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
+    const wrapperAnimStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
     const backdropAnimStyle = useAnimatedStyle(() => ({
         opacity: interpolate(dragY.value, [0, cardH], [1, 0.35], Extrapolation.CLAMP),
     }));
-    const dismissPan = Gesture.Pan()
+    const buildDismiss = (item: any) => Gesture.Pan()
         .failOffsetX([-20, 20])
         .activeOffsetY(8)
         .onUpdate((e) => { dragY.value = Math.max(0, e.translationY); })
         .onEnd((e) => {
             if (e.translationY > DISMISS_DISTANCE || e.velocityY > DISMISS_VELOCITY) {
-                dragY.value = withTiming(winH, { duration: 190 }, (fin) => { if (fin) runOnJS(close)(); });
+                dragY.value = withTiming(winH, { duration: 190 }, (fin) => { if (fin) runOnJS(onClose)(item?._id); });
             } else {
                 dragY.value = withSpring(0, { damping: 20, stiffness: 220 });
             }
@@ -150,130 +147,122 @@ export function ApplicantProfileModal({
 
     if (!applications.length) return null;
 
-    const handlePass = () => { bump(); if (currentId) onPass(currentId); advance(); };
-    const handleShortlist = () => { bump(); if (currentId) onShortlist(currentId); advance(); };
-    const handleHire = () => { bump(); if (currentId) onHire(currentId); };          // hub closes + HireConfirmModal
-    const handleMessage = () => { bump(); if (currentId) onMessage(currentId); };    // hub closes + ContactActionSheet
-    const handleRemove = () => { bump(); if (currentId) onRemove(currentId); };      // hub closes + RemoveHireSheet
+    const renderCard = ({ item, index }: { item: any; index: number }) => {
+        const st = statusOf(item);
+        const pitchText = (item?.coverNote ?? '').trim();
+        const onPassA = () => { bump(); onPass(item._id); advanceFrom(index); };
+        const onShortlistA = () => { bump(); onShortlist(item._id); advanceFrom(index); };
+        const onHireA = () => { bump(); onHire(item._id); };
+        const onMessageA = () => { bump(); onMessage(item._id); };
+        const onRemoveA = () => { bump(); onRemove(item._id); };
+
+        return (
+            <View testID={String(item?._id ?? index)} style={{ width: cardW, height: cardH, borderRadius: 24, backgroundColor: C.card, overflow: 'hidden' }}>
+                {/* header — grabber + ✕; this strip is the drag-to-dismiss zone */}
+                <GestureDetector gesture={buildDismiss(item)}>
+                    <View style={{ height: HEADER_H, justifyContent: 'center', paddingHorizontal: 14 }}>
+                        <View style={{ position: 'absolute', top: 7, left: 0, right: 0, alignItems: 'center' }}>
+                            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: C.grabber }} />
+                        </View>
+                        <Pressable
+                            onPress={() => onClose(item?._id)}
+                            hitSlop={10}
+                            accessibilityLabel="Close"
+                            style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                            <X size={16} color={C.t2} strokeWidth={2} />
+                        </Pressable>
+                    </View>
+                </GestureDetector>
+
+                {/* profile body — scrolls within the card */}
+                <View style={{ height: listH }}>
+                    <ApplicantProfileBody
+                        application={item}
+                        venueCity={venueCity}
+                        width={cardW}
+                        onOpenFullProfile={(artistId) => onOpenFullProfile(artistId)}
+                    />
+                </View>
+
+                {/* pitch strip — this applicant's note, pinned above the bar */}
+                {PITCH_H > 0 ? (
+                    pitchText ? (
+                        <View style={{ height: PITCH_H, justifyContent: 'center', paddingVertical: 10, paddingLeft: 18, paddingRight: 16, marginHorizontal: 16, borderLeftWidth: 2, borderLeftColor: C.orange, backgroundColor: 'rgba(255,107,53,0.06)', borderTopRightRadius: 12, borderBottomRightRadius: 12 }}>
+                            <Text numberOfLines={2} style={{ fontSize: 12.5, lineHeight: 18, color: C.t2 }}>
+                                <Text style={{ color: C.orangeTint }}>“</Text>{pitchText}<Text style={{ color: C.orangeTint }}>”</Text>
+                            </Text>
+                        </View>
+                    ) : (
+                        <View style={{ height: PITCH_H }} />
+                    )
+                ) : null}
+
+                {/* decision bar — stage-aware, this applicant's status */}
+                <View style={{ height: BAR_H, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 16, paddingBottom: 8 }}>
+                    {st === 'hired' ? (
+                        <>
+                            <GhostBtn flex={1} label="Message" icon={MessageSquare} tint={C.t2} border={C.passBorder} onPress={onMessageA} />
+                            <GhostBtn flex={1.3} label="Remove" icon={X} tint={C.red} border="rgba(240,101,107,0.3)" onPress={onRemoveA} />
+                        </>
+                    ) : st === 'rejected' ? (
+                        <GhostBtn flex={1} label="Message" icon={MessageSquare} tint={C.t2} border={C.passBorder} onPress={onMessageA} />
+                    ) : st === 'shortlisted' ? (
+                        <>
+                            <GhostBtn flex={1} label="Pass" icon={X} tint={C.t2} border={C.passBorder} onPress={onPassA} />
+                            <PrimaryBtn flex={1.4} label="Hire" icon={Check} onPress={onHireA} />
+                        </>
+                    ) : (
+                        <>
+                            <GhostBtn flex={1} label="Pass" icon={X} tint={C.t2} border={C.passBorder} onPress={onPassA} />
+                            <PrimaryBtn flex={1.4} label="Shortlist" onPress={onShortlistA} />
+                        </>
+                    )}
+                </View>
+            </View>
+        );
+    };
 
     return (
-        <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={close}>
+        <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={() => onClose(applications[cur]?._id)}>
             <GestureHandlerRootView style={{ flex: 1 }}>
                 <View style={StyleSheet.absoluteFill}>
                     <BlurView intensity={34} tint="dark" style={StyleSheet.absoluteFill} experimentalBlurMethod="dimezisBlurView">
                         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: C.tint }, backdropAnimStyle]} />
                     </BlurView>
 
-                    {/* backdrop tap (gutters) closes */}
-                    <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close profile" />
+                    {/* backdrop tap (gutters, outside the card window) closes */}
+                    <Pressable style={StyleSheet.absoluteFill} onPress={() => onClose(applications[cur]?._id)} accessibilityLabel="Close profile" />
 
-                    {/* the solid card */}
-                    <Animated.View
-                        style={[{
-                            position: 'absolute', left: cardLeft, top: cardTop, width: cardW, height: cardH,
-                            borderRadius: 24, backgroundColor: C.card, overflow: 'hidden',
-                            shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 40, shadowOffset: { width: 0, height: 24 },
-                        }, cardAnimStyle]}>
-                        {/* header — grabber + ✕; this strip is the drag-to-dismiss zone */}
-                        <GestureDetector gesture={dismissPan}>
-                            <View style={{ height: HEADER_H, justifyContent: 'center', paddingHorizontal: 14 }}>
-                                <View style={{ position: 'absolute', top: 7, left: 0, right: 0, alignItems: 'center' }}>
-                                    <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: C.grabber }} />
-                                </View>
-                                <Pressable
-                                    onPress={close}
-                                    hitSlop={10}
-                                    accessibilityLabel="Close"
-                                    style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)' }}>
-                                    <X size={16} color={C.t2} strokeWidth={2} />
-                                </Pressable>
-                            </View>
-                        </GestureDetector>
-
-                        {/* paged profile bodies */}
-                        <View style={{ height: listH }}>
-                            <FlatList
-                                ref={pagerRef}
-                                data={applications}
-                                horizontal
-                                pagingEnabled
-                                initialScrollIndex={initialIndex}
-                                getItemLayout={(_, i) => ({ length: itemW, offset: itemW * i, index: i })}
-                                onScrollToIndexFailed={() => {}}
-                                onScroll={(e) => syncIndex(e.nativeEvent.contentOffset.x)}
-                                scrollEventThrottle={16}
-                                onMomentumScrollEnd={(e) => syncIndex(e.nativeEvent.contentOffset.x)}
-                                showsHorizontalScrollIndicator={false}
-                                keyExtractor={(it, i) => String(it?._id ?? i)}
-                                scrollEnabled={multi}
-                                renderItem={({ item }) => (
-                                    <View style={{ width: itemW, height: listH }}>
-                                        <ApplicantProfileBody
-                                            application={item}
-                                            venueCity={venueCity}
-                                            width={itemW}
-                                            onOpenFullProfile={(artistId) => onOpenFullProfile(artistId)}
-                                        />
-                                    </View>
-                                )}
-                            />
-                        </View>
-
-                        {/* pitch strip — the applicant's note, pinned above the bar */}
-                        {PITCH_H > 0 ? (
-                            pitch ? (
-                                <View style={{ height: PITCH_H, justifyContent: 'center', paddingVertical: 10, paddingLeft: 18, paddingRight: 16, marginHorizontal: 16, borderLeftWidth: 2, borderLeftColor: C.orange, backgroundColor: 'rgba(255,107,53,0.06)', borderTopRightRadius: 12, borderBottomRightRadius: 12 }}>
-                                    <Text numberOfLines={2} style={{ fontSize: 12.5, lineHeight: 18, color: C.t2 }}>
-                                        <Text style={{ color: C.orangeTint }}>“</Text>{pitch}<Text style={{ color: C.orangeTint }}>”</Text>
-                                    </Text>
-                                </View>
-                            ) : (
-                                <View style={{ height: PITCH_H }} />
-                            )
-                        ) : null}
-
-                        {/* decision bar — stage-aware (from the current item's status) */}
-                        <View style={{ height: BAR_H, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 16, paddingBottom: 8 }}>
-                            {status === 'hired' ? (
-                                <>
-                                    <GhostBtn flex={1} label="Message" icon={MessageSquare} tint={C.t2} border={C.passBorder} onPress={handleMessage} />
-                                    <GhostBtn flex={1.3} label="Remove" icon={X} tint={C.red} border="rgba(240,101,107,0.3)" onPress={handleRemove} />
-                                </>
-                            ) : status === 'rejected' ? (
-                                <GhostBtn flex={1} label="Message" icon={MessageSquare} tint={C.t2} border={C.passBorder} onPress={handleMessage} />
-                            ) : status === 'shortlisted' ? (
-                                <>
-                                    <GhostBtn flex={1} label="Pass" icon={X} tint={C.t2} border={C.passBorder} onPress={handlePass} />
-                                    <PrimaryBtn flex={1.4} label="Hire" icon={Check} onPress={handleHire} />
-                                </>
-                            ) : (
-                                <>
-                                    <GhostBtn flex={1} label="Pass" icon={X} tint={C.t2} border={C.passBorder} onPress={handlePass} />
-                                    <PrimaryBtn flex={1.4} label="Shortlist" onPress={handleShortlist} />
-                                </>
-                            )}
-                        </View>
+                    {/* the pager = the card layer; the wrapper translates for drag-to-dismiss */}
+                    <Animated.View style={[{ position: 'absolute', left: cardLeft, top: cardTop, width: cardW, height: cardH }, wrapperAnimStyle]}>
+                        <FlatList
+                            ref={pagerRef}
+                            style={{ width: cardW, height: cardH }}
+                            data={applications}
+                            horizontal
+                            pagingEnabled
+                            initialScrollIndex={initialIndex}
+                            getItemLayout={(_, i) => ({ length: cardW, offset: cardW * i, index: i })}
+                            onScrollToIndexFailed={() => {}}
+                            onScroll={(e) => syncIndex(e.nativeEvent.contentOffset.x)}
+                            scrollEventThrottle={16}
+                            onMomentumScrollEnd={(e) => syncIndex(e.nativeEvent.contentOffset.x)}
+                            showsHorizontalScrollIndicator={false}
+                            keyExtractor={(it, i) => String(it?._id ?? i)}
+                            scrollEnabled={multi}
+                            renderItem={renderCard}
+                        />
                     </Animated.View>
 
-                    {/* side chevrons — OUTSIDE the card, in the gutters, vertically centred */}
+                    {/* side chevrons — fixed chrome, in the gutters, vertically centred */}
                     {multi ? (
                         <>
-                            <SideChevron
-                                side="left"
-                                disabled={cur === 0}
-                                top={cardTop + cardH / 2 - 18}
-                                onPress={() => goTo(cur - 1)}
-                            />
-                            <SideChevron
-                                side="right"
-                                disabled={cur === applications.length - 1}
-                                top={cardTop + cardH / 2 - 18}
-                                onPress={() => goTo(cur + 1)}
-                            />
+                            <SideChevron side="left" disabled={cur === 0} top={cardTop + cardH / 2 - 18} onPress={() => goTo(cur - 1)} />
+                            <SideChevron side="right" disabled={cur === applications.length - 1} top={cardTop + cardH / 2 - 18} onPress={() => goTo(cur + 1)} />
                         </>
                     ) : null}
 
-                    {/* floating page counter — OUTSIDE the card, in the bottom gutter */}
+                    {/* floating page counter — fixed chrome, in the bottom gutter */}
                     {multi ? (
                         <View
                             pointerEvents="none"

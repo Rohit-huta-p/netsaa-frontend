@@ -255,8 +255,8 @@ export function buildBackendPayload(state: GigFormV2State) {
       negotiable: state.p2.negotiable,
       perks: state.p4.perks,
     },
-    applicationDeadline: state.p4.applicationDeadline
-      ? new Date(state.p4.applicationDeadline)
+    applicationDeadline: state.p2.applicationDeadline
+      ? new Date(state.p2.applicationDeadline)
       : undefined,
     termsAndConditions: state.p4.termsAndConditions,
     musicDetails: coerceMusicDetails(state.p3.music),
@@ -318,6 +318,7 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
         p2: {
           startDate: g.schedule?.startDate ? dayjs(g.schedule.startDate).format('YYYY-MM-DD') : '',
           endDate: g.schedule?.endDate ? dayjs(g.schedule.endDate).format('YYYY-MM-DD') : '',
+          applicationDeadline: g.applicationDeadline ? dayjs(g.applicationDeadline).format('YYYY-MM-DD') : '',
           dateMode: g.schedule?.dateMode === 'dates' ? 'dates' : 'range',
           dates: Array.isArray(g.schedule?.dates)
             ? g.schedule.dates.map((d: any) => dayjs(d).format('YYYY-MM-DD'))
@@ -350,9 +351,6 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
           crew: g.crewDetails ?? {},
         },
         p4: {
-          applicationDeadline: g.applicationDeadline
-            ? dayjs(g.applicationDeadline).format('YYYY-MM-DD')
-            : '',
           description: g.description ?? '',
           responsibilities: g.responsibilities ?? [],
           perks: g.compensation?.perks ?? [],
@@ -585,7 +583,6 @@ const GigFormV2 = React.forwardRef<GigFormHandle, GigFormV2Props>(
               <Page4Logistics
                 value={state.p4}
                 onChange={(v) => setState({ ...state, p4: v })}
-                eventDateHint={buildDateHint(state.p2)}
               />
             )}
             {page === 6 && (

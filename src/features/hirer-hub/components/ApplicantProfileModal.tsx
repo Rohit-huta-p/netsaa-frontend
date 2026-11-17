@@ -163,9 +163,9 @@ export function ApplicantProfileModal({
                 {/* tap the page's gutter (outside the card) to close */}
                 <Pressable style={StyleSheet.absoluteFill} onPress={() => onClose(item?._id)} accessibilityLabel="Close profile" />
                 <View testID={String(item?._id ?? index)} style={{ position: 'absolute', left: cardLeft, top: cardTop, width: cardW, height: cardH, borderRadius: 24, backgroundColor: C.card, overflow: 'hidden' }}>
-                {/* header — grabber + ✕; this strip is the drag-to-dismiss zone */}
+                {/* header — grabber + ✕ (right); this strip is the drag-to-dismiss zone */}
                 <GestureDetector gesture={buildDismiss(item)}>
-                    <View style={{ height: HEADER_H, justifyContent: 'center', paddingHorizontal: 14 }}>
+                    <View style={{ height: HEADER_H, justifyContent: 'center', alignItems: 'flex-end', paddingHorizontal: 14 }}>
                         <View style={{ position: 'absolute', top: 7, left: 0, right: 0, alignItems: 'center' }}>
                             <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: C.grabber }} />
                         </View>

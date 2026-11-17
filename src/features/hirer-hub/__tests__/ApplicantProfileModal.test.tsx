@@ -5,6 +5,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 jest.mock('expo-blur', () => ({ BlurView: ({ children }: any) => children ?? null }));
 jest.mock('expo-haptics', () => ({
     impactAsync: jest.fn(() => Promise.resolve()),
+    selectionAsync: jest.fn(() => Promise.resolve()),
     ImpactFeedbackStyle: { Light: 'light' },
 }));
 jest.mock('@/stores/uiStore', () => ({
@@ -19,6 +20,7 @@ jest.mock('../components/ApplicantProfileBody', () => ({
     },
 }));
 
+import * as Haptics from 'expo-haptics';
 import { ApplicantProfileModal } from '../components/ApplicantProfileModal';
 
 const APPS = [
@@ -89,6 +91,18 @@ describe('ApplicantProfileModal', () => {
         expect(queryByLabelText('Next applicant')).toBeNull();
         expect(queryByLabelText('Previous applicant')).toBeNull();
         expect(queryByText('1 / 1')).toBeNull();
+    });
+
+    it('fires a selection haptic on paging and an impact haptic on a decision', () => {
+        const { getByLabelText } = render(
+            <ApplicantProfileModal applications={APPS} initialIndex={0} {...noopProps} />
+        );
+        (Haptics.selectionAsync as jest.Mock).mockClear();
+        (Haptics.impactAsync as jest.Mock).mockClear();
+        fireEvent.press(getByLabelText('Next applicant'));
+        expect(Haptics.selectionAsync).toHaveBeenCalled();
+        fireEvent.press(getByLabelText('Pass'));
+        expect(Haptics.impactAsync).toHaveBeenCalled();
     });
 
     it('Hire hands off to the confirm flow (no auto-advance here)', () => {

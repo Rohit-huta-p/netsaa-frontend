@@ -13,6 +13,11 @@
 // Pass/Shortlist mutations can't reindex the pager or drift the "N / total"
 // counter; the live list resumes when the modal closes.
 //
+// PR2 — gestures + haptics: drag the header (grabber) down to dismiss (a non-
+// scrolling zone, so it never fights the body's vertical scroll or the pager's
+// horizontal swipe); haptics on open, page change and every decision. A Modal
+// is its own view tree, so gestures inside need their own GestureHandlerRootView.
+//
 // This component mutates nothing itself — it calls back to the hub, which owns
 // the status mutations and the keep-alive/Undo state. Pass/Shortlist auto-
 // advance here; Hire/Remove/Message and "Open full profile" close the modal so
@@ -21,6 +26,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, FlatList, Modal, StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, runOnJS, interpolate, Extrapolation } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { X, ChevronLeft, ChevronRight, Check, MessageSquare } from 'lucide-react-native';
@@ -32,15 +39,19 @@ const C = {
     t1: '#FFFFFF', t2: '#D4D4D8', t3: '#A1A1AA', t4: '#8B8B99', t5: '#5C5C66',
     orange: '#FF6B35', orangeTint: '#FFCBB2', onOrange: '#160A04', red: '#F0858A',
     line: 'rgba(255,255,255,0.07)', chev: 'rgba(255,255,255,0.5)', chevLine: 'rgba(255,255,255,0.14)',
-    passBorder: '#2E2E38',
+    passBorder: '#2E2E38', grabber: 'rgba(255,255,255,0.22)',
 };
 
 const GUT_H = 24;   // side gutter (chevrons live here)
 const GUT_V = 54;   // top/bottom gutter (counter lives in the bottom one)
-const HEADER_H = 46;
+const HEADER_H = 50;
 const BAR_H = 72;
+const DISMISS_DISTANCE = 120;   // drag past this (or fling) to close
+const DISMISS_VELOCITY = 850;
 
 const statusOf = (a: any): string => (a?.status ?? 'applied');
+const tap = () => { Haptics.selectionAsync().catch(() => {}); };
+const bump = () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); };
 
 type Props = {
     /** Frozen at open by the hub — the stage's applicant list. length 1 = single-item (Discussion). */
@@ -99,13 +110,14 @@ export function ApplicantProfileModal({
 
     const syncIndex = useCallback((x: number) => {
         const i = Math.round(x / itemW);
-        setCur((c) => (i !== c && i >= 0 && i < applications.length ? i : c));
-    }, [itemW, applications.length]);
+        if (i !== cur && i >= 0 && i < applications.length) { setCur(i); tap(); }
+    }, [cur, itemW, applications.length]);
 
     const goTo = useCallback((i: number) => {
         if (i < 0 || i >= applications.length || i === cur) return;
         try { pagerRef.current?.scrollToIndex({ index: i, animated: true }); } catch { /* no layout yet */ }
         setCur(i);
+        tap();
     }, [cur, applications.length]);
 
     const close = () => onClose(currentId);
@@ -117,143 +129,169 @@ export function ApplicantProfileModal({
         else close();
     };
 
+    // ── Drag-to-dismiss (header grabber only — a non-scrolling zone, so it
+    // never contends with the body's vertical scroll or the pager's swipe) ──
+    const dragY = useSharedValue(0);
+    const cardAnimStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
+    const backdropAnimStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(dragY.value, [0, cardH], [1, 0.35], Extrapolation.CLAMP),
+    }));
+    const dismissPan = Gesture.Pan()
+        .failOffsetX([-20, 20])
+        .activeOffsetY(8)
+        .onUpdate((e) => { dragY.value = Math.max(0, e.translationY); })
+        .onEnd((e) => {
+            if (e.translationY > DISMISS_DISTANCE || e.velocityY > DISMISS_VELOCITY) {
+                dragY.value = withTiming(winH, { duration: 190 }, (fin) => { if (fin) runOnJS(close)(); });
+            } else {
+                dragY.value = withSpring(0, { damping: 20, stiffness: 220 });
+            }
+        });
+
     if (!applications.length) return null;
 
-    const handlePass = () => { if (currentId) onPass(currentId); advance(); };
-    const handleShortlist = () => { if (currentId) onShortlist(currentId); advance(); };
-    const handleHire = () => { if (currentId) onHire(currentId); };          // hub closes + HireConfirmModal
-    const handleMessage = () => { if (currentId) onMessage(currentId); };    // hub closes + ContactActionSheet
-    const handleRemove = () => { if (currentId) onRemove(currentId); };      // hub closes + RemoveHireSheet
+    const handlePass = () => { bump(); if (currentId) onPass(currentId); advance(); };
+    const handleShortlist = () => { bump(); if (currentId) onShortlist(currentId); advance(); };
+    const handleHire = () => { bump(); if (currentId) onHire(currentId); };          // hub closes + HireConfirmModal
+    const handleMessage = () => { bump(); if (currentId) onMessage(currentId); };    // hub closes + ContactActionSheet
+    const handleRemove = () => { bump(); if (currentId) onRemove(currentId); };      // hub closes + RemoveHireSheet
 
     return (
         <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={close}>
-            <View style={StyleSheet.absoluteFill}>
-                <BlurView intensity={34} tint="dark" style={StyleSheet.absoluteFill} experimentalBlurMethod="dimezisBlurView">
-                    <View style={[StyleSheet.absoluteFill, { backgroundColor: C.tint }]} />
-                </BlurView>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+                <View style={StyleSheet.absoluteFill}>
+                    <BlurView intensity={34} tint="dark" style={StyleSheet.absoluteFill} experimentalBlurMethod="dimezisBlurView">
+                        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: C.tint }, backdropAnimStyle]} />
+                    </BlurView>
 
-                {/* backdrop tap (gutters) closes */}
-                <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close profile" />
+                    {/* backdrop tap (gutters) closes */}
+                    <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close profile" />
 
-                {/* the solid card */}
-                <View
-                    style={{
-                        position: 'absolute', left: cardLeft, top: cardTop, width: cardW, height: cardH,
-                        borderRadius: 24, backgroundColor: C.card, overflow: 'hidden',
-                        shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 40, shadowOffset: { width: 0, height: 24 },
-                    }}>
-                    {/* header — just the ✕ */}
-                    <View style={{ height: HEADER_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 }}>
-                        <Pressable
-                            onPress={close}
-                            hitSlop={10}
-                            accessibilityLabel="Close"
-                            style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)' }}>
-                            <X size={16} color={C.t2} strokeWidth={2} />
-                        </Pressable>
-                    </View>
-
-                    {/* paged profile bodies */}
-                    <View style={{ height: listH }}>
-                        <FlatList
-                            ref={pagerRef}
-                            data={applications}
-                            horizontal
-                            pagingEnabled
-                            initialScrollIndex={initialIndex}
-                            getItemLayout={(_, i) => ({ length: itemW, offset: itemW * i, index: i })}
-                            onScrollToIndexFailed={() => {}}
-                            onScroll={(e) => syncIndex(e.nativeEvent.contentOffset.x)}
-                            scrollEventThrottle={16}
-                            onMomentumScrollEnd={(e) => syncIndex(e.nativeEvent.contentOffset.x)}
-                            showsHorizontalScrollIndicator={false}
-                            keyExtractor={(it, i) => String(it?._id ?? i)}
-                            scrollEnabled={multi}
-                            renderItem={({ item }) => (
-                                <View style={{ width: itemW, height: listH }}>
-                                    <ApplicantProfileBody
-                                        application={item}
-                                        venueCity={venueCity}
-                                        width={itemW}
-                                        onOpenFullProfile={(artistId) => onOpenFullProfile(artistId)}
-                                    />
+                    {/* the solid card */}
+                    <Animated.View
+                        style={[{
+                            position: 'absolute', left: cardLeft, top: cardTop, width: cardW, height: cardH,
+                            borderRadius: 24, backgroundColor: C.card, overflow: 'hidden',
+                            shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 40, shadowOffset: { width: 0, height: 24 },
+                        }, cardAnimStyle]}>
+                        {/* header — grabber + ✕; this strip is the drag-to-dismiss zone */}
+                        <GestureDetector gesture={dismissPan}>
+                            <View style={{ height: HEADER_H, justifyContent: 'center', paddingHorizontal: 14 }}>
+                                <View style={{ position: 'absolute', top: 7, left: 0, right: 0, alignItems: 'center' }}>
+                                    <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: C.grabber }} />
                                 </View>
-                            )}
-                        />
-                    </View>
-
-                    {/* pitch strip — the applicant's note, pinned above the bar */}
-                    {PITCH_H > 0 ? (
-                        pitch ? (
-                            <View style={{ height: PITCH_H, justifyContent: 'center', paddingVertical: 10, paddingLeft: 18, paddingRight: 16, marginHorizontal: 16, borderLeftWidth: 2, borderLeftColor: C.orange, backgroundColor: 'rgba(255,107,53,0.06)', borderTopRightRadius: 12, borderBottomRightRadius: 12 }}>
-                                <Text numberOfLines={2} style={{ fontSize: 12.5, lineHeight: 18, color: C.t2 }}>
-                                    <Text style={{ color: C.orangeTint }}>“</Text>{pitch}<Text style={{ color: C.orangeTint }}>”</Text>
-                                </Text>
+                                <Pressable
+                                    onPress={close}
+                                    hitSlop={10}
+                                    accessibilityLabel="Close"
+                                    style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                                    <X size={16} color={C.t2} strokeWidth={2} />
+                                </Pressable>
                             </View>
-                        ) : (
-                            <View style={{ height: PITCH_H }} />
-                        )
+                        </GestureDetector>
+
+                        {/* paged profile bodies */}
+                        <View style={{ height: listH }}>
+                            <FlatList
+                                ref={pagerRef}
+                                data={applications}
+                                horizontal
+                                pagingEnabled
+                                initialScrollIndex={initialIndex}
+                                getItemLayout={(_, i) => ({ length: itemW, offset: itemW * i, index: i })}
+                                onScrollToIndexFailed={() => {}}
+                                onScroll={(e) => syncIndex(e.nativeEvent.contentOffset.x)}
+                                scrollEventThrottle={16}
+                                onMomentumScrollEnd={(e) => syncIndex(e.nativeEvent.contentOffset.x)}
+                                showsHorizontalScrollIndicator={false}
+                                keyExtractor={(it, i) => String(it?._id ?? i)}
+                                scrollEnabled={multi}
+                                renderItem={({ item }) => (
+                                    <View style={{ width: itemW, height: listH }}>
+                                        <ApplicantProfileBody
+                                            application={item}
+                                            venueCity={venueCity}
+                                            width={itemW}
+                                            onOpenFullProfile={(artistId) => onOpenFullProfile(artistId)}
+                                        />
+                                    </View>
+                                )}
+                            />
+                        </View>
+
+                        {/* pitch strip — the applicant's note, pinned above the bar */}
+                        {PITCH_H > 0 ? (
+                            pitch ? (
+                                <View style={{ height: PITCH_H, justifyContent: 'center', paddingVertical: 10, paddingLeft: 18, paddingRight: 16, marginHorizontal: 16, borderLeftWidth: 2, borderLeftColor: C.orange, backgroundColor: 'rgba(255,107,53,0.06)', borderTopRightRadius: 12, borderBottomRightRadius: 12 }}>
+                                    <Text numberOfLines={2} style={{ fontSize: 12.5, lineHeight: 18, color: C.t2 }}>
+                                        <Text style={{ color: C.orangeTint }}>“</Text>{pitch}<Text style={{ color: C.orangeTint }}>”</Text>
+                                    </Text>
+                                </View>
+                            ) : (
+                                <View style={{ height: PITCH_H }} />
+                            )
+                        ) : null}
+
+                        {/* decision bar — stage-aware (from the current item's status) */}
+                        <View style={{ height: BAR_H, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 16, paddingBottom: 8 }}>
+                            {status === 'hired' ? (
+                                <>
+                                    <GhostBtn flex={1} label="Message" icon={MessageSquare} tint={C.t2} border={C.passBorder} onPress={handleMessage} />
+                                    <GhostBtn flex={1.3} label="Remove" icon={X} tint={C.red} border="rgba(240,101,107,0.3)" onPress={handleRemove} />
+                                </>
+                            ) : status === 'rejected' ? (
+                                <GhostBtn flex={1} label="Message" icon={MessageSquare} tint={C.t2} border={C.passBorder} onPress={handleMessage} />
+                            ) : status === 'shortlisted' ? (
+                                <>
+                                    <GhostBtn flex={1} label="Pass" icon={X} tint={C.t2} border={C.passBorder} onPress={handlePass} />
+                                    <PrimaryBtn flex={1.4} label="Hire" icon={Check} onPress={handleHire} />
+                                </>
+                            ) : (
+                                <>
+                                    <GhostBtn flex={1} label="Pass" icon={X} tint={C.t2} border={C.passBorder} onPress={handlePass} />
+                                    <PrimaryBtn flex={1.4} label="Shortlist" onPress={handleShortlist} />
+                                </>
+                            )}
+                        </View>
+                    </Animated.View>
+
+                    {/* side chevrons — OUTSIDE the card, in the gutters, vertically centred */}
+                    {multi ? (
+                        <>
+                            <SideChevron
+                                side="left"
+                                disabled={cur === 0}
+                                top={cardTop + cardH / 2 - 18}
+                                onPress={() => goTo(cur - 1)}
+                            />
+                            <SideChevron
+                                side="right"
+                                disabled={cur === applications.length - 1}
+                                top={cardTop + cardH / 2 - 18}
+                                onPress={() => goTo(cur + 1)}
+                            />
+                        </>
                     ) : null}
 
-                    {/* decision bar — stage-aware (from the current item's status) */}
-                    <View style={{ height: BAR_H, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 16, paddingBottom: 8 }}>
-                        {status === 'hired' ? (
-                            <>
-                                <GhostBtn flex={1} label="Message" icon={MessageSquare} tint={C.t2} border={C.passBorder} onPress={handleMessage} />
-                                <GhostBtn flex={1.3} label="Remove" icon={X} tint={C.red} border="rgba(240,101,107,0.3)" onPress={handleRemove} />
-                            </>
-                        ) : status === 'rejected' ? (
-                            <GhostBtn flex={1} label="Message" icon={MessageSquare} tint={C.t2} border={C.passBorder} onPress={handleMessage} />
-                        ) : status === 'shortlisted' ? (
-                            <>
-                                <GhostBtn flex={1} label="Pass" icon={X} tint={C.t2} border={C.passBorder} onPress={handlePass} />
-                                <PrimaryBtn flex={1.4} label="Hire" icon={Check} onPress={handleHire} />
-                            </>
-                        ) : (
-                            <>
-                                <GhostBtn flex={1} label="Pass" icon={X} tint={C.t2} border={C.passBorder} onPress={handlePass} />
-                                <PrimaryBtn flex={1.4} label="Shortlist" onPress={handleShortlist} />
-                            </>
-                        )}
-                    </View>
+                    {/* floating page counter — OUTSIDE the card, in the bottom gutter */}
+                    {multi ? (
+                        <View
+                            pointerEvents="none"
+                            style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 }}>
+                            {applications.length <= 10 ? (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                                    {applications.map((_, i) => (
+                                        <View key={i} style={{ width: i === cur ? 7 : 5, height: i === cur ? 7 : 5, borderRadius: 4, backgroundColor: i === cur ? C.orange : 'rgba(255,255,255,0.3)' }} />
+                                    ))}
+                                </View>
+                            ) : null}
+                            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 9, letterSpacing: 1, color: 'rgba(255,255,255,0.6)' }}>
+                                {cur + 1} / {applications.length}
+                            </Text>
+                        </View>
+                    ) : null}
                 </View>
-
-                {/* side chevrons — OUTSIDE the card, in the gutters, vertically centred */}
-                {multi ? (
-                    <>
-                        <SideChevron
-                            side="left"
-                            disabled={cur === 0}
-                            top={cardTop + cardH / 2 - 18}
-                            onPress={() => goTo(cur - 1)}
-                        />
-                        <SideChevron
-                            side="right"
-                            disabled={cur === applications.length - 1}
-                            top={cardTop + cardH / 2 - 18}
-                            onPress={() => goTo(cur + 1)}
-                        />
-                    </>
-                ) : null}
-
-                {/* floating page counter — OUTSIDE the card, in the bottom gutter */}
-                {multi ? (
-                    <View
-                        pointerEvents="none"
-                        style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 }}>
-                        {applications.length <= 10 ? (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                                {applications.map((_, i) => (
-                                    <View key={i} style={{ width: i === cur ? 7 : 5, height: i === cur ? 7 : 5, borderRadius: 4, backgroundColor: i === cur ? C.orange : 'rgba(255,255,255,0.3)' }} />
-                                ))}
-                            </View>
-                        ) : null}
-                        <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 9, letterSpacing: 1, color: 'rgba(255,255,255,0.6)' }}>
-                            {cur + 1} / {applications.length}
-                        </Text>
-                    </View>
-                ) : null}
-            </View>
+            </GestureHandlerRootView>
         </Modal>
     );
 }

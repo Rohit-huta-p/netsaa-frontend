@@ -46,7 +46,7 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
   const organizerObj = typeof event.organizerId === 'object' ? event.organizerId : undefined;
   const organizerId =
     organizerObj?._id ?? (typeof event.organizerId === 'string' ? event.organizerId : undefined);
-  const organizerName = organizerObj?.name;
+  const organizerName = event.organizerSnapshot?.organizationName || organizerObj?.name;
 
   // Public "who's going" (count + names).
   const { data: roster } = usePublicRoster(event._id);

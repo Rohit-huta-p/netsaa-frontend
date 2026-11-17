@@ -105,13 +105,15 @@ export function ApplicantProfileModal({
     const PITCH_H = anyPitch ? 70 : 0;
     const listH = Math.max(160, cardH - HEADER_H - PITCH_H - BAR_H);
 
+    // Pages span the full screen (so the side gutters read as a gap between
+    // cards while they slide); the card is centred within each page.
     const syncIndex = useCallback((x: number) => {
-        const i = Math.round(x / cardW);
+        const i = Math.round(x / winW);
         setCur((c) => {
             if (i !== c && i >= 0 && i < applications.length) { tap(); return i; }
             return c;
         });
-    }, [cardW, applications.length]);
+    }, [winW, applications.length]);
 
     const goTo = useCallback((i: number) => {
         if (i < 0 || i >= applications.length) return;
@@ -157,7 +159,10 @@ export function ApplicantProfileModal({
         const onRemoveA = () => { bump(); onRemove(item._id); };
 
         return (
-            <View testID={String(item?._id ?? index)} style={{ width: cardW, height: cardH, borderRadius: 24, backgroundColor: C.card, overflow: 'hidden' }}>
+            <View style={{ width: winW, height: winH }}>
+                {/* tap the page's gutter (outside the card) to close */}
+                <Pressable style={StyleSheet.absoluteFill} onPress={() => onClose(item?._id)} accessibilityLabel="Close profile" />
+                <View testID={String(item?._id ?? index)} style={{ position: 'absolute', left: cardLeft, top: cardTop, width: cardW, height: cardH, borderRadius: 24, backgroundColor: C.card, overflow: 'hidden' }}>
                 {/* header — grabber + ✕; this strip is the drag-to-dismiss zone */}
                 <GestureDetector gesture={buildDismiss(item)}>
                     <View style={{ height: HEADER_H, justifyContent: 'center', paddingHorizontal: 14 }}>
@@ -218,6 +223,7 @@ export function ApplicantProfileModal({
                         </>
                     )}
                 </View>
+                </View>
             </View>
         );
     };
@@ -230,19 +236,19 @@ export function ApplicantProfileModal({
                         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: C.tint }, backdropAnimStyle]} />
                     </BlurView>
 
-                    {/* backdrop tap (gutters, outside the card window) closes */}
-                    <Pressable style={StyleSheet.absoluteFill} onPress={() => onClose(applications[cur]?._id)} accessibilityLabel="Close profile" />
-
-                    {/* the pager = the card layer; the wrapper translates for drag-to-dismiss */}
-                    <Animated.View style={[{ position: 'absolute', left: cardLeft, top: cardTop, width: cardW, height: cardH }, wrapperAnimStyle]}>
+                    {/* the pager spans the screen and each page centres a card with
+                        gutters, so a clear gap shows between cards as they slide; the
+                        wrapper translates for drag-to-dismiss. Each page carries its own
+                        gutter tap-to-close. */}
+                    <Animated.View style={[StyleSheet.absoluteFill, wrapperAnimStyle]}>
                         <FlatList
                             ref={pagerRef}
-                            style={{ width: cardW, height: cardH }}
+                            style={StyleSheet.absoluteFill}
                             data={applications}
                             horizontal
                             pagingEnabled
                             initialScrollIndex={initialIndex}
-                            getItemLayout={(_, i) => ({ length: cardW, offset: cardW * i, index: i })}
+                            getItemLayout={(_, i) => ({ length: winW, offset: winW * i, index: i })}
                             onScrollToIndexFailed={() => {}}
                             onScroll={(e) => syncIndex(e.nativeEvent.contentOffset.x)}
                             scrollEventThrottle={16}

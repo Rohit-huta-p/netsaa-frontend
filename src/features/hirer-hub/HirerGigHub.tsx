@@ -8,7 +8,7 @@
 // (screens 1–3): a compact gig header, three tappable stage tabs (Applied /
 // Shortlisted / Hired) that swap the body, a slot bar, and the card-D rows.
 
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, ScrollView, ActivityIndicator, Text, TouchableOpacity, useWindowDimensions, Share, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
@@ -113,6 +113,14 @@ export function HirerGigHub({ gigId }: Props) {
     // of the stage list) so Pass/Shortlist mutations can't reindex the pager or
     // drift the "N / total" counter; length 1 = single-item (from Discussion).
     const [profileModal, setProfileModal] = useState<{ applications: any[]; index: number } | null>(null);
+    // The just-viewed applicant — its list card pulses twice after the modal
+    // closes (a "just viewed" trail); cleared so it can re-trigger later.
+    const [pulseId, setPulseId] = useState<string | null>(null);
+    useEffect(() => {
+        if (!pulseId) return;
+        const t = setTimeout(() => setPulseId(null), 1800);
+        return () => clearTimeout(t);
+    }, [pulseId]);
     // The hired artist the owner is about to remove — mounts the confirm sheet.
     const [removeTarget, setRemoveTarget] = useState<any | null>(null);
     const updateStatusMutation = useUpdateApplicationStatus();
@@ -362,6 +370,7 @@ export function HirerGigHub({ gigId }: Props) {
                         venueCity={gig.location?.city}
                         onTapApplicant={openHiredProfile}
                         onViewProfile={openHiredProfile}
+                        pulseId={pulseId ?? undefined}
                         onShare={handleShareApplicant}
                         onMessage={handleMessageApplicant}
                         onRemove={handleRemoveHire}
@@ -376,6 +385,7 @@ export function HirerGigHub({ gigId }: Props) {
                             : 'No new applicants right now.'}
                         onTapApplicant={handleRowTap}
                         onViewProfile={handleRowTap}
+                        pulseId={pulseId ?? undefined}
                         onShare={handleShareApplicant}
                         onPass={handleQuickReject}
                         onUndoPass={handleUndoPass}
@@ -463,7 +473,7 @@ export function HirerGigHub({ gigId }: Props) {
                     applications={profileModal.applications}
                     initialIndex={profileModal.index}
                     venueCity={gig.location?.city}
-                    onClose={() => setProfileModal(null)}
+                    onClose={(viewedId) => { setProfileModal(null); if (viewedId) setPulseId(viewedId); }}
                     // Pass / Shortlist mutate and the modal auto-advances.
                     onPass={handleQuickReject}
                     onShortlist={handleQuickShortlist}

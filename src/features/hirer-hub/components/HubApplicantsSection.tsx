@@ -26,6 +26,8 @@ type Props = {
     onTapApplicant?: (applicationId: string) => void;
     /** Open the applicant's profile modal (the card's View-profile icon). */
     onViewProfile?: (applicationId: string) => void;
+    /** The application id that just closed the profile modal — its card pulses. */
+    pulseId?: string;
     // Pass is reversible: onPass flips applied -> rejected; the card then stays
     // on screen dimmed with Undo (onUndoPass -> applied) for the session.
     onPass?: (applicationId: string) => void;
@@ -39,7 +41,7 @@ type Props = {
 
 export function HubApplicantsSection({
     applicants, venueCity, emptyLabel = 'No applicants in this stage yet.',
-    onTapApplicant, onViewProfile, onPass, onUndoPass, onShortlist, onHire, onMessage, onShare,
+    onTapApplicant, onViewProfile, pulseId, onPass, onUndoPass, onShortlist, onHire, onMessage, onShare,
 }: Props) {
     // Applicants the owner just passed, kept here (by id -> snapshot) so the
     // card survives the reject round-trip and keeps offering Undo.
@@ -83,6 +85,7 @@ export function HubApplicantsSection({
                         application={a}
                         venueCity={venueCity}
                         isPassed={!!passedById[a._id]}
+                        pulse={a._id === pulseId}
                         onTap={onTapApplicant}
                         onViewProfile={onViewProfile}
                         onPass={handlePass}

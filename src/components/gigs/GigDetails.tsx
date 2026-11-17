@@ -74,6 +74,7 @@ export const GigDetails: React.FC<GigDetailsProps> = ({ gig, resumeDraftId, prev
     const [activeTab, setActiveTab] = useState<GigTabKey>('details');
 
     const vm = buildGigDetailVM(gig);
+
     const organizerId = typeof gig?.organizerId === 'object' ? gig?.organizerId?._id : gig?.organizerId;
 
     // Resume a saved draft → auto-open the apply modal once.

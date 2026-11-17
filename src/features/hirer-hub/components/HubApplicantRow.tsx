@@ -30,8 +30,9 @@
 // screen for the session; the server flip is applied -> rejected (Pass) and
 // rejected -> applied (Undo, enabled by netsaa-backend #15).
 
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
 import { Check, X, MapPin, Briefcase, Undo2, MessageSquare, Share as ShareIcon, UserCircle2 } from 'lucide-react-native';
 
 const COLORS = {
@@ -69,6 +70,8 @@ type Props = {
     application: any;
     venueCity?: string;
     isPassed?: boolean;
+    /** Flash a warm "just viewed" tint over the card twice (profile-modal close). */
+    pulse?: boolean;
     onTap?: (applicationId: string) => void;
     /** Open the applicant's profile modal (name/avatar tap also calls onTap). */
     onViewProfile?: (applicationId: string) => void;
@@ -82,7 +85,7 @@ type Props = {
 };
 
 export function HubApplicantRow({
-    application, venueCity, isPassed,
+    application, venueCity, isPassed, pulse,
     onTap, onViewProfile, onShare, onPass, onUndoPass, onShortlist, onHire, onMessage, onRemove,
 }: Props) {
     const snap = application.artistSnapshot ?? {};
@@ -113,6 +116,21 @@ export function HubApplicantRow({
         handler?.(application._id);
     };
 
+    // Close-pulse (PR3): when this card is the one just viewed in the profile
+    // modal, flash a warm tint over it twice — a "just viewed" trail.
+    const pulseV = useSharedValue(0);
+    useEffect(() => {
+        if (pulse) {
+            pulseV.value = withSequence(
+                withTiming(1, { duration: 300 }),
+                withTiming(0, { duration: 420 }),
+                withTiming(1, { duration: 300 }),
+                withTiming(0, { duration: 420 }),
+            );
+        }
+    }, [pulse]);
+    const pulseStyle = useAnimatedStyle(() => ({ opacity: pulseV.value }));
+
     return (
         <TouchableOpacity
             activeOpacity={0.85}
@@ -127,6 +145,8 @@ export function HubApplicantRow({
                 borderColor: COLORS.border,
                 backgroundColor: COLORS.surface,
             }}>
+            {/* close-pulse tint — flashes twice over the just-viewed card */}
+            <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 16, backgroundColor: 'rgba(255,107,53,0.20)' }, pulseStyle]} />
             {/* top + note dim while passed; the footer (Undo) stays lit */}
             <View style={{ opacity: isPassed ? 0.5 : 1 }} pointerEvents={isPassed ? 'none' : 'auto'}>
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>

@@ -18,6 +18,23 @@ export default function Root({ children }: { children: React.ReactNode }) {
           content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no"
         />
         <ScrollViewStyleReset />
+        {/*
+          When the virtual keyboard opens on mobile, the visualViewport shrinks.
+          This listener scrolls the focused input into view so it's never hidden
+          behind the keyboard. Runs globally — no per-component handling needed.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', function() {
+              var el = document.activeElement;
+              if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+                setTimeout(function() {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+              }
+            });
+          }
+        `}} />
       </head>
       <body>{children}</body>
     </html>

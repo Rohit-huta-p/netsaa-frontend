@@ -39,3 +39,18 @@ select:focus {
     outline: none !important;
     box-shadow: none !important;
 }
+
+/*
+ * Prevent mobile browsers (iOS Safari, Chrome Android) from auto-zooming
+ * the page when tapping an input. The trigger is font-size < 16px — any
+ * Tailwind class smaller than text-base (text-sm = 14px, text-xs = 12px)
+ * causes zoom. Clamping to 16px on mobile-width screens fixes all inputs
+ * globally without touching individual components.
+ */
+@media (max-width: 1024px) {
+    input,
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+}

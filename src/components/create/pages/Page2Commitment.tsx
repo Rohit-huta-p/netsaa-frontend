@@ -22,12 +22,13 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { MapPin, ChevronDown, Check } from 'lucide-react-native';
+import { MapPin, ChevronDown, Check, ArrowRight } from 'lucide-react-native';
 import { InputGroup } from '@/components/ui/InputGroup';
 import { TagInput } from '@/components/ui/TagInput';
-import DateOfEventField from './DateOfEventField';
+import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { MapLinkCard } from '@/components/location/MapLinkCard';
 import { INDIAN_STATES } from '@/constants/indianStates';
+import dayjs from 'dayjs';
 
 export type CompensationModel = 'fixed' | 'hourly' | 'per-day' | 'per-track' | 'per-shoot';
 export type CompensationStructure = 'fixed' | 'range' | 'tbd';
@@ -39,6 +40,8 @@ export interface Page2Value {
   dateMode?: 'range' | 'dates';
   /** Specific event days (YYYY-MM-DD) when dateMode === 'dates'. */
   dates?: string[];
+  /** Last day to apply — lives in this (date) step now. */
+  applicationDeadline?: string;
   city: string;
   venue?: string;
   address?: string;
@@ -69,24 +72,40 @@ export default function Page2Commitment({ artistTypes, value, onChange }: Page2C
 
   return (
     <View style={styles.container}>
-      {/* Date of event — Range or Specific-dates picker (v2.2). The tapped
-          card morphs into an inline calendar; see DateOfEventField. */}
-      <DateOfEventField
-        value={{
-          dateMode: value.dateMode ?? 'range',
-          startDate: value.startDate || undefined,
-          endDate: value.endDate || undefined,
-          dates: value.dates,
-        }}
-        onChange={(v) =>
-          update({
-            dateMode: v.dateMode,
-            startDate: v.startDate ?? '',
-            endDate: v.endDate ?? '',
-            dates: v.dates,
-          })
-        }
-      />
+      {/* Event dates — start → end on one row (DD / MM / YYYY, same field as
+          sign-up DOB). Leave end empty for a one-day gig. */}
+      <InputGroup label="Event dates" subtitle="Start → end · leave end empty for a one-day gig" required>
+        <View style={styles.dateRow}>
+          <View style={styles.dateCell}>
+            <DatePickerInput
+              label=""
+              value={value.startDate || undefined}
+              onChange={(d: Date) => update({ startDate: dayjs(d).format('YYYY-MM-DD') })}
+              minimumDate={new Date()}
+            />
+          </View>
+          <ArrowRight size={16} color="#52525B" style={styles.dateArrow} />
+          <View style={styles.dateCell}>
+            <DatePickerInput
+              label=""
+              value={value.endDate || undefined}
+              onChange={(d: Date) => update({ endDate: dayjs(d).format('YYYY-MM-DD') })}
+              minimumDate={value.startDate ? new Date(value.startDate) : new Date()}
+            />
+          </View>
+        </View>
+      </InputGroup>
+
+      {/* Application deadline — moved into this step, next to the event dates */}
+      <InputGroup label="Application deadline" subtitle="Last day to apply · on or before the start date (optional)">
+        <DatePickerInput
+          label=""
+          value={value.applicationDeadline || undefined}
+          onChange={(d: Date) => update({ applicationDeadline: dayjs(d).format('YYYY-MM-DD') })}
+          minimumDate={new Date()}
+          maximumDate={value.startDate ? new Date(value.startDate) : undefined}
+        />
+      </InputGroup>
 
       {/* Location — one grouped card: Venue → Address → City | State + map */}
       <View>
@@ -218,6 +237,11 @@ export default function Page2Commitment({ artistTypes, value, onChange }: Page2C
 
 const styles = StyleSheet.create({
   container: { gap: 16 },
+
+  // ── event-dates row (start → end) ──
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  dateCell: { flex: 1, minWidth: 136 },
+  dateArrow: { flexShrink: 0 },
 
   // ── grouped Location card ──
   locLabel: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },

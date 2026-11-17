@@ -14,10 +14,10 @@ import { useBottomNavVisibilityStyle, resetBottomNavVisibility } from './navVisi
 /**
  * Role-aware bottom nav. Spec §3.1. One static nav per role (no mode toggle).
  * Artist:        Gigs · Events · Home · Messages · Profile   (5 even tabs, NO center FAB)
- * Creative Lead: Home · Talent · Messages · Events           (4 even tabs, NO center FAB)
+ * Creative Lead: Home · Talent · Messages · Events · Profile (5 even tabs, NO center FAB)
  *   Find Work (/requirements, the apply-UP feed) is hidden from the bar but the
  *   route stays (reachable elsewhere). Creating is home-only — the "＋ Post" dial
- *   in the dashboard's Your-work header. Profile is in the top-avatar menu (Navbar).
+ *   in the dashboard's Your-work header.
  * Client:        Home · Talent · [Post FAB] · Events · Profile  (single-face, keeps ＋)
  * Agency client: Home · Find Work · [Post FAB] · Events · Talent (keeps ＋)
  */
@@ -42,12 +42,13 @@ const ARTIST_TABS: TabDef[] = [
 // Creative Lead — 4 even tabs, no center Post FAB (create is home-only, via the
 // dashboard "＋ Post" dial). Find Work (/requirements, the apply-UP feed) is
 // hidden from the bar — the route still exists and stays reachable elsewhere.
-// Messages → /inbox. Profile lives in the top-avatar menu (Navbar).
+// Messages → /inbox. Profile (the CL company profile) is the last tab.
 const CREATIVE_LEAD_TABS: TabDef[] = [
   { id: 'home',     label: 'Home',     icon: Home,          route: '/(app)/dashboard' },
   { id: 'talent',   label: 'Talent',   icon: Users,         route: '/(app)/talent' },
   { id: 'messages', label: 'Messages', icon: MessageCircle, route: '/(app)/inbox' },
   { id: 'events',   label: 'Events',   icon: Calendar,      route: '/(app)/events' },
+  { id: 'profile',  label: 'Profile',  icon: UserIcon,      route: '/(app)/profile' },
 ];
 
 // Client shell (Client Experience spec §0). Home + Events are live;

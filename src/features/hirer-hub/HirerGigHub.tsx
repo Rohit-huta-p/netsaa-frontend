@@ -16,7 +16,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { useGigHubData, type HubStage } from './hooks/useGigHubData';
 import { computeStickyCTA } from './utils/computeStickyCTA';
-import { formatGigWhenCompact } from '@/utils/gigSchedule';
 import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 import { useUpdateGig } from '@/hooks/useGigs';
 import { HireConfirmModal } from '@/components/gigs/applications/HireConfirmModal';
@@ -30,7 +29,7 @@ import { HubTeamSection } from './components/HubTeamSection';
 import { HubApplicantsSection } from './components/HubApplicantsSection';
 import { HubEssentials } from './components/HubEssentials';
 import { HubStickyCTA } from './components/HubStickyCTA';
-import { ApplicantDetailScreen } from './components/ApplicantDetailScreen';
+import { ApplicantProfileModal } from './components/ApplicantProfileModal';
 import { RemoveHireSheet } from './components/RemoveHireSheet';
 import { GigActionsSheet } from './components/GigActionsSheet';
 // Discussion section — backed by GigComment model. Same component used on
@@ -71,11 +70,6 @@ function composeMetaLine(gig: any): string {
     const venueLine = [gig?.location?.venueName, gig?.location?.city].filter(Boolean).join(', ');
     return [headcount ? `${headcount} ${craftLabel(gig)}` : null, venueLine || null].filter(Boolean).join(' · ');
 }
-// "Sangeet night · 4 dancers" — the applicant-detail "Applying for" row.
-function composeApplyingFor(gig: any): string {
-    const headcount = gig?.headcount ?? gig?.maxApplications;
-    return [gig?.title, headcount ? `${headcount} ${craftLabel(gig)}` : null].filter(Boolean).join(' · ');
-}
 
 type Props = {
     gigId: string;
@@ -115,7 +109,10 @@ export function HirerGigHub({ gigId }: Props) {
 
     const [hireTarget, setHireTarget] = useState<any | null>(null);
     const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
-    const [actionSheetTarget, setActionSheetTarget] = useState<any | null>(null);
+    // The applicant profile modal. `applications` is FROZEN at open (a snapshot
+    // of the stage list) so Pass/Shortlist mutations can't reindex the pager or
+    // drift the "N / total" counter; length 1 = single-item (from Discussion).
+    const [profileModal, setProfileModal] = useState<{ applications: any[]; index: number } | null>(null);
     // The hired artist the owner is about to remove — mounts the confirm sheet.
     const [removeTarget, setRemoveTarget] = useState<any | null>(null);
     const updateStatusMutation = useUpdateApplicationStatus();
@@ -222,29 +219,27 @@ export function HirerGigHub({ gigId }: Props) {
         });
     };
 
+    // Open the profile modal over a FROZEN stage list, positioned on `id`.
+    const openProfileModal = (list: any[], applicationId: string) => {
+        const index = list.findIndex((a: any) => a._id === applicationId);
+        if (index >= 0) setProfileModal({ applications: list, index });
+    };
+
+    // Tap a card (name/avatar/body or the View-profile icon) in the applied /
+    // shortlisted list → open the profile modal on the active stage list.
     const handleRowTap = (applicationId: string) => {
-        const app = findApplication(applicationId);
-        if (app) setActionSheetTarget(app);
+        openProfileModal(activeList, applicationId);
     };
 
-    const handleSheetShortlist = (applicationId: string) => {
-        updateStatusMutation.mutate({ applicationId, status: 'shortlisted' });
-        setActionSheetTarget(null);
+    // The hired "cast" → open the modal on the hired list (Message · Remove bar).
+    const openHiredProfile = (applicationId: string) => {
+        openProfileModal((data.teamRows ?? []).map((r: any) => r.application), applicationId);
     };
 
-    const handleSheetReject = (applicationId: string) => {
-        updateStatusMutation.mutate({ applicationId, status: 'rejected' });
-        setActionSheetTarget(null);
-    };
-
-    const handleSheetHire = (applicationId: string) => {
-        const app = findApplication(applicationId);
-        setActionSheetTarget(null);
-        if (app) setHireTarget(app);
-    };
-
-    const handleSheetViewProfile = (artistId: string) => {
-        setActionSheetTarget(null);
+    // Push the applicant's full profile (/profile/:id) — the modal's "Open full
+    // profile" escape hatch, and the fallback for non-artist (CL) applicants.
+    const openFullProfile = (artistId: string) => {
+        setProfileModal(null);
         router.push(`/(app)/profile/${artistId}` as any);
     };
 
@@ -261,14 +256,6 @@ export function HirerGigHub({ gigId }: Props) {
     const confirmRemoveHire = (applicationId: string) => {
         updateStatusMutation.mutate({ applicationId, status: 'shortlisted' });
         setRemoveTarget(null);
-    };
-
-    // Tap a cast card → the artist's profile (hired members aren't re-triaged
-    // through the applicant action sheet, whose actions are Shortlist/Reject/Hire).
-    const handleViewTeamProfile = (applicationId: string) => {
-        const app = findApplication(applicationId);
-        const artistId = app ? (typeof app.artistId === 'object' ? app.artistId?._id : app.artistId) : null;
-        if (artistId) router.push(`/(app)/profile/${artistId}` as any);
     };
 
     // Fill an open slot → jump to the shortlist (your picks) to hire someone;
@@ -373,7 +360,8 @@ export function HirerGigHub({ gigId }: Props) {
                         teamRows={data.teamRows}
                         slotsTotal={data.kpis.slotsTotal}
                         venueCity={gig.location?.city}
-                        onTapApplicant={handleViewTeamProfile}
+                        onTapApplicant={openHiredProfile}
+                        onViewProfile={openHiredProfile}
                         onShare={handleShareApplicant}
                         onMessage={handleMessageApplicant}
                         onRemove={handleRemoveHire}
@@ -387,6 +375,7 @@ export function HirerGigHub({ gigId }: Props) {
                             ? 'No picks yet — shortlist applicants to line up your hires.'
                             : 'No new applicants right now.'}
                         onTapApplicant={handleRowTap}
+                        onViewProfile={handleRowTap}
                         onShare={handleShareApplicant}
                         onPass={handleQuickReject}
                         onUndoPass={handleUndoPass}
@@ -434,8 +423,10 @@ export function HirerGigHub({ gigId }: Props) {
                         threaded
                         applicantsByUserId={applicantsByUserId}
                         onOpenApplicant={(applicationId) => {
+                            // Single-item mode — an asker can be any status (incl.
+                            // rejected); the modal hides chevrons/counter for len 1.
                             const app = findApplication(applicationId);
-                            if (app) setActionSheetTarget(app);
+                            if (app) openProfileModal([app], app._id);
                         }}
                     />
                 </View>
@@ -467,27 +458,23 @@ export function HirerGigHub({ gigId }: Props) {
                 <HubStickyCTA cta={sticky} onPress={handleSticky} />
             </View>
 
-            <ApplicantDetailScreen
-                visible={!!actionSheetTarget}
-                application={actionSheetTarget}
-                venueCity={gig.location?.city}
-                applyingForLabel={composeApplyingFor(gig)}
-                datesLabel={formatGigWhenCompact(gig.schedule) || undefined}
-                payLabel={data.kpis.budgetAmount > 0 ? `₹${Math.round(data.kpis.budgetAmount).toLocaleString('en-IN')} per performer` : undefined}
-                onClose={() => setActionSheetTarget(null)}
-                onShortlist={handleSheetShortlist}
-                onReject={handleSheetReject}
-                onHire={handleSheetHire}
-                onViewProfile={handleSheetViewProfile}
-                onMessage={(applicationId) => {
-                    setActionSheetTarget(null);
-                    handleMessageApplicant(applicationId);
-                }}
-                onRemove={(applicationId) => {
-                    setActionSheetTarget(null);
-                    handleRemoveHire(applicationId);
-                }}
-            />
+            {profileModal ? (
+                <ApplicantProfileModal
+                    applications={profileModal.applications}
+                    initialIndex={profileModal.index}
+                    venueCity={gig.location?.city}
+                    onClose={() => setProfileModal(null)}
+                    // Pass / Shortlist mutate and the modal auto-advances.
+                    onPass={handleQuickReject}
+                    onShortlist={handleQuickShortlist}
+                    // Hire / Remove / Message close the modal first, then open
+                    // their own confirm sheet (avoids nested-Modal flake on iOS).
+                    onHire={(applicationId) => { setProfileModal(null); handleQuickHire(applicationId); }}
+                    onMessage={(applicationId) => { setProfileModal(null); handleMessageApplicant(applicationId); }}
+                    onRemove={(applicationId) => { setProfileModal(null); handleRemoveHire(applicationId); }}
+                    onOpenFullProfile={openFullProfile}
+                />
+            ) : null}
             <HireConfirmModal
                 visible={!!hireTarget}
                 gig={gig}

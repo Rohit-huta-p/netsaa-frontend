@@ -32,7 +32,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Check, X, MapPin, Briefcase, Undo2, MessageSquare, Share as ShareIcon } from 'lucide-react-native';
+import { Check, X, MapPin, Briefcase, Undo2, MessageSquare, Share as ShareIcon, UserCircle2 } from 'lucide-react-native';
 
 const COLORS = {
     text1: '#FFFFFF', text2: '#D4D4D8', text3: '#A1A1AA', text4: '#8B8B99', text5: '#5C5C66',
@@ -70,6 +70,8 @@ type Props = {
     venueCity?: string;
     isPassed?: boolean;
     onTap?: (applicationId: string) => void;
+    /** Open the applicant's profile modal (name/avatar tap also calls onTap). */
+    onViewProfile?: (applicationId: string) => void;
     onShare?: (applicationId: string) => void;
     onPass?: (applicationId: string) => void;
     onUndoPass?: (applicationId: string) => void;
@@ -81,7 +83,7 @@ type Props = {
 
 export function HubApplicantRow({
     application, venueCity, isPassed,
-    onTap, onShare, onPass, onUndoPass, onShortlist, onHire, onMessage, onRemove,
+    onTap, onViewProfile, onShare, onPass, onUndoPass, onShortlist, onHire, onMessage, onRemove,
 }: Props) {
     const snap = application.artistSnapshot ?? {};
     const displayName = ((snap.displayName ?? '') as string).trim() || 'Anonymous';
@@ -167,6 +169,16 @@ export function HubApplicantRow({
                                     hitSlop={8}
                                     style={{ padding: 0 }}>
                                     <ShareIcon size={16} color={COLORS.text5} strokeWidth={1.8} />
+                                </TouchableOpacity>
+                            ) : null}
+
+                            {onViewProfile ? (
+                                <TouchableOpacity
+                                    onPress={call(onViewProfile)}
+                                    accessibilityLabel={`View ${displayName}'s profile`}
+                                    hitSlop={8}
+                                    style={{ padding: 0 }}>
+                                    <UserCircle2 size={17} color={COLORS.text5} strokeWidth={1.8} />
                                 </TouchableOpacity>
                             ) : null}
                         </View>

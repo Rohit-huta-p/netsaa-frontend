@@ -22,7 +22,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { MapPin, ChevronDown, Check, ArrowRight } from 'lucide-react-native';
+import { MapPin, ChevronDown, Check } from 'lucide-react-native';
 import { InputGroup } from '@/components/ui/InputGroup';
 import { TagInput } from '@/components/ui/TagInput';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
@@ -74,20 +74,19 @@ export default function Page2Commitment({ artistTypes, value, onChange }: Page2C
     <View style={styles.container}>
       {/* Event dates — start → end on one row (DD / MM / YYYY, same field as
           sign-up DOB). Leave end empty for a one-day gig. */}
-      <InputGroup label="Event dates" subtitle="Start → end · leave end empty for a one-day gig" required>
+      <InputGroup label="Event dates" subtitle="Leave end empty for a one-day gig" required>
         <View style={styles.dateRow}>
           <View style={styles.dateCell}>
             <DatePickerInput
-              label=""
+              label="Start"
               value={value.startDate || undefined}
               onChange={(d: Date) => update({ startDate: dayjs(d).format('YYYY-MM-DD') })}
               minimumDate={new Date()}
             />
           </View>
-          <ArrowRight size={16} color="#52525B" style={styles.dateArrow} />
           <View style={styles.dateCell}>
             <DatePickerInput
-              label=""
+              label="End"
               value={value.endDate || undefined}
               onChange={(d: Date) => update({ endDate: dayjs(d).format('YYYY-MM-DD') })}
               minimumDate={value.startDate ? new Date(value.startDate) : new Date()}
@@ -238,10 +237,11 @@ export default function Page2Commitment({ artistTypes, value, onChange }: Page2C
 const styles = StyleSheet.create({
   container: { gap: 16 },
 
-  // ── event-dates row (start → end) ──
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  dateCell: { flex: 1, minWidth: 136 },
-  dateArrow: { flexShrink: 0 },
+  // ── event-dates row (start / end) — side-by-side on wide screens, each
+  //    field wraps to its own full-width row on a phone (two DD/MM/YYYY
+  //    fields don't fit one ~360px row). minWidth forces the wrap. ──
+  dateRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' },
+  dateCell: { flex: 1, minWidth: 188 },
 
   // ── grouped Location card ──
   locLabel: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },

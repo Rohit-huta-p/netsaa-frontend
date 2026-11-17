@@ -27,3 +27,15 @@ input:-webkit-autofill:active {
     -webkit-text-fill-color: #F5F0EB;
     background: rgba(255, 107, 53, 0.55);
 }
+
+/*
+ * Remove browser-default focus ring on all input elements.
+ * RN Web renders inputs as <input>/<textarea> on web; the outline
+ * is a browser default and not part of our design system.
+ */
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}

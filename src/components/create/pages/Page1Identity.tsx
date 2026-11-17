@@ -13,7 +13,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Sparkles, Calendar, Users } from 'lucide-react-native';
 import { InputGroup } from '@/components/ui/InputGroup';
 import StyledTextInput from '@/components/ui/StyledTextInput';
-import ChipPicker from '@/components/ui/ChipPicker';
+import { MultiSelectDropdown } from '@/components/inputs/MultiSelectDropdown';
 import { PERFORMER_TYPES } from '@/constants/performerGroups';
 
 export interface Page1Value {
@@ -111,12 +111,11 @@ export default function Page1Identity({
 
       {/* Performer type */}
       <InputGroup label="Performer type" subtitle={`Multi-select, up to ${MAX_TYPES}`} required>
-        <ChipPicker
-          mode="multi"
-          max={MAX_TYPES}
+        <MultiSelectDropdown
           options={PERFORMER_TYPES}
           value={value.artistTypes ?? []}
           onChange={handleArtistTypesChange}
+          placeholder="Choose performer types"
           accessibilityLabel="Performer types"
         />
       </InputGroup>

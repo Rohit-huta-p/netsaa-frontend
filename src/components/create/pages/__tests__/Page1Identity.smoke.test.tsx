@@ -6,11 +6,15 @@ import Page1Identity from '../Page1Identity';
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }), Link: 'Link' }));
 
 describe('Page1Identity', () => {
-  it('renders title + performer chips + event function', () => {
+  it('renders title field + performer select; options appear on open', () => {
     const { getByPlaceholderText, getByText } = render(
       <Page1Identity value={{ title: '', artistTypes: [], eventFunction: '' }} onChange={jest.fn()} />
     );
     expect(getByPlaceholderText(/dancers for sangeet/i)).toBeTruthy();
+    // performer type is now a select (collapsed by default)
+    expect(getByText('Choose performer types')).toBeTruthy();
+    // opening the dropdown reveals the options
+    fireEvent.press(getByText('Choose performer types'));
     expect(getByText('Dancer')).toBeTruthy();
     expect(getByText('Music Producer')).toBeTruthy();
   });
@@ -23,8 +27,10 @@ describe('Page1Identity', () => {
         onChange={onChange}
       />
     );
+    // open the dropdown, then try to add a 4th type
+    fireEvent.press(getByText('3 selected · tap to add more'));
     fireEvent.press(getByText('Actor'));
-    // onChange should NOT have been called with 4 types
+    // onChange should NOT have been called with 4 types (parent rejects + alerts)
     const calls = onChange.mock.calls.map((c) => c[0].artistTypes?.length ?? 0);
     expect(calls.every((n) => n <= 3)).toBe(true);
   });

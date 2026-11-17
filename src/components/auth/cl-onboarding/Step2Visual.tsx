@@ -22,6 +22,9 @@ interface Props {
   update: (patch: Partial<CLOFormData>) => void;
   onNext: () => void;
   onSkip: () => void;
+  /** Register flow: no account exists yet, so stage the picks locally and let
+   *  the parent upload them after the account is created. */
+  deferUpload?: boolean;
 }
 
 const W = Dimensions.get('window').width;
@@ -30,7 +33,7 @@ const LOGO_SIZE = Math.round(W * 0.25);
 const LOGO_HALF   = LOGO_SIZE / 2;
 const LOGO_RADIUS = Math.round(LOGO_SIZE * 0.24);
 
-export default function Step2Visual({ data, update, onNext, onSkip }: Props) {
+export default function Step2Visual({ data, update, onNext, onSkip, deferUpload }: Props) {
   const [loadingLogo,  setLoadingLogo]  = useState(false);
   const [loadingCover, setLoadingCover] = useState(false);
   const { pickAndCrop, cropperProps }   = usePickAndCrop();
@@ -41,6 +44,11 @@ export default function Step2Visual({ data, update, onNext, onSkip }: Props) {
     try {
       const asset = await pickAndCrop('logo');
       if (!asset) return;
+      if (deferUpload) {
+        // No account yet — stage the pick; the parent uploads it after sign-up.
+        update({ logoAsset: asset, logoUrl: '' });
+        return;
+      }
       const res = await uploadMediaFlow({ asset, entityType: 'user', entityId: userId, purpose: 'avatar' });
       if (res?.url) update({ logoUrl: res.url });
     } catch {
@@ -55,6 +63,10 @@ export default function Step2Visual({ data, update, onNext, onSkip }: Props) {
     try {
       const asset = await pickAndCrop('cover');
       if (!asset) return;
+      if (deferUpload) {
+        update({ coverAsset: asset, coverUrl: '' });
+        return;
+      }
       const res = await uploadMediaFlow({ asset, entityType: 'user', entityId: userId, purpose: 'banner' });
       if (res?.url) update({ coverUrl: res.url });
     } catch {
@@ -67,6 +79,10 @@ export default function Step2Visual({ data, update, onNext, onSkip }: Props) {
   const orgName = data.organizationName?.trim() || 'Your company';
   const orgMeta = [data.organizerTypeCategory, data.city?.trim()].filter(Boolean).join(' · ');
 
+  // Preview the staged local pick (defer mode) or the uploaded URL.
+  const coverUri = data.coverAsset?.uri ?? (data.coverUrl || '');
+  const logoUri  = data.logoAsset?.uri  ?? (data.logoUrl  || '');
+
   return (
     <AccentProvider role="creative_lead">
       <View style={s.root}>
@@ -76,8 +92,8 @@ export default function Step2Visual({ data, update, onNext, onSkip }: Props) {
           {/* ── Contextual profile header preview ── */}
           <View style={s.headerWrap}>
             <Pressable style={s.coverBanner} onPress={pickCover} disabled={loadingCover}>
-              {data.coverUrl ? (
-                <Image source={{ uri: data.coverUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+              {coverUri ? (
+                <Image source={{ uri: coverUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
               ) : (
                 loadingCover
                   ? <ActivityIndicator color={CL.border} />
@@ -92,8 +108,8 @@ export default function Step2Visual({ data, update, onNext, onSkip }: Props) {
             <View style={s.logoRow}>
               <Pressable style={s.logoOuter} onPress={pickLogo} disabled={loadingLogo}>
                 <View style={s.logoInner}>
-                  {data.logoUrl ? (
-                    <Image source={{ uri: data.logoUrl }} style={s.logoImg} contentFit="cover" />
+                  {logoUri ? (
+                    <Image source={{ uri: logoUri }} style={s.logoImg} contentFit="cover" />
                   ) : (
                     loadingLogo
                       ? <ActivityIndicator color={CL.border} size="small" />

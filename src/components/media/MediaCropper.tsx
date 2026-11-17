@@ -15,11 +15,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Modal, View, Text, Pressable, StyleSheet, Image, ActivityIndicator, Alert, useWindowDimensions,
+  Platform, StatusBar,
 } from 'react-native';
 import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { SaveFormat } from 'expo-image-manipulator';
@@ -41,6 +43,16 @@ const F = {
 };
 
 const MAX_SCALE = 4;
+
+// Web: a native <Modal> renders into the page flow, so a tall / scrolled-down
+// background page can leave the pinned top bar (with "Use") above the fold. Pin
+// the whole surface to the visible viewport so there is no fold to scroll past.
+const WEB_LOCK = Platform.OS === 'web'
+  ? ({ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' } as any)
+  : undefined;
+
+const SCRIM_TOP = ['rgba(9,9,11,0.66)', 'rgba(9,9,11,0.28)', 'transparent'] as const;
+const SCRIM_BOT = ['transparent', 'rgba(9,9,11,0.6)'] as const;
 
 function clampW(v: number, lo: number, hi: number) {
   'worklet';
@@ -90,6 +102,26 @@ export default function MediaCropper({
     tx.value = 0; ty.value = 0; savedTx.value = 0; savedTy.value = 0;
     setBusy(false);
   }, [uri]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Web only: freeze the underlying page scroll while the cropper is open so the
+  // viewport-locked surface is the only thing that can move.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !visible) return;
+    const doc: any = (globalThis as any).document;
+    if (!doc?.documentElement || !doc?.body) return;
+    const prevHtml = doc.documentElement.style.overflow;
+    const prevBody = doc.body.style.overflow;
+    doc.documentElement.style.overflow = 'hidden';
+    doc.body.style.overflow = 'hidden';
+    return () => {
+      doc.documentElement.style.overflow = prevHtml;
+      doc.body.style.overflow = prevBody;
+    };
+  }, [visible]);
+
+  // insets.top reads 0 inside a <Modal> on Android — floor it so the top bar
+  // (and "Use") always clears the status bar / notch. Web has no status bar.
+  const safeTop = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0);
 
   const geo = useMemo(() => {
     const HEADER = 64;
@@ -193,7 +225,7 @@ export default function MediaCropper({
 
   return (
     <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent onRequestClose={onCancel}>
-      <GestureHandlerRootView style={styles.root}>
+      <GestureHandlerRootView style={[styles.root, WEB_LOCK]}>
         {ready && uri ? (
           <GestureDetector gesture={gesture}>
             <View style={StyleSheet.absoluteFill}>
@@ -221,13 +253,23 @@ export default function MediaCropper({
           </View>
         )}
 
-        <View style={[styles.header, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
+        <LinearGradient colors={SCRIM_TOP} style={[styles.scrimTop, { height: safeTop + 88 }]} pointerEvents="none" />
+        <LinearGradient colors={SCRIM_BOT} style={[styles.scrimBot, { height: insets.bottom + 108 }]} pointerEvents="none" />
+
+        <View style={[styles.header, { paddingTop: safeTop + 10 }]} pointerEvents="box-none">
           <Pressable onPress={onCancel} hitSlop={10} style={styles.hBtn} accessibilityRole="button" accessibilityLabel="Cancel">
             <Text style={styles.hCancel}>Cancel</Text>
           </Pressable>
           <Text style={styles.hTitle} numberOfLines={1}>{spec.title}</Text>
-          <Pressable onPress={confirm} hitSlop={10} disabled={busy || !ready} style={styles.hBtn} accessibilityRole="button" accessibilityLabel="Use photo">
-            {busy ? <ActivityIndicator color={C.orange} /> : <Text style={[styles.hUse, !ready && styles.disabled]}>Use</Text>}
+          <Pressable
+            onPress={confirm}
+            hitSlop={10}
+            disabled={busy || !ready}
+            style={({ pressed }) => [styles.usePill, (busy || !ready) && styles.usePillOff, pressed && styles.usePillPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Use photo"
+          >
+            {busy ? <ActivityIndicator color="#1a0d05" size="small" /> : <Text style={styles.useLabel}>Use</Text>}
           </Pressable>
         </View>
 
@@ -278,9 +320,16 @@ const styles = StyleSheet.create({
   },
   hBtn: { minWidth: 56, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
   hCancel: { fontFamily: F.body, fontSize: 15, color: C.t2 },
-  hUse: { fontFamily: F.bold, fontSize: 15, color: C.orange },
-  disabled: { opacity: 0.4 },
-  hTitle: { flex: 1, textAlign: 'center', fontFamily: F.semibold, fontSize: 14, color: C.t1 },
+  usePill: {
+    minWidth: 56, minHeight: 36, paddingHorizontal: 18, borderRadius: 999,
+    backgroundColor: C.orange, alignItems: 'center', justifyContent: 'center',
+  },
+  usePillOff: { opacity: 0.45 },
+  usePillPressed: { opacity: 0.82 },
+  useLabel: { fontFamily: F.bold, fontSize: 15, color: '#1a0d05' },
+  hTitle: { flex: 1, textAlign: 'center', fontFamily: F.semibold, fontSize: 14, color: C.t1, marginHorizontal: 8 },
+  scrimTop: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 4 },
+  scrimBot: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 4 },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 5, alignItems: 'center' },
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

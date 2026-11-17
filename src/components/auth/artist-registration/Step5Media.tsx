@@ -7,6 +7,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { Plus, X, Image as ImageIcon, Play, User } from 'lucide-react-native';
 import type { ImagePickerAsset } from 'expo-image-picker';
 import { StepHeader, RK, RK_FONT, useAccent } from '@/components/auth/register-kit';
+import usePickAndCrop from '@/hooks/usePickAndCrop';
+import MediaCropper from '@/components/media/MediaCropper';
 
 const MIN_PHOTOS = 2;
 const FRAME_SIZE = 84;
@@ -35,6 +37,7 @@ export function Step5Media({
     totalSteps = 5,
 }: Props) {
     const accent = useAccent();
+    const { pickAndCrop, cropperProps } = usePickAndCrop();
 
     const pickPhoto = async (idx: number) => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -54,20 +57,11 @@ export function Step5Media({
         setPhotos(next.filter(Boolean));
     };
 
+    // Profile photo → in-app circle cropper (works on web too, unlike the OS
+    // `allowsEditing` crop which is a no-op on web). Staged; uploaded at submit.
     const pickAvatar = async () => {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-            Alert.alert('Permission needed', 'Allow photo access to add a profile photo.');
-            return;
-        }
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            quality: 0.9,
-            aspect: [1, 1],
-        });
-        if (result.canceled || !result.assets?.[0]) return;
-        setAvatar?.(result.assets[0]);
+        const asset = await pickAndCrop('avatar');
+        if (asset) setAvatar?.(asset);
     };
 
     const removePhoto = (idx: number) => setPhotos(photos.filter((_, i) => i !== idx));
@@ -316,6 +310,8 @@ export function Step5Media({
                     })}
                 </View>
             </View>
+
+            <MediaCropper {...cropperProps} />
         </View>
     );
 }

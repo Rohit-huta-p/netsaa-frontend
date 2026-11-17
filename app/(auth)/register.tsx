@@ -2,11 +2,14 @@
 //
 // Artist flow  (5 steps): credentials → identity → dob → artistProfile → media
 // CL flow      (7 steps): credentials → identity → dob → clIdentity → clVisual → clAbout → clDetails
-// Account creation:
-//   Artist: POST /auth/register at step 5
-//   CL:     POST /auth/register transitioning step 2→3, then PATCH /organizers/me at step 7
+// Account creation happens ONLY when the whole flow completes — nothing is
+// written to the backend until the final step:
+//   Artist: POST /auth/register on the final media step
+//   CL:     POST /auth/register on the final details step, then PATCH /organizers/me
+// The CL "Visual" step therefore stages its logo/cover locally (deferUpload) and
+// they are uploaded after the account exists.
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert, View, Text, Pressable, StyleSheet,
     ActivityIndicator, ScrollView,
@@ -15,7 +18,7 @@ import Animated, {
     useSharedValue, useAnimatedStyle,
     withTiming, withSpring, Easing, runOnJS, useReducedMotion,
 } from 'react-native-reanimated';
-import { router, useLocalSearchParams, Stack } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 import type { ImagePickerAsset } from 'expo-image-picker';
@@ -76,6 +79,7 @@ const EASE_IN_OUT = Easing.bezier(0.77, 0, 0.175, 1);
 export default function RegisterScreen() {
     const setAuth = useAuthStore((s) => s.setAuth);
     const checkEmailMutation = useCheckEmail();
+    const navigation = useNavigation();
 
     // Role from welcome.tsx params
     const { role: roleParam, enter } = useLocalSearchParams<{ role?: string; enter?: string }>();
@@ -99,8 +103,9 @@ export default function RegisterScreen() {
     const [stepIdx, setStepIdx] = useState(0);
     const [stepError, setStepError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    // CL: once the account is created (step 2→3), prevent going back past step 3
-    const [clAccountCreated, setClAccountCreated] = useState(false);
+    // Set right before an intentional navigation away (final submit) so the
+    // back-interceptor lets that removal through instead of catching it.
+    const leavingRef = useRef(false);
 
 
     /* ─── Shared form state (steps 0-2) ─── */
@@ -162,6 +167,24 @@ export default function RegisterScreen() {
         }));
     }
 
+    /* ─── Intercept the system back (Android hardware / browser back / iOS swipe)
+       so it steps one screen back inside the wizard instead of popping the whole
+       auth flow. Only "back" actions are caught; replace/navigate (the final
+       submit) is allowed through. At step 0 we let it exit to the welcome screen. ─── */
+    useEffect(() => {
+        const unsub = navigation.addListener('beforeRemove', (e: any) => {
+            if (leavingRef.current) return;          // intentional final navigation
+            const type = e?.data?.action?.type;
+            if (type !== 'GO_BACK' && type !== 'POP') return;
+            if (stepIdx === 0) return;
+            e.preventDefault();
+            setStepError(null);
+            animateToStep(stepIdx - 1);
+        });
+        return unsub;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [navigation, stepIdx]);
+
     /* ─── Per-step validation (shared + artist steps only) ─── */
     const validateCurrent = (): string | null => {
         switch (stepIdx) {
@@ -196,11 +219,11 @@ export default function RegisterScreen() {
         }
     };
 
-    /* ─── CL: create account (runs on step 2 → 3 transition) ─── */
-    const createCLAccount = async () => {
+    /* ─── CL: create account + save organizer profile (final step only) ─── */
+    const submitCLRegistration = async () => {
         setLoading(true);
-        setStepError(null);
         try {
+            // 1) Create the account — the first and only backend write of the flow.
             const displayName = stageName.trim() || fullName.trim();
             const data = await authService.register({
                 user: {
@@ -216,48 +239,54 @@ export default function RegisterScreen() {
             let user = data.user || await authService.getMe();
             if (!user?.role) user = await authService.getMe();
             setAuth({ user, accessToken: data.token });
-            // Enrich DOB — non-fatal
+
+            // 2) Upload the logo/cover staged on the Visual step — needs the account. Non-fatal.
+            const userId = (user as any)?._id ?? '';
+            let logoUrl = '';
+            let coverUrl = '';
             try {
-                if (dob) await authService.updateProfile({ dateOfBirth: dob.toISOString() } as any);
-            } catch {}
-            setClAccountCreated(true);
-        } catch (err: any) {
-            const msg = err.response?.data?.msg || err.response?.data?.message || err.message || 'Registration failed.';
-            setStepError(msg);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            throw err;
-        } finally {
-            setLoading(false);
-        }
-    };
+                if (clData.logoAsset) {
+                    const res = await uploadMediaFlow({ asset: clData.logoAsset, entityType: 'user', entityId: userId, purpose: 'avatar' });
+                    if (res.success && res.url) logoUrl = res.url;
+                }
+                if (clData.coverAsset) {
+                    const res = await uploadMediaFlow({ asset: clData.coverAsset, entityType: 'user', entityId: userId, purpose: 'banner' });
+                    if (res.success && res.url) coverUrl = res.url;
+                }
+            } catch (e) {
+                console.warn('[register] CL media upload failed — user can add from settings', e);
+            }
 
-    /* ─── CL: save organizer profile (triggered by Finish/Skip on step 6) ─── */
-    const saveCLProfile = async () => {
-        setLoading(true);
-        try {
-            const orgPatch: Record<string, any> = {
-                organizationName:      clData.organizationName.trim(),
-                organizerTypeCategory: clData.organizerTypeCategory,
-            };
-            if (clData.logoUrl)                    orgPatch.logoUrl              = clData.logoUrl;
-            if (clData.bio.trim())                 orgPatch.bio                  = clData.bio.trim();
-            if (clData.services.length)            orgPatch.services             = clData.services;
-            if (clData.organizationWebsite.trim()) orgPatch.organizationWebsite  = clData.organizationWebsite.trim();
-            if (clData.yearsInBusiness)            orgPatch.yearsInBusiness      = Number(clData.yearsInBusiness);
-            if (clData.teamSize)                   orgPatch.teamSize             = Number(clData.teamSize);
-            if (clData.instagramHandle?.trim())    orgPatch.instagramHandle      = clData.instagramHandle.trim();
-            await authService.updateOrganizerProfile(orgPatch);
+            // 3) Organizer + user profile patches. Non-fatal — the account already exists.
+            try {
+                const orgPatch: Record<string, any> = {
+                    organizationName:      clData.organizationName.trim(),
+                    organizerTypeCategory: clData.organizerTypeCategory,
+                };
+                if (logoUrl)                           orgPatch.logoUrl             = logoUrl;
+                if (clData.bio.trim())                 orgPatch.bio                 = clData.bio.trim();
+                if (clData.services.length)            orgPatch.services            = clData.services;
+                if (clData.organizationWebsite.trim()) orgPatch.organizationWebsite = clData.organizationWebsite.trim();
+                if (clData.yearsInBusiness)            orgPatch.yearsInBusiness     = Number(clData.yearsInBusiness);
+                if (clData.teamSize)                   orgPatch.teamSize            = Number(clData.teamSize);
+                if (clData.instagramHandle?.trim())    orgPatch.instagramHandle     = clData.instagramHandle.trim();
+                await authService.updateOrganizerProfile(orgPatch);
 
-            const userPatch: Record<string, any> = {};
-            if (clData.city.trim())  userPatch.primaryCity   = clData.city.trim();
-            if (clData.coverUrl)     userPatch.coverImageUrl = clData.coverUrl;
-            if (Object.keys(userPatch).length) await authService.updateProfile(userPatch as any);
+                const userPatch: Record<string, any> = {};
+                if (dob)                 userPatch.dateOfBirth   = dob.toISOString();
+                if (clData.city.trim())  userPatch.primaryCity   = clData.city.trim();
+                if (coverUrl)            userPatch.coverImageUrl = coverUrl;
+                if (Object.keys(userPatch).length) await authService.updateProfile(userPatch as any);
+            } catch (e) {
+                console.warn('[register] CL profile enrich failed — user can update later', e);
+            }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            leavingRef.current = true;
             router.replace('/(app)/dashboard');
         } catch (err: any) {
-            const msg = err?.response?.data?.message ?? 'Could not save. Please try again.';
-            Alert.alert('Error', msg);
+            const msg = err?.response?.data?.msg || err?.response?.data?.message || err?.message || 'Could not create your account. Please try again.';
+            Alert.alert('Registration failed', msg);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         } finally {
             setLoading(false);
@@ -288,17 +317,6 @@ export default function RegisterScreen() {
             }
         }
 
-        // CL: create account when leaving DOB step (step 2 → CL steps)
-        if (isCL && stepIdx === 2) {
-            try {
-                await createCLAccount();
-                animateToStep(3);
-            } catch {
-                // Error already set in createCLAccount
-            }
-            return;
-        }
-
         if (stepIdx < TOTAL_STEPS - 1) {
             animateToStep(stepIdx + 1);
         } else {
@@ -307,11 +325,6 @@ export default function RegisterScreen() {
     };
 
     const handleBack = () => {
-        // CL: once account is created, don't go back past step 3
-        if (isCL && clAccountCreated && stepIdx <= 3) {
-            router.replace('/(app)/dashboard');
-            return;
-        }
         if (stepIdx > 0) {
             setStepError(null);
             animateToStep(stepIdx - 1);
@@ -389,6 +402,7 @@ export default function RegisterScreen() {
             }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            leavingRef.current = true;
             const store = usePendingAuthActionStore.getState();
             if (store.pendingIntent?.returnPath) {
                 const returnPath = store.pendingIntent.returnPath;
@@ -417,9 +431,7 @@ export default function RegisterScreen() {
 
     const ctaLabel = isArtistMediaStep
         ? (loading ? 'Creating your account…' : 'Create account')
-        : (isCL && stepIdx === 2 && loading)
-            ? 'Creating your account…'
-            : 'Continue';
+        : 'Continue';
 
     // CL steps 3-6 have their own full-screen layout (KeyboardAvoidingView + ScrollView + CTA)
     const showCLSteps = isCL && stepIdx >= 3;
@@ -427,7 +439,7 @@ export default function RegisterScreen() {
     return (
         <AccentProvider role={roleKey}>
         <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
-            <Stack.Screen options={{ animation: entering ? 'none' : 'default' }} />
+            <Stack.Screen options={{ animation: entering ? 'none' : 'default', gestureEnabled: false }} />
             {/* Nav row: back button + pill/dot progress */}
             <View style={styles.header}>
                 <Pressable onPress={handleBack} hitSlop={12} style={styles.backBtn}>
@@ -450,6 +462,7 @@ export default function RegisterScreen() {
                         <CLStep2Visual
                             data={clData}
                             update={updateCL}
+                            deferUpload
                             onNext={() => animateToStep(5)}
                             onSkip={() => animateToStep(5)}
                         />
@@ -466,8 +479,8 @@ export default function RegisterScreen() {
                         <CLStep4Details
                             data={clData}
                             update={updateCL}
-                            onFinish={saveCLProfile}
-                            onSkip={saveCLProfile}
+                            onFinish={submitCLRegistration}
+                            onSkip={submitCLRegistration}
                             saving={loading}
                         />
                     )}

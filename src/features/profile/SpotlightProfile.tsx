@@ -36,6 +36,8 @@ import conversationService from '@/services/conversationService';
 import { ProfileEditModal } from '@/features/profile/components/ProfileEditModal';
 import type { ProfileData, ProfileVideoReel, FeaturedItem, FeaturedAttachment } from '@/components/profile/types';
 import MediaViewer from '@/components/profile/MediaViewer';
+import AvatarViewer from '@/components/profile/AvatarViewer';
+import WithdrawRequestSheet from '@/components/profile/WithdrawRequestSheet';
 import FeaturedEditSheet, { type ShowcaseRef } from '@/features/profile/components/FeaturedEditSheet';
 import MarkdownText from '@/components/inputs/MarkdownText';
 import * as ImagePicker from 'expo-image-picker';
@@ -149,6 +151,8 @@ export function SpotlightProfile({ userId, isOwner }: {
 
     const [coverUploading, setCoverUploading] = useState(false);
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+    const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
+    const [withdrawOpen, setWithdrawOpen] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [featuredEdit, setFeaturedEdit] = useState<{ open: boolean; index: number | null }>({ open: false, index: null });
     const openEditor = (index: number | null) => setFeaturedEdit({ open: true, index });
@@ -240,12 +244,19 @@ export function SpotlightProfile({ userId, isOwner }: {
     const onConnect = async () => {
         if (connBusy || isConnectionLoading) return;
         haptic();
+        // Pending → confirm before withdrawing (a one-tap withdraw was too easy to hit).
+        if (connectionStatus === 'pending') { setWithdrawOpen(true); return; }
         setConnBusy(true);
         try {
             if (connectionStatus === 'none') await sendRequest();
-            else if (connectionStatus === 'pending') await withdrawRequest();
         } catch { /* hook surfaces its own errors */ }
         finally { setConnBusy(false); }
+    };
+
+    const onWithdrawConfirm = async () => {
+        setConnBusy(true);
+        try { await withdrawRequest(); } catch { /* hook surfaces its own errors */ }
+        finally { setConnBusy(false); setWithdrawOpen(false); }
     };
 
     const openMessage = async () => {
@@ -415,7 +426,7 @@ export function SpotlightProfile({ userId, isOwner }: {
                                 </Defs>
                                 <Rect x="0" y="0" width={176} height={176} fill="url(#halo)" />
                             </Svg>
-                            <View style={st.ring}>
+                            <Pressable style={st.ring} onPress={() => setAvatarViewerOpen(true)} accessibilityRole="button" accessibilityLabel="View photo">
                                 {avatarUrl ? (
                                     <Image source={{ uri: avatarUrl }} style={st.avatar} />
                                 ) : (
@@ -423,7 +434,7 @@ export function SpotlightProfile({ userId, isOwner }: {
                                         <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', color: '#FFB488', fontSize: 38 }}>{initialsOf(name)}</Text>
                                     </LinearGradient>
                                 )}
-                            </View>
+                            </Pressable>
                             {availColor && <View style={[st.pdot, { backgroundColor: availColor, shadowColor: availColor }]} />}
                             {isOwner && (
                                 <Pressable onPress={() => openSheet('media')} style={st.camBadge}><Camera size={14} color="#fff" /></Pressable>
@@ -461,7 +472,7 @@ export function SpotlightProfile({ userId, isOwner }: {
                                 <View style={{ alignItems: 'center' }}>
                                     <View style={st.actRow}>
                                         <Pressable onPress={openMessage} disabled={msgBusy} style={[st.abtn, st.abtnConnect]}>
-                                            {msgBusy ? <ActivityIndicator size="small" color="#CDBBF5" /> : <><MessageCircle size={15} color="#CDBBF5" /><Text style={[st.abtnTx, { color: '#CDBBF5' }]}>Message</Text></>}
+                                            {msgBusy ? <ActivityIndicator size="small" color="#FFB492" /> : <><MessageCircle size={15} color="#FF6B35" /><Text style={[st.abtnTx, { color: '#FFB492' }]}>Message</Text></>}
                                         </Pressable>
                                         <Pressable onPress={() => { haptic(); setMenuOpen((v) => !v); }} style={st.moreBtn}><MoreHorizontal size={18} color={C.t4} /></Pressable>
                                     </View>
@@ -477,11 +488,11 @@ export function SpotlightProfile({ userId, isOwner }: {
                                 </View>
                             ) : pending ? (
                                 <Pressable onPress={onConnect} disabled={connBusy} style={[st.abtn, st.abtnGhost]}>
-                                    {connBusy ? <ActivityIndicator size="small" color={C.t4} /> : <><Clock size={14} color={C.t4} /><Text style={[st.abtnTx, { color: C.t4 }]}>Requested</Text></>}
+                                    {connBusy ? <ActivityIndicator size="small" color={C.t4} /> : <><Clock size={14} color={C.t4} /><Text style={[st.abtnTx, { color: C.t4 }]}>Pending</Text></>}
                                 </Pressable>
                             ) : (
                                 <Pressable onPress={onConnect} disabled={connBusy} style={[st.abtn, st.abtnConnect]}>
-                                    {connBusy ? <ActivityIndicator size="small" color="#CDBBF5" /> : <><UserPlus size={15} color="#A78BFA" /><Text style={[st.abtnTx, { color: '#CDBBF5' }]}>Connect</Text></>}
+                                    {connBusy ? <ActivityIndicator size="small" color="#FFB492" /> : <><UserPlus size={15} color="#FF6B35" /><Text style={[st.abtnTx, { color: '#FFB492' }]}>Connect</Text></>}
                                 </Pressable>
                             )}
                         </View>
@@ -641,6 +652,26 @@ export function SpotlightProfile({ userId, isOwner }: {
                     />
                 )}
 
+                {/* Tap the halo portrait → full-screen photo viewer (reuses the MediaViewer backdrop) */}
+                {avatarViewerOpen && (
+                    <AvatarViewer
+                        onClose={() => setAvatarViewerOpen(false)}
+                        name={name}
+                        craft={kicker}
+                        imageUrl={avatarUrl}
+                    />
+                )}
+
+                {/* Tap Pending → confirm before withdrawing the connection request */}
+                {withdrawOpen && (
+                    <WithdrawRequestSheet
+                        name={name}
+                        busy={connBusy}
+                        onKeep={() => setWithdrawOpen(false)}
+                        onWithdraw={onWithdrawConfirm}
+                    />
+                )}
+
                 {/* Owner edit sheets */}
                 {isOwner && <ProfileEditModal profileData={buildProfileData(u, { name, city, bio, skills, experience })} />}
                 {isOwner && (
@@ -696,7 +727,7 @@ const st = StyleSheet.create({
     cover: { height: 248, width: '100%', backgroundColor: '#17151d' },
     headerOnCover: { paddingTop: 0, marginTop: -92 },
     avatarWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center', width: 150, height: 150 },
-    ring: { borderRadius: 60, borderWidth: 1.5, borderColor: 'rgba(255,186,130,0.45)', padding: 3 },
+    ring: { borderRadius: 60, borderWidth: 0, padding: 3 },
     avatar: { width: 104, height: 104, borderRadius: 52, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     pdot: { position: 'absolute', right: 26, bottom: 26, width: 19, height: 19, borderRadius: 10, borderWidth: 3, borderColor: C.screen, shadowOpacity: 0.7, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
     camBadge: { position: 'absolute', right: 24, top: 24, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.6)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
@@ -714,9 +745,9 @@ const st = StyleSheet.create({
 
     actWrap: { marginTop: 16, alignItems: 'center' },
     actRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-    abtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 22, borderWidth: 1, borderColor: 'transparent', minHeight: 40 },
+    abtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20, borderWidth: 1, borderColor: 'transparent', minHeight: 40 },
     abtnTx: { fontFamily: 'Outfit-Bold', fontSize: 13 },
-    abtnConnect: { backgroundColor: 'rgba(139,92,246,0.08)', borderColor: 'rgba(139,92,246,0.4)' },
+    abtnConnect: { backgroundColor: 'rgba(255,107,53,0.10)', borderColor: 'rgba(255,107,53,0.42)' },
     abtnGhost: { borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.05)' },
     moreBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
 

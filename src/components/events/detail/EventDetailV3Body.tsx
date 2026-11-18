@@ -74,6 +74,11 @@ export default function EventDetailV3Body({ event, goingCount = 0, goingNames = 
   const spotsLeft = Math.max(0, total - registered);
 
   const org = event.organizerSnapshot;
+  // Prefer the brand / organization name (studio, company) over the host's personal
+  // name — the backend heals organizationName from the organizers collection. When a
+  // brand is shown, surface the person's name as the subtitle (else the role).
+  const hostName = org?.organizationName || org?.name;
+  const hostSub = (org?.organizationName && org?.name) || org?.role;
   const metaPills = metaParts(event);
   const tags = event.topicTags ?? [];
   const featuring: FeatPerson[] = (event.people ?? []).map((p) => ({ name: p.displayName, role: p.role, invited: p.invite?.status === 'invited', userId: p.userId, avatarUrl: p.avatarUrl }));
@@ -146,7 +151,7 @@ export default function EventDetailV3Body({ event, goingCount = 0, goingNames = 
       ) : null}
 
       {/* ═══ HOSTED BY ═══ */}
-      {org?.name ? (
+      {org && hostName ? (
         <View style={styles.sec}>
           <SectionLabel>Hosted by</SectionLabel>
           <View style={styles.pr}>
@@ -154,15 +159,15 @@ export default function EventDetailV3Body({ event, goingCount = 0, goingNames = 
               <ExpoImage source={{ uri: org.profileImageUrl }} style={styles.avt} />
             ) : (
               <View style={[styles.avt, { backgroundColor: AVT_COLORS[4], alignItems: 'center', justifyContent: 'center' }]}>
-                <Text style={styles.avtTxt}>{initials(org.name)}</Text>
+                <Text style={styles.avtTxt}>{initials(hostName)}</Text>
               </View>
             )}
             <View style={styles.pn}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Text style={styles.pnName} numberOfLines={1}>{org.name}</Text>
+                <Text style={styles.pnName} numberOfLines={1}>{hostName}</Text>
                 {org.verified ? <BadgeCheck size={14} color={GREEN} fill={GREEN} strokeWidth={0} /> : null}
               </View>
-              {org.role ? <Text style={styles.pnSub} numberOfLines={1}>{org.role}</Text> : null}
+              {hostSub ? <Text style={styles.pnSub} numberOfLines={1}>{hostSub}</Text> : null}
             </View>
             <Pressable style={styles.followChip} onPress={() => onOpenProfile?.(organizerId)} accessibilityRole="button">
               <UserPlus size={13} color={T0} />

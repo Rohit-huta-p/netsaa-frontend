@@ -1,3 +1,4 @@
+import { API_URL } from '@/lib/constants';
 // src/services/api/notificationsApi.ts
 import axios from 'axios';
 import { Notification } from '@/stores/notificationsStore';
@@ -11,7 +12,7 @@ import { Platform } from 'react-native';
 
 // Use env var or production fallback
 const getBaseUrl = () => {
-    return process.env.EXPO_PUBLIC_API_URL || 'https://netsaa-backend.onrender.com';
+    return API_URL;
 };
 
 const API = axios.create({

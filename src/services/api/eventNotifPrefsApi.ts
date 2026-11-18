@@ -1,3 +1,4 @@
+import { API_URL, API_EVENTS_URL } from '@/lib/constants';
 // src/services/api/eventNotifPrefsApi.ts
 //
 // API client for event-notification preference read/write and
@@ -17,11 +18,9 @@ import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 
 const USER_BASE =
-  process.env.EXPO_PUBLIC_API_URL || 'https://netsaa-backend.onrender.com';
+  API_URL;
 
-const EVENT_BASE =
-  process.env.EXPO_PUBLIC_API_EVENT_URL ||
-  'https://netsaa-events-service.onrender.com';
+const EVENT_BASE = API_EVENTS_URL;
 
 function makeClient(baseURL: string) {
   const instance = axios.create({ baseURL, timeout: 15000 });

@@ -1,9 +1,10 @@
+import { API_GIGS_URL } from '@/lib/constants';
 // src/services/inviteService.ts
 import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 
 const BASE =
-    process.env.EXPO_PUBLIC_API_GIGS_URL || 'https://netsaa-gigs-service.onrender.com/v1';
+    API_GIGS_URL;
 
 const API = axios.create({ baseURL: BASE });
 

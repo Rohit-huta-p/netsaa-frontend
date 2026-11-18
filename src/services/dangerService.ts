@@ -1,9 +1,10 @@
+import { API_URL } from '@/lib/constants';
 // src/services/dangerService.ts
 import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';
 
 const getBaseUrl = () => {
-    return process.env.EXPO_PUBLIC_API_URL || 'https://netsaa-backend.onrender.com';
+    return API_URL;
 };
 
 const API = axios.create({ baseURL: getBaseUrl() });

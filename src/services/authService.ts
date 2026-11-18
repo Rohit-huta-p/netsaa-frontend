@@ -1,3 +1,4 @@
+import { API_URL } from '@/lib/constants';
 // src/services/authService.ts
 import axios from 'axios';
 import type { AuthResponse, User, VerifyOtpResponse } from '../types';
@@ -40,7 +41,7 @@ export interface OrganizerProfile {
 
 const getBaseUrl = () => {
   // Always prefer env var, fallback to production
-  return process.env.EXPO_PUBLIC_API_URL || 'https://netsaa-backend.onrender.com';
+  return API_URL;
 };
 
 const API = axios.create({

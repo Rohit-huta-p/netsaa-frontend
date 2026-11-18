@@ -1,9 +1,10 @@
+import { API_URL } from '@/lib/constants';
 import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';
 
 // Follow endpoints live in users-service (same host as connections).
 const getBaseUrl = () => {
-    if (process.env.EXPO_PUBLIC_API_URL) return `${process.env.EXPO_PUBLIC_API_URL}/follows`;
+    return `${API_URL}/follows`;
     return 'http://10.197.171.107:5001/api/follows';
 };
 

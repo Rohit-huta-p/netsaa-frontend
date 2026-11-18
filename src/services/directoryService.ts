@@ -1,8 +1,9 @@
+import { API_URL } from '@/lib/constants';
 // src/services/directoryService.ts
 import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 
-const BASE = process.env.EXPO_PUBLIC_API_URL || 'https://netsaa-backend.onrender.com/api';
+const BASE = API_URL;
 const API = axios.create({ baseURL: BASE });
 
 API.interceptors.request.use((config) => {

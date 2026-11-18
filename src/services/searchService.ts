@@ -1,3 +1,4 @@
+import { API_SEARCH_URL } from '@/lib/constants';
 import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';
 import { buildQueryParamsFromFilters } from '../lib/constants/filters';
@@ -5,7 +6,7 @@ import { FilterState } from '../types/filters';
 
 // Use env var or production fallback
 const getSearchBaseUrl = () => {
-    return process.env.EXPO_PUBLIC_API_SEARCH_URL || 'https://netsaa-search-service.onrender.com';
+    return API_SEARCH_URL;
 };
 
 const SEARCH_API = axios.create({

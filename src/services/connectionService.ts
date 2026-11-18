@@ -1,9 +1,10 @@
+import { API_URL } from '@/lib/constants';
 import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';
 
 const getBaseUrl = () => {
     // EXPO_PUBLIC_API_URL already ends with /api (e.g., http://localhost:5001/api)
-    if (process.env.EXPO_PUBLIC_API_URL) return `${process.env.EXPO_PUBLIC_API_URL}/connections`;
+    return `${API_URL}/connections`;
     // if (Platform.OS === 'web') return 'http://localhost:5001/api/connections';
     return 'http://10.197.171.107:5001/api/connections';
 };

@@ -1,12 +1,11 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
+import { API_GIGS_URL } from '@/lib/constants';
 import { Gig, GigResponse, GigsListResponse } from '../types/gig';
 
 // Use env var or production fallback
-export const getBaseUrl = () => {
-    return process.env.EXPO_PUBLIC_API_GIGS_URL || 'https://netsaa-gigs-service.onrender.com/v1';
-};
+export const getBaseUrl = () => API_GIGS_URL;
 
 const API = axios.create({
     baseURL: getBaseUrl(),

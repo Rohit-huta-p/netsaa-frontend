@@ -1,10 +1,11 @@
+import { API_URL } from '@/lib/constants';
 import axios from 'axios';
 import { Platform } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 import { Message } from '../types/chat';
 
 const getBaseUrl = () => {
-    if (process.env.EXPO_PUBLIC_API_URL) return `${process.env.EXPO_PUBLIC_API_URL}/messages`;
+    return `${API_URL}/messages`;
     // if (Platform.OS === 'web') return 'http://localhost:5001/api/messages';
     return 'https://netsaa-backend.onrender.com/api/messages';
 };

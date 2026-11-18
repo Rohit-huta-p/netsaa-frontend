@@ -128,7 +128,7 @@ export default function AvatarViewer({ onClose, name, craft, imageUrl }: Props) 
 const styles = StyleSheet.create({
     center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
     card: { alignItems: 'center', gap: 22 },
-    ring: { borderWidth: 1.5, borderColor: 'rgba(255,186,130,0.5)', padding: 3, overflow: 'hidden' },
+    ring: { borderWidth: 0, padding: 3, overflow: 'hidden' },
     caption: { alignItems: 'center', gap: 6 },
     name: { fontFamily: 'DMSerifDisplay_400Regular', color: '#fff', fontSize: 25, textAlign: 'center' },
     craft: { fontFamily: 'SpaceMono-Regular', color: 'rgba(255,255,255,0.65)', fontSize: 10, letterSpacing: 1.6, textAlign: 'center' },

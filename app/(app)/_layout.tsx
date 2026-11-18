@@ -114,7 +114,21 @@ export default function AppLayout() {
 
     return (
         <View className="flex-1">
-            <Stack screenOptions={{ headerShown: false }} />
+            {/* Tab-root screens appear instantly (no push slide) so switching
+                bottom-nav tabs just shows the screen. Deeper drill-down screens
+                (gig/event/profile detail, settings, etc.) keep the default
+                right-to-left slide. */}
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="dashboard/index" options={{ animation: 'none' }} />
+                <Stack.Screen name="client" options={{ animation: 'none' }} />
+                <Stack.Screen name="gigs/index" options={{ animation: 'none' }} />
+                <Stack.Screen name="events/index" options={{ animation: 'none' }} />
+                <Stack.Screen name="inbox/index" options={{ animation: 'none' }} />
+                <Stack.Screen name="profile/index" options={{ animation: 'none' }} />
+                <Stack.Screen name="talent" options={{ animation: 'none' }} />
+                <Stack.Screen name="client-profile" options={{ animation: 'none' }} />
+                <Stack.Screen name="requirements/index" options={{ animation: 'none' }} />
+            </Stack>
 
             {!hideBottomNav && <BottomNav />}
 

@@ -1,6 +1,7 @@
 import { Stack, useRouter, usePathname, useGlobalSearchParams } from "expo-router";
 import { View } from "react-native";
 import useAuthStore from "@/stores/authStore";
+import AppLoadingScreen from "@/components/ui/AppLoadingScreen";
 import AccountDeletionScheduledModal from "@/components/settings/AccountDeletionScheduledModal";
 import BottomNav from "@/components/nav/BottomNav";
 import { useModeStore } from "@/stores/modeStore";
@@ -91,7 +92,7 @@ export default function AppLayout() {
 
     // Wait for auth state to hydrate before rendering
     if (!isHydrated || isAuthLoading) {
-        return null; // Or a loading spinner
+        return <AppLoadingScreen />;
     }
 
     // Block non-public routes for unauthenticated users (redirect will fire)

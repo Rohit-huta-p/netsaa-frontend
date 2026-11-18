@@ -22,15 +22,8 @@
 
 import { useState } from 'react';
 import {
-    View,
-    Text,
-    Image,
-    ScrollView,
-    Pressable,
-    Linking,
-    Share,
-    StyleSheet,
-} from 'react-native';
+    View, Text, Image, ScrollView, Linking, Share, StyleSheet } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';

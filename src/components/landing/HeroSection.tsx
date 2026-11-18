@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Pressable, Dimensions, StyleSheet, Animated, Image } from 'react-native';
+import { View, Text, Dimensions, StyleSheet, Animated, Image } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { useRouter } from 'expo-router';

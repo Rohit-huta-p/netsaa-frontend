@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { Stack } from 'expo-router';
 import { FileText, Shield, Cookie, CheckCircle2 } from 'lucide-react-native';
 import AppScrollView from '@/components/AppScrollView';

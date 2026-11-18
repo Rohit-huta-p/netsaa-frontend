@@ -21,21 +21,25 @@ export function Step4ArtistProfile({
 }: Props) {
     const accent = useAccent();
     const [customInput, setCustomInput] = useState('');
+    const [showCustomInput, setShowCustomInput] = useState(false);
 
     const predefinedForType = ARTIST_SKILLS[artistType] ?? [];
     const customSkills = skills.filter(sk => !predefinedForType.includes(sk));
 
     function handleTypeSelect(id: string) {
         onTypeChange(id, ARTIST_SKILL_DEFAULTS[id] ?? []);
+        setCustomInput('');
+        setShowCustomInput(false);
     }
     function toggleSkill(skill: string) {
         setSkills(skills.includes(skill) ? skills.filter(s => s !== skill) : [...skills, skill]);
     }
     function addCustomSkill() {
         const val = customInput.trim();
-        if (!val || skills.includes(val)) { setCustomInput(''); return; }
+        if (!val || skills.includes(val)) { setCustomInput(''); setShowCustomInput(false); return; }
         setSkills([...skills, val]);
         setCustomInput('');
+        setShowCustomInput(false);
     }
     function removeCustomSkill(skill: string) {
         setSkills(skills.filter(s => s !== skill));
@@ -88,34 +92,44 @@ export function Step4ArtistProfile({
                                 <X size={11} color={accent.on} strokeWidth={2.5} />
                             </Pressable>
                         ))}
+                        {!showCustomInput && (
+                            <Pressable onPress={() => setShowCustomInput(true)} style={s.addOwnChip}>
+                                <Plus size={11} color={RK.dim} strokeWidth={2} />
+                                <Text style={s.addOwnLabel}>Add your own</Text>
+                            </Pressable>
+                        )}
                     </View>
 
-                    {/* Custom skill input */}
-                    <View style={s.customRow}>
-                        <View style={s.customInputBox}>
-                            <TextInput
-                                value={customInput}
-                                onChangeText={setCustomInput}
-                                onSubmitEditing={addCustomSkill}
-                                placeholder="Add your own…"
-                                placeholderTextColor={RK.dim}
-                                returnKeyType="done"
-                                selectionColor={accent.base}
-                                style={s.customInput}
-                            />
+                    {/* Custom skill input — shown only when triggered */}
+                    {showCustomInput && (
+                        <View style={s.customRow}>
+                            <View style={s.customInputBox}>
+                                <TextInput
+                                    value={customInput}
+                                    onChangeText={setCustomInput}
+                                    onSubmitEditing={addCustomSkill}
+                                    onBlur={() => { if (!customInput.trim()) setShowCustomInput(false); }}
+                                    placeholder="Add your own…"
+                                    placeholderTextColor={RK.dim}
+                                    returnKeyType="done"
+                                    selectionColor={accent.base}
+                                    autoFocus
+                                    style={s.customInput}
+                                />
+                            </View>
+                            <Pressable
+                                onPress={addCustomSkill}
+                                style={[
+                                    s.addBtn,
+                                    customActive
+                                        ? { backgroundColor: accent.base, borderColor: accent.base }
+                                        : { backgroundColor: RK.surface, borderColor: RK.hair },
+                                ]}
+                            >
+                                <Plus size={16} color={customActive ? accent.on : RK.dim} strokeWidth={2} />
+                            </Pressable>
                         </View>
-                        <Pressable
-                            onPress={addCustomSkill}
-                            style={[
-                                s.addBtn,
-                                customActive
-                                    ? { backgroundColor: accent.base, borderColor: accent.base }
-                                    : { backgroundColor: RK.surface, borderColor: RK.hair },
-                            ]}
-                        >
-                            <Plus size={16} color={customActive ? accent.on : RK.dim} strokeWidth={2} />
-                        </Pressable>
-                    </View>
+                    )}
                 </>
             )}
 
@@ -143,6 +157,12 @@ const s = StyleSheet.create({
         paddingLeft: 12, paddingRight: 9, paddingVertical: 8, borderRadius: 9, borderWidth: 1,
     },
     customChipLabel: { fontFamily: RK_FONT.body, fontSize: 11.5 },
+    addOwnChip: {
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        paddingLeft: 10, paddingRight: 11, paddingVertical: 8, borderRadius: 9,
+        borderWidth: 1, borderColor: RK.hair, borderStyle: 'dashed',
+    },
+    addOwnLabel: { fontFamily: RK_FONT.body, fontSize: 11.5, color: RK.dim },
     customRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
     customInputBox: {
         flex: 1, height: 42, paddingHorizontal: 12, borderRadius: 11,

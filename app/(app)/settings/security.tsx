@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Alert, ActivityIndicator, Pressable } from 'react-native';
+import { View, Text, Alert, ActivityIndicator } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { Stack, useRouter } from 'expo-router';
 import { Lock, Smartphone, Monitor, Tablet, Shield, X } from 'lucide-react-native';
 import AppScrollView from '@/components/AppScrollView';

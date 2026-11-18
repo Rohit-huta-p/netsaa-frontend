@@ -14,9 +14,8 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Modal, View, Text, Pressable, StyleSheet, Image, ActivityIndicator, Alert, useWindowDimensions,
-  Platform, StatusBar,
-} from 'react-native';
+  Modal, View, Text, StyleSheet, Image, ActivityIndicator, Alert, useWindowDimensions, Platform, StatusBar } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

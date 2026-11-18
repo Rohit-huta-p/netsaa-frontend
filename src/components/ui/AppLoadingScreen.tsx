@@ -21,14 +21,13 @@ export default function AppLoadingScreen() {
 
     React.useEffect(() => {
         const interval = setInterval(() => {
-            // Fade out
             Animated.timing(fadeAnim, {
                 toValue: 0,
                 duration: 500,
                 useNativeDriver: true
-            }).start(() => {
+            }).start(({ finished }) => {
+                if (!finished) return; // component unmounted mid-animation
                 setIndex((prev) => (prev + 1) % SUBTITLES.length);
-                // Fade in
                 Animated.timing(fadeAnim, {
                     toValue: 1,
                     duration: 500,
@@ -37,7 +36,10 @@ export default function AppLoadingScreen() {
             });
         }, 3000);
 
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            fadeAnim.stopAnimation(); // cancel any in-flight native animation
+        };
     }, []);
 
     return (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Redirect } from 'expo-router';
 
@@ -28,6 +28,10 @@ export default function Index() {
   if (!isHydrated) return <AppLoadingScreen />;
 
   if (accessToken) return <Redirect href="/(app)/dashboard" />;
+
+  // Native (iOS/Android) skips the web marketing landing page and goes
+  // straight to sign-in. The landing page is web-only.
+  if (Platform.OS !== 'web') return <Redirect href="/login" />;
 
   return <LandingScreen />;
 }

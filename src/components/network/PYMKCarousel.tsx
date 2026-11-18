@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { X, UserPlus } from 'lucide-react-native';
 
 interface Item {

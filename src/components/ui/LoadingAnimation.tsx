@@ -1,19 +1,21 @@
 import React from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
-import { DotLottie } from '@lottiefiles/dotlottie-react-native';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 // Platform-specific Lottie components
-// iOS/Android: uses @lottiefiles/dotlottie-react-native
+// iOS/Android: uses lottie-react-native (New Architecture / Fabric compatible)
+//   NOTE: @lottiefiles/dotlottie-react-native is NOT New-Arch compatible and
+//   crashes Fabric ("ComponentView ... not found") — do not use it on native.
 // Web: uses @lottiefiles/dotlottie-react
-let DotLottieNative: any = null;
+let LottieNative: any = null;
 let DotLottieWeb: any = null;
 
 if (Platform.OS !== 'web') {
     try {
-        DotLottieNative = DotLottie;
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        LottieNative = require('lottie-react-native').default;
     } catch (e) {
-        console.warn('Failed to load dotlottie-react-native:', e);
+        console.warn('Failed to load lottie-react-native:', e);
     }
 } else {
     try {
@@ -63,20 +65,20 @@ export const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
         );
     }
 
-    // iOS/Android - use DotLottie from dotlottie-react-native
-    if (DotLottieNative) {
+    // iOS/Android - use lottie-react-native (Fabric compatible)
+    if (LottieNative) {
         return (
-            <DotLottieNative
-                source={source}
+            <LottieNative
+                source={{ uri: source }}
+                autoPlay={autoplay}
                 loop={loop}
-                autoplay={autoplay}
-                onComplete={onComplete}
                 style={{ width, height }}
+                onAnimationFinish={onComplete}
             />
         );
     }
 
-    // Fallback for native platforms if DotLottie fails to load
+    // Fallback for native platforms if Lottie fails to load
     return (
         <View style={{ width, height, justifyContent: 'center', alignItems: 'center' }}>
             <ActivityIndicator size="large" color="#3B82F6" />

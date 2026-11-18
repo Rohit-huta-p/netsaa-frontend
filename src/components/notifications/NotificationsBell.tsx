@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { Bell } from 'lucide-react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useNotificationsStore } from '@/stores/notificationsStore';

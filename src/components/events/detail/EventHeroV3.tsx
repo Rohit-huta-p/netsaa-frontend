@@ -75,7 +75,7 @@ export default function EventHeroV3({ event, onBack, onShare, onSave, saved = fa
       <LinearGradient colors={['rgba(0,0,0,0.5)', 'transparent']} pointerEvents="none" style={styles.topFade} />
       {/* Bottom fade to the page background, carrying the headline */}
       <LinearGradient
-        colors={['transparent', 'rgba(18,18,22,0.35)', '#121216']}
+        colors={['transparent', 'rgba(9,9,11,0.35)', '#09090b']}
         locations={[0, 0.55, 1]}
         pointerEvents="none"
         style={styles.bottomFade}
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   dotOn: { width: 18, borderRadius: 3, backgroundColor: '#fff' },
   headline: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 3, paddingHorizontal: 20, paddingBottom: 18, maxWidth: "80%" },
   eyebrow: { fontFamily: 'SpaceMono-Bold', fontSize: 10, letterSpacing: 2, color: 'rgba(243,239,232,0.82)', marginBottom: 8 },
-  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 20, lineHeight: 28, letterSpacing: -0.5, color: '#fff', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 20, textShadowOffset: { width: 0, height: 2 } },
+  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 19, lineHeight: 28, letterSpacing: -0.5, color: '#fff', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 20, textShadowOffset: { width: 0, height: 2 } },
   tagline: { fontFamily: 'Outfit-Regular', fontSize: 10, lineHeight: 20, color: 'rgba(243,239,232,0.9)', marginTop: 0, maxWidth: '90%' },
   going: { fontFamily: 'Outfit-SemiBold', fontSize: 11.5, color: T0, marginTop: 12, opacity: 0.86 },
 });

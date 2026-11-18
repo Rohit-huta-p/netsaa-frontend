@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import {
-    View, Text, TextInput, Pressable, ActivityIndicator,
-    ScrollView, KeyboardAvoidingView, Platform, Alert,
-} from 'react-native';
+import { View, Text, TextInput, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { Stack, useRouter } from 'expo-router';
 import { Smartphone, Eye, EyeOff, CheckCircle2 } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/authStore';

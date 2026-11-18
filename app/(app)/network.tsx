@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import {
-    View, Text, Pressable, StyleSheet, TextInput, Image,
-    ActivityIndicator, RefreshControl, Animated, Easing, Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, TextInput, Image, ActivityIndicator, RefreshControl, Animated, Easing, Alert } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import {

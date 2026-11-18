@@ -1,12 +1,6 @@
 import { io, Socket } from 'socket.io-client';
-import { Platform } from 'react-native';
 import type { NotificationSocketPayload } from '@/stores/notificationsStore';
-
-// Use env var or production fallback
-const getBaseUrl = () => {
-    if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL.replace('/api', '');
-    return 'https://netsaa-backend.onrender.com';
-};
+import { SOCKET_URL } from '@/lib/constants';
 
 class SocketService {
     private socket: Socket | null = null;
@@ -33,7 +27,7 @@ class SocketService {
         }
 
         console.log('SocketService: Connecting...');
-        this.socket = io(getBaseUrl(), {
+        this.socket = io(SOCKET_URL, {
             auth: {
                 token: token
             },

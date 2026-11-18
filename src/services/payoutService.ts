@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_EVENT_URL || 'https://netsaa-events-service.onrender.com';
+import { API_EVENTS_URL } from '@/lib/constants';
+const BASE_URL = API_EVENTS_URL;
 const client = axios.create({ baseURL: BASE_URL, timeout: 15000 });
 client.interceptors.request.use((c) => { const t = useAuthStore.getState().accessToken; if (t) c.headers.Authorization = `Bearer ${t}`; return c; });
 

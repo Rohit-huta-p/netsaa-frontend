@@ -1,3 +1,4 @@
+import { API_MEDIA_URL } from '@/lib/constants';
 import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';
 
@@ -49,7 +50,7 @@ export interface PresignResponse {
 // ─────────────────────────────────────────────────────────────
 
 const getBaseUrl = () => {
-    return process.env.EXPO_PUBLIC_API_MEDIA_URL || 'https://netsaa-media-service.onrender.com/v1';
+    return API_MEDIA_URL;
 };
 
 const API = axios.create({

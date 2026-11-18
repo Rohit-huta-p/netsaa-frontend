@@ -1,7 +1,8 @@
 import axios, { AxiosInstance } from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_EVENT_URL || 'https://netsaa-events-service.onrender.com';
+import { API_EVENTS_URL } from '@/lib/constants';
+const BASE_URL = API_EVENTS_URL;
 
 export interface EventMedia {
   kind: 'photo' | 'video';

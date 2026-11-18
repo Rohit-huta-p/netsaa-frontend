@@ -1,8 +1,9 @@
+import { API_EVENTS_URL } from '@/lib/constants';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 
-const BASE = process.env.EXPO_PUBLIC_API_EVENT_URL || 'https://netsaa-events-service.onrender.com';
+const BASE = API_EVENTS_URL;
 
 /**
  * Probes whether the current user is registered for this event.

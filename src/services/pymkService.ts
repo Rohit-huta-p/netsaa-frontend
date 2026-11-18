@@ -1,8 +1,9 @@
+import { API_SEARCH_URL } from '@/lib/constants';
 import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';
 
 const getDiscoverBaseUrl = () => {
-    return process.env.EXPO_PUBLIC_API_SEARCH_URL || 'https://netsaa-search-service.onrender.com';
+    return API_SEARCH_URL;
 };
 
 const DISCOVER_API = axios.create({

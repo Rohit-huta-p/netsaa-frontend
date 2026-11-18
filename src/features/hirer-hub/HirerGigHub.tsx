@@ -23,6 +23,8 @@ import { ContactActionSheet, type ContactTarget } from '@/features/team/ContactA
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HubOverview } from './components/HubOverview';
+import type { HubTopTab } from './components/HubTopTabs';
+import { useDiscussionBadge } from './hooks/useDiscussionBadge';
 import { HubTeamSection } from './components/HubTeamSection';
 // CONTRACTS-DISABLED: HubBookingTermsCard hidden until contract artifact is restored.
 // import { HubBookingTermsCard } from './components/HubBookingTermsCard';
@@ -94,6 +96,8 @@ export function HirerGigHub({ gigId }: Props) {
     const [activeStage, setActiveStage] = useState<HubStage>('applied');
     const [sortKey, setSortKey] = useState<SortKey>('rating');
     const [menuOpen, setMenuOpen] = useState(false);
+    // Top-level tab: 'applicants' (the pipeline) vs 'discussion' (the thread).
+    const [topTab, setTopTab] = useState<HubTopTab>('applicants');
 
     const handleBack = () => {
         // On the web, deep-linking to /gigs/[id] yields an empty history
@@ -125,6 +129,13 @@ export function HirerGigHub({ gigId }: Props) {
     const [removeTarget, setRemoveTarget] = useState<any | null>(null);
     const updateStatusMutation = useUpdateApplicationStatus();
     const updateGigMutation = useUpdateGig();
+
+    // New-comment badge for the Discussion tab (front-end only, per device).
+    // `active` is true while Discussion is open, so comments the owner is
+    // viewing advance the "seen" watermark instead of badging. `onDiscussionMessages`
+    // is fed by DiscussionTab's message list (initial fetch + live socket).
+    const { badge: discussionBadge, onMessages: onDiscussionMessages } =
+        useDiscussionBadge(gigId, topTab === 'discussion');
 
     const sticky = useMemo(
         () => computeStickyCTA({
@@ -174,7 +185,16 @@ export function HirerGigHub({ gigId }: Props) {
 
     const scrollToOverview = () => scrollRef.current?.scrollTo({ y: overviewYRef.current, animated: true });
 
+    // Switch top-level tab + reset the shared scroll to the top so each tab
+    // starts at its own header instead of inheriting the other's offset.
+    const handleSelectTopTab = (tab: HubTopTab) => {
+        setTopTab(tab);
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+    };
+
     const handleSticky = () => {
+        // Both sticky intents live on the Applicants tab.
+        setTopTab('applicants');
         if (sticky.intent === 'review-applicants') {
             setActiveStage('applied');
             scrollToOverview();
@@ -269,6 +289,7 @@ export function HirerGigHub({ gigId }: Props) {
     // Fill an open slot → jump to the shortlist (your picks) to hire someone;
     // fall back to the applied flood when there are no picks yet.
     const handleFillSlot = () => {
+        setTopTab('applicants');
         setActiveStage((data.stageCounts?.shortlisted ?? 0) > 0 ? 'shortlisted' : 'applied');
         scrollToOverview();
     };
@@ -358,8 +379,16 @@ export function HirerGigHub({ gigId }: Props) {
                         refreshing={data.isRefetching}
                         // ⋯ manage-gig menu is inert until B4.
                         onMenu={() => setMenuOpen(true)}
+                        topTab={topTab}
+                        onSelectTopTab={handleSelectTopTab}
+                        discussionBadge={discussionBadge}
                     />
                 </View>
+
+                {/* Applicants pane — the pipeline body + essentials. Kept in the
+                    tree (display-toggled, never unmounted) so switching to the
+                    Discussion tab preserves the list's local state. */}
+                <View style={{ display: topTab === 'applicants' ? 'flex' : 'none' }}>
 
                 {/* Body — the active stage's list. Hired is the cast (card D +
                     open slots); Applied / Shortlisted are the card-D flood/picks. */}
@@ -421,28 +450,6 @@ export function HirerGigHub({ gigId }: Props) {
 
                 <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 24 }} />
 
-                {/* Discussion — open Q&A thread on the gig. Authenticated users
-                    only (backend-enforced via `protect`). Optimistic posts +
-                    socket-pushed updates. ownerId enables pin + delete-any owner
-                    actions for the Hub viewer (always the gig owner here). */}
-                <View style={{ paddingHorizontal: 16 }}>
-                    <DiscussionTab
-                        id={gigId}
-                        type="gig"
-                        ownerId={typeof gig.organizerId === 'object' ? gig.organizerId?._id : gig.organizerId}
-                        threaded
-                        applicantsByUserId={applicantsByUserId}
-                        onOpenApplicant={(applicationId) => {
-                            // Single-item mode — an asker can be any status (incl.
-                            // rejected); the modal hides chevrons/counter for len 1.
-                            const app = findApplication(applicationId);
-                            if (app) openProfileModal([app], app._id);
-                        }}
-                    />
-                </View>
-
-                <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 24 }} />
-
                 <HubEssentials
                     eventDate={gig.schedule?.startDate ?? gig.startDate}
                     schedule={gig.schedule}
@@ -462,11 +469,42 @@ export function HirerGigHub({ gigId }: Props) {
                         THE STAGE IS YOURS
                     </Text>
                 </View>
+
+                </View>{/* /Applicants pane */}
+
+                {/* Discussion pane — open Q&A thread on the gig. Authenticated
+                    users only (backend-enforced via `protect`). Kept mounted
+                    (display-toggled) so its fetch + socket stay live and feed the
+                    new-comment badge even while the Applicants tab shows. ownerId
+                    enables pin + delete-any owner actions (always the gig owner
+                    here); the owner "waiting" nudge is hidden — the top-tab badge
+                    is the single new-comment signal. */}
+                <View style={{ display: topTab === 'discussion' ? 'flex' : 'none', paddingHorizontal: 16, paddingTop: 10 }}>
+                    <DiscussionTab
+                        id={gigId}
+                        type="gig"
+                        ownerId={typeof gig.organizerId === 'object' ? gig.organizerId?._id : gig.organizerId}
+                        threaded
+                        hideOwnerWaitingNudge
+                        onMessagesChange={onDiscussionMessages}
+                        applicantsByUserId={applicantsByUserId}
+                        onOpenApplicant={(applicationId) => {
+                            // Single-item mode — an asker can be any status (incl.
+                            // rejected); the modal hides chevrons/counter for len 1.
+                            const app = findApplication(applicationId);
+                            if (app) openProfileModal([app], app._id);
+                        }}
+                    />
+                </View>
             </ScrollView>
 
-            <View style={{ position: 'absolute', bottom: insets.bottom + 16, left: 0, right: 0 }}>
-                <HubStickyCTA cta={sticky} onPress={handleSticky} />
-            </View>
+            {/* Sticky CTA is an Applicants-context action (review / urgent team);
+                hidden on the Discussion tab where it would sit over the thread. */}
+            {topTab === 'applicants' ? (
+                <View style={{ position: 'absolute', bottom: insets.bottom + 16, left: 0, right: 0 }}>
+                    <HubStickyCTA cta={sticky} onPress={handleSticky} />
+                </View>
+            ) : null}
 
             {profileModal ? (
                 <ApplicantProfileModal

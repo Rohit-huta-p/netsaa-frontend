@@ -17,6 +17,8 @@ const baseProps = {
     slotsTotal: 4,
     onSelectStage: jest.fn(),
     onToggleSort: jest.fn(),
+    topTab: 'applicants' as const,
+    onSelectTopTab: jest.fn(),
 };
 
 describe('HubOverview', () => {
@@ -85,5 +87,39 @@ describe('HubOverview', () => {
         );
         fireEvent.press(getByLabelText('Refresh applicants'));
         expect(onRefresh).toHaveBeenCalled();
+    });
+
+    it('renders the top-level Applicants / Discussion tabs; tapping Discussion selects it', () => {
+        const onSelectTopTab = jest.fn();
+        const { getByText, getByLabelText } = render(
+            <HubOverview {...baseProps} activeStage="applied" onSelectTopTab={onSelectTopTab} />
+        );
+        expect(getByText('Applicants')).toBeTruthy();
+        expect(getByText('Discussion')).toBeTruthy();
+        fireEvent.press(getByLabelText('Discussion'));
+        expect(onSelectTopTab).toHaveBeenCalledWith('discussion');
+    });
+
+    it('shows the new-comment badge on Discussion only when discussionBadge > 0', () => {
+        // 7 doesn't collide with any stage count (9 / 3 / 2) or the slot total (4).
+        const { queryByText, rerender } = render(
+            <HubOverview {...baseProps} activeStage="applied" discussionBadge={0} />
+        );
+        expect(queryByText('7')).toBeNull();      // no badge at 0
+
+        rerender(<HubOverview {...baseProps} activeStage="applied" discussionBadge={7} />);
+        expect(queryByText('7')).toBeTruthy();    // the badge
+    });
+
+    it('hides the stage pipeline on the Discussion tab (thread only)', () => {
+        const { queryByLabelText, getByText } = render(
+            <HubOverview {...baseProps} activeStage="applied" topTab="discussion" />
+        );
+        // Tabs still render…
+        expect(getByText('Discussion')).toBeTruthy();
+        // …but the stage filter + sort are gone.
+        expect(queryByLabelText('Applied stage')).toBeNull();
+        expect(queryByLabelText('Shortlisted stage')).toBeNull();
+        expect(queryByLabelText('Sort by rating')).toBeNull();
     });
 });

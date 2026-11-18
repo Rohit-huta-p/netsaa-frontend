@@ -73,6 +73,10 @@ interface Props {
   applicantsByUserId?: ApplicantsByUserId;
   onOpenApplicant?: (applicationId: string) => void;
   starterPrompts?: string[];
+  /** Owner hub — hide the "N waiting" pill + the waiting-nudge sentence. The
+   *  hub's top-tab badge carries the new-comment signal instead. Per-row
+   *  "Awaiting reply" tags + unanswered-first ordering are unaffected. */
+  hideOwnerWaitingNudge?: boolean;
 }
 
 function initials(name?: string) {
@@ -221,6 +225,7 @@ export default function DiscussionThreadView({
   onChangeText, onSend, onStartReply, onCancelReply, onModerate, onOpenProfile,
   applicantsByUserId, onOpenApplicant,
   starterPrompts = ['When are rehearsals?', 'Is travel covered?', 'What should I prepare?'],
+  hideOwnerWaitingNudge = false,
 }: Props) {
   // The owner (producer) gets the triage treatment: unanswered questions float
   // up, a "waiting" badge + nudge appear, and each waiting root is tagged.
@@ -245,7 +250,7 @@ export default function DiscussionThreadView({
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 4, marginBottom: 2 }}>
         <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 17, color: C.t1, letterSpacing: -0.3 }}>Questions &amp; answers</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {isOwner && unansweredCount > 0 && (
+          {isOwner && !hideOwnerWaitingNudge && unansweredCount > 0 && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: C.orangeBorder, backgroundColor: C.orangeSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2.5 }}>
               <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.orange }} />
               <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 9.5, letterSpacing: 0.3, color: C.orange }}>{unansweredCount} waiting</Text>
@@ -259,7 +264,7 @@ export default function DiscussionThreadView({
         </View>
       </View>
 
-      {isOwner && unansweredCount > 0 && !loading && (
+      {isOwner && !hideOwnerWaitingNudge && unansweredCount > 0 && !loading && (
         <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 11.5, lineHeight: 16, color: C.orangeTint, marginBottom: 2 }}>
           {unansweredCount === 1
             ? '1 question is waiting for your reply.'

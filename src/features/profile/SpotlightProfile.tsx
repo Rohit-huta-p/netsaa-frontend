@@ -37,6 +37,7 @@ import { ProfileEditModal } from '@/features/profile/components/ProfileEditModal
 import type { ProfileData, ProfileVideoReel, FeaturedItem, FeaturedAttachment } from '@/components/profile/types';
 import MediaViewer from '@/components/profile/MediaViewer';
 import AvatarViewer from '@/components/profile/AvatarViewer';
+import WithdrawRequestSheet from '@/components/profile/WithdrawRequestSheet';
 import FeaturedEditSheet, { type ShowcaseRef } from '@/features/profile/components/FeaturedEditSheet';
 import MarkdownText from '@/components/inputs/MarkdownText';
 import * as ImagePicker from 'expo-image-picker';
@@ -151,6 +152,7 @@ export function SpotlightProfile({ userId, isOwner }: {
     const [coverUploading, setCoverUploading] = useState(false);
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
     const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
+    const [withdrawOpen, setWithdrawOpen] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [featuredEdit, setFeaturedEdit] = useState<{ open: boolean; index: number | null }>({ open: false, index: null });
     const openEditor = (index: number | null) => setFeaturedEdit({ open: true, index });
@@ -242,12 +244,19 @@ export function SpotlightProfile({ userId, isOwner }: {
     const onConnect = async () => {
         if (connBusy || isConnectionLoading) return;
         haptic();
+        // Pending → confirm before withdrawing (a one-tap withdraw was too easy to hit).
+        if (connectionStatus === 'pending') { setWithdrawOpen(true); return; }
         setConnBusy(true);
         try {
             if (connectionStatus === 'none') await sendRequest();
-            else if (connectionStatus === 'pending') await withdrawRequest();
         } catch { /* hook surfaces its own errors */ }
         finally { setConnBusy(false); }
+    };
+
+    const onWithdrawConfirm = async () => {
+        setConnBusy(true);
+        try { await withdrawRequest(); } catch { /* hook surfaces its own errors */ }
+        finally { setConnBusy(false); setWithdrawOpen(false); }
     };
 
     const openMessage = async () => {
@@ -479,7 +488,7 @@ export function SpotlightProfile({ userId, isOwner }: {
                                 </View>
                             ) : pending ? (
                                 <Pressable onPress={onConnect} disabled={connBusy} style={[st.abtn, st.abtnGhost]}>
-                                    {connBusy ? <ActivityIndicator size="small" color={C.t4} /> : <><Clock size={14} color={C.t4} /><Text style={[st.abtnTx, { color: C.t4 }]}>Requested</Text></>}
+                                    {connBusy ? <ActivityIndicator size="small" color={C.t4} /> : <><Clock size={14} color={C.t4} /><Text style={[st.abtnTx, { color: C.t4 }]}>Pending</Text></>}
                                 </Pressable>
                             ) : (
                                 <Pressable onPress={onConnect} disabled={connBusy} style={[st.abtn, st.abtnConnect]}>
@@ -650,6 +659,16 @@ export function SpotlightProfile({ userId, isOwner }: {
                         name={name}
                         craft={kicker}
                         imageUrl={avatarUrl}
+                    />
+                )}
+
+                {/* Tap Pending → confirm before withdrawing the connection request */}
+                {withdrawOpen && (
+                    <WithdrawRequestSheet
+                        name={name}
+                        busy={connBusy}
+                        onKeep={() => setWithdrawOpen(false)}
+                        onWithdraw={onWithdrawConfirm}
                     />
                 )}
 

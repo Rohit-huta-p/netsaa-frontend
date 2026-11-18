@@ -639,7 +639,7 @@ export default function Navbar() {
             </TouchableOpacity>
 
             {/* Desktop nav links */}
-            {!(isWeb && isMobile) && (
+            {isWeb && !isMobile && (
                 <View style={{ flexDirection: 'row', gap: 2, alignItems: 'center' }}>
                     {[
                         { label: 'Opportunities', route: '/(app)/gigs',   match: '/gigs'    },

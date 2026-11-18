@@ -36,6 +36,7 @@ import conversationService from '@/services/conversationService';
 import { ProfileEditModal } from '@/features/profile/components/ProfileEditModal';
 import type { ProfileData, ProfileVideoReel, FeaturedItem, FeaturedAttachment } from '@/components/profile/types';
 import MediaViewer from '@/components/profile/MediaViewer';
+import AvatarViewer from '@/components/profile/AvatarViewer';
 import FeaturedEditSheet, { type ShowcaseRef } from '@/features/profile/components/FeaturedEditSheet';
 import MarkdownText from '@/components/inputs/MarkdownText';
 import * as ImagePicker from 'expo-image-picker';
@@ -149,6 +150,7 @@ export function SpotlightProfile({ userId, isOwner }: {
 
     const [coverUploading, setCoverUploading] = useState(false);
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+    const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [featuredEdit, setFeaturedEdit] = useState<{ open: boolean; index: number | null }>({ open: false, index: null });
     const openEditor = (index: number | null) => setFeaturedEdit({ open: true, index });
@@ -415,7 +417,7 @@ export function SpotlightProfile({ userId, isOwner }: {
                                 </Defs>
                                 <Rect x="0" y="0" width={176} height={176} fill="url(#halo)" />
                             </Svg>
-                            <View style={st.ring}>
+                            <Pressable style={st.ring} onPress={() => setAvatarViewerOpen(true)} accessibilityRole="button" accessibilityLabel="View photo">
                                 {avatarUrl ? (
                                     <Image source={{ uri: avatarUrl }} style={st.avatar} />
                                 ) : (
@@ -423,7 +425,7 @@ export function SpotlightProfile({ userId, isOwner }: {
                                         <Text style={{ fontFamily: 'DMSerifDisplay_400Regular', color: '#FFB488', fontSize: 38 }}>{initialsOf(name)}</Text>
                                     </LinearGradient>
                                 )}
-                            </View>
+                            </Pressable>
                             {availColor && <View style={[st.pdot, { backgroundColor: availColor, shadowColor: availColor }]} />}
                             {isOwner && (
                                 <Pressable onPress={() => openSheet('media')} style={st.camBadge}><Camera size={14} color="#fff" /></Pressable>
@@ -638,6 +640,16 @@ export function SpotlightProfile({ userId, isOwner }: {
                         artist={{ id: userId, name, location: city }}
                         isOwner={isOwner}
                         onEdit={isOwner ? () => { setViewerIndex(null); openSheet('media'); } : undefined}
+                    />
+                )}
+
+                {/* Tap the halo portrait → full-screen photo viewer (reuses the MediaViewer backdrop) */}
+                {avatarViewerOpen && (
+                    <AvatarViewer
+                        onClose={() => setAvatarViewerOpen(false)}
+                        name={name}
+                        craft={kicker}
+                        imageUrl={avatarUrl}
                     />
                 )}
 

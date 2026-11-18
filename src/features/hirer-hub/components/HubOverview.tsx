@@ -24,6 +24,8 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { MoreHorizontal, ChevronDown, RefreshCw } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, cancelAnimation, Easing } from 'react-native-reanimated';
 import type { HubStage } from '../hooks/useGigHubData';
+import { HubTopTabs, type HubTopTab } from './HubTopTabs';
+import { TAB_ON, TAB_OFF, TAB_LINE } from './hubTabTokens';
 
 const COLORS = {
     text0: '#F3EFE8', text1: '#B8B1A6', text2: '#6B6878', text3: '#5C5A66', text4: '#3F3D4A',
@@ -65,6 +67,11 @@ type Props = {
     /** Manual refresh for the applicant list; the header icon spins while `refreshing`. */
     onRefresh?: () => void;
     refreshing?: boolean;
+    /** Top-level tab: 'applicants' shows the pipeline, 'discussion' hides it. */
+    topTab: HubTopTab;
+    onSelectTopTab: (tab: HubTopTab) => void;
+    /** New-comment count shown on the Discussion tab (0/undefined → no badge). */
+    discussionBadge?: number;
 };
 
 const STAGE_ORDER: { key: HubStage; label: string }[] = [
@@ -112,6 +119,7 @@ export function HubOverview({
     title, statusKey, metaLine, counts, slotsTotal,
     activeStage, onSelectStage, sortLabel = 'RATING', onToggleSort, onMenu,
     onRefresh, refreshing,
+    topTab, onSelectTopTab, discussionBadge,
 }: Props) {
     const pill = STATUS_PILL[statusKey ?? ''] ?? STATUS_PILL.published;
     const filled = counts.hired;
@@ -173,9 +181,18 @@ export function HubOverview({
                 ) : null}
             </View>
 
-            {/* stages — the segmented filter; active box = the body shown below */}
-            <View style={{ flexDirection: 'row', gap: 7, paddingHorizontal: HORIZ }}>
-                {STAGE_ORDER.map(({ key, label }) => {
+            {/* Top-level tabs — Applicants | Discussion. Sits between the gig
+                header and the stage row (manage-gig.html .htabs). */}
+            <HubTopTabs activeTab={topTab} onSelectTab={onSelectTopTab} discussionBadge={discussionBadge} />
+
+            {/* The pipeline (stages + slot bar + barnote + list header) belongs
+                to the Applicants tab; the Discussion tab shows only the thread. */}
+            {topTab === 'applicants' ? (
+            <>
+            {/* stages — neutral-grey segmented filter (joined); active box = the
+                body shown below. Same treatment as the top tabs. */}
+            <View style={{ flexDirection: 'row', marginHorizontal: HORIZ, marginTop: 10, backgroundColor: TAB_OFF, borderWidth: 1, borderColor: TAB_LINE, borderRadius: 12, overflow: 'hidden' }}>
+                {STAGE_ORDER.map(({ key, label }, i) => {
                     const on = key === activeStage;
                     return (
                         <TouchableOpacity
@@ -186,15 +203,15 @@ export function HubOverview({
                             accessibilityState={{ selected: on }}
                             activeOpacity={0.8}
                             style={{
-                                flex: 1, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 12,
+                                flex: 1, paddingVertical: 9, paddingHorizontal: 8,
                                 alignItems: 'center',
-                                backgroundColor: on ? COLORS.stageOnBg : COLORS.card,
-                                borderWidth: 1, borderColor: on ? COLORS.stageOnLine : COLORS.cardLine,
+                                backgroundColor: on ? TAB_ON : 'transparent',
+                                borderLeftWidth: i === 0 ? 0 : 1, borderLeftColor: TAB_LINE,
                             }}>
                             <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 17, color: COLORS.text0 }}>
                                 {counts[key]}
                             </Text>
-                            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 7.5, letterSpacing: 0.7, textTransform: 'uppercase', marginTop: 3, color: on ? COLORS.orangeTint : COLORS.text2 }}>
+                            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 7.5, letterSpacing: 0.7, textTransform: 'uppercase', marginTop: 3, color: on ? COLORS.text0 : COLORS.text2 }}>
                                 {label}
                             </Text>
                         </TouchableOpacity>
@@ -248,6 +265,8 @@ export function HubOverview({
                     {onRefresh ? <HubRefreshButton refreshing={refreshing} onPress={onRefresh} /> : null}
                 </View>
             </View>
+            </>
+            ) : null}
         </View>
     );
 }

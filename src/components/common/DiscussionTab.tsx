@@ -122,6 +122,19 @@ interface DiscussionTabProps {
      */
     applicantsByUserId?: Record<string, { applicationId: string; status: string }>;
     onOpenApplicant?: (applicationId: string) => void;
+    /**
+     * Owner hub only — hide the owner "N waiting" pill + "N questions are
+     * waiting for your reply." nudge in the threaded view. The hub's top-tab
+     * badge is the single new-comment signal there. Other callers keep it.
+     */
+    hideOwnerWaitingNudge?: boolean;
+    /**
+     * Owner hub only — report the current message list + loading state up
+     * (initial fetch + socket updates) so the hub can derive a new-comment
+     * badge without a second fetch. `loading` lets the hub tell an empty thread
+     * from a not-yet-loaded one. Optional; other callers pass nothing.
+     */
+    onMessagesChange?: (messages: DiscussionMessage[], loading: boolean) => void;
 }
 
 /* ================= HELPERS ================= */
@@ -140,7 +153,7 @@ const deletedLabel = (reason?: 'self' | 'organizer' | 'admin') => {
 
 /* ================= COMPONENT ================= */
 
-export default function DiscussionTab({ id, type, ownerId, inline = false, variant = 'default', threaded = false, applicantsByUserId, onOpenApplicant }: DiscussionTabProps) {
+export default function DiscussionTab({ id, type, ownerId, inline = false, variant = 'default', threaded = false, applicantsByUserId, onOpenApplicant, hideOwnerWaitingNudge = false, onMessagesChange }: DiscussionTabProps) {
     const glass = variant === 'glass';
     const [messages, setMessages] = useState<DiscussionMessage[]>([]);
     const [inputText, setInputText] = useState("");
@@ -238,6 +251,15 @@ export default function DiscussionTab({ id, type, ownerId, inline = false, varia
             offDelete();
         };
     }, [id, type]);
+
+    /* ---------- Report messages up (owner-hub badge) ---------- */
+
+    // The hub derives its new-comment badge from this list (fetch + socket),
+    // so it never needs a second fetch. `loading` lets it establish the
+    // baseline only once the initial fetch settles. No-op when unset.
+    useEffect(() => {
+        onMessagesChange?.(messages, loading);
+    }, [messages, loading, onMessagesChange]);
 
     /* ---------- Send message ---------- */
 
@@ -421,6 +443,7 @@ export default function DiscussionTab({ id, type, ownerId, inline = false, varia
                 onOpenProfile={openAuthorProfile}
                 applicantsByUserId={applicantsByUserId}
                 onOpenApplicant={onOpenApplicant}
+                hideOwnerWaitingNudge={hideOwnerWaitingNudge}
             />
         );
     }

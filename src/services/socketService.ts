@@ -37,9 +37,11 @@ class SocketService {
             auth: {
                 token: token
             },
-            transports: ['websocket'], // Recommended for React Native
+            transports: ['websocket'],
             autoConnect: true,
             reconnection: true,
+            reconnectionAttempts: 5,
+            timeout: 10000,
         });
 
         this.setupListeners();

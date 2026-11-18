@@ -303,10 +303,16 @@ export default function RegisterScreen() {
         }
         setStepError(null);
 
-        // Email uniqueness check on step 0
+        // Email uniqueness check on step 0 — drive the CTA spinner so the tap
+        // isn't silent; the button is disabled while `loading`, blocking re-taps.
         if (stepIdx === 0) {
+            setLoading(true);
             try {
-                const res = await checkEmailMutation.mutateAsync({ email: email.trim() });
+                // Floor the spinner at ~300ms so a fast response doesn't just flash.
+                const [res] = await Promise.all([
+                    checkEmailMutation.mutateAsync({ email: email.trim() }),
+                    new Promise((r) => setTimeout(r, 300)),
+                ]);
                 if ((res as any)?.exists) {
                     setStepError('That email is already registered. Try logging in.');
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -314,6 +320,8 @@ export default function RegisterScreen() {
                 }
             } catch {
                 // Non-fatal — proceed
+            } finally {
+                setLoading(false);
             }
         }
 
@@ -431,7 +439,7 @@ export default function RegisterScreen() {
 
     const ctaLabel = isArtistMediaStep
         ? (loading ? 'Creating your account…' : 'Create account')
-        : 'Continue';
+        : (loading && stepIdx === 0 ? 'Checking…' : 'Continue');
 
     // CL steps 3-6 have their own full-screen layout (KeyboardAvoidingView + ScrollView + CTA)
     const showCLSteps = isCL && stepIdx >= 3;
@@ -565,10 +573,14 @@ export default function RegisterScreen() {
                                     </View>
                                 ) : (
                                     <View style={[styles.ctaGrad, { backgroundColor: accent.base }]}>
-                                        {loading
-                                            ? <ActivityIndicator color={accent.on} size="small" />
-                                            : <Text style={[styles.ctaLabel, { color: accent.on }]}>{ctaLabel}</Text>
-                                        }
+                                        {loading ? (
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                <ActivityIndicator color={accent.on} size="small" />
+                                                <Text style={[styles.ctaLabel, { color: accent.on }]}>{ctaLabel}</Text>
+                                            </View>
+                                        ) : (
+                                            <Text style={[styles.ctaLabel, { color: accent.on }]}>{ctaLabel}</Text>
+                                        )}
                                     </View>
                                 )}
                             </Pressable>

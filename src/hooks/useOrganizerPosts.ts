@@ -43,6 +43,10 @@ export interface PostRow {
   views?: number;
   /** Events only — seat fractions (taken / total). Undefined for gigs. */
   seats?: { taken: number; total: number };
+  /** Total comments on the gig/event (from the organizer list payload). Undefined until shipped. */
+  discussionCount?: number;
+  /** Gigs — root questions the owner still owes a reply on. Undefined for events / until shipped. */
+  waitingCount?: number;
   status: string;
   createdAt: string;
   /** Expo Router href the card taps into. */
@@ -128,6 +132,9 @@ function normalizeGig(g: any): PostRow {
     date: readDate(g.schedule?.startDate ?? g.startsAt ?? g.gigDate ?? g.dates?.start ?? g.createdAt),
     applicants: g.stats?.applicationsCount ?? 0,
     views: g.stats?.viewsCount ?? 0,
+    // Discussion signals (gig-service organizer list payload). Undefined until that ships.
+    discussionCount: g.discussionCount,
+    waitingCount: g.waitingCount,
     status: g.status ?? 'unknown',
     createdAt: g.createdAt ?? new Date(0).toISOString(),
     href: `/(app)/gigs/${id}`,
@@ -148,6 +155,8 @@ function normalizeEvent(e: EventDoc): PostRow {
     seats: cap
       ? { taken: cap.registeredCount ?? 0, total: cap.total ?? 0 }
       : undefined,
+    // Events already carry a total discussionCount; events have no waitingCount yet.
+    discussionCount: (e as any).discussionCount,
     status: e.status ?? 'unknown',
     createdAt: e.createdAt ?? new Date(0).toISOString(),
     href: `/(app)/events/${id}`,

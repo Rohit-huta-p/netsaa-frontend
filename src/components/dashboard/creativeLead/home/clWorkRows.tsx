@@ -13,6 +13,7 @@ import React from 'react';
 import { Row, fmtRupees, type PillTone } from '@/components/dashboard/artist/home/ui';
 import type { PostRow } from '@/hooks/useOrganizerPosts';
 import type { SentProposal } from '@/services/requirementService';
+import CLWorkRow from './CLWorkRow';
 
 export type HireSub = 'live' | 'draft' | 'closed';
 export type HostSub = 'upcoming' | 'draft' | 'past';
@@ -35,21 +36,21 @@ export function hiringRow(p: PostRow, sub: HireSub, opts: { newByGig: Record<str
     sub === 'live' ? { label: 'Live', tone: 'green' }
     : sub === 'draft' ? { label: 'Draft', tone: 'muted' }
     : { label: 'Closed', tone: 'muted' };
-  const showCount = sub !== 'draft';
-  const rawId = p.id.startsWith('gig:') ? p.id.slice(4) : p.id;
-  const newCount = sub === 'live' ? opts.newByGig[rawId] ?? 0 : 0;
+  // opts.newByGig is no longer surfaced: the "N NEW" applicants accent was dropped in
+  // favour of the discussion "waiting" signal. Kept in the signature for existing callers.
   return (
-    <Row
+    <CLWorkRow
       key={p.id}
       title={p.title}
       initial={initialOf(p.title)}
       kind="gig"
       pill={pill}
       meta={metaLine(p)}
-      right={showCount ? String(p.applicants ?? 0) : undefined}
-      accent={newCount > 0 ? `${newCount} NEW` : undefined}
-      rightSub={showCount ? 'APPLICANTS' : undefined}
+      peopleCount={p.applicants ?? 0}
+      discussionCount={p.discussionCount}
+      waitingCount={p.waitingCount}
       muted={sub !== 'live'}
+      draftFinish={sub === 'draft'}
       onPress={() => opts.router.push((sub === 'draft' ? p.href : `${p.href}?tab=applicants`) as any)}
     />
   );
@@ -61,18 +62,18 @@ export function hostingRow(p: PostRow, sub: HostSub, opts: { router: Nav }) {
     sub === 'upcoming' ? { label: 'Upcoming', tone: 'blue' }
     : sub === 'draft' ? { label: 'Draft', tone: 'muted' }
     : { label: 'Past', tone: 'muted' };
-  const showCount = sub !== 'draft';
   return (
-    <Row
+    <CLWorkRow
       key={p.id}
       title={p.title}
       initial={initialOf(p.title)}
       kind="event"
       pill={pill}
       meta={metaLine(p)}
-      right={showCount ? String(p.seats?.taken ?? 0) : undefined}
-      rightSub={showCount ? (sub === 'past' ? 'ATTENDED' : 'REGISTERED') : undefined}
+      peopleCount={p.seats?.taken ?? 0}
+      discussionCount={p.discussionCount}
       muted={sub !== 'upcoming'}
+      draftFinish={sub === 'draft'}
       onPress={() => opts.router.push(p.href as any)}
     />
   );

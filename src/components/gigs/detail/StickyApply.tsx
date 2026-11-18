@@ -3,7 +3,8 @@
 // Always rendered (never hidden when a deadline is missing). Three states.
 
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowRight, Check, Clock } from 'lucide-react-native';
 import { C, F } from './ui';

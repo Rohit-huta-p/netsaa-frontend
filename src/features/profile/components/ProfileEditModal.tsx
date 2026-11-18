@@ -1,10 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-    View, Text, TextInput, TouchableOpacity, Modal, ScrollView,
-    Animated, Dimensions, KeyboardAvoidingView, Platform,
-    ActivityIndicator, Image, Alert, Pressable,
-    type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, ScrollView, Animated, Dimensions, KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import {
     X, Check, ShieldCheck, Plus, Minus, Search, ChevronDown, ChevronUp, Trash2, Play,
     Video as VideoIcon, Sparkles, User as UserIcon, FileText,

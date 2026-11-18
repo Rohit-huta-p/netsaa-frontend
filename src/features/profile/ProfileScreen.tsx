@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, Text, Image, ScrollView, Pressable, StyleSheet,
-    ActivityIndicator, Dimensions, Modal, TextInput, Alert, useWindowDimensions,
-} from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, ActivityIndicator, Dimensions, Modal, TextInput, Alert, useWindowDimensions } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, usePathname } from 'expo-router';

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, Pressable, FlatList } from 'react-native';
+import { View, Text, Modal, FlatList } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { Stack } from 'expo-router';
 import AppScrollView from '@/components/AppScrollView';
 import SettingRow from '@/components/settings/SettingRow';

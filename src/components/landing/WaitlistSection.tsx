@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Animated } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Animated } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowRight } from 'lucide-react-native';
 import MaskedView from '@react-native-masked-view/masked-view';

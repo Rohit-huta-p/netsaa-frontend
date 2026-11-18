@@ -14,7 +14,8 @@
 // nav; the trigger is measured on open so the dial drops from under it.
 
 import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Modal, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Modal, Dimensions } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,

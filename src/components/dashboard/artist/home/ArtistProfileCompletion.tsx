@@ -14,7 +14,8 @@
 // just surface it. Pay-as-fact: no field breakdown, no counts. StyleSheet-only.
 
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import Svg, { Path, Line, G } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { Pencil, Eye } from 'lucide-react-native';

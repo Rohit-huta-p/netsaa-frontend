@@ -12,14 +12,8 @@
  */
 import { useState } from 'react';
 import {
-    View,
-    Text,
-    ScrollView,
-    Pressable,
-    Image,
-    ActivityIndicator,
-    Linking,
-} from 'react-native';
+    View, Text, ScrollView, Image, ActivityIndicator, Linking } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {

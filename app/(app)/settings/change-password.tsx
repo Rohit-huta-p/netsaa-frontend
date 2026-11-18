@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { Stack, useRouter } from 'expo-router';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { useChangePassword } from '@/hooks/useSecurity';

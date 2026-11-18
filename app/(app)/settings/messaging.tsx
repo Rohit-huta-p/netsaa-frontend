@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { Stack } from 'expo-router';
 import AppScrollView from '@/components/AppScrollView';
 import SettingRow from '@/components/settings/SettingRow';

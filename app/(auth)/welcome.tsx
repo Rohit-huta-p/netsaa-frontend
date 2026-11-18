@@ -2,7 +2,8 @@
 // Variant A — "Diagonal Stage" role picker.
 // Two warm cards staggered diagonally, cutout performer illustrations floating over them.
 import { useCallback, useRef, useState } from 'react';
-import { View, Text, Pressable, Image, ScrollView, StatusBar, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, Image, ScrollView, StatusBar, StyleSheet, Dimensions } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';

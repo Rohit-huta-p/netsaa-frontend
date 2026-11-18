@@ -7,7 +7,8 @@
 // Destructive red on the confirm action is a semantic accent, not decoration.
 
 import React, { useState } from 'react';
-import { View, Text, Pressable, Image, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Image, ActivityIndicator, StyleSheet } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { AlertCircle } from 'lucide-react-native';
 import { Connection } from '@/types/connection';
 

@@ -7,7 +7,8 @@
 // expo-linear-gradient.
 
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, Image, StyleProp, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, Image, StyleProp, ViewStyle } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export const C = {

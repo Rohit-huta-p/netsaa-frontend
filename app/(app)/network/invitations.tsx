@@ -1,16 +1,7 @@
 // app/(app)/network/invitations.tsx
 import React, { useCallback, useState } from 'react';
-import {
-    View,
-    Text,
-    Pressable,
-    Image,
-    ActivityIndicator,
-    RefreshControl,
-    ScrollView,
-    Platform,
-    Alert,
-} from 'react-native';
+import { View, Text, Image, ActivityIndicator, RefreshControl, ScrollView, Platform, Alert } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { ChevronLeft, Check, X, Clock, Inbox, Send } from 'lucide-react-native';

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { Zap, HandCoins, ShieldCheck, AlertTriangle } from 'lucide-react-native';
 import type { ContractPaymentMethod } from '@/services/paymentService';
 

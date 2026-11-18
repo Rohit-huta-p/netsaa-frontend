@@ -1,6 +1,7 @@
 // register-kit/Chip.tsx — selectable pill (selected = accent). Also a dashed "add" variant.
 import React from 'react';
-import { Pressable, Text, StyleSheet, type ViewStyle } from 'react-native';
+import { Text, StyleSheet, type ViewStyle } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { RK, RK_FONT } from './theme';
 import { useAccent } from './AccentContext';
 

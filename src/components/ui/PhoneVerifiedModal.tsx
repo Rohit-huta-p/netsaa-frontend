@@ -1,8 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import {
-    View, Text, Modal, Animated, Pressable,
-    ActivityIndicator, StyleSheet,
-} from 'react-native';
+import { View, Text, Modal, Animated, ActivityIndicator, StyleSheet } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { CheckCircle } from 'lucide-react-native';
 
 /* ─────────────────────────────────────────────── */

@@ -11,7 +11,8 @@
  * CTA), discard is a dusty-rose link.
  */
 import React from 'react';
-import { Modal, View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogOut, Check, RotateCcw, AlertTriangle } from 'lucide-react-native';
 import { C, F } from './theme';

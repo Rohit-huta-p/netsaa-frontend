@@ -16,9 +16,8 @@
 //   • applyFormat(text, sel, act)  — the pure Markdown transform (testable)
 import { forwardRef, useImperativeHandle, useRef, useState, type ComponentProps } from 'react';
 import {
-    View, TextInput, Pressable, StyleSheet,
-    type TextStyle, type ViewStyle, type StyleProp,
-} from 'react-native';
+    View, TextInput, StyleSheet, type TextStyle, type ViewStyle, type StyleProp } from 'react-native';
+import { Pressable } from '@/components/ui/Pressable';
 import { Bold, Italic, List, ListOrdered, Quote } from 'lucide-react-native';
 
 export type FormatAction = 'bold' | 'italic' | 'bullet' | 'number' | 'quote';

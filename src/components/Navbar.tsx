@@ -8,6 +8,7 @@ import {
     Animated, Keyboard, useWindowDimensions
 } from 'react-native';
 import { useResponsive } from '../hooks/useResponsive';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, usePathname } from 'expo-router';
 import useAuthStore from '../stores/authStore';
 import {
@@ -431,6 +432,7 @@ function InboxButton({ count, onPress }: { count: number; onPress: () => void })
 // ----- Main Navbar -----
 export default function Navbar() {
     const { isMobile } = useResponsive();
+    const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
     const router = useRouter();
     const pathname = usePathname();
@@ -616,7 +618,8 @@ export default function Navbar() {
         <View style={{
             flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
             paddingHorizontal: isWeb && !isMobile ? 48 : 12,
-            height: 72,
+            paddingTop: isWeb ? 0 : insets.top,
+            height: isWeb ? 72 : 72 + insets.top,
             zIndex: 100,
             backgroundColor: 'rgba(7,7,13,0.75)',
             borderBottomWidth: 1,

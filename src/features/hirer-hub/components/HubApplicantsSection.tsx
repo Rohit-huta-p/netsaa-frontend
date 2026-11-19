@@ -14,6 +14,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
 import { HubApplicantRow } from './HubApplicantRow';
+import { HubSeeAllRow } from './HubSeeAllRow';
 
 const COLORS = { text2: '#6B6878' };
 
@@ -37,11 +38,15 @@ type Props = {
     onMessage?: (applicationId: string) => void;
     /** Share an applicant — Hub opens the native share sheet. */
     onShare?: (applicationId: string) => void;
+    /** Preview mode: show at most `limit` cards + a "See all N" row. */
+    limit?: number;
+    onSeeAll?: () => void;
 };
 
 export function HubApplicantsSection({
     applicants, venueCity, emptyLabel = 'No applicants in this stage yet.',
     onTapApplicant, onViewProfile, pulseId, onPass, onUndoPass, onShortlist, onHire, onMessage, onShare,
+    limit, onSeeAll,
 }: Props) {
     // Applicants the owner just passed, kept here (by id -> snapshot) so the
     // card survives the reject round-trip and keeps offering Undo.
@@ -72,6 +77,14 @@ export function HubApplicantsSection({
     const passedApplicants = useMemo(() => Object.values(passedById), [passedById]);
     const displayed = [...activeApplicants, ...passedApplicants];
 
+    // Preview mode: cap the rendered cards and surface a "See all N" row. The
+    // count is the full stage list, not the capped slice. Locally-passed cards
+    // stay visible (dimmed, with Undo) instead of being sliced off, so Pass
+    // remains reversible even in the 5-card preview.
+    const total = applicants.length;
+    const capped = typeof limit === 'number' && total > limit;
+    const rows = capped ? [...activeApplicants.slice(0, limit), ...passedApplicants] : displayed;
+
     return (
         <View style={{ paddingTop: 14, paddingBottom: 8, paddingHorizontal: 24 }}>
             {displayed.length === 0 ? (
@@ -79,23 +92,26 @@ export function HubApplicantsSection({
                     {emptyLabel}
                 </Text>
             ) : (
-                displayed.map((a) => (
-                    <HubApplicantRow
-                        key={a._id}
-                        application={a}
-                        venueCity={venueCity}
-                        isPassed={!!passedById[a._id]}
-                        pulse={a._id === pulseId}
-                        onTap={onTapApplicant}
-                        onViewProfile={onViewProfile}
-                        onPass={handlePass}
-                        onUndoPass={handleUndo}
-                        onShortlist={onShortlist}
-                        onHire={onHire}
-                        onMessage={onMessage}
-                        onShare={onShare}
-                    />
-                ))
+                <>
+                    {rows.map((a) => (
+                        <HubApplicantRow
+                            key={a._id}
+                            application={a}
+                            venueCity={venueCity}
+                            isPassed={!!passedById[a._id]}
+                            pulse={a._id === pulseId}
+                            onTap={onTapApplicant}
+                            onViewProfile={onViewProfile}
+                            onPass={handlePass}
+                            onUndoPass={handleUndo}
+                            onShortlist={onShortlist}
+                            onHire={onHire}
+                            onMessage={onMessage}
+                            onShare={onShare}
+                        />
+                    ))}
+                    {capped ? <HubSeeAllRow count={total} onPress={onSeeAll} /> : null}
+                </>
             )}
         </View>
     );

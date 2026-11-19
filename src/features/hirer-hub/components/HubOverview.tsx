@@ -25,7 +25,7 @@ import { MoreHorizontal, ChevronDown, RefreshCw } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, cancelAnimation, Easing } from 'react-native-reanimated';
 import type { HubStage } from '../hooks/useGigHubData';
 import { HubTopTabs, type HubTopTab } from './HubTopTabs';
-import { TAB_ON, TAB_OFF, TAB_LINE } from './hubTabTokens';
+import { HubStageTabs } from './HubStageTabs';
 
 const COLORS = {
     text0: '#F3EFE8', text1: '#B8B1A6', text2: '#6B6878', text3: '#5C5A66', text4: '#3F3D4A',
@@ -73,12 +73,6 @@ type Props = {
     /** New-comment count shown on the Discussion tab (0/undefined → no badge). */
     discussionBadge?: number;
 };
-
-const STAGE_ORDER: { key: HubStage; label: string }[] = [
-    { key: 'applied', label: 'Applied' },
-    { key: 'shortlisted', label: 'Shortlisted' },
-    { key: 'hired', label: 'Hired' },
-];
 
 // Small refresh affordance at the end of the list header (manage-gig.html's
 // `.refresh` — a bordered-square glyph). Mobile has no hover, so instead of the
@@ -190,34 +184,8 @@ export function HubOverview({
             {topTab === 'applicants' ? (
             <>
             {/* stages — neutral-grey segmented filter (joined); active box = the
-                body shown below. Same treatment as the top tabs. */}
-            <View style={{ flexDirection: 'row', marginHorizontal: HORIZ, marginTop: 10, backgroundColor: TAB_OFF, borderWidth: 1, borderColor: TAB_LINE, borderRadius: 12, overflow: 'hidden' }}>
-                {STAGE_ORDER.map(({ key, label }, i) => {
-                    const on = key === activeStage;
-                    return (
-                        <TouchableOpacity
-                            key={key}
-                            onPress={() => onSelectStage(key)}
-                            accessibilityLabel={`${label} stage`}
-                            accessibilityRole="tab"
-                            accessibilityState={{ selected: on }}
-                            activeOpacity={0.8}
-                            style={{
-                                flex: 1, paddingVertical: 9, paddingHorizontal: 8,
-                                alignItems: 'center',
-                                backgroundColor: on ? TAB_ON : 'transparent',
-                                borderLeftWidth: i === 0 ? 0 : 1, borderLeftColor: TAB_LINE,
-                            }}>
-                            <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 17, color: COLORS.text0 }}>
-                                {counts[key]}
-                            </Text>
-                            <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 7.5, letterSpacing: 0.7, textTransform: 'uppercase', marginTop: 3, color: on ? COLORS.text0 : COLORS.text2 }}>
-                                {label}
-                            </Text>
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
+                body shown below. Same control as the See-all screen. */}
+            <HubStageTabs counts={counts} activeStage={activeStage} onSelectStage={onSelectStage} marginHorizontal={HORIZ} marginTop={10} />
 
             {/* slot bar — filled cells lit orange */}
             {total > 0 ? (

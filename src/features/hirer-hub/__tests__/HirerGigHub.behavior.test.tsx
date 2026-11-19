@@ -18,6 +18,8 @@ const mockSampleApps = [
     { _id: 'a2', artistId: 'u2', status: 'applied', artistSnapshot: { displayName: 'Meera' } },
     { _id: 'a3', artistId: 'u3', status: 'shortlisted', artistSnapshot: { displayName: 'Kavya' } },
 ];
+// Mutable so a test can swap in a bigger applied list (reset in beforeEach).
+let mockApps: any[];
 const mockSampleContracts = [
     { _id: 'c1', gigId: 'g1', artistId: 'u1', status: 'active', paidAmount: 15000,
       paymentMethod: 'on_platform',
@@ -25,13 +27,14 @@ const mockSampleContracts = [
     },
 ];
 
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: jest.fn() }) }));
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: jest.fn(), canGoBack: () => true, replace: jest.fn() }) }));
 jest.mock('@/hooks/useGigs', () => ({
     useGig: () => ({ data: mockSampleGig, isLoading: false, error: null }),
     useUpdateGig: () => ({ mutate: jest.fn(), isPending: false }),
 }));
 jest.mock('@/hooks/useGigApplications', () => ({
-    useGigApplications: () => ({ data: mockSampleApps, isLoading: false, error: null }),
+    useGigApplications: () => ({ data: mockApps, isLoading: false, error: null }),
     useUpdateApplicationStatus: () => ({ mutate: jest.fn(), isPending: false }),
 }));
 jest.mock('@/hooks/usePayments', () => ({
@@ -65,7 +68,22 @@ const iso = (ms: number) => new Date(ms).toISOString();
 describe('HirerGigHub', () => {
     beforeEach(async () => {
         discussionProps = null;
+        mockApps = mockSampleApps;
+        mockPush.mockClear();
         await AsyncStorage.clear();
+    });
+
+    it('caps the Applied preview at 5 and "See all" pushes the full-list route', async () => {
+        mockApps = Array.from({ length: 7 }).map((_, i) => ({
+            _id: `ap${i}`, artistId: `u${i}`, status: 'applied',
+            appliedAt: '2026-10-10T10:00:00Z',
+            artistSnapshot: { displayName: `Applicant ${i}`, primaryCity: 'Pune' },
+        }));
+        const { getByLabelText } = render(<HirerGigHub gigId="g1" />);
+        // 7 applied → the preview caps at 5 + surfaces a "See all 7" row.
+        fireEvent.press(getByLabelText('See all 7 applicants'));
+        expect(mockPush).toHaveBeenCalledWith('/(app)/gigs/g1/applicants?stage=applied');
+        await act(async () => {});
     });
 
     it('renders the gig header and the three pipeline stage tabs', async () => {

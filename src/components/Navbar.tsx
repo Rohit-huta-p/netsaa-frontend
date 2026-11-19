@@ -14,7 +14,7 @@ import useAuthStore from '../stores/authStore';
 import {
     Bell, User as UserIcon, ChevronDown, Settings, LogOut, HelpCircle,
     Briefcase, Calendar, Users, LayoutDashboard, Search, X, Music,
-    Mail, ChevronRight, Repeat, MessageCircle
+    Mail, ChevronRight, Repeat, MessageCircle, Home as HomeIcon
 } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -141,20 +141,6 @@ function SearchResultRow({
     );
 }
 
-// ----- Section label inside dropdown -----
-function DropdownSectionLabel({ label, count }: { label: string; count: number }) {
-    return (
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
-            <Text style={{ color: '#D4A155', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 2.5 }}>
-                {label.toUpperCase()}
-            </Text>
-            <Text style={{ color: '#4A4656', fontSize: 9, fontFamily: 'SpaceMono', letterSpacing: 1.5, marginLeft: 8 }}>
-                {String(count).padStart(2, '0')}
-            </Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(212, 161, 85, 0.15)', marginLeft: 10 }} />
-        </View>
-    );
-}
 
 // ----- Top-nav profile avatar (real user pic, with fallback) -----
 function NavAvatar({ user, size = 32 }: { user: User | null; size?: number }) {
@@ -181,9 +167,6 @@ function ProfileMenu({
     router: any;
     isMobileView?: boolean;
 }) {
-    // Reflect the real 3-role model (client / creative_lead / artist), not the
-    // legacy 2-mode (artist/hirer) toggle. Switching is done the canonical way
-    // via the role screen (authService.switchRole).
     const currentRole = useAuthStore((s) => s.role);
     const ROLE_META: Record<string, { label: string; color: string }> = {
         client: { label: 'Client', color: '#FF6B35' },
@@ -191,220 +174,97 @@ function ProfileMenu({
         artist: { label: 'Artist', color: '#8B5CF6' },
     };
     const roleMeta = ROLE_META[currentRole] ?? ROLE_META.artist;
-    const modeColor = roleMeta.color;
-    const modeLabel = roleMeta.label;
     const isClientRole = currentRole === 'client';
-
-    // For clients, surface the business type (organizerTypeCategory) beside the
-    // mode pill. Server-authoritative — lives on the Organizer doc, so we fetch
-    // it (cached) only when the viewer is actually a client.
-    const { data: organizer } = useQuery({
-        queryKey: ['organizer', 'me'],
-        queryFn: () => authService.getOrganizer(),
-        enabled: isClientRole,
-        staleTime: 60_000,
-        retry: false,
-    });
-    const BIZ_LABEL: Record<string, string> = {
-        individual: 'Personal',
-        corporate: 'Company',
-        agency: 'Agency',
-        institution: 'Venue',
-    };
-    const bizLabel = isClientRole ? BIZ_LABEL[organizer?.organizerTypeCategory ?? ''] : undefined;
 
     const displayName = user?.displayName || (user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'No Name');
     const email = user?.email || '';
 
-    const MenuSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
-        <View style={{ marginTop: 10 }}>
-            <Text style={{
-                color: '#4B5563',
-                fontSize: 9,
-                fontFamily: F.bodySemiBold,
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-                paddingHorizontal: 12,
-                marginBottom: 4
-            }}>{title}</Text>
-            {children}
-        </View>
-    );
-
-    const MenuItem = ({ icon: Icon, label, color, onPress, badge }: { icon: any, label: string, color: string, onPress: () => void, badge?: string }) => (
+    type RowProps = { icon: any; label: string; onPress: () => void; destructive?: boolean };
+    const Row = ({ icon: Icon, label, onPress, destructive }: RowProps) => (
         <TouchableOpacity
             onPress={onPress}
-            style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-                gap: 10,
-            }}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, gap: 10 }}
         >
-            <View style={{
-                width: 28,
-                height: 28,
-                borderRadius: 7,
-                backgroundColor: `${color}15`,
-                alignItems: 'center',
-                justifyContent: 'center'
-            }}>
-                <Icon size={16} color={color} />
-            </View>
-            <Text style={{
-                color: '#F5F0EB',
-                fontFamily: F.bodyMedium,
-                fontSize: 13,
-                flex: 1
-            }}>{label}</Text>
-            {badge && (
-                <View style={{ backgroundColor: '#EC4899', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 8 }}>
-                    <Text style={{ color: 'white', fontSize: 9, fontFamily: F.bodySemiBold }}>{badge}</Text>
-                </View>
-            )}
-            <ChevronRight size={12} color="#4B5563" />
+            <Icon size={15} color={destructive ? '#EF4444' : 'rgba(255,255,255,0.32)'} />
+            <Text style={{ color: destructive ? '#EF4444' : 'rgba(255,255,255,0.80)', fontFamily: F.bodyMedium, fontSize: 13, flex: 1 }}>
+                {label}
+            </Text>
         </TouchableOpacity>
     );
 
     return (
         <View style={{
-            minWidth: 240,
-            backgroundColor: '#111118',
-            borderRadius: 16,
+            width: 220,
+            backgroundColor: '#0D0D12',
+            borderRadius: 14,
             borderWidth: 1,
             borderColor: 'rgba(255,255,255,0.08)',
             overflow: 'hidden',
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.4,
-            shadowRadius: 15,
-            elevation: 15,
+            shadowOffset: { width: 0, height: 16 },
+            shadowOpacity: 0.5,
+            shadowRadius: 24,
+            elevation: 20,
         }}>
-            {/* Header / Profile Card */}
+            {/* Profile card — taps to profile */}
             <TouchableOpacity
                 onPress={() => { onClose(); router.push(isClientRole ? '/(app)/client-profile' : '/(app)/profile'); }}
                 style={{
-                    padding: 12,
-                    backgroundColor: 'rgba(147, 51, 234, 0.05)',
+                    padding: 14,
+                    backgroundColor: `${roleMeta.color}0A`,
                     borderBottomWidth: 1,
                     borderBottomColor: 'rgba(255,255,255,0.05)',
                     flexDirection: 'row',
                     alignItems: 'center',
-                    gap: 10
+                    gap: 10,
                 }}
             >
                 <View style={{ position: 'relative' }}>
                     <Image
                         source={user?.profileImageUrl ? { uri: user.profileImageUrl } : noAvatar}
-                        style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#1a1a24' }}
+                        style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#1a1a24' }}
                     />
                     <View style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        right: 0,
-                        width: 12,
-                        height: 12,
-                        borderRadius: 6,
-                        backgroundColor: '#10B981',
-                        borderWidth: 2,
-                        borderColor: '#111118'
+                        position: 'absolute', bottom: 0, right: 0,
+                        width: 10, height: 10, borderRadius: 5,
+                        backgroundColor: '#10B981', borderWidth: 2, borderColor: '#0D0D12',
                     }} />
                 </View>
                 <View style={{ flex: 1 }}>
-                    <Text style={{ color: 'white', fontFamily: F.heading, fontSize: 13 }} numberOfLines={1}>{displayName}</Text>
-                    <Text style={{ color: '#9CA3AF', fontFamily: F.bodyMedium, fontSize: 11 }} numberOfLines={1}>{email}</Text>
-                    <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        {/* Mode pill */}
-                        <View style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                            backgroundColor: `${modeColor}1F`,
-                            paddingHorizontal: 8,
-                            paddingVertical: 2,
-                            borderRadius: 999,
-                            borderWidth: 1,
-                            borderColor: `${modeColor}55`,
-                        }}>
-                            <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: modeColor }} />
-                            <Text style={{ color: modeColor, fontSize: 9, fontFamily: F.bodySemiBold, letterSpacing: 0.5 }}>
-                                {modeLabel.toUpperCase()} MODE
-                            </Text>
-                        </View>
-
-                        {/* Business-type pill — clients only */}
-                        {bizLabel && (
-                            <View style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 4,
-                                backgroundColor: 'rgba(212,161,85,0.12)',
-                                paddingHorizontal: 8,
-                                paddingVertical: 2,
-                                borderRadius: 999,
-                                borderWidth: 1,
-                                borderColor: 'rgba(212,161,85,0.45)',
-                            }}>
-                                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#D4A155' }} />
-                                <Text style={{ color: '#D4A155', fontSize: 9, fontFamily: F.bodySemiBold, letterSpacing: 0.5 }}>
-                                    {bizLabel.toUpperCase()}
-                                </Text>
-                            </View>
-                        )}
+                    <Text style={{ color: 'rgba(255,255,255,0.90)', fontFamily: F.heading, fontSize: 13 }} numberOfLines={1}>
+                        {displayName}
+                    </Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.32)', fontFamily: F.bodyMedium, fontSize: 11, marginTop: 1 }} numberOfLines={1}>
+                        {email}
+                    </Text>
+                    <View style={{
+                        marginTop: 5, alignSelf: 'flex-start',
+                        flexDirection: 'row', alignItems: 'center', gap: 4,
+                        backgroundColor: `${roleMeta.color}1A`,
+                        paddingHorizontal: 7, paddingVertical: 2,
+                        borderRadius: 999, borderWidth: 1, borderColor: `${roleMeta.color}40`,
+                    }}>
+                        <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: roleMeta.color }} />
+                        <Text style={{ color: roleMeta.color, fontSize: 8, fontFamily: 'SpaceMono-Regular', letterSpacing: 0.8 }}>
+                            {roleMeta.label.toUpperCase()}
+                        </Text>
                     </View>
                 </View>
             </TouchableOpacity>
 
-            <ScrollView bounces={false} style={{ maxHeight: isMobileView ? 350 : 450 }}>
-                <MenuSection title="Role">
-                    <MenuItem
-                        icon={Repeat}
-                        label="Switch role"
-                        color={modeColor}
-                        onPress={() => {
-                            onClose();
-                            router.push('/(app)/settings/role');
-                        }}
-                    />
-                </MenuSection>
-                <MenuSection title="Workspace">
-                    <MenuItem
-                        icon={LayoutDashboard}
-                        label="Dashboard"
-                        color="#F97316"
-                        onPress={() => { onClose(); router.push('/(app)/dashboard' as any); }}
-                    />
-                </MenuSection>
-                <MenuSection title="Network">
-                    <MenuItem
-                        icon={Users}
-                        label="Your Network"
-                        color="#EC4899"
-                        onPress={() => { onClose(); router.push('/(app)/network' as any); }}
-                    />
-                    <MenuItem
-                        icon={Bell}
-                        label="Notifications"
-                        color="#F97316"
-                        onPress={() => { onClose(); router.push('/(app)/notifications'); }}
-                    />
-                </MenuSection>
-                <MenuSection title="Account">
-                    <MenuItem
-                        icon={Settings}
-                        label="Settings"
-                        color="#3B82F6"
-                        onPress={() => { onClose(); router.push('/(app)/settings'); }}
-                    />
-                    <MenuItem
-                        icon={HelpCircle}
-                        label="Help & Support"
-                        color="#9CA3AF"
-                        onPress={() => { onClose(); router.push('/(app)/help'); }}
-                    />
-                </MenuSection>
-            </ScrollView>
+            {/* Nav rows */}
+            <View style={{ paddingVertical: 4 }}>
+                <Row icon={HomeIcon} label="Home" onPress={() => { onClose(); router.push('/(app)/dashboard' as any); }} />
+                <Row icon={UserIcon} label="Profile" onPress={() => { onClose(); router.push(isClientRole ? '/(app)/client-profile' : '/(app)/profile'); }} />
+                <Row icon={Repeat} label="Switch role" onPress={() => { onClose(); router.push('/(app)/settings/role'); }} />
+                <Row icon={Settings} label="Settings" onPress={() => { onClose(); router.push('/(app)/settings'); }} />
+            </View>
+
+            {/* Divider + sign out */}
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 12 }} />
+            <View style={{ paddingVertical: 4 }}>
+                <Row icon={LogOut} label="Sign out" onPress={() => { onClose(); onLogout(); }} destructive />
+            </View>
         </View>
     );
 }

@@ -479,6 +479,7 @@ export function CreativeLeadCompanyEdit() {
                         placeholder="Add specialties"
                         searchPlaceholder="Search or add your own…"
                         allowCustom
+                        overlay
                     />
                 </View>
 

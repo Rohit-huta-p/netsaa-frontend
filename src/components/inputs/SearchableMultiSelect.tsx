@@ -32,7 +32,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Pressable, TextInput, ScrollView, StyleSheet,
-  Modal, Keyboard, useWindowDimensions,
+  Modal, Keyboard, Platform, useWindowDimensions,
 } from 'react-native';
 import { ChevronDown, Search, Check, X, Plus } from 'lucide-react-native';
 
@@ -116,8 +116,19 @@ export function SearchableMultiSelect({
   const close = () => setOpen(false);
 
   // Track the keyboard (overlay only) so the popover can lift clear of it.
+  // Native fires RN Keyboard events; on web RN's Keyboard API does NOT follow the
+  // browser soft keyboard, so read how much the visual viewport shrank instead.
   useEffect(() => {
     if (!overlay) return;
+    if (Platform.OS === 'web') {
+      const vv = typeof window !== 'undefined' ? (window as any).visualViewport : null;
+      if (!vv) return;
+      const onVV = () => setKb(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+      vv.addEventListener('resize', onVV);
+      vv.addEventListener('scroll', onVV);
+      onVV();
+      return () => { vv.removeEventListener('resize', onVV); vv.removeEventListener('scroll', onVV); };
+    }
     const onShow = Keyboard.addListener('keyboardDidShow', (e) => setKb(e.endCoordinates?.height ?? 0));
     const onHide = Keyboard.addListener('keyboardDidHide', () => setKb(0));
     return () => { onShow?.remove?.(); onHide?.remove?.(); };
@@ -133,11 +144,20 @@ export function SearchableMultiSelect({
     });
   };
 
-  // Place the popover under the field, or flip it above when the keyboard or the
-  // screen bottom would cover it.
-  const below = anchor.y + anchor.h + 9;
-  const fitsBelow = below + panelH <= winH - kb - 12;
-  const top = fitsBelow ? below : Math.max(12, anchor.y - 9 - panelH);
+  // Place the popover inside the band between the top inset and the keyboard.
+  const safeTop = 12;
+  const safeBottom = winH - kb - 12;             // lowest y the panel may reach
+  const avail = Math.max(120, safeBottom - safeTop);
+  const panelMaxH = Math.min(panelH, avail);     // never taller than the safe band
+  const pillsMaxH = Math.max(72, Math.min(168, avail - 80));
+  const belowTop = anchor.y + anchor.h + 9;
+  // Below the field when it fits above the keyboard; otherwise above — with the
+  // bottom clamped to clear BOTH the field and the keyboard (flipping above the
+  // field alone isn't enough when the field itself sits near/under the keyboard).
+  const fitsBelow = belowTop + panelMaxH <= safeBottom;
+  const top = fitsBelow
+    ? belowTop
+    : Math.max(safeTop, Math.min(anchor.y - 9, safeBottom) - panelMaxH);
 
   // The panel interior (search + option pills) — shared by both dismiss modes.
   const panelBody = (
@@ -154,7 +174,7 @@ export function SearchableMultiSelect({
         />
       </View>
       <ScrollView
-        style={{ maxHeight: 168 }}
+        style={{ maxHeight: pillsMaxH }}
         contentContainerStyle={s.opts}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"

@@ -170,7 +170,7 @@ function ProfileMenu({
     const currentRole = useAuthStore((s) => s.role);
     const ROLE_META: Record<string, { label: string; color: string }> = {
         client: { label: 'Client', color: '#FF6B35' },
-        creative_lead: { label: 'Creative', color: '#FBBF24' },
+        creative_lead: { label: 'Creative', color: '#FF6B35' },
         artist: { label: 'Artist', color: '#8B5CF6' },
     };
     const roleMeta = ROLE_META[currentRole] ?? ROLE_META.artist;

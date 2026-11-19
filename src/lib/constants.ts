@@ -1,10 +1,14 @@
 import { Platform } from 'react-native';
 
-// Local dev IP — only used on web. Change here or override with EXPO_PUBLIC_DEV_IP in .env.
+// Local dev IP — only used on web during local development. Override with EXPO_PUBLIC_DEV_IP in .env.
 const DEV_IP = process.env.EXPO_PUBLIC_DEV_IP || '172.20.10.11';
 
 function url(prod: string, localPath: string): string {
-    if (Platform.OS === 'web') return `http://${DEV_IP}${localPath}`;
+    // Local web dev points at the dev machine's backend over LAN. `__DEV__` is
+    // false in production builds, so the deployed web app (and all native builds)
+    // use the real deployed URL — never the LAN IP, which is unreachable off the
+    // dev network.
+    if (Platform.OS === 'web' && __DEV__) return `http://${DEV_IP}${localPath}`;
     return prod;
 }
 

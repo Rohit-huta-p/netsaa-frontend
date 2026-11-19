@@ -14,7 +14,7 @@ import { useBottomNavVisibilityStyle, resetBottomNavVisibility } from './navVisi
 /**
  * Role-aware bottom nav. Spec §3.1. One static nav per role (no mode toggle).
  * Artist:        Gigs · Events · Home · Messages · Profile   (5 even tabs, NO center FAB)
- * Creative Lead: Home · Talent · Messages · Events · Profile (5 even tabs, NO center FAB)
+ * Creative Lead: Home · Talent · Events · Messages · Profile (5 even tabs, NO center FAB)
  *   Find Work (/requirements, the apply-UP feed) is hidden from the bar but the
  *   route stays (reachable elsewhere). Creating is home-only — the "＋ Post" dial
  *   in the dashboard's Your-work header.
@@ -46,8 +46,8 @@ const ARTIST_TABS: TabDef[] = [
 const CREATIVE_LEAD_TABS: TabDef[] = [
   { id: 'home',     label: 'Home',     icon: Home,          route: '/(app)/dashboard' },
   { id: 'talent',   label: 'Talent',   icon: Users,         route: '/(app)/talent' },
-  { id: 'messages', label: 'Messages', icon: MessageCircle, route: '/(app)/inbox' },
   { id: 'events',   label: 'Events',   icon: Calendar,      route: '/(app)/events' },
+  { id: 'messages', label: 'Messages', icon: MessageCircle, route: '/(app)/inbox' },
   { id: 'profile',  label: 'Profile',  icon: UserIcon,      route: '/(app)/profile' },
 ];
 

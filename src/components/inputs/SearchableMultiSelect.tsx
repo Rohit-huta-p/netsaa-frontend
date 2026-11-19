@@ -11,13 +11,13 @@
 // (A·Minimal tokens inlined), so it carries no cross-feature dependency.
 //
 // Two dismiss modes:
-//   • default (inline)    — the panel renders inline below the field and pushes
-//                           content down; closed by tapping the field/caret again.
-//   • overlay             — the panel renders as a floating popover in a Modal that
-//                           closes on an OUTSIDE tap (codebase idiom: BoardSortMenu).
-//                           Keyboard-aware: the popover lifts above the keyboard so
-//                           the search box + pills stay reachable (this panel has a
-//                           TextInput, unlike the plain sort menus). Opt in per use.
+//   • default (inline) — the panel renders inline below the field and pushes
+//                        content down; closed by tapping the field/caret again.
+//   • overlay          — the options open as a BOTTOM SHEET in a Modal with a
+//                        dimmed backdrop that closes on an outside tap. The sheet
+//                        is keyboard-safe via KeyboardAvoidingView (iOS) / window
+//                        resize (Android) / visualViewport (web), so the search +
+//                        pills always sit above the keyboard. Opt in per use.
 //
 // Usage:
 //   <SearchableMultiSelect
@@ -26,13 +26,13 @@
 //     onToggle={(v) => setX(draft, v)}      // toggle one value on/off
 //     placeholder="Select event types"
 //     searchPlaceholder="Search event types…"
-//     overlay                               // ← tap-outside-to-close popover
+//     overlay                               // ← tap-outside-to-close, keyboard-safe sheet
 //   />
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, Pressable, TextInput, ScrollView, StyleSheet,
-  Modal, Keyboard, Platform, useWindowDimensions,
+  Modal, KeyboardAvoidingView, Platform, useWindowDimensions,
 } from 'react-native';
 import { ChevronDown, Search, Check, X, Plus } from 'lucide-react-native';
 
@@ -79,24 +79,32 @@ export function SearchableMultiSelect({
   /** Allow typing a custom value not in the list. */
   allowCustom?: boolean;
   /**
-   * Render the options as a floating popover (in a Modal) that closes on an
-   * outside tap, instead of the default inline panel. Keyboard-aware so the
-   * search box + pills stay above the keyboard. Opt in where an inline panel
-   * can't catch outside taps (e.g. the Creative Lead "Specialties" editor).
+   * Open the options as a bottom SHEET (in a Modal) that closes on an outside tap
+   * and stays above the keyboard, instead of the default inline panel. Opt in
+   * where an inline panel can't catch outside taps (e.g. the Creative Lead
+   * "Specialties" editor).
    */
   overlay?: boolean;
 }) {
-  const { width: winW, height: winH } = useWindowDimensions();
+  const { height: winH } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const labelOf = (v: string) => options.find((o) => o.value === v)?.label ?? v;
 
-  // Overlay-only geometry: the field's on-screen box, the panel's measured
-  // height, and the live keyboard height — together they place the popover.
-  const fieldRef = useRef<View>(null);
-  const [anchor, setAnchor] = useState({ x: 20, y: 140, w: winW - 40, h: 48 });
-  const [panelH, setPanelH] = useState(260);
+  // Web only: the browser soft keyboard isn't a native Keyboard event, so read how
+  // much the visual viewport shrank and lift the sheet by that much. iOS uses
+  // KeyboardAvoidingView and Android resizes its window, so both stay at kb = 0.
   const [kb, setKb] = useState(0);
+  useEffect(() => {
+    if (!overlay || Platform.OS !== 'web') return;
+    const vv = typeof window !== 'undefined' ? (window as any).visualViewport : null;
+    if (!vv) return;
+    const onVV = () => setKb(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+    vv.addEventListener('resize', onVV);
+    vv.addEventListener('scroll', onVV);
+    onVV();
+    return () => { vv.removeEventListener('resize', onVV); vv.removeEventListener('scroll', onVV); };
+  }, [overlay]);
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -115,51 +123,10 @@ export function SearchableMultiSelect({
 
   const close = () => setOpen(false);
 
-  // Track the keyboard (overlay only) so the popover can lift clear of it.
-  // Native fires RN Keyboard events; on web RN's Keyboard API does NOT follow the
-  // browser soft keyboard, so read how much the visual viewport shrank instead.
-  useEffect(() => {
-    if (!overlay) return;
-    if (Platform.OS === 'web') {
-      const vv = typeof window !== 'undefined' ? (window as any).visualViewport : null;
-      if (!vv) return;
-      const onVV = () => setKb(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
-      vv.addEventListener('resize', onVV);
-      vv.addEventListener('scroll', onVV);
-      onVV();
-      return () => { vv.removeEventListener('resize', onVV); vv.removeEventListener('scroll', onVV); };
-    }
-    const onShow = Keyboard.addListener('keyboardDidShow', (e) => setKb(e.endCoordinates?.height ?? 0));
-    const onHide = Keyboard.addListener('keyboardDidHide', () => setKb(0));
-    return () => { onShow?.remove?.(); onHide?.remove?.(); };
-  }, [overlay]);
+  // Pills scroller: taller in the sheet, compact inline.
+  const pillsMaxH = overlay ? Math.round(Math.min(340, winH * 0.42)) : 168;
 
-  // Open the overlay popover, measuring the field so the panel anchors under it.
-  // `setOpen` first (so the button never feels dead if measure is a no-op, e.g.
-  // on web/tests); the measure callback then refines the anchor one frame later.
-  const openOverlay = () => {
-    setOpen(true);
-    fieldRef.current?.measureInWindow?.((x, y, w, h) => {
-      if (w) setAnchor({ x, y, w, h });
-    });
-  };
-
-  // Place the popover inside the band between the top inset and the keyboard.
-  const safeTop = 12;
-  const safeBottom = winH - kb - 12;             // lowest y the panel may reach
-  const avail = Math.max(120, safeBottom - safeTop);
-  const panelMaxH = Math.min(panelH, avail);     // never taller than the safe band
-  const pillsMaxH = Math.max(72, Math.min(168, avail - 80));
-  const belowTop = anchor.y + anchor.h + 9;
-  // Below the field when it fits above the keyboard; otherwise above — with the
-  // bottom clamped to clear BOTH the field and the keyboard (flipping above the
-  // field alone isn't enough when the field itself sits near/under the keyboard).
-  const fitsBelow = belowTop + panelMaxH <= safeBottom;
-  const top = fitsBelow
-    ? belowTop
-    : Math.max(safeTop, Math.min(anchor.y - 9, safeBottom) - panelMaxH);
-
-  // The panel interior (search + option pills) — shared by both dismiss modes.
+  // The interior (search + option pills) — shared by inline panel and sheet.
   const panelBody = (
     <>
       <View style={s.search}>
@@ -213,46 +180,46 @@ export function SearchableMultiSelect({
 
   return (
     <View>
-      {/* Field — removable chips + caret; tap toggles (inline) or opens (overlay). */}
-      <View ref={fieldRef} collapsable={false}>
-        <Pressable
-          testID="msms-field"
-          style={[s.field, open && s.fieldOpen]}
-          onPress={() => (overlay ? openOverlay() : setOpen((v) => !v))}
-        >
-          {selected.length === 0 ? (
-            <Text style={s.ph}>{placeholder}</Text>
-          ) : (
-            selected.map((v) => (
-              // Tapping a chip (or its ×) removes just that value; it does not open the panel.
-              <Pressable key={v} style={s.chip} onPress={() => onToggle(v)} hitSlop={4}>
-                <Text style={s.chipTxt}>{labelOf(v)}</Text>
-                <X size={12} color={C.orange} />
-              </Pressable>
-            ))
-          )}
-          <View style={[s.caret, open && { transform: [{ rotate: '180deg' }] }]}>
-            <ChevronDown size={18} color={open ? C.orange : C.t3} />
-          </View>
-        </Pressable>
-      </View>
+      {/* Field — removable chips + caret; tap toggles (inline) or opens the sheet (overlay). */}
+      <Pressable
+        testID="msms-field"
+        style={[s.field, open && s.fieldOpen]}
+        onPress={() => (overlay ? setOpen(true) : setOpen((v) => !v))}
+      >
+        {selected.length === 0 ? (
+          <Text style={s.ph}>{placeholder}</Text>
+        ) : (
+          selected.map((v) => (
+            // Tapping a chip (or its ×) removes just that value; it does not open the panel.
+            <Pressable key={v} style={s.chip} onPress={() => onToggle(v)} hitSlop={4}>
+              <Text style={s.chipTxt}>{labelOf(v)}</Text>
+              <X size={12} color={C.orange} />
+            </Pressable>
+          ))
+        )}
+        <View style={[s.caret, open && { transform: [{ rotate: '180deg' }] }]}>
+          <ChevronDown size={18} color={open ? C.orange : C.t3} />
+        </View>
+      </Pressable>
 
       {/* Inline panel (default) — pushes content down; close by tapping the field again. */}
       {!overlay && open ? <View style={s.panel}>{panelBody}</View> : null}
 
-      {/* Overlay popover — a full-screen backdrop catches the OUTSIDE tap and closes. */}
+      {/* Overlay bottom sheet — dimmed backdrop closes on an outside tap; the sheet
+          rides above the keyboard (KeyboardAvoidingView on iOS; window resize on
+          Android; visualViewport margin on web). */}
       {overlay && open ? (
-        <Modal visible transparent animationType="fade" onRequestClose={close}>
-          <Pressable style={s.backdrop} onPress={close} testID="msms-backdrop">
-            {/* Inner no-op Pressable swallows taps so they don't bubble to the backdrop. */}
-            <Pressable
-              style={[s.panel, s.panelFloat, { top, left: anchor.x, width: anchor.w }]}
-              onPress={() => {}}
-              onLayout={(e) => setPanelH(e.nativeEvent.layout.height)}
-            >
+        <Modal visible transparent animationType="slide" onRequestClose={close}>
+          <KeyboardAvoidingView
+            style={s.sheetWrap}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <Pressable style={s.backdrop} onPress={close} testID="msms-backdrop" />
+            <View style={[s.sheet, Platform.OS === 'web' && kb > 0 ? { marginBottom: kb } : null]}>
+              <View style={s.grab} />
               {panelBody}
-            </Pressable>
-          </Pressable>
+            </View>
+          </KeyboardAvoidingView>
         </Modal>
       ) : null}
     </View>
@@ -290,6 +257,7 @@ const s = StyleSheet.create({
   },
   chipTxt: { fontFamily: F.semi, fontSize: 12, color: C.orange },
   caret: { position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' },
+  // Inline panel
   panel: {
     marginTop: 9,
     backgroundColor: C.panel,
@@ -298,17 +266,28 @@ const s = StyleSheet.create({
     borderRadius: 13,
     padding: 11,
   },
-  // Overlay popover: absolutely positioned at the measured anchor, with a lift.
-  panelFloat: {
-    position: 'absolute',
-    marginTop: 0,
-    shadowColor: '#000',
-    shadowOpacity: 0.5,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 18 },
-    elevation: 14,
+  // Bottom sheet
+  sheetWrap: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
+  sheet: {
+    backgroundColor: C.panel,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: C.hair,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 26,
   },
-  backdrop: { flex: 1 },
+  grab: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.hair,
+    marginBottom: 14,
+  },
   search: {
     height: 40,
     backgroundColor: C.well,

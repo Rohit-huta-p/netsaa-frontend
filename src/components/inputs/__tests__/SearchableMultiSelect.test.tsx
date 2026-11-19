@@ -83,4 +83,17 @@ describe('SearchableMultiSelect', () => {
     expect(onToggle).toHaveBeenCalledWith('Jazz');
     expect(exists(r, 'msms-backdrop')).toBe(true); // still open
   });
+
+  it('a custom-selected value (not in options) renders as the FIRST pill, selected', () => {
+    // 'Jazz' isn't in OPTS; 'a' is. Custom should sort ahead of the curated options.
+    const r = setup({ overlay: true, allowCustom: true, selected: ['a', 'Jazz'] });
+    fire(r, 'msms-field'); // open the sheet
+    const pillIds = r.root
+      .findAll((n: any) => typeof n.props.testID === 'string'
+        && n.props.testID.startsWith('msms-opt-')
+        && typeof n.props.onPress === 'function')
+      .map((n: any) => n.props.testID);
+    expect(pillIds[0]).toBe('msms-opt-Jazz');        // custom is first
+    expect(pillIds).toContain('msms-opt-a');          // curated options still present
+  });
 });

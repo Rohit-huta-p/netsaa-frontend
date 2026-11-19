@@ -21,6 +21,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Plus, ArrowRight } from 'lucide-react-native';
 import { HubApplicantRow } from './HubApplicantRow';
+import { HubSeeAllRow } from './HubSeeAllRow';
 import type { TeamRowData } from '../hooks/useGigHubData';
 
 const COLORS = {
@@ -50,15 +51,22 @@ type Props = {
     onFillSlot?: () => void;
     /** Empty-state copy when nobody is hired yet. */
     emptyLabel?: string;
+    /** Preview mode: show at most `limit` cast cards + a "See all N" row. */
+    limit?: number;
+    onSeeAll?: () => void;
 };
 
 export function HubTeamSection({
     teamRows, slotsTotal, venueCity, onTapApplicant, onViewProfile, pulseId, onShare, onMessage, onRemove, onFillSlot,
     emptyLabel = 'No one hired yet — hire from your shortlist to fill the cast.',
+    limit, onSeeAll,
 }: Props) {
     const filled = teamRows.length;
     const total = Math.max(slotsTotal, filled);
     const openCount = Math.max(0, total - filled);
+    // Preview mode caps the cast cards; the open-slot rows below are separate.
+    const capped = typeof limit === 'number' && teamRows.length > limit;
+    const castRows = capped ? teamRows.slice(0, limit) : teamRows;
 
     return (
         <View style={{ paddingTop: 14, paddingBottom: 8, paddingHorizontal: 24 }}>
@@ -69,7 +77,7 @@ export function HubTeamSection({
             ) : null}
 
             {/* the cast — card D, hired state (Message · Remove footer) */}
-            {teamRows.map((row, i) => (
+            {castRows.map((row, i) => (
                 <HubApplicantRow
                     key={row.application?._id ?? i}
                     application={row.application}
@@ -82,6 +90,7 @@ export function HubTeamSection({
                     onRemove={onRemove}
                 />
             ))}
+            {capped ? <HubSeeAllRow count={teamRows.length} label="hired" onPress={onSeeAll} /> : null}
 
             {/* open slots — one row each, with a Fill shortcut to the shortlist */}
             {Array.from({ length: openCount }).map((_, i) => (

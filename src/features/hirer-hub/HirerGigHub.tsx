@@ -8,7 +8,7 @@
 // (screens 1–3): a compact gig header, three tappable stage tabs (Applied /
 // Shortlisted / Hired) that swap the body, a slot bar, and the card-D rows.
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { View, ScrollView, ActivityIndicator, Text, TouchableOpacity, useWindowDimensions, Share, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
@@ -16,24 +16,25 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { useGigHubData, type HubStage } from './hooks/useGigHubData';
 import { computeStickyCTA } from './utils/computeStickyCTA';
-import { useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 import { useUpdateGig } from '@/hooks/useGigs';
-import { HireConfirmModal } from '@/components/gigs/applications/HireConfirmModal';
-import { ContactActionSheet, type ContactTarget } from '@/features/team/ContactActionSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HubOverview } from './components/HubOverview';
 import type { HubTopTab } from './components/HubTopTabs';
 import { useDiscussionBadge } from './hooks/useDiscussionBadge';
+import { useGigApplicantActions } from './hooks/useGigApplicantActions';
+import { GigApplicantActionModals } from './components/GigApplicantActionModals';
 import { HubTeamSection } from './components/HubTeamSection';
 // CONTRACTS-DISABLED: HubBookingTermsCard hidden until contract artifact is restored.
 // import { HubBookingTermsCard } from './components/HubBookingTermsCard';
 import { HubApplicantsSection } from './components/HubApplicantsSection';
 import { HubEssentials } from './components/HubEssentials';
 import { HubStickyCTA } from './components/HubStickyCTA';
-import { ApplicantProfileModal } from './components/ApplicantProfileModal';
-import { RemoveHireSheet } from './components/RemoveHireSheet';
 import { GigActionsSheet } from './components/GigActionsSheet';
+
+// Show at most this many cards per stage on the hub; the rest live behind
+// "See all" (GigApplicantsAllScreen, a paginated full list).
+const PREVIEW_LIMIT = 5;
 // Discussion section — backed by GigComment model. Same component used on
 // Event detail screens. Pulls socket (live updates) + gigService for the
 // REST round-trip. No gating beyond auth: anyone signed in can read/post.
@@ -111,24 +112,13 @@ export function HirerGigHub({ gigId }: Props) {
         }
     };
 
-    const [hireTarget, setHireTarget] = useState<any | null>(null);
-    const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
-    // The applicant profile modal. `applications` is FROZEN at open (a snapshot
-    // of the stage list) so Pass/Shortlist mutations can't reindex the pager or
-    // drift the "N / total" counter; length 1 = single-item (from Discussion).
-    const [profileModal, setProfileModal] = useState<{ applications: any[]; index: number } | null>(null);
-    // The just-viewed applicant — its list card pulses twice after the modal
-    // closes (a "just viewed" trail); cleared so it can re-trigger later.
-    const [pulseId, setPulseId] = useState<string | null>(null);
-    useEffect(() => {
-        if (!pulseId) return;
-        const t = setTimeout(() => setPulseId(null), 1800);
-        return () => clearTimeout(t);
-    }, [pulseId]);
-    // The hired artist the owner is about to remove — mounts the confirm sheet.
-    const [removeTarget, setRemoveTarget] = useState<any | null>(null);
-    const updateStatusMutation = useUpdateApplicationStatus();
     const updateGigMutation = useUpdateGig();
+
+    // Applicant-action controller (shared with the "See all" screen): owns the
+    // profile modal, Hire/Contact/Remove sheets, reversible Pass + "just viewed"
+    // pulse, and the status mutations. Rendered via <GigApplicantActionModals>.
+    const actions = useGigApplicantActions(gigId, data.gig, data);
+    const pulseId = actions.pulseId;
 
     // New-comment badge for the Discussion tab (front-end only, per device).
     // `active` is true while Discussion is open, so comments the owner is
@@ -207,84 +197,17 @@ export function HirerGigHub({ gigId }: Props) {
         }
     };
 
-    const findApplication = (applicationId: string) => {
-        return data.pendingApplicants.find((a: any) => a._id === applicationId)
-            ?? data.applications.find((a: any) => a._id === applicationId)
-            ?? null;
-    };
-
-    const handleQuickHire = (applicationId: string) => {
-        const app = findApplication(applicationId);
-        if (app) setHireTarget(app);
-    };
-
-    const handleQuickReject = (applicationId: string) => {
-        updateStatusMutation.mutate({ applicationId, status: 'rejected' });
-    };
-
-    // Undo a Pass — return the applicant to the pool (needs netsaa-backend #15,
-    // which allows rejected -> applied). The section keeps the card on screen
-    // meanwhile, so this just flips the server state back.
-    const handleUndoPass = (applicationId: string) => {
-        updateStatusMutation.mutate({ applicationId, status: 'applied' });
-    };
-
-    const handleQuickShortlist = (applicationId: string) => {
-        updateStatusMutation.mutate({ applicationId, status: 'shortlisted' });
-    };
-
-    // Message an applicant — reuse the team ContactActionSheet (the only DM
-    // entry point today). artistId may be populated (object) or a raw id.
-    const handleMessageApplicant = (applicationId: string) => {
-        const app = findApplication(applicationId);
-        if (!app) return;
-        const artistId = typeof app.artistId === 'object' ? app.artistId?._id : app.artistId;
-        setContactTarget({
-            artistId: artistId ?? '',
-            displayName: app.artistSnapshot?.displayName ?? 'Artist',
-            phoneNumber: app.artistSnapshot?.phoneNumber,
-            gigTitle: gig?.title,
-        });
-    };
-
-    // Open the profile modal over a FROZEN stage list, positioned on `id`.
-    const openProfileModal = (list: any[], applicationId: string) => {
-        const index = list.findIndex((a: any) => a._id === applicationId);
-        if (index >= 0) setProfileModal({ applications: list, index });
-    };
-
     // Tap a card (name/avatar/body or the View-profile icon) in the applied /
-    // shortlisted list → open the profile modal on the active stage list.
-    const handleRowTap = (applicationId: string) => {
-        openProfileModal(activeList, applicationId);
-    };
+    // shortlisted list → profile modal over the active stage list.
+    const handleRowTap = (applicationId: string) => actions.openProfileModal(activeList, applicationId);
 
-    // The hired "cast" → open the modal on the hired list (Message · Remove bar).
-    const openHiredProfile = (applicationId: string) => {
-        openProfileModal((data.teamRows ?? []).map((r: any) => r.application), applicationId);
-    };
+    // The hired "cast" → profile modal over the hired list (Message · Remove bar).
+    const openHiredProfile = (applicationId: string) =>
+        actions.openProfileModal((data.teamRows ?? []).map((r: any) => r.application), applicationId);
 
-    // Push the applicant's full profile (/profile/:id) — the modal's "Open full
-    // profile" escape hatch, and the fallback for non-artist (CL) applicants.
-    const openFullProfile = (artistId: string) => {
-        setProfileModal(null);
-        router.push(`/(app)/profile/${artistId}` as any);
-    };
-
-    // Remove-hire cascade (B3). Removing a hire is a reversible DEMOTE, not a
-    // delete: the confirm sheet spells out the cascade, then the server flip is
-    // hired -> shortlisted (netsaa-backend B3), which reopens the freed slot and
-    // notifies the artist. The artist drops back onto the shortlist, never
-    // rejected.
-    const handleRemoveHire = (applicationId: string) => {
-        const app = findApplication(applicationId);
-        if (app) setRemoveTarget(app);
-    };
-
-    const confirmRemoveHire = (applicationId: string) => {
-        updateStatusMutation.mutate({ applicationId, status: 'shortlisted' });
-        setRemoveTarget(null);
-    };
+    // "See all {stage}" → the paginated full applicant list for that stage.
+    const openSeeAll = (stage: HubStage) =>
+        router.push(`/(app)/gigs/${gigId}/applicants?stage=${stage}` as any);
 
     // Fill an open slot → jump to the shortlist (your picks) to hire someone;
     // fall back to the applied flood when there are no picks yet.
@@ -312,16 +235,6 @@ export function HirerGigHub({ gigId }: Props) {
         const message = `${gig.title} — see this gig on NETSA${link ? `: ${link}` : ''}`;
         try {
             await Share.share(link ? { message, url: link } : { message });
-        } catch {
-            // user dismissed the share sheet — no-op
-        }
-    };
-    const handleShareApplicant = async (applicationId: string) => {
-        const app = (data.applications as any[]).find((a) => a._id === applicationId);
-        const name = (app?.artistSnapshot?.displayName ?? '').trim() || 'This applicant';
-        const message = `${name} applied to “${gig.title}” on NETSA`;
-        try {
-            await Share.share({ message });
         } catch {
             // user dismissed the share sheet — no-op
         }
@@ -400,13 +313,18 @@ export function HirerGigHub({ gigId }: Props) {
                         onTapApplicant={openHiredProfile}
                         onViewProfile={openHiredProfile}
                         pulseId={pulseId ?? undefined}
-                        onShare={handleShareApplicant}
-                        onMessage={handleMessageApplicant}
-                        onRemove={handleRemoveHire}
+                        onShare={actions.handleShareApplicant}
+                        onMessage={actions.handleMessageApplicant}
+                        onRemove={actions.handleRemoveHire}
                         onFillSlot={handleFillSlot}
+                        limit={PREVIEW_LIMIT}
+                        onSeeAll={() => openSeeAll('hired')}
                     />
                 ) : (
                     <HubApplicantsSection
+                        // Remount per stage so the reversible-Pass session state
+                        // doesn't leak a passed Applied card into Shortlisted.
+                        key={activeStage}
                         applicants={activeList}
                         venueCity={gig.location?.city}
                         emptyLabel={activeStage === 'shortlisted'
@@ -415,12 +333,14 @@ export function HirerGigHub({ gigId }: Props) {
                         onTapApplicant={handleRowTap}
                         onViewProfile={handleRowTap}
                         pulseId={pulseId ?? undefined}
-                        onShare={handleShareApplicant}
-                        onPass={handleQuickReject}
-                        onUndoPass={handleUndoPass}
-                        onShortlist={handleQuickShortlist}
-                        onHire={handleQuickHire}
-                        onMessage={handleMessageApplicant}
+                        onShare={actions.handleShareApplicant}
+                        onPass={actions.handleQuickReject}
+                        onUndoPass={actions.handleUndoPass}
+                        onShortlist={actions.handleQuickShortlist}
+                        onHire={actions.handleQuickHire}
+                        onMessage={actions.handleMessageApplicant}
+                        limit={PREVIEW_LIMIT}
+                        onSeeAll={() => openSeeAll(activeStage)}
                     />
                 )}
 
@@ -491,8 +411,8 @@ export function HirerGigHub({ gigId }: Props) {
                         onOpenApplicant={(applicationId) => {
                             // Single-item mode — an asker can be any status (incl.
                             // rejected); the modal hides chevrons/counter for len 1.
-                            const app = findApplication(applicationId);
-                            if (app) openProfileModal([app], app._id);
+                            const app = actions.findApplication(applicationId);
+                            if (app) actions.openProfileModal([app], app._id);
                         }}
                     />
                 </View>
@@ -506,43 +426,10 @@ export function HirerGigHub({ gigId }: Props) {
                 </View>
             ) : null}
 
-            {profileModal ? (
-                <ApplicantProfileModal
-                    applications={profileModal.applications}
-                    initialIndex={profileModal.index}
-                    venueCity={gig.location?.city}
-                    onClose={(viewedId) => { setProfileModal(null); if (viewedId) setPulseId(viewedId); }}
-                    // Pass / Shortlist mutate and the modal auto-advances.
-                    onPass={handleQuickReject}
-                    onShortlist={handleQuickShortlist}
-                    // Hire / Remove / Message close the modal first, then open
-                    // their own confirm sheet (avoids nested-Modal flake on iOS).
-                    onHire={(applicationId) => { setProfileModal(null); handleQuickHire(applicationId); }}
-                    onMessage={(applicationId) => { setProfileModal(null); handleMessageApplicant(applicationId); }}
-                    onRemove={(applicationId) => { setProfileModal(null); handleRemoveHire(applicationId); }}
-                    onOpenFullProfile={openFullProfile}
-                />
-            ) : null}
-            <HireConfirmModal
-                visible={!!hireTarget}
-                gig={gig}
-                application={hireTarget ?? { _id: '', artistId: '', artistSnapshot: undefined }}
-                onClose={() => setHireTarget(null)}
-                onHired={() => setHireTarget(null)}
-            />
-            <ContactActionSheet
-                visible={!!contactTarget}
-                onClose={() => setContactTarget(null)}
-                target={contactTarget}
-            />
-            <RemoveHireSheet
-                visible={!!removeTarget}
-                application={removeTarget}
-                hiredCount={data.kpis.hiredCount}
-                slotsTotal={data.kpis.slotsTotal}
-                onClose={() => setRemoveTarget(null)}
-                onConfirm={confirmRemoveHire}
-            />
+            {/* Shared applicant-action surfaces (profile modal + Hire/Contact/
+                Remove sheets) — same controller the See-all screen uses. */}
+            <GigApplicantActionModals actions={actions} gig={gig} data={data} />
+
             <GigActionsSheet
                 visible={menuOpen}
                 slotsTotal={data.kpis.slotsTotal}

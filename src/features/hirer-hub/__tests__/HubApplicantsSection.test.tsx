@@ -67,4 +67,36 @@ describe('HubApplicantsSection', () => {
         // Back to the active footer.
         expect(getByLabelText('Pass Meera D')).toBeTruthy();
     });
+
+    it('caps the list at `limit` and shows a "See all N" row with the full count', () => {
+        const { getByText, queryByText, getByLabelText } = render(
+            <HubApplicantsSection applicants={apps} limit={2} />
+        );
+        expect(getByText('Meera D')).toBeTruthy();
+        expect(getByText('Kavya P')).toBeTruthy();
+        expect(queryByText('Vihaan N')).toBeNull();   // capped out
+        expect(queryByText('Asha R')).toBeNull();
+        expect(getByLabelText('See all 4 applicants')).toBeTruthy(); // full count, not the cap
+    });
+
+    it('keeps Undo reachable after Pass even in the capped preview (not sliced off)', () => {
+        const { getByLabelText } = render(
+            <HubApplicantsSection applicants={apps} limit={2} onPass={jest.fn()} onUndoPass={jest.fn()} />
+        );
+        fireEvent.press(getByLabelText('Pass Meera D'));
+        // The passed card survives the cap, dimmed, with Undo still on screen.
+        expect(getByLabelText('Undo pass for Meera D')).toBeTruthy();
+    });
+
+    it('fires onSeeAll on the See-all row; shows no row when count <= limit', () => {
+        const onSeeAll = jest.fn();
+        const { getByLabelText, queryByLabelText, rerender } = render(
+            <HubApplicantsSection applicants={apps} limit={2} onSeeAll={onSeeAll} />
+        );
+        fireEvent.press(getByLabelText('See all 4 applicants'));
+        expect(onSeeAll).toHaveBeenCalled();
+
+        rerender(<HubApplicantsSection applicants={apps} limit={10} onSeeAll={onSeeAll} />);
+        expect(queryByLabelText(/See all/)).toBeNull();
+    });
 });

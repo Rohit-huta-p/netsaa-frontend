@@ -106,13 +106,24 @@ export function SearchableMultiSelect({
     return () => { vv.removeEventListener('resize', onVV); vv.removeEventListener('scroll', onVV); };
   }, [overlay]);
 
+  // Custom-added values (selected but NOT in the curated options) surface as pills
+  // at the TOP of the list, newest first — so adding one gives immediate in-sheet
+  // feedback even when the field (where the chip lands) is hidden behind the keyboard.
+  const allOptions = useMemo(() => {
+    const known = new Set(options.map((o) => o.value));
+    const customs = selected.filter((v) => !known.has(v));
+    if (customs.length === 0) return options;
+    const customOpts = customs.slice().reverse().map((v) => ({ value: v, label: v }));
+    return [...customOpts, ...options];
+  }, [selected, options]);
+
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
-    if (!t) return options;
-    return options.filter(
+    if (!t) return allOptions;
+    return allOptions.filter(
       (o) => o.label.toLowerCase().includes(t) || o.value.toLowerCase().includes(t)
     );
-  }, [q, options]);
+  }, [q, allOptions]);
 
   const customValue = q.trim();
   const exactMatch = options.some(

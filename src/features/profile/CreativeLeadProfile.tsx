@@ -51,6 +51,7 @@ import { useEventsByOrganizer } from '@/hooks/useEventsByOrganizer';
 import { useOrganizerGigsPublic } from '@/hooks/useOrganizerGigsPublic';
 import { useOrganizerGigs } from '@/hooks/useGigs';
 import { orgTypeLabel } from '@/constants/orgTypes';
+import { isDeadlinePassed, deadlineDaysLeft } from '@/lib/deadline';
 import MediaViewer, { type MediaViewerItem } from '@/components/profile/MediaViewer';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
 import { useMyConnectionsCount } from '@/hooks/useConnectionMeta';
@@ -855,10 +856,12 @@ function payLabel(c?: any): string {
 
 function closesLabel(deadline?: string): string {
     if (!deadline) return '';
-    const days = Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
-    if (isNaN(days)) return '';
-    if (days < 0) return 'Closed';
-    if (days === 0) return 'Closes today';
+    // Calendar-day deadline: "Closed" only once the day is over for this viewer,
+    // consistent with the apply gate (see @/lib/deadline).
+    if (isDeadlinePassed(deadline)) return 'Closed';
+    const days = deadlineDaysLeft(deadline);
+    if (days == null) return '';
+    if (days <= 0) return 'Closes today';
     if (days === 1) return 'Closes in 1 day';
     return `Closes in ${days} days`;
 }

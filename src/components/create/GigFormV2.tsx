@@ -47,6 +47,7 @@ import Page5SafetyReview from './pages/Page5SafetyReview';
 import { LeaveGigModal } from './LeaveGigModal';
 import type { GigFormHandle } from './GigFormTypes';
 import { SURFACE, BORDER, ACCENT, TEXT, FONT, RADIUS } from '@/constants/formTokens';
+import { toCalendarInstant } from '@/lib/deadline';
 
 const TOTAL_PAGES = 6;
 // Short labels for the mini-dot rail.
@@ -210,16 +211,18 @@ export function buildBackendPayload(state: GigFormV2State) {
     state.p2.dateMode === 'dates' && (state.p2.dates?.length ?? 0) > 0
       ? (() => {
           const days = [...state.p2.dates!].sort(); // YYYY-MM-DD sorts chronologically
+          // Calendar days → noon-UTC instants so the day survives formatting in
+          // any viewer timezone (see @/lib/deadline).
           return {
-            startDate: new Date(days[0]),
-            endDate: new Date(days[days.length - 1]),
+            startDate: toCalendarInstant(days[0]),
+            endDate: toCalendarInstant(days[days.length - 1]),
             dateMode: 'dates' as const,
-            dates: days.map((d) => new Date(d)),
+            dates: days.map((d) => toCalendarInstant(d)),
           };
         })()
       : {
-          startDate: new Date(state.p2.startDate),
-          endDate: state.p2.endDate ? new Date(state.p2.endDate) : new Date(state.p2.startDate),
+          startDate: toCalendarInstant(state.p2.startDate),
+          endDate: toCalendarInstant(state.p2.endDate || state.p2.startDate),
           dateMode: 'range' as const,
         };
 
@@ -255,9 +258,7 @@ export function buildBackendPayload(state: GigFormV2State) {
       negotiable: state.p2.negotiable,
       perks: state.p4.perks,
     },
-    applicationDeadline: state.p2.applicationDeadline
-      ? new Date(state.p2.applicationDeadline)
-      : undefined,
+    applicationDeadline: toCalendarInstant(state.p2.applicationDeadline),
     termsAndConditions: state.p4.termsAndConditions,
     musicDetails: coerceMusicDetails(state.p3.music),
     modelDetails: state.p3.model,

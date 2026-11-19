@@ -16,6 +16,7 @@ import { ChevronDown, ChevronUp, X, Save, Pencil, Clock, MapPin, DollarSign, Lay
 import { LinearGradient } from 'expo-linear-gradient';
 import { Gig } from '@/types/gig';
 import { useUpdateGig } from '@/hooks/useGigs';
+import { toCalendarInstant } from '@/lib/deadline';
 import { Typography } from '@/constants/Typography';
 import dayjs from 'dayjs';
 
@@ -227,7 +228,7 @@ export const GigEditModal: React.FC<GigEditModalProps> = ({ visible, onClose, gi
                 },
 
                 maxApplications: formData.maxApplications ? parseInt(formData.maxApplications) : undefined,
-                applicationDeadline: formData.deadline ? new Date(formData.deadline) : undefined,
+                applicationDeadline: toCalendarInstant(formData.deadline || undefined),
                 
                 termsAndConditions: formData.termsAndConditions,
             };

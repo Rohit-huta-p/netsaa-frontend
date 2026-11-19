@@ -4,6 +4,7 @@ import { usePathname } from 'expo-router';
 import useAuthStore from '@/stores/authStore';
 import { useGigApplications, useUpdateApplicationStatus } from '@/hooks/useGigApplications';
 import { checkGigApplyMinimums } from '@/lib/gigApplyMinimums';
+import { isDeadlinePassed as deadlineHasPassed } from '@/lib/deadline';
 import gigService from '@/services/gigService';
 
 /**
@@ -61,10 +62,9 @@ export function useGigActions(gig: any) {
 
     const totalCount = applications?.length || 0;
 
-    // Deadline check
-    const isDeadlinePassed = gig.applicationDeadline
-        ? new Date(gig.applicationDeadline) < new Date()
-        : false;
+    // Deadline check — a deadline is a calendar DAY; applications stay open
+    // through the end of that day in the viewer's own timezone (see @/lib/deadline).
+    const isDeadlinePassed = deadlineHasPassed(gig.applicationDeadline);
 
     // Auth gate context — set per action so the sheet shows the right copy
     const authGateContext = {

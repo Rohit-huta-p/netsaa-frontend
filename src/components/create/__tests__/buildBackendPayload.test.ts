@@ -105,8 +105,8 @@ describe('buildBackendPayload', () => {
 
   it('omits optional fields when empty (endDate falls back, no deadline)', () => {
     const payload = buildBackendPayload(makeBaseState() as any);
-    // endDate falls back to startDate when not set
-    expect(payload.schedule.endDate).toEqual(new Date('2027-01-01'));
+    // endDate falls back to startDate when not set (calendar day → noon UTC)
+    expect(payload.schedule.endDate).toEqual(new Date('2027-01-01T12:00:00.000Z'));
     expect(payload.applicationDeadline).toBeUndefined();
     // v2 removed maxApplications from the payload entirely.
     expect((payload as any).maxApplications).toBeUndefined();
@@ -150,7 +150,7 @@ describe('buildBackendPayload', () => {
     const payload = buildBackendPayload(makeBaseState() as any);
     expect(payload.schedule.dateMode).toBe('range');
     expect((payload.schedule as any).dates).toBeUndefined();
-    expect(payload.schedule.startDate).toEqual(new Date('2027-01-01'));
+    expect(payload.schedule.startDate).toEqual(new Date('2027-01-01T12:00:00.000Z'));
   });
 
   it('maps specific-dates mode to sorted dates[] + envelope start/end', () => {
@@ -160,12 +160,12 @@ describe('buildBackendPayload', () => {
     const payload = buildBackendPayload(state);
     expect(payload.schedule.dateMode).toBe('dates');
     expect((payload.schedule as any).dates).toEqual([
-      new Date('2027-04-05'),
-      new Date('2027-04-10'),
-      new Date('2027-04-11'),
+      new Date('2027-04-05T12:00:00.000Z'),
+      new Date('2027-04-10T12:00:00.000Z'),
+      new Date('2027-04-11T12:00:00.000Z'),
     ]);
     // envelope carries min…max so existing readers/sorters keep working
-    expect(payload.schedule.startDate).toEqual(new Date('2027-04-05'));
-    expect(payload.schedule.endDate).toEqual(new Date('2027-04-11'));
+    expect(payload.schedule.startDate).toEqual(new Date('2027-04-05T12:00:00.000Z'));
+    expect(payload.schedule.endDate).toEqual(new Date('2027-04-11T12:00:00.000Z'));
   });
 });

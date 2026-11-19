@@ -76,9 +76,15 @@ describe('buildGigDetailVM', () => {
   });
 
   it('computes a deadline label', () => {
-    const soon = new Date(Date.now() + 6 * 24 * 3600 * 1000).toISOString();
-    expect(buildGigDetailVM({ ...base, applicationDeadline: soon }).deadlineLabel).toBe('Closes in 6 days');
-    const past = new Date(Date.now() - 3600 * 1000).toISOString();
-    expect(buildGigDetailVM({ ...base, applicationDeadline: past }).deadlineLabel).toBe('Closed');
+    // Pin the clock to an instant that is mid-day on the 19th in UTC, IST and US
+    // Pacific alike, so the per-viewer-local day math is deterministic in CI.
+    jest.useFakeTimers().setSystemTime(new Date('2026-11-19T13:00:00.000Z'));
+    const label = (iso: string) =>
+      buildGigDetailVM({ ...base, applicationDeadline: iso }).deadlineLabel;
+    expect(label('2026-11-25T12:00:00.000Z')).toBe('Closes in 6 days');
+    expect(label('2026-11-16T12:00:00.000Z')).toBe('Closed');
+    // A deadline earlier *today* is still open through the end of the day.
+    expect(label('2026-11-19T12:00:00.000Z')).toBe('Closes today');
+    jest.useRealTimers();
   });
 });

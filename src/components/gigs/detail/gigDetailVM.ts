@@ -6,6 +6,7 @@
 // dates, real verified gating, no take-home/fee math.
 
 import dayjs from 'dayjs';
+import { isDeadlinePassed, deadlineDaysLeft } from '@/lib/deadline';
 
 export interface Fact {
   k: string;
@@ -118,14 +119,15 @@ function slotsFact(gig: any): Fact {
 
 function deadlineLabel(deadline: any): string | null {
   if (!deadline) return null;
-  const d = dayjs(deadline);
-  if (!d.isValid()) return null;
-  const now = dayjs();
-  if (d.isBefore(now)) return 'Closed';
-  const days = d.diff(now, 'day');
-  if (days >= 1) return `Closes in ${days} day${days > 1 ? 's' : ''}`;
-  const hours = Math.max(1, d.diff(now, 'hour'));
-  return `Closes in ${hours}h`;
+  if (!dayjs(deadline).isValid()) return null;
+  // A deadline is a calendar DAY. Flip to "Closed" only once the day is over for
+  // this viewer (per-viewer local end-of-day, consistent with the apply gate),
+  // and count whole calendar days to it — never a sub-day "1h" while still open.
+  if (isDeadlinePassed(deadline)) return 'Closed';
+  const days = deadlineDaysLeft(deadline) ?? 0; // >= 0 here (still open)
+  if (days <= 0) return 'Closes today';
+  if (days === 1) return 'Closes in 1 day';
+  return `Closes in ${days} days`;
 }
 
 function experienceVM(gig: any): { v: string; sub?: string } {

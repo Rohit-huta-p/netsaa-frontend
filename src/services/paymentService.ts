@@ -5,7 +5,7 @@ const getBaseUrl = () => {
     return process.env.EXPO_PUBLIC_API_PAYMENT_URL || 'http://localhost:5005/v1';
 };
 
-const API = axios.create({ baseURL: getBaseUrl() });
+const API = axios.create({ timeout: 15000, baseURL: getBaseUrl() });
 
 API.interceptors.request.use((config) => {
     const token = useAuthStore.getState().accessToken;

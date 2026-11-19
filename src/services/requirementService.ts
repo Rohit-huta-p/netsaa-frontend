@@ -6,7 +6,7 @@ import { useAuthStore } from '../stores/authStore';
 const getBaseUrl = () =>
     API_GIGS_URL;
 
-const API = axios.create({ baseURL: getBaseUrl() });
+const API = axios.create({ timeout: 15000, baseURL: getBaseUrl() });
 
 API.interceptors.request.use((config) => {
     const token = useAuthStore.getState().accessToken;

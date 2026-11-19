@@ -8,7 +8,7 @@ const getBaseUrl = () => {
     return 'http://10.197.171.107:5001/api/follows';
 };
 
-const API = axios.create({ baseURL: getBaseUrl() });
+const API = axios.create({ timeout: 15000, baseURL: getBaseUrl() });
 
 API.interceptors.request.use((config) => {
     const token = useAuthStore.getState().accessToken;

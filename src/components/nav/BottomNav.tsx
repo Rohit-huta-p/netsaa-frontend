@@ -126,19 +126,19 @@ export default function BottomNav() {
         <View style={styles.tabRow}>
           {!showPostFab ? (
             tabs.map((t) => (
-              <NavButton key={t.id} tab={t} currentPath={pathname} onPress={() => router.push(t.route as any)} />
+              <NavButton key={t.id} tab={t} currentPath={pathname} onPress={() => router.navigate(t.route as any)} />
             ))
           ) : (
             <>
               {/* Left 2 tabs */}
               {tabs.slice(0, 2).map((t) => (
-                <NavButton key={t.id} tab={t} currentPath={pathname} onPress={() => router.push(t.route as any)} />
+                <NavButton key={t.id} tab={t} currentPath={pathname} onPress={() => router.navigate(t.route as any)} />
               ))}
               {/* Spacer for Post FAB */}
               <View style={styles.fabSpacer} />
               {/* Right 2 tabs */}
               {tabs.slice(2).map((t) => (
-                <NavButton key={t.id} tab={t} currentPath={pathname} onPress={() => router.push(t.route as any)} />
+                <NavButton key={t.id} tab={t} currentPath={pathname} onPress={() => router.navigate(t.route as any)} />
               ))}
             </>
           )}
@@ -153,12 +153,16 @@ function NavButton({
   tab, currentPath, onPress,
 }: { tab: TabDef; currentPath: string; onPress: () => void }) {
   const Icon = tab.icon;
-  const active = currentPath?.startsWith(tab.route.replace('/(app)', ''));
+  const routePath = tab.route.replace('/(app)', '');
+  const active = currentPath?.startsWith(routePath);
+  // Tapping the tab you're already on is a no-op. Re-navigating used to push a
+  // duplicate screen onto the stack (so the phone back-gesture returned to it).
+  const atRoot = currentPath === routePath;
   const color = active ? '#FFFFFF' : 'rgba(245, 240, 235, 0.55)';
   return (
     <TouchableOpacity
       style={styles.tab}
-      onPress={onPress}
+      onPress={() => { if (!atRoot) onPress(); }}
       accessibilityRole="button"
       accessibilityLabel={tab.label}
       accessibilityState={{ selected: active }}

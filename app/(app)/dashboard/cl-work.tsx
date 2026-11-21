@@ -121,7 +121,7 @@ export default function CreativeLeadWorkPage() {
         <Pressable onPress={() => router.back()} style={styles.back} hitSlop={8} accessibilityRole="button" accessibilityLabel="Back">
           <ChevronLeft size={20} color={HC.t2} />
         </Pressable>
-        <Text style={styles.title}>Your work</Text>
+        <Text style={styles.title}>Manage posts</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

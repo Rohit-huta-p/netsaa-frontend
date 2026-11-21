@@ -163,6 +163,7 @@ export function CreativeLeadCompanyEdit() {
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
     const [dirty, setDirty] = useState(false);
+    const [discardOpen, setDiscardOpen] = useState(false);
     const [prefilled, setPrefilled] = useState(false);
 
     const uploading = logoUploading || coverUploading || photosUploading > 0;
@@ -328,12 +329,13 @@ export function CreativeLeadCompanyEdit() {
         else router.replace('/' as any);
     };
 
+    // In-app discard prompt instead of Alert.alert — Alert with buttons is
+    // unreliable on react-native-web (the confirm never shows, so a dirty form
+    // can't be closed). Mirrors the artist ProfileEditModal's prompt; works on
+    // web + native alike.
     const confirmClose = () => {
         if (!dirty) { closeEditor(); return; }
-        Alert.alert('Discard changes?', "This can't be undone.", [
-            { text: 'Keep editing', style: 'cancel' },
-            { text: 'Discard', style: 'destructive', onPress: closeEditor },
-        ]);
+        setDiscardOpen(true);
     };
 
     const initial = (name.trim()[0] || 'M').toUpperCase();
@@ -555,6 +557,33 @@ export function CreativeLeadCompanyEdit() {
             </View>
 
             <MediaCropper {...cropperProps} />
+
+            {/* Cross-platform discard confirm (replaces a web-unreliable Alert.alert). */}
+            {discardOpen && (
+                <View style={s.discardWrap} testID="cl-edit-discard">
+                    <Pressable style={s.discardScrim} onPress={() => setDiscardOpen(false)} />
+                    <View style={s.discardCard}>
+                        <Text style={s.discardTitle}>Discard changes?</Text>
+                        <Text style={s.discardMsg}>Your edits haven't been saved. Leave now and you'll lose them.</Text>
+                        <View style={s.discardRow}>
+                            <Pressable
+                                testID="cl-edit-discard-keep"
+                                style={[s.discardBtn, s.discardKeep]}
+                                onPress={() => setDiscardOpen(false)}
+                            >
+                                <Text style={s.discardKeepText}>Keep editing</Text>
+                            </Pressable>
+                            <Pressable
+                                testID="cl-edit-discard-confirm"
+                                style={[s.discardBtn, s.discardGo]}
+                                onPress={() => { setDiscardOpen(false); closeEditor(); }}
+                            >
+                                <Text style={s.discardGoText}>Discard</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            )}
         </View>
     );
 }
@@ -701,4 +730,20 @@ const s = StyleSheet.create({
     btnGhostText: { fontFamily: F.semi, fontSize: T.btn, color: C.cream },
     btnSave: { flex: 1, backgroundColor: C.orange },
     btnSaveText: { fontFamily: F.bold, fontSize: T.btn, color: C.ink },
+    // Discard confirm (cross-platform in-app prompt)
+    discardWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
+    discardScrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
+    discardCard: {
+        width: '100%', maxWidth: 360, backgroundColor: C.card, borderWidth: 1, borderColor: C.hair,
+        borderRadius: 20, padding: 22, gap: 10,
+        shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 28, shadowOffset: { width: 0, height: 14 }, elevation: 16,
+    },
+    discardTitle: { fontFamily: F.bold, fontSize: 17, color: C.cream },
+    discardMsg: { fontFamily: F.body, fontSize: 13, lineHeight: 19, color: C.t2, marginBottom: 6 },
+    discardRow: { flexDirection: 'row', gap: 12 },
+    discardBtn: { flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: 'center' },
+    discardKeep: { borderWidth: 1, borderColor: C.hair },
+    discardKeepText: { color: C.t2, fontFamily: F.bold, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
+    discardGo: { backgroundColor: '#EF4444' },
+    discardGoText: { color: '#FFFFFF', fontFamily: F.bold, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
 });

@@ -143,4 +143,48 @@ describe('CreativeLeadCompanyEdit smoke', () => {
         expect(mockReplace).not.toHaveBeenCalled();
         TestRenderer.act(() => { r.unmount(); });
     });
+
+    // A DIRTY form shows an in-app discard prompt (cross-platform — no Alert.alert,
+    // which is unreliable on web). It gates the close.
+    const has = (r: any, id: string) => r.root.findAll((n: any) => n.props.testID === id).length > 0;
+    const press = (r: any, id: string) => {
+        const node = r.root.findAll((n: any) => n.props.testID === id).find((n: any) => typeof n.props.onPress === 'function');
+        TestRenderer.act(() => { node.props.onPress(); });
+    };
+    const makeDirty = (r: any) => {
+        const field = r.root.findAll((n: any) => typeof n.props.onChangeText === 'function')[0];
+        TestRenderer.act(() => { field.props.onChangeText('Mehfil Collective edited'); });
+    };
+
+    it('dirty close opens the in-app discard prompt, then Discard closes', () => {
+        mockRole = 'creative_lead';
+        mockUser = { _id: 'org1' };
+        mockOrganizer = { organizationName: 'Mehfil Collective' };
+        mockBack.mockClear(); mockReplace.mockClear();
+        mockCanGoBack = true;
+        const r = renderEditor();
+        makeDirty(r);
+        pressClose(r);
+        expect(has(r, 'cl-edit-discard')).toBe(true);   // prompt shown
+        expect(mockBack).not.toHaveBeenCalled();         // not closed yet
+        press(r, 'cl-edit-discard-confirm');
+        expect(mockBack).toHaveBeenCalled();             // Discard → closed
+        TestRenderer.act(() => { r.unmount(); });
+    });
+
+    it('dirty close → Keep editing dismisses the prompt and stays', () => {
+        mockRole = 'creative_lead';
+        mockUser = { _id: 'org1' };
+        mockOrganizer = { organizationName: 'Mehfil Collective' };
+        mockBack.mockClear(); mockReplace.mockClear();
+        mockCanGoBack = true;
+        const r = renderEditor();
+        makeDirty(r);
+        pressClose(r);
+        expect(has(r, 'cl-edit-discard')).toBe(true);
+        press(r, 'cl-edit-discard-keep');
+        expect(has(r, 'cl-edit-discard')).toBe(false);  // dismissed
+        expect(mockBack).not.toHaveBeenCalled();         // stayed on the form
+        TestRenderer.act(() => { r.unmount(); });
+    });
 });

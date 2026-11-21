@@ -3,6 +3,7 @@ import { render, fireEvent } from '@testing-library/react-native';
 
 // Many applied applicants (stable order: equal rating + equal appliedAt → input
 // order preserved) so the screen's stage tabs, count header and list render.
+// All in Pune (the gig's venue city) so the venue-city pre-select keeps them.
 const makeApps = (n: number, status = 'applied') =>
     Array.from({ length: n }).map((_, i) => ({
         _id: `a${i}`,
@@ -28,6 +29,7 @@ const mockData = {
 jest.mock('../hooks/useGigHubData', () => ({ useGigHubData: () => mockData }));
 jest.mock('expo-router', () => ({
     useRouter: () => ({ back: jest.fn(), canGoBack: () => true, push: jest.fn(), replace: jest.fn() }),
+    Redirect: () => null,
 }));
 jest.mock('@/hooks/useGigApplications', () => ({
     useUpdateApplicationStatus: () => ({ mutate: jest.fn(), isPending: false }),
@@ -40,24 +42,47 @@ jest.mock('../components/GigApplicantActionModals', () => ({ GigApplicantActionM
 import { GigApplicantsAllScreen } from '../GigApplicantsAllScreen';
 
 describe('GigApplicantsAllScreen', () => {
-    it('renders the header, the three stage tabs, the stage count and applicant rows', () => {
-        const { getByText, getByLabelText } = render(<GigApplicantsAllScreen gigId="g1" initialStage="applied" />);
+    it('renders the header, stage tabs, the filter bar + live count, and rows', () => {
+        const { getByText, getByLabelText, getByTestId } = render(<GigApplicantsAllScreen gigId="g1" initialStage="applied" />);
         expect(getByText('All applicants')).toBeTruthy();
         expect(getByLabelText('Applied stage')).toBeTruthy();
         expect(getByLabelText('Shortlisted stage')).toBeTruthy();
         expect(getByLabelText('Hired stage')).toBeTruthy();
-        expect(getByText('New applicants · 45')).toBeTruthy();
+        // Filter bar shows (45 ≥ 3); venue-city pre-select keeps all 45 Pune rows.
+        expect(getByTestId('applicant-filters-button')).toBeTruthy();
+        expect(getByLabelText('Showing 45 of 45')).toBeTruthy();
         expect(getByText('Artist 0')).toBeTruthy(); // first row rendered
     });
 
-    it('switching to the Shortlisted stage swaps the list header + count', () => {
-        const { getByLabelText, getByText } = render(<GigApplicantsAllScreen gigId="g1" initialStage="applied" />);
+    it('venue city is pre-selected as a removable chip (the local default)', () => {
+        const { getByLabelText } = render(<GigApplicantsAllScreen gigId="g1" initialStage="applied" />);
+        expect(getByLabelText('Remove filter Pune')).toBeTruthy();
+    });
+
+    it('switching to the Shortlisted stage swaps the list + live count', () => {
+        const { getByLabelText } = render(<GigApplicantsAllScreen gigId="g1" initialStage="applied" />);
         fireEvent.press(getByLabelText('Shortlisted stage'));
-        expect(getByText('Your picks · 3')).toBeTruthy();
+        expect(getByLabelText('Showing 3 of 3')).toBeTruthy();
     });
 
     it('lands on the stage passed in (shortlisted)', () => {
-        const { getByText } = render(<GigApplicantsAllScreen gigId="g1" initialStage="shortlisted" />);
-        expect(getByText('Your picks · 3')).toBeTruthy();
+        const { getByLabelText } = render(<GigApplicantsAllScreen gigId="g1" initialStage="shortlisted" />);
+        expect(getByLabelText('Showing 3 of 3')).toBeTruthy();
+    });
+
+    it('a passed card survives a filter change (PR #188 Undo-regression guard)', () => {
+        // Small applied set so the passed card (pinned to the end of the list)
+        // stays within FlatList's initial render window in jsdom.
+        mockData.appliedApplicants = makeApps(3);
+        const { getByText, getByLabelText, queryByText } = render(<GigApplicantsAllScreen gigId="g1" initialStage="applied" />);
+        expect(getByText('Artist 0')).toBeTruthy();
+        // Pass Artist 0 — it stays on screen, dimmed, with Undo.
+        fireEvent.press(getByLabelText('Pass Artist 0'));
+        expect(getByText('Artist 0')).toBeTruthy();
+        // Change the filter (remove the pre-selected Pune city) — the passed card
+        // must NOT disappear (the regression was it getting dropped/un-undoable).
+        fireEvent.press(getByLabelText('Remove filter Pune'));
+        expect(queryByText('Artist 0')).toBeTruthy();
+        expect(getByLabelText('Undo pass for Artist 0')).toBeTruthy();
     });
 });

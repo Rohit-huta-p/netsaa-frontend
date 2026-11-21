@@ -12,10 +12,13 @@ import type { HubStage } from '@/features/hirer-hub/hooks/useGigHubData';
 const STAGES: string[] = ['applied', 'shortlisted', 'hired'];
 
 export default function GigApplicantsRoute() {
-    const params = useLocalSearchParams<{ id?: string | string[]; stage?: string | string[] }>();
+    const params = useLocalSearchParams<{ id?: string | string[]; stage?: string | string[]; q?: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
     const rawStage = Array.isArray(params.stage) ? params.stage[0] : params.stage;
     const stage = (STAGES.includes(rawStage ?? '') ? rawStage : 'applied') as HubStage;
+    // ?q carries an active hub search into See-all's name filter, so tapping
+    // "See all" from a search lands on the same results.
+    const rawQ = Array.isArray(params.q) ? params.q[0] : params.q;
     if (!id) return null;
-    return <GigApplicantsAllScreen gigId={id} initialStage={stage} />;
+    return <GigApplicantsAllScreen gigId={id} initialStage={stage} initialName={rawQ ?? ''} />;
 }

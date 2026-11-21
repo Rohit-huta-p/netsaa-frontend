@@ -44,13 +44,17 @@ const EMPTY_LABEL: Record<HubStage, string> = {
     hired: 'No one hired yet.',
 };
 
-export function GigApplicantsAllScreen({ gigId, initialStage = 'applied' }: { gigId: string; initialStage?: HubStage }) {
+export function GigApplicantsAllScreen({ gigId, initialStage = 'applied', initialName = '' }: { gigId: string; initialStage?: HubStage; initialName?: string }) {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const data = useGigHubData(gigId);
 
     const [activeStage, setActiveStage] = useState<HubStage>(initialStage);
-    const [filters, setFilters] = useState<ApplicantFilters>(EMPTY_FILTERS);
+    // Seed the name filter from an incoming hub search (?q), so See-all opens on
+    // the same matches the owner was looking at.
+    const [filters, setFilters] = useState<ApplicantFilters>(
+        initialName ? { ...EMPTY_FILTERS, name: initialName } : EMPTY_FILTERS,
+    );
     const [sort, setSort] = useState<ApplicantSort>('recency');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [visibleCount, setVisibleCount] = useState(PAGE);
@@ -96,7 +100,10 @@ export function GigApplicantsAllScreen({ gigId, initialStage = 'applied' }: { gi
     // default). Guarded: seeds at most once, only if the normalized venue city
     // actually occurs in the pool — so a deep-link open never lands empty, and a
     // user who clears it (or Clear all) keeps it cleared.
-    const seededRef = useRef(false);
+    // When arriving with an incoming name query (?q from the hub), skip the
+    // venue-city auto-select — honour the search as-is, since name ∩ city would
+    // silently hide matches from other cities.
+    const seededRef = useRef<boolean>(!!initialName);
     useEffect(() => {
         if (seededRef.current || !data.gig) return;
         const vk = normalizeCityKey(venueCity);

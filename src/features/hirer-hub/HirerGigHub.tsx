@@ -8,7 +8,7 @@
 // (screens 1–3): a compact gig header, three tappable stage tabs (Applied /
 // Shortlisted / Hired) that swap the body, a slot bar, and the card-D rows.
 
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, ScrollView, ActivityIndicator, Text, TouchableOpacity, useWindowDimensions, Share, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
@@ -28,13 +28,19 @@ import { HubTeamSection } from './components/HubTeamSection';
 // CONTRACTS-DISABLED: HubBookingTermsCard hidden until contract artifact is restored.
 // import { HubBookingTermsCard } from './components/HubBookingTermsCard';
 import { HubApplicantsSection } from './components/HubApplicantsSection';
+import { HubApplicantSearch } from './components/HubApplicantSearch';
 import { HubEssentials } from './components/HubEssentials';
 import { HubStickyCTA } from './components/HubStickyCTA';
 import { GigActionsSheet } from './components/GigActionsSheet';
+import { matchesFilters, EMPTY_FILTERS } from './utils/applicantFilters';
 
 // Show at most this many cards per stage on the hub; the rest live behind
 // "See all" (GigApplicantsAllScreen, a paginated full list).
 const PREVIEW_LIMIT = 5;
+// While a search query is active the 5-card cap is lifted to this, so name
+// matches beyond the preview surface in place. Overflow past this still routes
+// to "See all" (which receives the query via ?q=).
+const SEARCH_CAP = 25;
 // Discussion section — backed by GigComment model. Same component used on
 // Event detail screens. Pulls socket (live updates) + gigService for the
 // REST round-trip. No gating beyond auth: anyone signed in can read/post.
@@ -83,6 +89,9 @@ export function HirerGigHub({ gigId }: Props) {
     const data = useGigHubData(gigId);
     const scrollRef = useRef<ScrollView>(null);
     const overviewYRef = useRef<number>(0);
+    // Y of the Applicants pane within the page scroll — used to lift the search
+    // field clear of the keyboard on focus (native only; web has no overlay).
+    const applicantsPaneYRef = useRef<number>(0);
     // Gig detail hides the global bottom nav (see HIDE_NAV_PATTERNS in
     // BottomNav), so the sticky CTA + scroll padding reserve the safe-area
     // inset at the true bottom edge — not the nav's height.
@@ -96,6 +105,13 @@ export function HirerGigHub({ gigId }: Props) {
     // sort applies to the Applied / Shortlisted lists.
     const [activeStage, setActiveStage] = useState<HubStage>('applied');
     const [sortKey, setSortKey] = useState<SortKey>('rating');
+    // Inline applicant search (Applied / Shortlisted). The hub owns the query;
+    // the field reaches the FULL stage list, not just the 5-card preview.
+    const [query, setQuery] = useState('');
+    // Clear the query on ANY stage change — the tab tap in HubOverview AND the
+    // programmatic jumps (sticky CTA, Fill-slot) all flow through `activeStage`,
+    // so a stale query never shows a false "no matches" in the stage you land on.
+    useEffect(() => { setQuery(''); }, [activeStage]);
     const [menuOpen, setMenuOpen] = useState(false);
     // Top-level tab: 'applicants' (the pipeline) vs 'discussion' (the thread).
     const [topTab, setTopTab] = useState<HubTopTab>('applicants');
@@ -142,6 +158,19 @@ export function HirerGigHub({ gigId }: Props) {
         if (activeStage === 'shortlisted') return sortApplicants(data.shortlistedApplicants ?? [], sortKey);
         return sortApplicants(data.appliedApplicants ?? [], sortKey);
     }, [activeStage, sortKey, data.appliedApplicants, data.shortlistedApplicants]);
+
+    // Apply the search on top of the sorted stage list. Name-only (case-insensitive
+    // substring over displayName), reusing the See-all filter core so the hub and
+    // See-all agree. Empty query → the full sorted list (behaviour unchanged).
+    const trimmedQuery = query.trim();
+    const visibleList = useMemo(
+        () => (trimmedQuery ? activeList.filter((a) => matchesFilters(a, { ...EMPTY_FILTERS, name: trimmedQuery })) : activeList),
+        [activeList, trimmedQuery],
+    );
+    // Search is offered only where it earns its place: a non-hired stage whose
+    // pool is bigger than the preview (≤5 is already fully visible). It stays
+    // mounted while a query is active so the field never vanishes mid-search.
+    const showSearch = activeStage !== 'hired' && (activeList.length > PREVIEW_LIMIT || trimmedQuery.length > 0);
 
     // Commenter User id → their application, so the Discussion thread can show
     // an Applied/Shortlisted/Hired chip on askers who are in the pipeline and
@@ -199,15 +228,19 @@ export function HirerGigHub({ gigId }: Props) {
 
     // Tap a card (name/avatar/body or the View-profile icon) in the applied /
     // shortlisted list → profile modal over the active stage list.
-    const handleRowTap = (applicationId: string) => actions.openProfileModal(activeList, applicationId);
+    const handleRowTap = (applicationId: string) => actions.openProfileModal(visibleList, applicationId);
 
     // The hired "cast" → profile modal over the hired list (Message · Remove bar).
     const openHiredProfile = (applicationId: string) =>
         actions.openProfileModal((data.teamRows ?? []).map((r: any) => r.application), applicationId);
 
     // "See all {stage}" → the paginated full applicant list for that stage.
-    const openSeeAll = (stage: HubStage) =>
-        router.push(`/(app)/gigs/${gigId}/applicants?stage=${stage}` as any);
+    // Carry an active search into See-all's name filter so overflow past the
+    // hub's SEARCH_CAP lands on the same results, not a reset list.
+    const openSeeAll = (stage: HubStage) => {
+        const q = stage === activeStage && trimmedQuery ? `&q=${encodeURIComponent(trimmedQuery)}` : '';
+        router.push(`/(app)/gigs/${gigId}/applicants?stage=${stage}${q}` as any);
+    };
 
     // Fill an open slot → jump to the shortlist (your picks) to hire someone;
     // fall back to the applied flood when there are no picks yet.
@@ -263,6 +296,9 @@ export function HirerGigHub({ gigId }: Props) {
             <ScrollView
                 ref={scrollRef}
                 showsVerticalScrollIndicator={false}
+                // So the first tap on a result card isn't swallowed just to
+                // dismiss the search keyboard — it opens the card directly.
+                keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
             >
                 {/* Mobile-only back affordance. Desktop relies on the global
@@ -321,7 +357,30 @@ export function HirerGigHub({ gigId }: Props) {
                     dead-end at a bounded box). Essentials moved ABOVE (into the
                     overview slot); the footer stays below. Kept mounted
                     (display-toggled) so the list's local state survives a tab switch. */}
-                <View style={{ display: topTab === 'applicants' ? 'flex' : 'none' }}>
+                <View
+                    onLayout={(e) => { applicantsPaneYRef.current = Math.max(0, e.nativeEvent.layout.y); }}
+                    style={{
+                        display: topTab === 'applicants' ? 'flex' : 'none',
+                        // While searching, hold a floor so narrowing to 0–1 matches
+                        // doesn't shrink the page and slide the field under the fold.
+                        ...(trimmedQuery ? { minHeight: 360 } : null),
+                    }}>
+                    {/* Inline search — reaches the FULL stage list by name, so it
+                        finds applicants beyond the 5-card preview. Shown only where
+                        it earns its place (non-hired stage, pool bigger than preview). */}
+                    {showSearch ? (
+                        <HubApplicantSearch
+                            testID="hub-applicant-search"
+                            value={query}
+                            onChangeText={setQuery}
+                            onClear={() => setQuery('')}
+                            onFocus={() => {
+                                if (Platform.OS !== 'web') {
+                                    scrollRef.current?.scrollTo({ y: Math.max(0, applicantsPaneYRef.current - 12), animated: true });
+                                }
+                            }}
+                        />
+                    ) : null}
                     {/* Body — the active stage's list. Hired is the cast (card D +
                         open slots); Applied / Shortlisted are the card-D flood/picks. */}
                     {activeStage === 'hired' ? (
@@ -343,12 +402,16 @@ export function HirerGigHub({ gigId }: Props) {
                         <HubApplicantsSection
                             // Remount per stage so the reversible-Pass session state
                             // doesn't leak a passed Applied card into Shortlisted.
+                            // Stays mounted across query changes (same key) so a
+                            // passed card survives mid-search.
                             key={activeStage}
-                            applicants={activeList}
+                            applicants={visibleList}
                             venueCity={gig.location?.city}
-                            emptyLabel={activeStage === 'shortlisted'
-                                ? 'No picks yet — shortlist applicants to line up your hires.'
-                                : 'No new applicants right now.'}
+                            emptyLabel={trimmedQuery
+                                ? `No applicants match "${trimmedQuery}".`
+                                : activeStage === 'shortlisted'
+                                    ? 'No picks yet — shortlist applicants to line up your hires.'
+                                    : 'No new applicants right now.'}
                             onTapApplicant={handleRowTap}
                             onViewProfile={handleRowTap}
                             pulseId={pulseId ?? undefined}
@@ -358,7 +421,10 @@ export function HirerGigHub({ gigId }: Props) {
                             onShortlist={actions.handleQuickShortlist}
                             onHire={actions.handleQuickHire}
                             onMessage={actions.handleMessageApplicant}
-                            limit={PREVIEW_LIMIT}
+                            // While searching, lift the 5-card cap so matches beyond
+                            // the preview surface here; overflow past SEARCH_CAP keeps
+                            // the "See all" row (which carries the query).
+                            limit={trimmedQuery ? SEARCH_CAP : PREVIEW_LIMIT}
                             onSeeAll={() => openSeeAll(activeStage)}
                         />
                     )}

@@ -102,6 +102,31 @@ describe('HirerGigHub', () => {
         await act(async () => {});
     });
 
+    it('shows Essentials ABOVE the Applicants/Discussion tabs, on both tabs', async () => {
+        const { getByText, toJSON } = render(<HirerGigHub gigId="g1" />);
+        // Essentials present (When/Where/Pay/Scope/Posted rows + Edit gig link).
+        expect(getByText('When')).toBeTruthy();
+        expect(getByText('Edit gig')).toBeTruthy();
+
+        // Order: Essentials sits ABOVE the tab selector, so its "When" label
+        // renders before the "Applicants" tab label.
+        const flat: string[] = [];
+        const walk = (n: any) => {
+            if (n == null) return;
+            if (typeof n === 'string') { flat.push(n); return; }
+            if (Array.isArray(n)) { n.forEach(walk); return; }
+            if (n.children) walk(n.children);
+        };
+        walk(toJSON());
+        expect(flat.indexOf('When')).toBeGreaterThanOrEqual(0);
+        expect(flat.indexOf('When')).toBeLessThan(flat.indexOf('Applicants'));
+
+        // Still shows on the Discussion tab (it's in the overview, above the tabs).
+        fireEvent.press(getByText('Discussion'));
+        expect(getByText('When')).toBeTruthy();
+        await act(async () => {});
+    });
+
     it('defaults to the Applied stage and shows its applicant in the body', async () => {
         const { getByText, queryByText } = render(<HirerGigHub gigId="g1" />);
         // Applied bucket (a2 Meera) is the untriaged flood; the hired (Priya)

@@ -89,13 +89,8 @@ export function HirerGigHub({ gigId }: Props) {
     const insets = useSafeAreaInsets();
     // The chevron header is mobile-only. On tablet/desktop the global
     // app shell (Navbar) provides navigation, so this duplicate is hidden.
-    const { width, height } = useWindowDimensions();
+    const { width } = useWindowDimensions();
     const showMobileHeader = width < 768;
-    // Layout B: the Applicants/Discussion panes are a bounded section that
-    // scrolls INTERNALLY within ~56% of the screen, so Essentials (moved below
-    // both panes) shows on both tabs and a long discussion thread can't make an
-    // endless page.
-    const tabbedMaxHeight = Math.round(height * 0.56);
 
     // Pipeline selection (lifted). The active stage drives which body renders;
     // sort applies to the Applied / Shortlisted lists.
@@ -300,104 +295,107 @@ export function HirerGigHub({ gigId }: Props) {
                         topTab={topTab}
                         onSelectTopTab={handleSelectTopTab}
                         discussionBadge={discussionBadge}
+                        // Essentials sits ABOVE the Applicants/Discussion tabs
+                        // (shows on both tabs). The page is one continuous scroll.
+                        beforeTabs={
+                            <>
+                                <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 2 }} />
+                                <HubEssentials
+                                    eventDate={gig.schedule?.startDate ?? gig.startDate}
+                                    schedule={gig.schedule}
+                                    venue={gig.location?.venueName}
+                                    city={gig.location?.city}
+                                    scope={gig.description}
+                                    payAmount={data.kpis.budgetAmount}
+                                    daysLeft={data.kpis.daysLeft}
+                                    postedDate={gig.createdAt}
+                                    onEditGig={() => router.push(`/(app)/create?gigId=${gigId}` as any)}
+                                />
+                            </>
+                        }
                     />
                 </View>
 
-                {/* Applicants pane (layout B) — the pipeline body in a bounded box
-                    that scrolls INTERNALLY within ~56% of the screen. Essentials +
-                    the footer were moved OUT, below both panes, so they also show on
-                    the Discussion tab (they used to vanish there). Kept mounted
+                {/* Applicants pane — single continuous page scroll (no inner
+                    scroll; the whole page scrolls as one, so there's never a
+                    dead-end at a bounded box). Essentials moved ABOVE (into the
+                    overview slot); the footer stays below. Kept mounted
                     (display-toggled) so the list's local state survives a tab switch. */}
                 <View style={{ display: topTab === 'applicants' ? 'flex' : 'none' }}>
-                    <ScrollView style={{ maxHeight: tabbedMaxHeight }} nestedScrollEnabled showsVerticalScrollIndicator>
-                        {/* Body — the active stage's list. Hired is the cast (card D +
-                            open slots); Applied / Shortlisted are the card-D flood/picks. */}
-                        {activeStage === 'hired' ? (
-                            <HubTeamSection
-                                teamRows={data.teamRows}
-                                slotsTotal={data.kpis.slotsTotal}
-                                venueCity={gig.location?.city}
-                                onTapApplicant={openHiredProfile}
-                                onViewProfile={openHiredProfile}
-                                pulseId={pulseId ?? undefined}
-                                onShare={actions.handleShareApplicant}
-                                onMessage={actions.handleMessageApplicant}
-                                onRemove={actions.handleRemoveHire}
-                                onFillSlot={handleFillSlot}
-                                limit={PREVIEW_LIMIT}
-                                onSeeAll={() => openSeeAll('hired')}
-                            />
-                        ) : (
-                            <HubApplicantsSection
-                                // Remount per stage so the reversible-Pass session state
-                                // doesn't leak a passed Applied card into Shortlisted.
-                                key={activeStage}
-                                applicants={activeList}
-                                venueCity={gig.location?.city}
-                                emptyLabel={activeStage === 'shortlisted'
-                                    ? 'No picks yet — shortlist applicants to line up your hires.'
-                                    : 'No new applicants right now.'}
-                                onTapApplicant={handleRowTap}
-                                onViewProfile={handleRowTap}
-                                pulseId={pulseId ?? undefined}
-                                onShare={actions.handleShareApplicant}
-                                onPass={actions.handleQuickReject}
-                                onUndoPass={actions.handleUndoPass}
-                                onShortlist={actions.handleQuickShortlist}
-                                onHire={actions.handleQuickHire}
-                                onMessage={actions.handleMessageApplicant}
-                                limit={PREVIEW_LIMIT}
-                                onSeeAll={() => openSeeAll(activeStage)}
-                            />
-                        )}
-                    </ScrollView>
-                </View>
-
-                {/* Discussion pane (layout B) — open Q&A thread, bounded the same way
-                    so a long thread scrolls WITHIN the section instead of making an
-                    endless page. Authenticated users only (backend-enforced via
-                    `protect`). Kept mounted (display-toggled) so its fetch + socket
-                    stay live and feed the new-comment badge even while the Applicants
-                    tab shows. ownerId enables pin + delete-any owner actions (always
-                    the gig owner here); the owner "waiting" nudge is hidden — the
-                    top-tab badge is the single new-comment signal. */}
-                <View style={{ display: topTab === 'discussion' ? 'flex' : 'none' }}>
-                    <ScrollView
-                        style={{ maxHeight: tabbedMaxHeight }}
-                        nestedScrollEnabled
-                        showsVerticalScrollIndicator
-                        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10 }}
-                    >
-                        <DiscussionTab
-                            id={gigId}
-                            type="gig"
-                            ownerId={typeof gig.organizerId === 'object' ? gig.organizerId?._id : gig.organizerId}
-                            threaded
-                            hideOwnerWaitingNudge
-                            onMessagesChange={onDiscussionMessages}
-                            applicantsByUserId={applicantsByUserId}
-                            onOpenApplicant={(applicationId) => {
-                                // Single-item mode — an asker can be any status (incl.
-                                // rejected); the modal hides chevrons/counter for len 1.
-                                const app = actions.findApplication(applicationId);
-                                if (app) actions.openProfileModal([app], app._id);
-                            }}
+                    {/* Body — the active stage's list. Hired is the cast (card D +
+                        open slots); Applied / Shortlisted are the card-D flood/picks. */}
+                    {activeStage === 'hired' ? (
+                        <HubTeamSection
+                            teamRows={data.teamRows}
+                            slotsTotal={data.kpis.slotsTotal}
+                            venueCity={gig.location?.city}
+                            onTapApplicant={openHiredProfile}
+                            onViewProfile={openHiredProfile}
+                            pulseId={pulseId ?? undefined}
+                            onShare={actions.handleShareApplicant}
+                            onMessage={actions.handleMessageApplicant}
+                            onRemove={actions.handleRemoveHire}
+                            onFillSlot={handleFillSlot}
+                            limit={PREVIEW_LIMIT}
+                            onSeeAll={() => openSeeAll('hired')}
                         />
-                    </ScrollView>
+                    ) : (
+                        <HubApplicantsSection
+                            // Remount per stage so the reversible-Pass session state
+                            // doesn't leak a passed Applied card into Shortlisted.
+                            key={activeStage}
+                            applicants={activeList}
+                            venueCity={gig.location?.city}
+                            emptyLabel={activeStage === 'shortlisted'
+                                ? 'No picks yet — shortlist applicants to line up your hires.'
+                                : 'No new applicants right now.'}
+                            onTapApplicant={handleRowTap}
+                            onViewProfile={handleRowTap}
+                            pulseId={pulseId ?? undefined}
+                            onShare={actions.handleShareApplicant}
+                            onPass={actions.handleQuickReject}
+                            onUndoPass={actions.handleUndoPass}
+                            onShortlist={actions.handleQuickShortlist}
+                            onHire={actions.handleQuickHire}
+                            onMessage={actions.handleMessageApplicant}
+                            limit={PREVIEW_LIMIT}
+                            onSeeAll={() => openSeeAll(activeStage)}
+                        />
+                    )}
                 </View>
 
-                {/* ===== Essentials + footer (layout B): BELOW the bounded tabbed
-                    section so they show on BOTH tabs. They used to live inside the
-                    Applicants pane and vanish on the Discussion tab. ===== */}
+                {/* Discussion pane — open Q&A thread, in the same single page scroll.
+                    Authenticated users only (backend-enforced via `protect`). Kept
+                    mounted (display-toggled) so its fetch + socket stay live and feed
+                    the new-comment badge even while the Applicants tab shows. ownerId
+                    enables pin + delete-any owner actions (always the gig owner here);
+                    the owner "waiting" nudge is hidden — the top-tab badge is the
+                    single new-comment signal. */}
+                <View style={{ display: topTab === 'discussion' ? 'flex' : 'none', paddingHorizontal: 16, paddingTop: 10 }}>
+                    <DiscussionTab
+                        id={gigId}
+                        type="gig"
+                        ownerId={typeof gig.organizerId === 'object' ? gig.organizerId?._id : gig.organizerId}
+                        threaded
+                        hideOwnerWaitingNudge
+                        onMessagesChange={onDiscussionMessages}
+                        applicantsByUserId={applicantsByUserId}
+                        onOpenApplicant={(applicationId) => {
+                            // Single-item mode — an asker can be any status (incl.
+                            // rejected); the modal hides chevrons/counter for len 1.
+                            const app = actions.findApplication(applicationId);
+                            if (app) actions.openProfileModal([app], app._id);
+                        }}
+                    />
+                </View>
 
                 {/* CONTRACTS-DISABLED: Booking-terms card + master-template
                     editor are hidden until the contract artifact is restored.
                     The gig still carries termsAndConditions free-form text on
                     the artist side via Apply flow Stage 1. To re-enable,
-                    uncomment the import + this block. */}
+                    uncomment the import + this block (it sat with Essentials, now
+                    in the HubOverview `beforeTabs` slot). */}
                 {/*
-                <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 32 }} />
-
                 <HubBookingTermsCard
                     gigId={gigId}
                     paymentStructure={gig.paymentStructure || gig.compensation?.structure || gig.compensation?.paymentStructure || 'advance_balance'}
@@ -413,20 +411,6 @@ export function HirerGigHub({ gigId }: Props) {
                     termsAndConditions={gig.termsAndConditions}
                 />
                 */}
-
-                <View style={{ height: 1, backgroundColor: COLORS.line, marginHorizontal: 24, marginTop: 24 }} />
-
-                <HubEssentials
-                    eventDate={gig.schedule?.startDate ?? gig.startDate}
-                    schedule={gig.schedule}
-                    venue={gig.location?.venueName}
-                    city={gig.location?.city}
-                    scope={gig.description}
-                    payAmount={data.kpis.budgetAmount}
-                    daysLeft={data.kpis.daysLeft}
-                    postedDate={gig.createdAt}
-                    onEditGig={() => router.push(`/(app)/create?gigId=${gigId}` as any)}
-                />
 
                 {/* Editorial footer — matches gig-hub-redesign-v1.html. */}
                 <View style={{ alignItems: 'center', paddingTop: 32, paddingBottom: 8 }}>

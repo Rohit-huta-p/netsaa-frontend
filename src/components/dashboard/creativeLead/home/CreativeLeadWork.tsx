@@ -108,7 +108,7 @@ export default function CreativeLeadWork() {
   return (
     <View style={styles.root}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your work</Text>
+        <Text style={styles.headerTitle}>Manage posts</Text>
         {showPost ? <PostDial /> : null}
       </View>
       <SegTabs

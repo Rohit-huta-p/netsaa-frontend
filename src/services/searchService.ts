@@ -10,6 +10,7 @@ const getSearchBaseUrl = () => {
 };
 
 const SEARCH_API = axios.create({
+    timeout: 15000,
     baseURL: getSearchBaseUrl(),
 });
 

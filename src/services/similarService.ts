@@ -7,6 +7,7 @@ const getDiscoverBaseUrl = () => {
 };
 
 const SIMILAR_API = axios.create({
+    timeout: 15000,
     baseURL: getDiscoverBaseUrl(),
 });
 

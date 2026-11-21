@@ -8,6 +8,7 @@ import { Gig, GigResponse, GigsListResponse } from '../types/gig';
 export const getBaseUrl = () => API_GIGS_URL;
 
 const API = axios.create({
+    timeout: 15000,
     baseURL: getBaseUrl(),
 });
 

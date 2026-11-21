@@ -72,6 +72,10 @@ type Props = {
     onSelectTopTab: (tab: HubTopTab) => void;
     /** New-comment count shown on the Discussion tab (0/undefined → no badge). */
     discussionBadge?: number;
+    /** Content rendered between the gig header and the Applicants/Discussion
+        tabs. The hub slots Essentials here so it sits ABOVE the tabbed section
+        and shows on both tabs. */
+    beforeTabs?: React.ReactNode;
 };
 
 // Small refresh affordance at the end of the list header (manage-gig.html's
@@ -113,7 +117,7 @@ export function HubOverview({
     title, statusKey, metaLine, counts, slotsTotal,
     activeStage, onSelectStage, sortLabel = 'RATING', onToggleSort, onMenu,
     onRefresh, refreshing,
-    topTab, onSelectTopTab, discussionBadge,
+    topTab, onSelectTopTab, discussionBadge, beforeTabs,
 }: Props) {
     const pill = STATUS_PILL[statusKey ?? ''] ?? STATUS_PILL.published;
     const filled = counts.hired;
@@ -175,8 +179,12 @@ export function HubOverview({
                 ) : null}
             </View>
 
+            {/* Gig-level block (Essentials) slots in above the tabs, so it shows
+                on both the Applicants and Discussion tabs. */}
+            {beforeTabs}
+
             {/* Top-level tabs — Applicants | Discussion. Sits between the gig
-                header and the stage row (manage-gig.html .htabs). */}
+                header (+ Essentials) and the stage row (manage-gig.html .htabs). */}
             <HubTopTabs activeTab={topTab} onSelectTab={onSelectTopTab} discussionBadge={discussionBadge} />
 
             {/* The pipeline (stages + slot bar + barnote + list header) belongs

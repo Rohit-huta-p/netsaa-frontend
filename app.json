@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rohithutagonna.netsamobile",
+      "bundleIdentifier": "com.netsa.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -27,7 +27,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.netsamobile"
+      "package": "com.netsa.app"
     },
     "web": {
       "name": "NETSA - Find Gigs, Workshops & Artist Jobs",

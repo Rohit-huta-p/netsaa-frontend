@@ -48,3 +48,5 @@ claude.md
 .env
 # Wix tooling (not part of this project)
 .wix/
+__pycache__/
+*.pyc

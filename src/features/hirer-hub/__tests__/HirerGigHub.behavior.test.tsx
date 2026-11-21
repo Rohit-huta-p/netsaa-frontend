@@ -144,12 +144,6 @@ describe('HirerGigHub', () => {
         await act(async () => {});
     });
 
-    it('sticky CTA reflects pending applicant count', async () => {
-        const { getByText } = render(<HirerGigHub gigId="g1" />);
-        expect(getByText(/Review applicants · 2/)).toBeTruthy();
-        await act(async () => {});
-    });
-
     it('wires the Discussion thread: threaded, waiting-nudge hidden, badge feed', async () => {
         render(<HirerGigHub gigId="g1" />);
         await waitFor(() => expect(discussionProps).toBeTruthy());
@@ -158,11 +152,11 @@ describe('HirerGigHub', () => {
         expect(typeof discussionProps.onMessagesChange).toBe('function');
     });
 
-    it('badges new comments, clears on opening Discussion, and hides the sticky CTA there', async () => {
+    it('badges new comments and clears the badge + pipeline on opening Discussion', async () => {
         // Pre-seed the watermark so the baseline is deterministic (comments at or
         // before ms=1000 are "seen"; anything newer badges).
         await AsyncStorage.setItem('hub:discussion:lastSeen:g1', '1000');
-        const { getByText, getByLabelText, queryByText, queryByLabelText } = render(<HirerGigHub gigId="g1" />);
+        const { getByLabelText, queryByLabelText } = render(<HirerGigHub gigId="g1" />);
         await waitFor(() => expect(discussionProps).toBeTruthy());
 
         act(() => discussionProps.onMessagesChange([
@@ -170,14 +164,11 @@ describe('HirerGigHub', () => {
             { _id: 'm1', authorId: 'u9', createdAt: iso(2000) }, // newer → 1 new
         ], false));
 
-        // Badge shows on the Discussion tab; sticky CTA is on the Applicants tab.
         await waitFor(() => expect(getByLabelText('Discussion, 1 new')).toBeTruthy());
-        expect(getByText(/Review applicants · 2/)).toBeTruthy();
 
-        // Open Discussion → badge clears, pipeline + sticky CTA gone.
+        // Open Discussion → badge clears and the Applicants pipeline is hidden.
         fireEvent.press(getByLabelText('Discussion, 1 new'));
         await waitFor(() => expect(queryByLabelText('Discussion, 1 new')).toBeNull());
-        expect(queryByText(/Review applicants/)).toBeNull();
         expect(queryByLabelText('Applied stage')).toBeNull();
     });
 
@@ -230,7 +221,7 @@ describe('HirerGigHub', () => {
         await act(async () => {});
     });
 
-    it('clears the search on a programmatic stage change (sticky CTA), not just a tab tap', async () => {
+    it('clears the search when the active stage changes', async () => {
         const applied = makeApplied(7, (i) => `App ${i}`);
         const shortlisted = Array.from({ length: 7 }).map((_, i) => ({
             _id: `sl${i}`, artistId: `us${i}`, status: 'shortlisted',
@@ -239,16 +230,15 @@ describe('HirerGigHub', () => {
         }));
         mockApps = [...applied, ...shortlisted];
         const { getByTestId, getByText, getByLabelText, queryByText } = render(<HirerGigHub gigId="g1" />);
-        // On Shortlisted (7 → field shows), type a query that matches nothing there.
-        fireEvent.press(getByLabelText('Shortlisted stage'));
+        // On Applied (7 → field shows), type a query that matches nothing there.
         fireEvent.changeText(getByTestId('hub-applicant-search'), 'zzzznomatch');
         expect(getByText('No applicants match "zzzznomatch".')).toBeTruthy();
-        // Sticky CTA programmatically jumps to Applied — the query MUST clear
-        // (the effect keys on activeStage, so it covers non-tab transitions too).
-        fireEvent.press(getByText(/Review applicants/));
+        // Any stage change clears the query — the effect keys on activeStage, so
+        // it covers programmatic jumps (e.g. Fill-slot) too, not only tab taps.
+        fireEvent.press(getByLabelText('Shortlisted stage'));
         expect(getByTestId('hub-applicant-search').props.value).toBe('');
         expect(queryByText(/No applicants match/)).toBeNull();
-        expect(getByText('App 0')).toBeTruthy();
+        expect(getByText('Short 0')).toBeTruthy();
         await act(async () => {});
     });
 });

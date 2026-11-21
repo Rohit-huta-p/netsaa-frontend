@@ -1,0 +1,16 @@
+# Cloudflare Pages response headers for the Expo web export.
+# Docs: https://developers.cloudflare.com/pages/configuration/headers/
+#
+# Files under /_expo/static/* and /assets/* are content-hashed (the hash is in
+# the filename), so a given URL never changes -> cache them forever.
+#
+# index.html is intentionally NOT matched here. Pages' default for it is
+# `Cache-Control: public, max-age=0, must-revalidate` + ETag, which revalidates
+# on every load so a new deploy's bundle is picked up immediately. Do NOT add a
+# `/*` rule, or it would also cache the HTML and shadow new deploys.
+
+/_expo/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

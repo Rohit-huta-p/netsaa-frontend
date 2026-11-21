@@ -16,8 +16,8 @@
 //   lsec    — the body list header: a per-stage label + a sort toggle (Applied /
 //             Shortlisted) or an "{open} OPEN" readout (Hired).
 //
-// The stage state is owned by HirerGigHub (lifted) so the sticky CTA, the
-// "Fill slot" shortcuts and the overview all drive the same selection.
+// The stage state is owned by HirerGigHub (lifted) so the "Fill slot"
+// shortcuts and the overview all drive the same selection.
 
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';

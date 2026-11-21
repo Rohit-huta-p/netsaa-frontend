@@ -15,7 +15,6 @@ import { ChevronLeft } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useGigHubData, type HubStage } from './hooks/useGigHubData';
-import { computeStickyCTA } from './utils/computeStickyCTA';
 import { useUpdateGig } from '@/hooks/useGigs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -30,7 +29,6 @@ import { HubTeamSection } from './components/HubTeamSection';
 import { HubApplicantsSection } from './components/HubApplicantsSection';
 import { HubApplicantSearch } from './components/HubApplicantSearch';
 import { HubEssentials } from './components/HubEssentials';
-import { HubStickyCTA } from './components/HubStickyCTA';
 import { GigActionsSheet } from './components/GigActionsSheet';
 import { matchesFilters, EMPTY_FILTERS } from './utils/applicantFilters';
 
@@ -93,8 +91,8 @@ export function HirerGigHub({ gigId }: Props) {
     // field clear of the keyboard on focus (native only; web has no overlay).
     const applicantsPaneYRef = useRef<number>(0);
     // Gig detail hides the global bottom nav (see HIDE_NAV_PATTERNS in
-    // BottomNav), so the sticky CTA + scroll padding reserve the safe-area
-    // inset at the true bottom edge — not the nav's height.
+    // BottomNav), so the scroll padding reserves the safe-area inset at the
+    // true bottom edge — not the nav's height.
     const insets = useSafeAreaInsets();
     // The chevron header is mobile-only. On tablet/desktop the global
     // app shell (Navbar) provides navigation, so this duplicate is hidden.
@@ -109,7 +107,7 @@ export function HirerGigHub({ gigId }: Props) {
     // the field reaches the FULL stage list, not just the 5-card preview.
     const [query, setQuery] = useState('');
     // Clear the query on ANY stage change — the tab tap in HubOverview AND the
-    // programmatic jumps (sticky CTA, Fill-slot) all flow through `activeStage`,
+    // programmatic jumps (e.g. Fill-slot) all flow through `activeStage`,
     // so a stale query never shows a false "no matches" in the stage you land on.
     useEffect(() => { setQuery(''); }, [activeStage]);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -142,15 +140,6 @@ export function HirerGigHub({ gigId }: Props) {
     // is fed by DiscussionTab's message list (initial fetch + live socket).
     const { badge: discussionBadge, onMessages: onDiscussionMessages } =
         useDiscussionBadge(gigId, topTab === 'discussion');
-
-    const sticky = useMemo(
-        () => computeStickyCTA({
-            pendingApplicantsCount: data.pendingApplicantsCount,
-            urgentTeamRowCount: data.urgentTeamRowCount,
-            firstUrgentLabel: data.firstUrgentLabel,
-        }),
-        [data.pendingApplicantsCount, data.urgentTeamRowCount, data.firstUrgentLabel]
-    );
 
     // The card list for the active stage, sorted. Hired renders via
     // HubTeamSection (cast + open slots), not this list.
@@ -209,21 +198,6 @@ export function HirerGigHub({ gigId }: Props) {
     const handleSelectTopTab = (tab: HubTopTab) => {
         setTopTab(tab);
         scrollRef.current?.scrollTo({ y: 0, animated: false });
-    };
-
-    const handleSticky = () => {
-        // Both sticky intents live on the Applicants tab.
-        setTopTab('applicants');
-        if (sticky.intent === 'review-applicants') {
-            setActiveStage('applied');
-            scrollToOverview();
-            return;
-        }
-        if (sticky.intent === 'urgent-team') {
-            setActiveStage('hired');
-            scrollToOverview();
-            return;
-        }
     };
 
     // Tap a card (name/avatar/body or the View-profile icon) in the applied /
@@ -299,7 +273,7 @@ export function HirerGigHub({ gigId }: Props) {
                 // So the first tap on a result card isn't swallowed just to
                 // dismiss the search keyboard — it opens the card directly.
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+                contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
             >
                 {/* Mobile-only back affordance. Desktop relies on the global
                     Navbar; the status pill + ⋯ live in the ghead below. */}
@@ -486,14 +460,6 @@ export function HirerGigHub({ gigId }: Props) {
                     </Text>
                 </View>
             </ScrollView>
-
-            {/* Sticky CTA is an Applicants-context action (review / urgent team);
-                hidden on the Discussion tab where it would sit over the thread. */}
-            {topTab === 'applicants' ? (
-                <View style={{ position: 'absolute', bottom: insets.bottom + 16, left: 0, right: 0 }}>
-                    <HubStickyCTA cta={sticky} onPress={handleSticky} />
-                </View>
-            ) : null}
 
             {/* Shared applicant-action surfaces (profile modal + Hire/Contact/
                 Remove sheets) — same controller the See-all screen uses. */}

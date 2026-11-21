@@ -73,7 +73,7 @@ const AGENCY_TABS: TabDef[] = [
 // Deep event + gig screens hide the bottom nav so sticky CTAs / wizard footers
 // have full edge access. The /events and /gigs listings keep the nav visible.
 const HIDE_NAV_PATTERNS: RegExp[] = [
-  /^\/events\/[^/]+(\/.*)?$/,   // /events/:id detail + nested (manage tabs, register, manage/overview, manage/roster)
+  /^\/events\/(?!saved$)[^/]+(\/.*)?$/,   // /events/:id detail + nested (manage tabs, register, roster). NOT /events/saved — the personal Saved/Going list keeps the nav.
   /^\/events\/compose$/,        // 7-step composer
   /^\/gigs\/[^/]+(\/.*)?$/,     // /gigs/:id detail (applicant + owner hub) + nested (team, booking-terms); /gigs board stays
 ];

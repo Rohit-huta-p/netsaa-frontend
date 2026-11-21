@@ -25,7 +25,7 @@ import {
     useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Plus, X, Filter, SlidersHorizontal } from 'lucide-react-native';
+import { Search, Plus, X, Filter, SlidersHorizontal, Bookmark } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 import { useEventsList } from '@/hooks/useEvents';
@@ -304,10 +304,20 @@ export default function EventsPage() {
                                 <Text style={s.sub}>Workshops, shows &amp; auditions.</Text>
                             </View>
                             {userId ? (
-                                <Pressable onPress={() => router.push('/events/compose')} hitSlop={8} style={s.host}>
-                                    <Plus size={13} color={C.orange} />
-                                    <Text style={s.hostTxt}>HOST</Text>
-                                </Pressable>
+                                <View style={s.headActions}>
+                                    <Pressable
+                                        onPress={() => router.push('/events/saved')}
+                                        hitSlop={8}
+                                        style={s.savedBtn}
+                                        accessibilityLabel="Your saved and going events"
+                                    >
+                                        <Bookmark size={16} color={C.t1} />
+                                    </Pressable>
+                                    <Pressable onPress={() => router.push('/events/compose')} hitSlop={8} style={s.host}>
+                                        <Plus size={13} color={C.orange} />
+                                        <Text style={s.hostTxt}>HOST</Text>
+                                    </Pressable>
+                                </View>
                             ) : null}
                         </View>
 
@@ -409,6 +419,17 @@ const s = StyleSheet.create({
         marginTop: 2,
     },
     hostTxt: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.2, color: C.orange },
+    headActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    savedBtn: {
+        width: 34,
+        height: 34,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: C.hair,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 2,
+    },
 
     toolbar: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16 },
     search: {

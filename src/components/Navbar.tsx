@@ -256,6 +256,7 @@ function ProfileMenu({
             <View style={{ paddingVertical: 4 }}>
                 <Row icon={HomeIcon} label="Home" onPress={() => { onClose(); router.push('/(app)/dashboard' as any); }} />
                 <Row icon={UserIcon} label="Profile" onPress={() => { onClose(); router.push(isClientRole ? '/(app)/client-profile' : '/(app)/profile'); }} />
+                <Row icon={Users} label="My Network" onPress={() => { onClose(); router.push('/(app)/network'); }} />
                 <Row icon={Repeat} label="Switch role" onPress={() => { onClose(); router.push('/(app)/settings/role'); }} />
                 <Row icon={Settings} label="Settings" onPress={() => { onClose(); router.push('/(app)/settings'); }} />
             </View>

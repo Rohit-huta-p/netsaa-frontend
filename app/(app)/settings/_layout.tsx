@@ -10,6 +10,7 @@ export default function SettingsLayout() {
                 headerTintColor: '#ffffff',
                 headerTitleStyle: { fontFamily: 'Outfit-SemiBold', fontSize: 17 },
                 headerShadowVisible: false,
+                headerBackTitle: '',
             }}
         />
     );

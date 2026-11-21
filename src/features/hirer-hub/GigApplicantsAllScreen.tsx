@@ -29,9 +29,10 @@ import { HubApplicantRow } from './components/HubApplicantRow';
 import { HubTeamSection } from './components/HubTeamSection';
 import { ApplicantFilterBar, nextSort } from './components/ApplicantFilterBar';
 import { ApplicantFilterSheet } from './components/ApplicantFilterSheet';
+import { HubApplicantSearch } from './components/HubApplicantSearch';
 import {
     EMPTY_FILTERS, filterAndSortApplicants, deriveFilterOptions, normalizeCityKey,
-    countActiveFilters, activeFilterChips, hasAnyFilter, removeChip,
+    countActiveFilters, activeFilterChips, hasAnyFilter, removeChip, setName,
     type ApplicantFilters, type ApplicantSort,
 } from './utils/applicantFilters';
 
@@ -167,6 +168,23 @@ export function GigApplicantsAllScreen({ gigId, initialStage = 'applied', initia
     // is active (so it never vanishes mid-filter and strand the owner) — gated on
     // the UNFILTERED count. Hired (the cast) stays simple.
     const showFilterBar = activeStage !== 'hired' && (base.length >= 3 || hasAnyFilter(filters));
+    // Name is now a visible field (not a sheet filter), so Filters' badge + chips
+    // count only the structured facets; `facetCount` is the non-name active count.
+    const nameQ = filters.name.trim();
+    const facetCount = countActiveFilters(filters) - (nameQ ? 1 : 0);
+
+    // Name-aware zero-result state. On See-all the venue city is pre-selected, so
+    // a name matching only out-of-town applicants returns nothing under the AND
+    // combine (the hub has no city default, so it would find them). Offer to drop
+    // the facets while KEEPING the name. Order: name+facets → name-only → facets.
+    const emptyCopy: { msg: string; label: string | null; onPress: () => void } =
+        nameQ && facetCount > 0
+            ? { msg: `No applicants match “${nameQ}” within your filters.`, label: 'Clear filters, keep name', onPress: () => setFilters((f) => ({ ...EMPTY_FILTERS, name: f.name })) }
+            : nameQ
+                ? { msg: `No applicants match “${nameQ}”.`, label: 'Clear search', onPress: () => setFilters((f) => setName(f, '')) }
+                : facetCount > 0
+                    ? { msg: 'No applicants match these filters.', label: 'Clear filters', onPress: () => setFilters(EMPTY_FILTERS) }
+                    : { msg: EMPTY_LABEL[activeStage], label: null, onPress: () => {} };
 
     const header = (
         <View>
@@ -180,16 +198,28 @@ export function GigApplicantsAllScreen({ gigId, initialStage = 'applied', initia
             </View>
             <HubStageTabs counts={data.stageCounts} activeStage={activeStage} onSelectStage={switchStage} marginHorizontal={20} marginTop={14} />
             {showFilterBar ? (
-                <ApplicantFilterBar
-                    sort={sort}
-                    activeCount={countActiveFilters(filters)}
-                    chips={activeFilterChips(filters)}
-                    shown={filtered.length}
-                    total={base.length}
-                    onCycleSort={() => setSort((x) => nextSort(x))}
-                    onOpenSheet={() => setSheetOpen(true)}
-                    onRemoveChip={(chip) => setFilters((f) => removeChip(f, chip))}
-                />
+                <>
+                    {/* Visible name search, under the stage tabs — the same control
+                        as the hub. Bound to filters.name; the sheet holds only the
+                        structured facets (Cities / Styles / Experience / Quality). */}
+                    <HubApplicantSearch
+                        value={filters.name}
+                        onChangeText={(t) => setFilters((f) => setName(f, t))}
+                        onClear={() => setFilters((f) => setName(f, ''))}
+                        marginHorizontal={20}
+                        marginTop={14}
+                    />
+                    <ApplicantFilterBar
+                        sort={sort}
+                        activeCount={facetCount}
+                        chips={activeFilterChips(filters).filter((c) => c.kind !== 'name')}
+                        shown={filtered.length}
+                        total={base.length}
+                        onCycleSort={() => setSort((x) => nextSort(x))}
+                        onOpenSheet={() => setSheetOpen(true)}
+                        onRemoveChip={(chip) => setFilters((f) => removeChip(f, chip))}
+                    />
+                </>
             ) : (
                 <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 2 }}>
                     <Text style={{ fontFamily: 'SpaceMono-Bold', fontSize: 9.5, letterSpacing: 1.5, textTransform: 'uppercase', color: COLORS.text2 }}>
@@ -243,18 +273,20 @@ export function GigApplicantsAllScreen({ gigId, initialStage = 'applied', initia
                     )}
                     onEndReached={onEndReached}
                     onEndReachedThreshold={0.6}
+                    // Keep the search field's keyboard up when tapping a result row.
+                    keyboardShouldPersistTaps="handled"
                     ListEmptyComponent={
                         <View style={{ paddingVertical: 40, paddingHorizontal: 24, alignItems: 'center', gap: 14 }}>
                             <Text style={{ color: COLORS.text2, fontSize: 13, textAlign: 'center' }}>
-                                {hasAnyFilter(filters) ? 'No applicants match these filters.' : EMPTY_LABEL[activeStage]}
+                                {emptyCopy.msg}
                             </Text>
-                            {hasAnyFilter(filters) ? (
+                            {emptyCopy.label ? (
                                 <TouchableOpacity
-                                    onPress={() => setFilters(EMPTY_FILTERS)}
-                                    accessibilityLabel="Clear filters"
+                                    onPress={emptyCopy.onPress}
+                                    accessibilityLabel={emptyCopy.label}
                                     style={{ paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, backgroundColor: COLORS.sel }}
                                 >
-                                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 12.5, color: COLORS.selTx }}>Clear filters</Text>
+                                    <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 12.5, color: COLORS.selTx }}>{emptyCopy.label}</Text>
                                 </TouchableOpacity>
                             ) : null}
                         </View>
@@ -279,7 +311,9 @@ export function GigApplicantsAllScreen({ gigId, initialStage = 'applied', initia
                 onSortChange={setSort}
                 options={options}
                 resultCount={filtered.length}
-                onClear={() => setFilters(EMPTY_FILTERS)}
+                // "Clear all" resets the sheet's facets but keeps the name — the
+                // visible search field owns the name now (its own × clears it).
+                onClear={() => setFilters((f) => ({ ...EMPTY_FILTERS, name: f.name }))}
             />
         </View>
     );

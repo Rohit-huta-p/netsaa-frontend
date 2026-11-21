@@ -57,4 +57,6 @@ export const SOCKET_URL = url('https://netsaa-backend.onrender.com', ':5001');
 export const API_GIGS_URL = url('https://netsaa-gigs-service.onrender.com/v1', ':5002/v1');
 export const API_EVENTS_URL = url('https://netsaa-events-service.onrender.com', ':5010');
 export const API_SEARCH_URL = url('https://netsaa-search-service.onrender.com', ':5003');
-export const API_MEDIA_URL = url('https://netsaa-media-service.onrender.com/v1', ':5004/v1');
+// NOTE: media-service's Render public URL is netsaa-backend-yvy9, NOT netsaa-media-service
+// (that host has no service behind it). Don't "correct" this back without checking Render.
+export const API_MEDIA_URL = url('https://netsaa-backend-yvy9.onrender.com/v1', ':5004/v1');

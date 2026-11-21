@@ -2,8 +2,10 @@
 //
 // The owner-hub applicant filter SHEET (bottom sheet) for the See-all screen.
 // Design ref: DOCS/04-design/mockups/applicant-filters-MOCK.html (Frame B).
-// Sections: name search · Cities (multi-select) · Styles (multi-select + custom
-// add) · Experience (count chips) · Quality (toggles) · Sort (segmented).
+// Sections: Cities (multi-select) · Styles (multi-select + custom add) ·
+// Experience (count chips) · Quality (toggles) · Sort (segmented). The name
+// search was lifted OUT of this sheet into a visible field on the screen (so
+// Search and Filters are distinct controls) — Frame B's in-sheet search is gone.
 //
 // Visual language (locked): selected/active = SOLID off-white-grey #DFDBD2 with
 // dark #1A1A1F text — never orange, and (except the dropdown's own checkbox) no
@@ -22,7 +24,7 @@ import {
 import { Search, ChevronDown, X, Check, Plus } from 'lucide-react-native';
 import {
     type ApplicantFilters, type ApplicantSort, type DerivedFilterOptions, type FilterOptionCount,
-    toggleCity, toggleStyle, toggleExperience, setName, togglePitch, togglePortfolio,
+    toggleCity, toggleStyle, toggleExperience, togglePitch, togglePortfolio,
 } from '../utils/applicantFilters';
 import { SORT_CYCLE, SORT_LABELS } from './ApplicantFilterBar';
 
@@ -64,24 +66,6 @@ export function ApplicantFilterSheet({
                     </View>
 
                     <ScrollView style={s.sbody} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                        {/* Name search */}
-                        <View style={s.srch}>
-                            <Search size={15} color={C.t4} strokeWidth={2} />
-                            <TextInput
-                                value={filters.name}
-                                onChangeText={(t) => onChange(setName(filters, t))}
-                                placeholder="Search by name"
-                                placeholderTextColor={C.t4}
-                                style={s.srchInput}
-                                testID="filter-name-input"
-                            />
-                            {filters.name.length > 0 ? (
-                                <Pressable onPress={() => onChange(setName(filters, ''))} hitSlop={8} accessibilityLabel="Clear name search">
-                                    <X size={15} color={C.t4} />
-                                </Pressable>
-                            ) : null}
-                        </View>
-
                         {/* Cities */}
                         <View style={s.block}>
                             <Text style={s.sec}>CITIES <Text style={s.hint}>· from your applicants</Text></Text>
@@ -297,13 +281,7 @@ const s = StyleSheet.create({
     shdr: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 6, paddingBottom: 10 },
     shdrTitle: { fontFamily: 'Outfit-Bold', fontSize: 17, color: C.t1 },
     clear: { fontFamily: 'Outfit-SemiBold', fontSize: 12, color: C.orange },
-    sbody: { paddingHorizontal: 18 },
-
-    srch: {
-        flexDirection: 'row', alignItems: 'center', gap: 9, height: 42, paddingHorizontal: 13,
-        backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.hair, borderRadius: 12, marginBottom: 16,
-    },
-    srchInput: { flex: 1, color: C.t1, fontFamily: 'Outfit-Regular', fontSize: 13, padding: 0 },
+    sbody: { paddingHorizontal: 18, paddingTop: 2 },
 
     block: { marginBottom: 17 },
     sec: { fontFamily: 'SpaceMono-Bold', fontSize: 9.5, letterSpacing: 1.3, color: C.t4, marginBottom: 9 },

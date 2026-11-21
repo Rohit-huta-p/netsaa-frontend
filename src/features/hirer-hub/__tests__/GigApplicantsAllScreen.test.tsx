@@ -70,6 +70,46 @@ describe('GigApplicantsAllScreen', () => {
         expect(getByLabelText('Showing 3 of 3')).toBeTruthy();
     });
 
+    // ---- Visible name search (lifted out of the Filters sheet) --------------
+
+    it('shows the visible name search and filters the list', () => {
+        mockData.appliedApplicants = makeApps(45);
+        const { getByLabelText, getByText, queryByText } = render(<GigApplicantsAllScreen gigId="g1" initialStage="applied" />);
+        fireEvent.changeText(getByLabelText('Search applicants by name'), 'Artist 7');
+        expect(getByText('Artist 7')).toBeTruthy();
+        expect(queryByText('Artist 8')).toBeNull();
+    });
+
+    it('seeds the visible field from initialName (?q carried from the hub)', () => {
+        mockData.appliedApplicants = makeApps(45);
+        const { getByLabelText } = render(<GigApplicantsAllScreen gigId="g1" initialStage="applied" initialName="Artist 3" />);
+        expect(getByLabelText('Search applicants by name').props.value).toBe('Artist 3');
+    });
+
+    it('name is NOT a filter chip and NOT in the Filters badge count', () => {
+        mockData.appliedApplicants = makeApps(45); // all Pune → venue-city pre-selects (facet count 1)
+        const { getByLabelText, queryByLabelText } = render(<GigApplicantsAllScreen gigId="g1" initialStage="applied" />);
+        fireEvent.changeText(getByLabelText('Search applicants by name'), 'Artist 2');
+        expect(queryByLabelText('Remove filter "Artist 2"')).toBeNull(); // field owns the name
+        expect(getByLabelText('Filters, 1 active')).toBeTruthy();        // only the Pune facet, not +1 for name
+    });
+
+    it('out-of-town name + venue-city filter → name-aware empty state that keeps the name', () => {
+        mockData.appliedApplicants = [
+            ...makeApps(5), // Pune
+            { _id: 'delhi1', status: 'applied', appliedAt: '2026-10-01T10:00:00Z', artistId: 'ud', artistSnapshot: { displayName: 'Rajesh Delhi', primaryCity: 'Delhi', specialities: ['Theatre'] } },
+        ];
+        const { getByLabelText, getByText, queryByText } = render(<GigApplicantsAllScreen gigId="g1" initialStage="applied" />);
+        // Pune is pre-selected; a Delhi-only name returns nothing under AND.
+        fireEvent.changeText(getByLabelText('Search applicants by name'), 'Rajesh');
+        expect(getByText(/No applicants match .Rajesh. within your filters/)).toBeTruthy();
+        expect(getByLabelText('Search applicants by name')).toBeTruthy(); // field survives zero results
+        // Dropping the facets (keeping the name) surfaces the out-of-town match.
+        fireEvent.press(getByLabelText('Clear filters, keep name'));
+        expect(getByText('Rajesh Delhi')).toBeTruthy();
+        expect(queryByText('Artist 0')).toBeNull(); // name still filters
+    });
+
     it('a passed card survives a filter change (PR #188 Undo-regression guard)', () => {
         // Small applied set so the passed card (pinned to the end of the list)
         // stays within FlatList's initial render window in jsdom.

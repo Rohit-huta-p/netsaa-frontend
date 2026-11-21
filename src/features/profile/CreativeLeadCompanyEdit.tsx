@@ -311,7 +311,7 @@ export function CreativeLeadCompanyEdit() {
             queryClient.invalidateQueries({ queryKey: ['organizer', 'me'] });
             queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) });
             setSaved(true);
-            setTimeout(() => router.back(), 650);
+            setTimeout(() => closeEditor(), 650);
         } catch (e: any) {
             setError(e?.response?.data?.message || 'Could not save. Try again.');
         } finally {
@@ -319,11 +319,20 @@ export function CreativeLeadCompanyEdit() {
         }
     };
 
+    // router.back() silently no-ops when there's no history to pop — e.g. after a
+    // browser discards an idle tab and reloads straight onto this screen, or a deep
+    // link — which leaves the close button dead. Fall back to the home route in that
+    // case (same guard as EventHostHub / GigApplicantsAllScreen / create.tsx).
+    const closeEditor = () => {
+        if (router.canGoBack()) router.back();
+        else router.replace('/' as any);
+    };
+
     const confirmClose = () => {
-        if (!dirty) { router.back(); return; }
+        if (!dirty) { closeEditor(); return; }
         Alert.alert('Discard changes?', "This can't be undone.", [
             { text: 'Keep editing', style: 'cancel' },
-            { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+            { text: 'Discard', style: 'destructive', onPress: closeEditor },
         ]);
     };
 
@@ -335,7 +344,7 @@ export function CreativeLeadCompanyEdit() {
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <View style={s.headRow}>
                     <Text style={s.headTitle}>Edit company</Text>
-                    <Pressable style={s.iconBtn} onPress={confirmClose} hitSlop={8}>
+                    <Pressable testID="cl-edit-close" style={s.iconBtn} onPress={confirmClose} hitSlop={8}>
                         <X size={18} color={C.t1} />
                     </Pressable>
                 </View>

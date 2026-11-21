@@ -25,7 +25,20 @@ jest.mock('@/components/media/MediaCropper', () => ({ __esModule: true, default:
 jest.mock('@/components/inputs/SearchableMultiSelect', () => ({ SearchableMultiSelect: () => null }));
 jest.mock('@/utils/upload', () => ({ uploadMediaFlow: jest.fn(), validateMediaFile: () => ({ valid: true }) }));
 jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: jest.fn() }) }));
-jest.mock('expo-router', () => ({ router: { back: jest.fn(), push: jest.fn() }, useLocalSearchParams: () => ({}) }));
+let mockCanGoBack = true;
+const mockBack = jest.fn();
+const mockReplace = jest.fn();
+// Lazy wrappers: ESM imports (which pull in expo-router) are hoisted above these
+// const assignments, so the factory must resolve them at call time, not capture.
+jest.mock('expo-router', () => ({
+    router: {
+        back: (...a: any[]) => mockBack(...a),
+        push: jest.fn(),
+        replace: (...a: any[]) => mockReplace(...a),
+        canGoBack: () => mockCanGoBack,
+    },
+    useLocalSearchParams: () => ({}),
+}));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('expo-image-picker', () => ({ launchImageLibraryAsync: jest.fn(), MediaTypeOptions: { Images: 'Images' } }));
 
@@ -89,5 +102,45 @@ describe('CreativeLeadCompanyEdit smoke', () => {
         expect(txt).toContain('Edit company');
         expect(txt).toContain('The masthead');
         expect(txt).toContain('Save changes');
+    });
+
+    // Close button must not dead-end when there's no history to pop (e.g. an idle
+    // browser tab discarded + reloaded straight onto the editor).
+    const renderEditor = () => {
+        let r: any;
+        TestRenderer.act(() => { r = TestRenderer.create(<CreativeLeadCompanyEdit />); });
+        return r;
+    };
+    const pressClose = (r: any) => {
+        const node = r.root
+            .findAll((n: any) => n.props.testID === 'cl-edit-close')
+            .find((n: any) => typeof n.props.onPress === 'function');
+        TestRenderer.act(() => { node.props.onPress(); });
+    };
+
+    it('close falls back to the home route when there is no history to pop', () => {
+        mockRole = 'creative_lead';
+        mockUser = { _id: 'org1' };
+        mockOrganizer = { organizationName: 'Mehfil Collective' };
+        mockBack.mockClear(); mockReplace.mockClear();
+        mockCanGoBack = false;
+        const r = renderEditor();
+        pressClose(r);                                  // pristine form → closeEditor()
+        expect(mockReplace).toHaveBeenCalledWith('/');
+        expect(mockBack).not.toHaveBeenCalled();
+        TestRenderer.act(() => { r.unmount(); });
+    });
+
+    it('close pops history when it can', () => {
+        mockRole = 'creative_lead';
+        mockUser = { _id: 'org1' };
+        mockOrganizer = { organizationName: 'Mehfil Collective' };
+        mockBack.mockClear(); mockReplace.mockClear();
+        mockCanGoBack = true;
+        const r = renderEditor();
+        pressClose(r);
+        expect(mockBack).toHaveBeenCalled();
+        expect(mockReplace).not.toHaveBeenCalled();
+        TestRenderer.act(() => { r.unmount(); });
     });
 });

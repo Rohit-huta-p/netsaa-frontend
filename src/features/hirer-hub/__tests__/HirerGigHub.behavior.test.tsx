@@ -180,4 +180,75 @@ describe('HirerGigHub', () => {
         expect(queryByText(/Review applicants/)).toBeNull();
         expect(queryByLabelText('Applied stage')).toBeNull();
     });
+
+    // ---- Inline applicant search (under the stage tabs) --------------------
+
+    const makeApplied = (n: number, name = (i: number) => `Person ${i}`) =>
+        Array.from({ length: n }).map((_, i) => ({
+            _id: `ap${i}`, artistId: `ua${i}`, status: 'applied',
+            appliedAt: iso(1_700_000_000_000 - i * 86_400_000), // newest-first by index
+            artistSnapshot: { displayName: name(i), primaryCity: 'Pune' },
+        }));
+
+    it('shows the inline search once Applied exceeds the preview, and filters by name', async () => {
+        mockApps = makeApplied(7);
+        mockApps[1].artistSnapshot.displayName = 'Rajesh Kumar';
+        const { getByTestId, getByText, queryByText } = render(<HirerGigHub gigId="g1" />);
+        const field = getByTestId('hub-applicant-search');
+        expect(field).toBeTruthy();
+        fireEvent.changeText(field, 'rajesh'); // case-insensitive substring
+        expect(getByText('Rajesh Kumar')).toBeTruthy();
+        expect(queryByText('Person 0')).toBeNull(); // non-match dropped
+        await act(async () => {});
+    });
+
+    it('search reaches a match that was beyond the 5-card preview (cap lifted)', async () => {
+        mockApps = makeApplied(7);
+        mockApps[6].artistSnapshot.displayName = 'Zara Sheikh'; // oldest → position 7, capped out
+        const { getByTestId, getByText, queryByText } = render(<HirerGigHub gigId="g1" />);
+        expect(queryByText('Zara Sheikh')).toBeNull(); // hidden behind the 5-cap
+        fireEvent.changeText(getByTestId('hub-applicant-search'), 'zara');
+        expect(getByText('Zara Sheikh')).toBeTruthy(); // surfaced by search
+        await act(async () => {});
+    });
+
+    it('renders more than 5 matches at once while searching', async () => {
+        mockApps = makeApplied(7, (i) => `Verma ${i}`);
+        const { getByTestId, getByText, queryByText } = render(<HirerGigHub gigId="g1" />);
+        expect(queryByText('Verma 6')).toBeNull(); // capped out before search
+        fireEvent.changeText(getByTestId('hub-applicant-search'), 'verma');
+        expect(getByText('Verma 5')).toBeTruthy();
+        expect(getByText('Verma 6')).toBeTruthy(); // all 7 (< SEARCH_CAP) now render
+        await act(async () => {});
+    });
+
+    it('shows an empty state when nothing matches the search', async () => {
+        mockApps = makeApplied(7, (i) => `Nimisha ${i}`);
+        const { getByTestId, getByText } = render(<HirerGigHub gigId="g1" />);
+        fireEvent.changeText(getByTestId('hub-applicant-search'), 'zzzznomatch');
+        expect(getByText('No applicants match "zzzznomatch".')).toBeTruthy();
+        await act(async () => {});
+    });
+
+    it('clears the search on a programmatic stage change (sticky CTA), not just a tab tap', async () => {
+        const applied = makeApplied(7, (i) => `App ${i}`);
+        const shortlisted = Array.from({ length: 7 }).map((_, i) => ({
+            _id: `sl${i}`, artistId: `us${i}`, status: 'shortlisted',
+            appliedAt: iso(1_700_000_000_000 - i * 86_400_000),
+            artistSnapshot: { displayName: `Short ${i}`, primaryCity: 'Pune' },
+        }));
+        mockApps = [...applied, ...shortlisted];
+        const { getByTestId, getByText, getByLabelText, queryByText } = render(<HirerGigHub gigId="g1" />);
+        // On Shortlisted (7 → field shows), type a query that matches nothing there.
+        fireEvent.press(getByLabelText('Shortlisted stage'));
+        fireEvent.changeText(getByTestId('hub-applicant-search'), 'zzzznomatch');
+        expect(getByText('No applicants match "zzzznomatch".')).toBeTruthy();
+        // Sticky CTA programmatically jumps to Applied — the query MUST clear
+        // (the effect keys on activeStage, so it covers non-tab transitions too).
+        fireEvent.press(getByText(/Review applicants/));
+        expect(getByTestId('hub-applicant-search').props.value).toBe('');
+        expect(queryByText(/No applicants match/)).toBeNull();
+        expect(getByText('App 0')).toBeTruthy();
+        await act(async () => {});
+    });
 });

@@ -61,6 +61,7 @@ import { pendingSummary } from './requestFormat';
 
 const HORIZ = 18;
 const DAY = 86_400_000;
+const PREVIEW_LIMIT = 8; // the hub shows a capped preview; "See all" opens the full paginated list
 
 type Feedback = { kind: 'error' | 'success'; text: string };
 
@@ -148,6 +149,7 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
   const goSettings = () => router.push(`/events/${eventId}/manage/settings` as any);
   const goEdit = () => router.push(`/events/${eventId}/edit` as any);
   const goScanner = () => router.push(`/events/${eventId}/manage/check-in` as any);
+  const openSeeAll = (stage: string) => router.push(`/events/${eventId}/manage/attendees?stage=${stage}` as any);
 
   const onShare = async () => {
     try { await shareEvent(event); } catch { /* dismissed */ }
@@ -455,7 +457,7 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
   // ------------------------------------------------------------- spine data
   const spineStages: { key: EventHubStage; label: string; n: string; ph2?: boolean }[] = [
     ...(gated ? [{ key: 'requests' as const, label: 'Requests', n: String(counts.requests), ph2: true }] : []),
-    { key: 'going', label: 'Going', n: String(counts.going) },
+    { key: 'going', label: 'Confirmed', n: String(counts.going) },
     { key: 'waitlist', label: 'Waitlist', n: String(counts.waitlist) },
     { key: 'checkedIn', label: 'Checked-in', n: counts.checkedIn > 0 ? String(counts.checkedIn) : '—' },
   ];
@@ -486,7 +488,7 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
     if (activeStage === 'requests') return `Requests · ${counts.requests}`;
     if (activeStage === 'waitlist') return `Waitlist · ${counts.waitlist}`;
     if (activeStage === 'checkedIn') return `Checked in · ${counts.checkedIn} of ${confirmedCount || counts.checkedIn}`;
-    return `Going · ${counts.going}`;
+    return `Confirmed · ${counts.going}`;
   })();
 
   const stickyHeight = sticky.kind === 'none' ? 0 : 92;
@@ -633,6 +635,7 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
                   busyId={busyId}
                   autoPromote={!!event.waitlistAutoPromote}
                   onPromote={onPromote}
+                  onSeeAll={() => openSeeAll('waitlist')}
                 />
               ) : activeStage === 'checkedIn' ? (
                 <CheckedInBody
@@ -640,9 +643,10 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
                   pending={goingRows}
                   onCheckIn={checkInRow}
                   onOpen={openDetail}
+                  onSeeAll={() => openSeeAll('checkedin')}
                 />
               ) : (
-                <GoingBody rows={goingRows} onOpen={openDetail} />
+                <GoingBody rows={goingRows} onOpen={openDetail} onSeeAll={() => openSeeAll('confirmed')} />
               )}
             </View>
 
@@ -797,34 +801,38 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
 
 // ───────────────────────────────────────────────────────── stage bodies
 
-function GoingBody({ rows, onOpen }: { rows: EventRosterRow[]; onOpen: (r: EventRosterRow) => void }) {
+function GoingBody({ rows, onOpen, onSeeAll }: { rows: EventRosterRow[]; onOpen: (r: EventRosterRow) => void; onSeeAll: () => void }) {
   if (rows.length === 0) {
-    return <EmptyBody text="No one’s going yet." />;
+    return <EmptyBody text="No one’s confirmed yet." />;
   }
   return (
     <>
-      {rows.map((row, i) => (
+      {rows.slice(0, PREVIEW_LIMIT).map((row, i) => (
         <AttendeeRow key={row._id} row={row} variant="going" isNew={isRecent(row.registeredAt)} onPress={() => onOpen(row)} first={i === 0} />
       ))}
+      {rows.length > PREVIEW_LIMIT ? <SeeAllRow n={rows.length} label="confirmed" onPress={onSeeAll} /> : null}
     </>
   );
 }
 
 function CheckedInBody({
-  attended, pending, onCheckIn, onOpen,
+  attended, pending, onCheckIn, onOpen, onSeeAll,
 }: {
   attended: EventRosterRow[]; pending: EventRosterRow[];
-  onCheckIn: (r: EventRosterRow) => void; onOpen: (r: EventRosterRow) => void;
+  onCheckIn: (r: EventRosterRow) => void; onOpen: (r: EventRosterRow) => void; onSeeAll: () => void;
 }) {
   if (attended.length === 0 && pending.length === 0) {
     return <EmptyBody text="No one’s in yet. Open the scanner to check attendees in." />;
   }
   let idx = 0;
+  // Cap only the attended rows — the pending "Check in" buttons (day-of manual check-in)
+  // must all stay on screen, so they are never truncated by the preview.
   return (
     <>
-      {attended.map((row) => (
+      {attended.slice(0, PREVIEW_LIMIT).map((row) => (
         <AttendeeRow key={row._id} row={row} variant="attended" onPress={() => onOpen(row)} first={idx++ === 0} />
       ))}
+      {attended.length > PREVIEW_LIMIT ? <SeeAllRow n={attended.length} label="checked in" onPress={onSeeAll} /> : null}
       {pending.map((row) => (
         <AttendeeRow key={row._id} row={row} variant="pending-checkin" onCheckIn={() => onCheckIn(row)} first={idx++ === 0} />
       ))}
@@ -833,17 +841,17 @@ function CheckedInBody({
 }
 
 function WaitlistBody({
-  rows, canPromoteTop, promoting, busyId, autoPromote, onPromote,
+  rows, canPromoteTop, promoting, busyId, autoPromote, onPromote, onSeeAll,
 }: {
   rows: EventRosterRow[]; canPromoteTop: boolean; promoting: boolean; busyId: string | null;
-  autoPromote: boolean; onPromote: (r: EventRosterRow) => void;
+  autoPromote: boolean; onPromote: (r: EventRosterRow) => void; onSeeAll: () => void;
 }) {
   if (rows.length === 0) {
     return <EmptyBody text="No one’s waiting. A full house with a free seat promotes from here." />;
   }
   return (
     <>
-      {rows.map((row, i) => (
+      {rows.slice(0, PREVIEW_LIMIT).map((row, i) => (
         <AttendeeRow
           key={row._id}
           row={row}
@@ -854,6 +862,7 @@ function WaitlistBody({
           first={i === 0}
         />
       ))}
+      {rows.length > PREVIEW_LIMIT ? <SeeAllRow n={rows.length} label="on the waitlist" onPress={onSeeAll} /> : null}
       <View style={{ marginHorizontal: HORIZ, marginTop: 16, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(59,130,246,0.26)', backgroundColor: 'rgba(59,130,246,0.10)', padding: 12 }}>
         <Text style={{ fontFamily: F.body, fontSize: 11.5, lineHeight: 18, color: C.t1 }}>
           {autoPromote
@@ -908,6 +917,22 @@ function EmptyBody({ text }: { text: string }) {
     <View style={{ paddingHorizontal: 34, paddingVertical: 40, alignItems: 'center' }}>
       <Text style={{ fontFamily: F.body, fontSize: 13, color: C.t3, textAlign: 'center', lineHeight: 20 }}>{text}</Text>
     </View>
+  );
+}
+
+/** "See all N →" — opens the full paginated list (EventAttendeesAllScreen) for a stage. */
+function SeeAllRow({ n, label, onPress }: { n: number; label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`See all ${n} ${label}`}
+      activeOpacity={0.7}
+      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: HORIZ, paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.hairSoft }}
+    >
+      <Text style={{ fontFamily: F.semibold, fontSize: 13, color: C.orange }}>{`See all ${n} →`}</Text>
+      <ChevronRight size={16} color={C.orange} strokeWidth={2} />
+    </TouchableOpacity>
   );
 }
 

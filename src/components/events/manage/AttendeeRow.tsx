@@ -24,7 +24,7 @@ import type { EventRosterRow } from '@/services/eventService';
 import { initialsOf, seatLabel, relativeTime } from './requestFormat';
 import { C, F } from './hubTokens';
 
-export type AttendeeRowVariant = 'going' | 'attended' | 'pending-checkin' | 'waitlist';
+export type AttendeeRowVariant = 'going' | 'attended' | 'pending-checkin' | 'waitlist' | 'cancelled';
 
 type Props = {
   row: EventRosterRow;
@@ -46,8 +46,13 @@ export default function AttendeeRow({
 }: Props) {
   const name = (row.name ?? '').trim() || 'Guest';
   const attended = variant === 'attended';
+  const cancelled = variant === 'cancelled';
 
   const sub = (() => {
+    if (cancelled) {
+      const reason = row.status === 'declined' ? 'declined' : row.status === 'no-show' ? 'no-show' : 'cancelled';
+      return [seatLabel(row.seats), reason].filter(Boolean).join('  ·  ');
+    }
     if (variant === 'waitlist') {
       const joined = relativeTime(row.joinedAt ?? row.registeredAt);
       return [seatLabel(row.seats), joined ? `joined ${joined}` : null].filter(Boolean).join('  ·  ');
@@ -76,6 +81,7 @@ export default function AttendeeRow({
         paddingHorizontal: 18,
         borderTopWidth: first ? 0 : 1,
         borderTopColor: C.hairSoft,
+        opacity: cancelled ? 0.6 : 1,
       }}
     >
       {/* avatar — initials, or a done ✓ for an attended row */}

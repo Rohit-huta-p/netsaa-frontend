@@ -33,7 +33,7 @@ type Props = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  registered: 'Going',
+  registered: 'Confirmed',
   attended: 'Checked in',
   'no-show': 'No-show',
   cancelled: 'Cancelled',
@@ -47,7 +47,7 @@ export default function AttendeeDetailSheet({
 }: Props) {
   if (!row) return null;
   const name = (row.name ?? '').trim() || 'Guest';
-  const statusLabel = STATUS_LABEL[row.status] ?? 'Going';
+  const statusLabel = STATUS_LABEL[row.status] ?? 'Confirmed';
   const ago = relativeTime(row.registeredAt);
   const sub = ago ? `${statusLabel} · registered ${ago}` : statusLabel;
   const attended = row.status === 'attended';

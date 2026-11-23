@@ -212,7 +212,7 @@ export function useEventHubData(eventId: string): EventHubData {
         return { kind: 'promote', entryName: name, label: `Promote ${name} to the open seat` };
       }
       if (confirmedCount > 0) {
-        return { kind: 'announce', label: `Send an update to your ${confirmedCount} going` };
+        return { kind: 'announce', label: `Send an update to your ${confirmedCount} confirmed` };
       }
       return { kind: 'none' };
     })();

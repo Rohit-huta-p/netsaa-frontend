@@ -34,15 +34,9 @@ import {
 } from 'lucide-react-native';
 
 import { useEventHubData, type EventHubStage } from '@/hooks/useEventHubData';
-import {
-  useWaitlistPromote, useUpdateRegistrationStatus, usePublishEvent, useUpdateEvent,
-  useCheckInByRegistration, useCancelRegistrationByOrganizer, useDeleteEvent,
-} from '@/hooks/useEvents';
-import { useApproveRequest, useDeclineRequest } from '@/hooks/useEventRequests';
-import {
-  approvalErrorMessage, waitlistPromoteErrorMessage,
-  checkInErrorMessage, cancelRegistrationErrorMessage, type EventRosterRow,
-} from '@/services/eventService';
+import { usePublishEvent, useUpdateEvent, useDeleteEvent } from '@/hooks/useEvents';
+import { useEventAttendeeActions } from '@/hooks/useEventAttendeeActions';
+import type { EventRosterRow } from '@/services/eventService';
 import { dateRange, timeLine, lowestPrice } from '@/lib/eventDetailV3';
 import { formatRupees } from '@/lib/eventPricing';
 import { shareEvent } from '@/lib/eventShare';
@@ -55,15 +49,13 @@ import AnnouncementComposer from './AnnouncementComposer';
 import OrganizerCancellationModal, { type OrganizerCancelResult } from './OrganizerCancellationModal';
 import WalkupAddSheet from './WalkupAddSheet';
 import EventPreviewModal from '@/components/events/detail/EventPreviewModal';
-import { ContactActionSheet, type ContactTarget } from '@/features/team/ContactActionSheet';
+import { ContactActionSheet } from '@/features/team/ContactActionSheet';
 import { C, F } from './hubTokens';
 import { pendingSummary } from './requestFormat';
 
 const HORIZ = 18;
 const DAY = 86_400_000;
 const PREVIEW_LIMIT = 8; // the hub shows a capped preview; "See all" opens the full paginated list
-
-type Feedback = { kind: 'error' | 'success'; text: string };
 
 /** A registration that landed in the last 24h gets a new-dot. */
 function isRecent(iso?: string): boolean {
@@ -91,19 +83,17 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
   const [actionsOpen, setActionsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [walkupOpen, setWalkupOpen] = useState(false);
-  const [detailRow, setDetailRow] = useState<EventRosterRow | null>(null);
-  const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
 
-  // Requests / promote feedback + per-row busy lock
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  // Attendee row actions — the shared controller (also used by the See-all screen):
+  // the per-row busy lock, feedback banner, open detail row + contact target, and the
+  // check-in / no-show / cancel+refund / promote / approve / decline / message mutations.
+  const {
+    feedback, clearFeedback, busyId,
+    detailRow, openDetail, closeDetail,
+    contactTarget, messageRow, closeContact,
+    checkInRow, cancelRefundRow, markNoShow, promoteRow, approveRequest, declineRequest, promoting,
+  } = useEventAttendeeActions(eventId, data.event);
 
-  const promote = useWaitlistPromote(eventId);
-  const approve = useApproveRequest(eventId);
-  const decline = useDeclineRequest(eventId);
-  const noShow = useUpdateRegistrationStatus(eventId);
-  const checkIn = useCheckInByRegistration(eventId);
-  const cancelAttendee = useCancelRegistrationByOrganizer(eventId);
   const publish = usePublishEvent(eventId);
   const del = useDeleteEvent();
   const updateEvent = useUpdateEvent(eventId);
@@ -155,124 +145,14 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
     try { await shareEvent(event); } catch { /* dismissed */ }
   };
 
-  // ---- row actions ----
-  const openDetail = (row: EventRosterRow) => setDetailRow(row);
-  const messageRow = (row: EventRosterRow) => {
-    setDetailRow(null);
-    setContactTarget({
-      artistId: row.userId ?? '',
-      displayName: (row.name ?? '').trim() || 'Attendee',
-      phoneNumber: row.phone,
-      gigTitle: event.title,
-    });
-  };
-  // One-tap manual check-in by registrationId (POST …/check-in, netsaa-backend #35).
-  // Flips the reg → attended and its ticket(s) → checked_in, so the row jumps to the
-  // Checked-in spine on roster invalidation. Called from the attendee sheet and the
-  // Checked-in spine's pending rows. Same busy-lock + feedback as markNoShow.
-  const checkInRow = (row: EventRosterRow) => {
-    if (busyId) return;
-    setBusyId(row._id);
-    setFeedback(null);
-    checkIn.mutate(
-      { registrationId: row._id },
-      {
-        onSuccess: () => { setDetailRow(null); setFeedback({ kind: 'success', text: `Checked ${firstName(row.name)} in.` }); },
-        onError: (err) => setFeedback({ kind: 'error', text: checkInErrorMessage(err) }),
-        onSettled: () => setBusyId(null),
-      },
-    );
-  };
-  // Per-attendee organizer cancel + refund (POST …/cancel, netsaa-backend #35). Flips
-  // the reg → cancelled, voids the ticket(s), frees the seat and — for a paid reg —
-  // initiates a Cashfree refund (settles async). Confirm first; pay-as-fact — the
-  // paid-attendee copy notes a refund without any fee math.
-  const cancelRefundRow = (row: EventRosterRow) => {
-    if (busyId) return;
-    const paid = isPaid;
-    Alert.alert(
-      `Cancel ${firstName(row.name)}?`,
-      paid
-        ? 'Their seat is freed and a refund is initiated to their original payment method. This can’t be undone.'
-        : 'Their seat is freed and their registration is cancelled. This can’t be undone.',
-      [
-        { text: 'Keep attendee', style: 'cancel' },
-        {
-          text: 'Cancel attendee',
-          style: 'destructive',
-          onPress: () => {
-            if (busyId) return;
-            setBusyId(row._id);
-            setFeedback(null);
-            cancelAttendee.mutate(
-              { registrationId: row._id, reason: 'Cancelled by organizer' },
-              {
-                onSuccess: (res) => {
-                  setDetailRow(null);
-                  setFeedback({
-                    kind: 'success',
-                    text: res?.refund
-                      ? `Cancelled ${firstName(row.name)} — a refund is on the way.`
-                      : `Cancelled ${firstName(row.name)}.`,
-                  });
-                },
-                onError: (err) => setFeedback({ kind: 'error', text: cancelRegistrationErrorMessage(err) }),
-                onSettled: () => setBusyId(null),
-              },
-            );
-          },
-        },
-      ],
-    );
-  };
-  const markNoShow = (row: EventRosterRow) => {
-    setBusyId(row._id);
-    noShow.mutate(
-      { registrationId: row._id, status: 'no-show' },
-      {
-        onSuccess: () => { setDetailRow(null); setFeedback({ kind: 'success', text: `Marked ${firstName(row.name)} as a no-show.` }); },
-        onError: () => setFeedback({ kind: 'error', text: 'Could not update. Please try again.' }),
-        onSettled: () => setBusyId(null),
-      },
-    );
-  };
-
-  const onPromote = (row: EventRosterRow) => {
-    if (busyId) return;
-    setBusyId(row._id);
-    setFeedback(null);
-    promote.mutate(undefined, {
-      onSuccess: () => setFeedback({ kind: 'success', text: `Promoted ${firstName(row.name)} into the open seat.` }),
-      onError: (err) => setFeedback({ kind: 'error', text: waitlistPromoteErrorMessage(err) }),
-      onSettled: () => setBusyId(null),
-    });
-  };
-
-  const onApprove = (registrationId: string) => {
-    if (busyId) return;
-    setBusyId(registrationId);
-    setFeedback(null);
-    const who = firstName(requestRows.find((r) => r._id === registrationId)?.name);
-    approve.mutate(registrationId, {
-      onSuccess: (res) => setFeedback({
-        kind: 'success',
-        text: res.status === 'approved' ? `Approved — ${who} has 48h to pay and hold the seat.` : `Approved — ${who} is in.`,
-      }),
-      onError: (err) => setFeedback({ kind: 'error', text: approvalErrorMessage(err, 'approve') }),
-      onSettled: () => setBusyId(null),
-    });
-  };
-  const onDecline = (registrationId: string, reason?: string) => {
-    if (busyId) return;
-    setBusyId(registrationId);
-    setFeedback(null);
-    const who = firstName(requestRows.find((r) => r._id === registrationId)?.name);
-    decline.mutate({ registrationId, reason }, {
-      onSuccess: () => setFeedback({ kind: 'success', text: `Declined ${who}.` }),
-      onError: (err) => setFeedback({ kind: 'error', text: approvalErrorMessage(err, 'decline') }),
-      onSettled: () => setBusyId(null),
-    });
-  };
+  // ---- row actions (thin wrappers over the shared controller) ----
+  // The hub passes the attendee's name so the controller's copy reads the same; the
+  // RequestCard onApprove/onDecline signatures stay (registrationId[, reason]).
+  const onPromote = promoteRow;
+  const onApprove = (registrationId: string) =>
+    approveRequest(registrationId, requestRows.find((r) => r._id === registrationId)?.name);
+  const onDecline = (registrationId: string, reason?: string) =>
+    declineRequest(registrationId, reason, requestRows.find((r) => r._id === registrationId)?.name);
 
   const onPublish = () => {
     publish.mutate(undefined, {
@@ -568,7 +448,7 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
         {/* feedback banner (requests / promote / no-show) */}
         {feedback ? (
           <Pressable
-            onPress={() => setFeedback(null)}
+            onPress={clearFeedback}
             style={{
               flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: HORIZ, marginTop: 14,
               borderRadius: 11, borderWidth: 1, padding: 12,
@@ -631,7 +511,7 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
                 <WaitlistBody
                   rows={waitlistRows}
                   canPromoteTop={seatsOpen > 0}
-                  promoting={promote.isPending}
+                  promoting={promoting}
                   busyId={busyId}
                   autoPromote={!!event.waitlistAutoPromote}
                   onPromote={onPromote}
@@ -725,14 +605,14 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
               if (sticky.kind === 'announce') setAnnounceOpen(true);
               else if (sticky.kind === 'promote') { setStage('waitlist'); if (waitlistRows[0]) onPromote(waitlistRows[0]); }
             }}
-            disabled={sticky.kind === 'promote' && promote.isPending}
+            disabled={sticky.kind === 'promote' && promoting}
             accessibilityRole="button"
             accessibilityLabel={sticky.label}
             style={{
               height: 52, borderRadius: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
               backgroundColor: sticky.kind === 'promote' ? C.cream : C.orangeSoft,
               borderWidth: sticky.kind === 'promote' ? 0 : 1, borderColor: C.orangeLine,
-              opacity: sticky.kind === 'promote' && promote.isPending ? 0.6 : 1,
+              opacity: sticky.kind === 'promote' && promoting ? 0.6 : 1,
             }}
           >
             {sticky.kind === 'promote'
@@ -788,13 +668,13 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
         visible={!!detailRow}
         row={detailRow}
         busy={!!busyId && detailRow?._id === busyId}
-        onClose={() => setDetailRow(null)}
+        onClose={closeDetail}
         onMessage={messageRow}
         onCheckIn={checkInRow}
         onMarkNoShow={markNoShow}
         onCancelRefund={cancelRefundRow}
       />
-      <ContactActionSheet visible={!!contactTarget} onClose={() => setContactTarget(null)} target={contactTarget} />
+      <ContactActionSheet visible={!!contactTarget} onClose={closeContact} target={contactTarget} />
     </View>
   );
 }
@@ -1026,11 +906,6 @@ function ChecklistRow({ label, done, gold }: { label: string; done?: boolean; go
 }
 
 // ───────────────────────────────────────────────────────── helpers
-
-function firstName(name?: string): string {
-  const n = (name ?? '').trim();
-  return n ? n.split(/\s+/)[0] : 'them';
-}
 
 /** "HDFC ••1234" / "user@okaxis" — the verified payout destination. */
 function payoutDestination(payout: any): string {

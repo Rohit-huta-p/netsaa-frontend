@@ -43,6 +43,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { ChevronLeft, MoreHorizontal, Check, Play, Settings, Eye, Plus, Pencil, ChevronRight, Image as LucideImage, Globe, Instagram, Youtube, Music2, UserPlus, Clock, Bell } from 'lucide-react-native';
 
 import { useUser } from '@/hooks/useUser';
@@ -173,6 +174,7 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
     // Follow = one-way, instant subscription (notified when they post a gig/event).
     const { isFollowing, followerCount, toggle: toggleFollow, busy: followBusy } = useFollow(userId);
 
+    const confirm = useConfirm();
     const [connBusy, setConnBusy] = useState(false);
     const [msgBusy, setMsgBusy] = useState(false);
     const [sheetOpen, setSheetOpen] = useState(false);
@@ -307,11 +309,10 @@ export function CreativeLeadProfile({ userId, isOwner = false, viewerIsClientOrC
         } catch { /* user can retry */ }
         finally { setMsgBusy(false); }
     };
-    const onManageConnection = () => {
-        Alert.alert(`Connected with ${name}`, undefined, [
-            { text: 'Remove connection', style: 'destructive', onPress: () => { removeConnection().catch(() => {}); } },
-            { text: 'Cancel', style: 'cancel' },
-        ]);
+    const onManageConnection = async () => {
+        if (await confirm({ title: `Connected with ${name}`, confirmLabel: 'Remove connection', destructive: true })) {
+            removeConnection().catch(() => {});
+        }
     };
     const onFollow = () => { haptic(); toggleFollow(); };
 

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useUser, userKeys } from '@/hooks/useUser';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { useConnectionStatus } from '@/features/profile/hooks/useConnectionStatus';
 import { useMutualConnections, useMyConnectionsCount } from '@/hooks/useConnectionMeta';
 import { useMobileTabBarHeight } from '@/components/MobileTabBar';
@@ -135,6 +136,7 @@ export function SpotlightProfile({ userId, isOwner }: {
     highlightMissing?: boolean;
 }) {
     const router = useRouter();
+    const confirm = useConfirm();
     const navClearance = (useMobileTabBarHeight() || 64) + 24;
     const openSheet = useProfileUiStore((s) => s.openSheet);
 
@@ -269,19 +271,17 @@ export function SpotlightProfile({ userId, isOwner }: {
         finally { setMsgBusy(false); }
     };
 
-    const onRemove = () => {
+    const onRemove = async () => {
         setMenuOpen(false);
-        Alert.alert('Remove connection?', `You'll no longer be connected with ${name}.`, [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Remove', style: 'destructive', onPress: () => { removeConnection().catch(() => {}); } },
-        ]);
+        if (await confirm({ title: 'Remove connection?', body: `You'll no longer be connected with ${name}.`, confirmLabel: 'Remove', destructive: true })) {
+            removeConnection().catch(() => {});
+        }
     };
-    const onBlock = () => {
+    const onBlock = async () => {
         setMenuOpen(false);
-        Alert.alert(`Block ${name}?`, "They won't be able to connect with or message you.", [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Block', style: 'destructive', onPress: () => { blockUser().catch(() => {}); } },
-        ]);
+        if (await confirm({ title: `Block ${name}?`, body: "They won't be able to connect with or message you.", confirmLabel: 'Block', destructive: true })) {
+            blockUser().catch(() => {});
+        }
     };
     const onReport = () => { setMenuOpen(false); router.push('/(app)/support' as any); };
 

@@ -28,6 +28,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 import { socketService } from "@/services/socketService";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 import eventService from "@/services/eventService";
 import gigService from "@/services/gigService";
 import useAuthStore from "@/stores/authStore";
@@ -157,6 +158,7 @@ export default function DiscussionTab({ id, type, ownerId, inline = false, varia
     const glass = variant === 'glass';
     const [messages, setMessages] = useState<DiscussionMessage[]>([]);
     const [inputText, setInputText] = useState("");
+    const confirm = useConfirm();
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     // Which row's dropdown is open. null = none. Using state here so a tap
@@ -353,56 +355,45 @@ export default function DiscussionTab({ id, type, ownerId, inline = false, varia
     };
 
     /* ---------- Delete ---------- */
-    const handleDelete = (msg: DiscussionMessage) => {
+    const handleDelete = async (msg: DiscussionMessage) => {
         if (type !== 'gig') return;
         setOpenMenuId(null);
 
-        Alert.alert(
-            'Delete comment?',
-            'This comment will be replaced with "[deleted]". The thread will keep its order.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        // Optimistic — flip locally first
-                        const isAuthor = String(msg.authorId) === String(currentUser?._id);
-                        const reason: 'self' | 'organizer' | 'admin' = isAuthor
-                            ? 'self'
-                            : isOwner ? 'organizer' : 'admin';
-                        setMessages((prev) =>
-                            prev.map((m) =>
-                                m._id === msg._id
-                                    ? {
-                                        ...m,
-                                        isDeleted: true,
-                                        deletedReason: reason,
-                                        text: '[deleted]',
-                                        isPinned: false,
-                                    }
-                                    : m
-                            )
-                        );
+        if (!(await confirm({ title: 'Delete comment?', body: 'This comment will be replaced with "[deleted]". The thread will keep its order.', confirmLabel: 'Delete', destructive: true }))) return;
 
-                        try {
-                            await gigService.deleteGigComment(id, msg._id);
-                        } catch (err) {
-                            console.error('Failed to delete comment:', err);
-                            // Revert — refetch is the simplest safe path
-                            try {
-                                const res = await gigService.getGigDiscussion(id);
-                                const data = res?.data ?? res;
-                                if (Array.isArray(data)) setMessages(data);
-                            } catch {
-                                // give up; user can pull-to-refresh upstream
-                            }
-                            Alert.alert('Delete failed', 'Could not delete comment. Try again.');
-                        }
-                    },
-                },
-            ]
+        // Optimistic — flip locally first
+        const isAuthor = String(msg.authorId) === String(currentUser?._id);
+        const reason: 'self' | 'organizer' | 'admin' = isAuthor
+            ? 'self'
+            : isOwner ? 'organizer' : 'admin';
+        setMessages((prev) =>
+            prev.map((m) =>
+                m._id === msg._id
+                    ? {
+                        ...m,
+                        isDeleted: true,
+                        deletedReason: reason,
+                        text: '[deleted]',
+                        isPinned: false,
+                    }
+                    : m
+            )
         );
+
+        try {
+            await gigService.deleteGigComment(id, msg._id);
+        } catch (err) {
+            console.error('Failed to delete comment:', err);
+            // Revert — refetch is the simplest safe path
+            try {
+                const res = await gigService.getGigDiscussion(id);
+                const data = res?.data ?? res;
+                if (Array.isArray(data)) setMessages(data);
+            } catch {
+                // give up; user can pull-to-refresh upstream
+            }
+            Alert.alert('Delete failed', 'Could not delete comment. Try again.');
+        }
     };
 
     /* ---------- Sorted view ---------- */

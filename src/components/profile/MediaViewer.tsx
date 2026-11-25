@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import * as Haptics from 'expo-haptics';
 import { ChevronLeft, MoreHorizontal, Share2, Play, Pencil, Trash2 } from 'lucide-react-native';
 import NetsaVideoPlayer, { parseAspectRatio, muxPoster } from '@/components/media/NetsaVideoPlayer';
@@ -61,6 +62,7 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
     const pagerRef = useRef<FlatList>(null);
     const stripRef = useRef<FlatList>(null);
     const [cur, setCur] = useState(index);
+    const confirm = useConfirm();
     const [chromeOn, setChromeOn] = useState(true);
     const [menuOpen, setMenuOpen] = useState(false);
 
@@ -111,11 +113,10 @@ export default function MediaViewer({ items, index, onClose, artist, isOwner = f
         } catch { /* user dismissed */ }
     };
 
-    const confirmDelete = () => {
-        Alert.alert('Remove this from your showcase?', 'This can’t be undone.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Remove', style: 'destructive', onPress: () => onDelete?.(cur) },
-        ]);
+    const confirmDelete = async () => {
+        if (await confirm({ title: 'Remove this from your showcase?', body: 'This can’t be undone.', confirmLabel: 'Remove', destructive: true })) {
+            onDelete?.(cur);
+        }
     };
 
     return (

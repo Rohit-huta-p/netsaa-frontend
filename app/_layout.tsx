@@ -6,6 +6,7 @@ import { Slot, SplashScreen, usePathname } from "expo-router";
 import { View, Platform } from "react-native";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { ConfirmProvider } from '@/components/ui/ConfirmProvider';
 import { queryClient } from '../src/lib/react-query';
 import { queryKeys } from "@/constants/queryKeys";
 import {
@@ -154,6 +155,7 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <QueryClientProvider client={queryClient}>
                 <SafeAreaProvider style={{ flex: 1 }}>
+                    <ConfirmProvider>
                     <View style={{ flex: 1, backgroundColor: '#09090b' }}>
                         {/* Navbar hidden on auth screens + the public landing ('/' has its own nav) */}
                         {!isAuthRoute && pathname !== '/' && <Navbar />}
@@ -169,6 +171,7 @@ export default function RootLayout() {
                         {/* Mobile bottom tab bar */}
                         {/* {!isAuthRoute && <MobileTabBar />} */}
                     </View>
+                    </ConfirmProvider>
                 </SafeAreaProvider>
             </QueryClientProvider>
         </GestureHandlerRootView>

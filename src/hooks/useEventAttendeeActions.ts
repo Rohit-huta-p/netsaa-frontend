@@ -12,12 +12,12 @@
 // shipped hub). Keep the two in sync until then — this hook is the canonical home.
 
 import { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
 import {
   useWaitlistPromote, useUpdateRegistrationStatus,
   useCheckInByRegistration, useCancelRegistrationByOrganizer,
 } from '@/hooks/useEvents';
 import { useApproveRequest, useDeclineRequest } from '@/hooks/useEventRequests';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import {
   approvalErrorMessage, waitlistPromoteErrorMessage,
   checkInErrorMessage, cancelRegistrationErrorMessage,
@@ -47,6 +47,7 @@ export function useEventAttendeeActions(
   const noShow = useUpdateRegistrationStatus(eventId);
   const checkIn = useCheckInByRegistration(eventId);
   const cancelAttendee = useCancelRegistrationByOrganizer(eventId);
+  const confirm = useConfirm();
 
   const isPaid = event?.registrationMode === 'paid_ticket';
 
@@ -76,40 +77,34 @@ export function useEventAttendeeActions(
     });
   }, [busyId, checkIn]);
 
-  const cancelRefundRow = useCallback((row: EventRosterRow) => {
+  const cancelRefundRow = useCallback(async (row: EventRosterRow) => {
     if (busyId) return;
-    Alert.alert(
-      `Cancel ${firstName(row.name)}?`,
-      isPaid
+    const ok = await confirm({
+      title: `Cancel ${firstName(row.name)}?`,
+      body: isPaid
         ? 'Their seat is freed and a refund is initiated to their original payment method. This can’t be undone.'
         : 'Their seat is freed and their registration is cancelled. This can’t be undone.',
-      [
-        { text: 'Keep attendee', style: 'cancel' },
-        {
-          text: 'Cancel attendee',
-          style: 'destructive',
-          onPress: () => {
-            if (busyId) return;
-            setBusyId(row._id);
-            setFeedback(null);
-            cancelAttendee.mutate({ registrationId: row._id, reason: 'Cancelled by organizer' }, {
-              onSuccess: (res: any) => {
-                setDetailRow(null);
-                setFeedback({
-                  kind: 'success',
-                  text: res?.refund
-                    ? `Cancelled ${firstName(row.name)} — a refund is on the way.`
-                    : `Cancelled ${firstName(row.name)}.`,
-                });
-              },
-              onError: (err) => setFeedback({ kind: 'error', text: cancelRegistrationErrorMessage(err) }),
-              onSettled: () => setBusyId(null),
-            });
-          },
-        },
-      ],
-    );
-  }, [busyId, isPaid, cancelAttendee]);
+      confirmLabel: 'Cancel attendee',
+      cancelLabel: 'Keep attendee',
+      destructive: true,
+    });
+    if (!ok || busyId) return;
+    setBusyId(row._id);
+    setFeedback(null);
+    cancelAttendee.mutate({ registrationId: row._id, reason: 'Cancelled by organizer' }, {
+      onSuccess: (res: any) => {
+        setDetailRow(null);
+        setFeedback({
+          kind: 'success',
+          text: res?.refund
+            ? `Cancelled ${firstName(row.name)} — a refund is on the way.`
+            : `Cancelled ${firstName(row.name)}.`,
+        });
+      },
+      onError: (err) => setFeedback({ kind: 'error', text: cancelRegistrationErrorMessage(err) }),
+      onSettled: () => setBusyId(null),
+    });
+  }, [busyId, isPaid, cancelAttendee, confirm]);
 
   const markNoShow = useCallback((row: EventRosterRow) => {
     if (busyId) return;

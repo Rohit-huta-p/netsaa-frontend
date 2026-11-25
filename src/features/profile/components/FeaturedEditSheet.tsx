@@ -25,6 +25,7 @@ import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import authService from '@/services/authService';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { userKeys } from '@/hooks/useUser';
 import RichTextInput from '@/components/inputs/RichTextInput';
 import type { FeaturedItem, FeaturedAttachment } from '@/components/profile/types';
@@ -56,6 +57,7 @@ export function FeaturedEditSheet({ visible, onClose, userId, featured, editInde
     const accessToken = useAuthStore((s) => s.accessToken);
     const setAuth = useAuthStore((s) => s.setAuth);
 
+    const confirm = useConfirm();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [attachments, setAttachments] = useState<FeaturedAttachment[]>([]);
@@ -125,19 +127,13 @@ export function FeaturedEditSheet({ visible, onClose, userId, featured, editInde
         }
     };
 
-    const onRemove = () => {
+    const onRemove = async () => {
         if (editIndex == null) return;
-        Alert.alert('Remove highlight?', 'This Featured highlight will be deleted.', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Remove', style: 'destructive', onPress: async () => {
-                    setSaving(true);
-                    try { await persist(featured.filter((_, i) => i !== editIndex)); onClose(); }
-                    catch { Alert.alert("Couldn't remove", 'Please try again.'); }
-                    finally { setSaving(false); }
-                },
-            },
-        ]);
+        if (!(await confirm({ title: 'Remove highlight?', body: 'This Featured highlight will be deleted.', confirmLabel: 'Remove', destructive: true }))) return;
+        setSaving(true);
+        try { await persist(featured.filter((_, i) => i !== editIndex)); onClose(); }
+        catch { Alert.alert("Couldn't remove", 'Please try again.'); }
+        finally { setSaving(false); }
     };
 
     return (

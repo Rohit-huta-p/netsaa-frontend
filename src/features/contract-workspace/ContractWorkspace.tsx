@@ -12,6 +12,7 @@ import { ChevronLeft, MoreHorizontal } from 'lucide-react-native';
 import useAuthStore from '@/stores/authStore';
 import { useContract, useSwitchContractPaymentMethod, useDeclineContract } from '@/hooks/usePayments';
 import PaymentMethodSelector from '@/components/payments/PaymentMethodSelector';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import type { ContractPaymentMethod } from '@/services/paymentService';
 
 import { computeContractTimelineStage } from './utils/computeContractTimelineStage';
@@ -39,6 +40,7 @@ type Props = { contractId: string };
 
 export function ContractWorkspace({ contractId }: Props) {
     const router = useRouter();
+    const confirm = useConfirm();
     const userId = useAuthStore((s) => (s.user as any)?._id || (s.user as any)?.id);
     const { data, isLoading } = useContract(contractId);
     const switchMutation = useSwitchContractPaymentMethod();
@@ -136,26 +138,14 @@ export function ContractWorkspace({ contractId }: Props) {
         }
     };
 
-    const handleCancel = () => {
-        Alert.alert(
-            'Cancel contract?',
-            'This withdraws your offer. The artist will be notified.',
-            [
-                { text: 'Keep contract', style: 'cancel' },
-                {
-                    text: 'Cancel offer',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await declineMutation.mutateAsync(contractId);
-                            router.back();
-                        } catch (err: any) {
-                            Alert.alert('Failed', err?.message ?? 'Could not cancel.');
-                        }
-                    },
-                },
-            ]
-        );
+    const handleCancel = async () => {
+        if (!(await confirm({ title: 'Cancel contract?', body: 'This withdraws your offer. The artist will be notified.', confirmLabel: 'Cancel offer', cancelLabel: 'Keep contract', destructive: true }))) return;
+        try {
+            await declineMutation.mutateAsync(contractId);
+            router.back();
+        } catch (err: any) {
+            Alert.alert('Failed', err?.message ?? 'Could not cancel.');
+        }
     };
 
     return (

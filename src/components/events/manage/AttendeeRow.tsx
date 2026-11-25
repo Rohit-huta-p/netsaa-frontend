@@ -19,7 +19,7 @@
  */
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Check, MoreHorizontal } from 'lucide-react-native';
+import { Check, MoreHorizontal, Clock } from 'lucide-react-native';
 import type { EventRosterRow } from '@/services/eventService';
 import { initialsOf, seatLabel, relativeTime } from './requestFormat';
 import { C, F } from './hubTokens';
@@ -54,6 +54,7 @@ export default function AttendeeRow({
       return [seatLabel(row.seats), reason].filter(Boolean).join('  ·  ');
     }
     if (variant === 'waitlist') {
+      if (row.status === 'promoted') return `${seatLabel(row.seats)}  ·  seat offered — awaiting confirmation`;
       const joined = relativeTime(row.joinedAt ?? row.registeredAt);
       return [seatLabel(row.seats), joined ? `joined ${joined}` : null].filter(Boolean).join('  ·  ');
     }
@@ -154,36 +155,46 @@ export default function AttendeeRow({
         ) : null}
 
         {variant === 'waitlist' ? (
-          <>
-            <Text
-              style={{
-                fontFamily: F.mono, fontSize: 9, color: C.orange,
-                backgroundColor: C.orangeSoft, borderRadius: 5,
-                paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden',
-              }}
-            >
-              #{row.position ?? '—'}
-            </Text>
-            <TouchableOpacity
-              onPress={onPromote}
-              disabled={!canPromote || promoting}
-              accessibilityRole="button"
-              accessibilityLabel={`Promote ${name}`}
-              accessibilityState={{ disabled: !canPromote || promoting }}
-              hitSlop={6}
-              style={{
-                height: 30, paddingHorizontal: 11, borderRadius: 9,
-                alignItems: 'center', justifyContent: 'center',
-                backgroundColor: canPromote ? C.orangeSoft : 'transparent',
-                borderWidth: 1, borderColor: canPromote ? C.orangeLine : C.hairline,
-                opacity: !canPromote || promoting ? 0.45 : 1,
-              }}
-            >
-              <Text style={{ fontFamily: F.semibold, fontSize: 12, color: canPromote ? C.orange : C.t3 }}>
-                {promoting && canPromote ? 'Promoting…' : 'Promote'}
+          row.status === 'promoted' ? (
+            // Invited: the seat is held for them until they confirm (up to the event).
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Clock size={12} color={C.gold} strokeWidth={2} />
+              <Text style={{ fontFamily: F.mono, fontSize: 9, color: C.gold, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                Invited
               </Text>
-            </TouchableOpacity>
-          </>
+            </View>
+          ) : (
+            <>
+              <Text
+                style={{
+                  fontFamily: F.mono, fontSize: 9, color: C.orange,
+                  backgroundColor: C.orangeSoft, borderRadius: 5,
+                  paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden',
+                }}
+              >
+                #{row.position ?? '—'}
+              </Text>
+              <TouchableOpacity
+                onPress={onPromote}
+                disabled={!canPromote || promoting}
+                accessibilityRole="button"
+                accessibilityLabel={`Promote ${name}`}
+                accessibilityState={{ disabled: !canPromote || promoting }}
+                hitSlop={6}
+                style={{
+                  height: 30, paddingHorizontal: 11, borderRadius: 9,
+                  alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: canPromote ? C.orangeSoft : 'transparent',
+                  borderWidth: 1, borderColor: canPromote ? C.orangeLine : C.hairline,
+                  opacity: !canPromote || promoting ? 0.45 : 1,
+                }}
+              >
+                <Text style={{ fontFamily: F.semibold, fontSize: 12, color: canPromote ? C.orange : C.t3 }}>
+                  {promoting && canPromote ? 'Promoting…' : 'Promote'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )
         ) : null}
       </View>
     </Wrapper>

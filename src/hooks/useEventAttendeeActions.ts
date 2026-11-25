@@ -127,7 +127,7 @@ export function useEventAttendeeActions(
     setBusyId(row._id);
     setFeedback(null);
     promote.mutate(undefined, {
-      onSuccess: () => setFeedback({ kind: 'success', text: `Promoted ${firstName(row.name)} into the open seat.` }),
+      onSuccess: () => setFeedback({ kind: 'success', text: `Invited ${firstName(row.name)} — the seat's held until they confirm.` }),
       onError: (err) => setFeedback({ kind: 'error', text: waitlistPromoteErrorMessage(err) }),
       onSettled: () => setBusyId(null),
     });

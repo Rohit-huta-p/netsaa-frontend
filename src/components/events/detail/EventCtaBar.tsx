@@ -404,42 +404,63 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
            * 5. else → existing Reserve path
            */
           myWaitlist?.status === 'promoted' ? (
-            <Pressable
-              onPress={async () => {
-                if (isFreeRsvp) {
-                  // Free event: confirm directly, then flip to "View ticket"
-                  setConfirmingPromotion(true);
-                  try {
-                    const key = `wl_${myWaitlist._id}_${Date.now()}`;
-                    await eventService.confirmPromotion(myWaitlist._id, key);
-                    queryClient.invalidateQueries({ queryKey: ['myRegistration', event._id] });
-                    queryClient.invalidateQueries({ queryKey: ['myWaitlist', event._id] });
-                  } finally {
-                    setConfirmingPromotion(false);
+            <View style={{ flex: 1, flexDirection: 'row', gap: 10 }}>
+              <Pressable
+                onPress={async () => {
+                  if (isFreeRsvp) {
+                    // Free event: confirm directly, then flip to "View ticket"
+                    setConfirmingPromotion(true);
+                    try {
+                      const key = `wl_${myWaitlist._id}_${Date.now()}`;
+                      await eventService.confirmPromotion(myWaitlist._id, key);
+                      queryClient.invalidateQueries({ queryKey: ['myRegistration', event._id] });
+                      queryClient.invalidateQueries({ queryKey: ['myWaitlist', event._id] });
+                    } finally {
+                      setConfirmingPromotion(false);
+                    }
+                  } else {
+                    // Paid event: open the reserve/register sheet
+                    openRegister();
                   }
-                } else {
-                  // Paid event: open the reserve/register sheet
-                  openRegister();
-                }
-              }}
-              disabled={confirmingPromotion}
-              style={{
-                flex: 1,
-                borderRadius: 12,
-                height: 52,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#22C55E',
-              }}
-            >
-              {confirmingPromotion ? (
-                <ActivityIndicator color={ORANGE_INK} />
-              ) : (
-                <Text className="font-outfit" style={{ color: ORANGE_INK, fontWeight: '700', fontSize: 14 }}>
-                  Seat open — confirm →
+                }}
+                disabled={confirmingPromotion}
+                style={{
+                  flex: 1,
+                  borderRadius: 12,
+                  height: 52,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#22C55E',
+                }}
+              >
+                {confirmingPromotion ? (
+                  <ActivityIndicator color={ORANGE_INK} />
+                ) : (
+                  <Text className="font-outfit" style={{ color: ORANGE_INK, fontWeight: '700', fontSize: 14 }}>
+                    Seat open — confirm →
+                  </Text>
+                )}
+              </Pressable>
+              {/* Decline the offered seat → frees it for the next waiter (backend cascades). */}
+              <Pressable
+                onPress={() => setLeaveOpen(true)}
+                disabled={confirmingPromotion}
+                style={{
+                  paddingHorizontal: 18,
+                  borderRadius: 12,
+                  height: 52,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: SURFACE,
+                  borderWidth: 1,
+                  borderColor: HAIRLINE_2,
+                }}
+              >
+                <Text className="font-outfit" style={{ color: TEXT_2, fontWeight: '600', fontSize: 14 }}>
+                  Decline
                 </Text>
-              )}
-            </Pressable>
+              </Pressable>
+            </View>
           ) : myWaitlist?.status === 'waiting' ? (
             <Pressable
               onPress={() => setLeaveOpen(true)}
@@ -548,11 +569,12 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
           queryClient.invalidateQueries({ queryKey: ['myWaitlist', event._id] });
         }}
       />
-      {myWaitlist && myWaitlist.status === 'waiting' && (
+      {myWaitlist && (myWaitlist.status === 'waiting' || myWaitlist.status === 'promoted') && (
         <LeaveWaitlistConfirm
           visible={leaveOpen}
           eventId={event._id}
           position={myWaitlist.position}
+          promoted={myWaitlist?.status === 'promoted'}
           onClose={() => setLeaveOpen(false)}
           onLeft={() => {
             setLeaveOpen(false);

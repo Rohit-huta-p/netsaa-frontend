@@ -16,6 +16,9 @@ interface Props {
   position: number;
   onClose: () => void;
   onLeft: () => void;
+  /** The caller has been PROMOTED (a seat is held for them) — declining gives it up,
+   *  rather than leaving a plain waitlist position. Switches the copy. */
+  promoted?: boolean;
 }
 
 export default function LeaveWaitlistConfirm({
@@ -24,6 +27,7 @@ export default function LeaveWaitlistConfirm({
   position,
   onClose,
   onLeft,
+  promoted,
 }: Props) {
   const { mutateAsync: leaveWaitlist, isPending } = useLeaveWaitlist(eventId);
 
@@ -64,17 +68,23 @@ export default function LeaveWaitlistConfirm({
             className="font-serif"
             style={{ color: TEXT_0, fontSize: 20, lineHeight: 24 }}
           >
-            Leave the waitlist?
+            {promoted ? 'Decline this seat?' : 'Leave the waitlist?'}
           </Text>
           <Text
             className="font-outfit"
             style={{ color: TEXT_2, fontSize: 14.5, lineHeight: 21 }}
           >
-            You'll lose{' '}
-            <Text style={{ color: TEXT_0, fontWeight: '600' }}>
-              position #{position}
-            </Text>
-            . If a seat opens you won't be notified.
+            {promoted ? (
+              "You're giving up the seat that opened for you — it'll go to the next person in line."
+            ) : (
+              <>
+                You'll lose{' '}
+                <Text style={{ color: TEXT_0, fontWeight: '600' }}>
+                  position #{position}
+                </Text>
+                . If a seat opens you won't be notified.
+              </>
+            )}
           </Text>
 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
@@ -117,7 +127,7 @@ export default function LeaveWaitlistConfirm({
                   className="font-outfit"
                   style={{ color: ORANGE_INK, fontWeight: '700', fontSize: 14 }}
                 >
-                  Leave
+                  {promoted ? 'Decline' : 'Leave'}
                 </Text>
               )}
             </Pressable>

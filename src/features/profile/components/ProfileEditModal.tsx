@@ -20,6 +20,7 @@ import gigService from '@/services/gigService';
 import mediaService from '@/services/mediaService';
 import { ProfileData, ExperienceEntry, ProfileVideoReel } from '@/components/profile/types';
 import { AITextInput } from '@/components/ui/AITextInput';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import RichTextInput from '@/components/inputs/RichTextInput';
 import { usePickAndCrop } from '@/hooks/usePickAndCrop';
 import MediaCropper from '@/components/media/MediaCropper';
@@ -286,6 +287,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
     const { activeSheet, closeSheet, highlightMissing } = useProfileUiStore();
     const { user, setAuth, accessToken } = useAuthStore();
     const { pickAndCrop, cropperProps } = usePickAndCrop();
+    const confirm = useConfirm();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const section = activeSheet;
     const isVisible = !!section;
@@ -712,7 +714,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
         }
         const validation = validateMediaFile(asset, false);
         if (!validation.valid) { Alert.alert('Error', validation.error); return; }
-        if (isLargeFile(asset)) { Alert.alert('Large File', 'Continue?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Continue', onPress: () => performUpload(type, asset, index) }]); return; }
+        if (isLargeFile(asset)) { if (await confirm({ title: 'Large File', body: 'Continue?', confirmLabel: 'Continue' })) { performUpload(type, asset, index); } return; }
         performUpload(type, asset, index);
     };
     const profileState = uploadingState['profile'];
@@ -986,7 +988,7 @@ export const ProfileEditModal: React.FC<Props> = ({ profileData }) => {
             const asset = result.assets[0];
             const validation = validateMediaFile(asset, true);
             if (!validation.valid) { Alert.alert('Error', validation.error); return; }
-            if (isLargeFile(asset)) { Alert.alert('Large File', 'Continue?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Continue', onPress: () => performVideoUpload(asset) }]); return; }
+            if (isLargeFile(asset)) { if (await confirm({ title: 'Large File', body: 'Continue?', confirmLabel: 'Continue' })) { performVideoUpload(asset); } return; }
             performVideoUpload(asset);
         };
         const performVideoUpload = async (asset: ImagePicker.ImagePickerAsset) => {

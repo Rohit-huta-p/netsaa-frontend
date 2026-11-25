@@ -19,6 +19,7 @@ import { uploadMediaFlow, validateMediaFile, isLargeFile } from "@/utils/upload"
 import { useProfileUiStore } from "@/stores/profileUiStore";
 import { useAuthStore } from "@/stores/authStore";
 import authService from "@/services/authService";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 interface MediaPickerBottomSheetProps {
     visible: boolean;
@@ -53,6 +54,7 @@ export const MediaPickerBottomSheet: React.FC<MediaPickerBottomSheetProps> = ({
     const [error, setError] = useState<string | null>(null);
 
     const { setSaving, setSectionError, clearSectionDraft } = useProfileUiStore();
+    const confirm = useConfirm();
 
     const handlePickMedia = async (type: 'profile' | 'gallery' | 'video', index?: number) => {
         const mediaType = type === 'video'
@@ -78,14 +80,13 @@ export const MediaPickerBottomSheet: React.FC<MediaPickerBottomSheetProps> = ({
         }
 
         if (isLargeFile(asset)) {
-            Alert.alert(
-                'Large File',
-                'This file is large and may take a while to upload. Continue?',
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Continue', onPress: () => performUpload(type, asset, index) }
-                ]
-            );
+            if (await confirm({
+                title: 'Large File',
+                body: 'This file is large and may take a while to upload. Continue?',
+                confirmLabel: 'Continue',
+            })) {
+                performUpload(type, asset, index);
+            }
             return;
         }
 

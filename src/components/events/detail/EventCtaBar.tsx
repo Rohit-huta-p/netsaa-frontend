@@ -20,6 +20,7 @@ import { DPDPConsentScreen } from '@/components/events/register/DPDPConsentScree
 import { useRegisterFlowStore } from '@/stores/registerFlowStore';
 import WaitlistJoinSheet from '@/components/events/register/WaitlistJoinSheet';
 import LeaveWaitlistConfirm from '@/components/events/register/LeaveWaitlistConfirm';
+import WithdrawConfirm from '@/components/events/register/WithdrawConfirm';
 import { ctaLabel, lowestPrice, refundLabel, closesLabel } from '@/lib/eventDetailV3';
 
 interface Props {
@@ -56,6 +57,7 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
   const [confirmingPromotion, setConfirmingPromotion] = useState(false);
   const [payingApproval, setPayingApproval] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
   const recordConsent = useRegisterFlowStore((s) => s.recordConsent);
   const isConsentValid = useRegisterFlowStore((s) => s.isConsentValid);
   // subscribe to the timestamp so the bar re-evaluates after consent is recorded
@@ -84,6 +86,7 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
   const isPending = regStatus === 'pending';
   const isApproved = regStatus === 'approved';
   const isDeclined = regStatus === 'declined';
+  const withdrawCopy = isWithdrawable(regStatus) ? withdrawConfirmCopy(regStatus) : null;
   const pendingPayment = (myRegistration as any)?.pendingPayment as
     | {
         reservationId: string; razorpayOrderId: string; paymentSessionId?: string;
@@ -135,36 +138,38 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
     queryClient.invalidateQueries({ queryKey: eventKeys.detail(event._id) });
   };
 
-  // Lightweight confirm (not the refund-oriented CancellationReasonModal — there
-  // is no refund here). A short/empty reason is fine; /cancel is status-agnostic.
+  // Open an in-app confirm sheet. NOT Alert.alert — Alert.alert(…, …, [buttons])
+  // does NOT render on react-native-web (netsaa.com), so the old confirm (and the
+  // cancel it gated) silently no-op'd on web. WithdrawConfirm is a <Modal>, which
+  // works on web and native alike. (No refund path here — both withdrawable states
+  // are pre-payment; /cancel is status-agnostic.)
   const withdraw = () => {
+    if (!myRegistration?._id || withdrawing || !isWithdrawable(regStatus)) return;
+    setConfirmWithdrawOpen(true);
+  };
+
+  // The actual release, run from the confirm sheet's Withdraw button.
+  const doWithdraw = async () => {
     const regId = myRegistration?._id;
-    if (!regId || withdrawing || !isWithdrawable(regStatus)) return;
-    const { title, body } = withdrawConfirmCopy(regStatus);
-    Alert.alert(title, body, [
-      { text: 'Keep it', style: 'cancel' },
-      {
-        text: 'Withdraw',
-        style: 'destructive',
-        onPress: async () => {
-          setWithdrawing(true);
-          try {
-            await eventService.cancelRegistration(regId, '');
-            await resetAfterWithdraw();
-          } catch (err: any) {
-            // 409 = already cancelled (swept hold / another device) → treat as
-            // already-withdrawn and resync rather than surfacing an error.
-            if (err?.response?.status === 409) {
-              await resetAfterWithdraw();
-            } else {
-              Alert.alert('Could not withdraw', 'Something went wrong. Please try again in a moment.');
-            }
-          } finally {
-            setWithdrawing(false);
-          }
-        },
-      },
-    ]);
+    if (!regId || withdrawing) return;
+    setWithdrawing(true);
+    try {
+      await eventService.cancelRegistration(regId, '');
+      setConfirmWithdrawOpen(false);
+      await resetAfterWithdraw();
+    } catch (err: any) {
+      // 409 = already cancelled (swept hold / another device) → treat as
+      // already-withdrawn and resync rather than surfacing an error.
+      if (err?.response?.status === 409) {
+        setConfirmWithdrawOpen(false);
+        await resetAfterWithdraw();
+      } else {
+        // Message-only Alert (no buttons) DOES render on web as window.alert.
+        Alert.alert('Could not withdraw', 'Something went wrong. Please try again in a moment.');
+      }
+    } finally {
+      setWithdrawing(false);
+    }
   };
 
   useEffect(() => {
@@ -582,6 +587,14 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
           }}
         />
       )}
+      <WithdrawConfirm
+        visible={confirmWithdrawOpen}
+        title={withdrawCopy?.title ?? 'Withdraw your request?'}
+        body={withdrawCopy?.body ?? ''}
+        loading={withdrawing}
+        onClose={() => setConfirmWithdrawOpen(false)}
+        onConfirm={doWithdraw}
+      />
       <AuthGateSheet
         visible={authGateVisible}
         onClose={() => setAuthGateVisible(false)}

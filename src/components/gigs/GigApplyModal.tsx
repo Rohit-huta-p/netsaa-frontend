@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, Modal, TextInput, TouchableOpacity, Pressable, ScrollView,
-    Alert, ActivityIndicator, Animated, PanResponder, StyleSheet,
+    Alert, ActivityIndicator, Animated, PanResponder, StyleSheet, Platform,
 } from 'react-native';
 import { useApplyToGig } from '../../hooks/useGigApplications';
 import { useEventFunnelSource } from '../../hooks/useEventFunnelSource';
@@ -156,9 +156,16 @@ export const GigApplyModal: React.FC<GigApplyModalProps> = ({
             };
             await draftService.upsert(draft);
             setActiveDraftId(id);
-            Alert.alert('Draft saved', 'Pick up where you left off anytime.', [
-                { text: 'OK', onPress: resetAndClose },
-            ]);
+            // Alert.alert buttons don't render on react-native-web, so OK→close never
+            // fires on web. The draft is already saved; on web just close. Native keeps
+            // the acknowledgment Alert unchanged.
+            if (Platform.OS === 'web') {
+                resetAndClose();
+            } else {
+                Alert.alert('Draft saved', 'Pick up where you left off anytime.', [
+                    { text: 'OK', onPress: resetAndClose },
+                ]);
+            }
         } catch (err) {
             console.warn('[GigApplyModal] Save draft failed:', err);
             Alert.alert('Could not save draft', 'Please try again.');

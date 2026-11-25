@@ -129,11 +129,20 @@ export const shareToInstagramDM = async (content: ShareContent): Promise<boolean
     try {
         const canOpen = await Linking.canOpenURL(instagramUrl);
         if (canOpen) {
-            Alert.alert(
-                'Link Copied!',
-                'The link has been copied. Paste it in your Instagram DM.',
-                [{ text: 'Open Instagram', onPress: () => Linking.openURL(instagramUrl) }]
-            );
+            // RNW's Alert is a no-op on web, so the old buttoned "Open Instagram"
+            // dialog never showed and nothing opened. Don't use Linking.openURL on web
+            // either — expo-linking's web openURL is a SAME-TAB navigation
+            // (window.location) that yanks the user off netsaa.com. The link is already
+            // copied above, so open Instagram in a NEW tab and leave netsaa.com intact.
+            if (Platform.OS === 'web') {
+                if (typeof window !== 'undefined') window.open(instagramUrl, '_blank', 'noopener,noreferrer');
+            } else {
+                Alert.alert(
+                    'Link Copied!',
+                    'The link has been copied. Paste it in your Instagram DM.',
+                    [{ text: 'Open Instagram', onPress: () => Linking.openURL(instagramUrl) }]
+                );
+            }
             return true;
         } else {
             Alert.alert('Instagram Not Found', 'Please install Instagram to share.');
@@ -160,11 +169,18 @@ export const shareToInstagramStory = async (content: ShareContent): Promise<bool
     try {
         const canOpen = await Linking.canOpenURL(instagramUrl);
         if (canOpen) {
-            Alert.alert(
-                'Link Copied!',
-                'Add link sticker to your story and paste the URL.',
-                [{ text: 'Open Stories', onPress: () => Linking.openURL(instagramUrl) }]
-            );
+            // See shareToInstagramDM: RNW Alert is a no-op on web and expo-linking's web
+            // openURL navigates the same tab off netsaa.com. Link already copied above;
+            // open Instagram Stories in a NEW tab instead. Native unchanged.
+            if (Platform.OS === 'web') {
+                if (typeof window !== 'undefined') window.open(instagramUrl, '_blank', 'noopener,noreferrer');
+            } else {
+                Alert.alert(
+                    'Link Copied!',
+                    'Add link sticker to your story and paste the URL.',
+                    [{ text: 'Open Stories', onPress: () => Linking.openURL(instagramUrl) }]
+                );
+            }
             return true;
         } else {
             Alert.alert('Instagram Not Found', 'Please install Instagram to share.');

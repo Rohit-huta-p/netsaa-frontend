@@ -5,7 +5,7 @@
 // prompt. Preview link opens BookingTermsPreviewModal.
 
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useGig } from '@/hooks/useGigs';
 import { useBookingTermsEdit } from './hooks/useBookingTermsEdit';
@@ -60,9 +60,15 @@ export function BookingTermsEditor({ gigId }: Props) {
     const handleSave = async () => {
         try {
             await edit.save();
-            Alert.alert('Saved', 'Booking terms updated · applies to new hires.', [
-                { text: 'OK', onPress: () => router.back() },
-            ]);
+            // Alert.alert buttons don't render on web → OK→back never fires. On web
+            // navigate back directly (terms already saved); native keeps the Alert.
+            if (Platform.OS === 'web') {
+                router.back();
+            } else {
+                Alert.alert('Saved', 'Booking terms updated · applies to new hires.', [
+                    { text: 'OK', onPress: () => router.back() },
+                ]);
+            }
         } catch (err: any) {
             Alert.alert('Save failed', err?.message ?? 'Could not update terms. Try again.');
         }

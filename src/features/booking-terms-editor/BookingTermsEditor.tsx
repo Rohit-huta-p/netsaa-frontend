@@ -9,6 +9,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } fr
 import { useRouter } from 'expo-router';
 import { useGig } from '@/hooks/useGigs';
 import { useBookingTermsEdit } from './hooks/useBookingTermsEdit';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { PaymentStructurePicker } from './components/PaymentStructurePicker';
 import { CancellationPicker } from './components/CancellationPicker';
 import { NegotiableToggle } from './components/NegotiableToggle';
@@ -25,6 +26,7 @@ type Props = { gigId: string };
 
 export function BookingTermsEditor({ gigId }: Props) {
     const router = useRouter();
+    const confirm = useConfirm();
     const { data: gig, isLoading } = useGig(gigId);
     const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -45,19 +47,14 @@ export function BookingTermsEditor({ gigId }: Props) {
         );
     }
 
-    const handleCancel = () => {
+    const handleCancel = async () => {
         if (!edit.isDirty) {
             router.back();
             return;
         }
-        Alert.alert(
-            'Discard changes?',
-            'Your edits to the booking terms will be lost.',
-            [
-                { text: 'Keep editing', style: 'cancel' },
-                { text: 'Discard', style: 'destructive', onPress: () => router.back() },
-            ]
-        );
+        if (await confirm({ title: 'Discard changes?', body: 'Your edits to the booking terms will be lost.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true })) {
+            router.back();
+        }
     };
 
     const handleSave = async () => {

@@ -11,7 +11,8 @@
 //   Blank    — clear the textarea (start from scratch)
 
 import React from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 
 export type TermsTemplateKey = 'basic' | 'standard' | 'detailed' | 'blank';
 
@@ -60,21 +61,12 @@ const CHIP_LABELS: Array<{ key: TermsTemplateKey; label: string; description: st
 ];
 
 export function TermsTemplates({ currentValue, onSelect }: TermsTemplatesProps) {
-    const handlePress = (key: TermsTemplateKey) => {
+    const confirm = useConfirm();
+    const handlePress = async (key: TermsTemplateKey) => {
         const body = key === 'blank' ? '' : TERMS_TEMPLATES[key];
         const hasContent = currentValue.trim().length > 0;
         if (hasContent) {
-            try {
-                Alert.alert(
-                    'Replace existing terms?',
-                    'This template will overwrite what you\'ve typed.',
-                    [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Replace', style: 'destructive', onPress: () => onSelect(body) },
-                    ]
-                );
-            } catch {
-                // Test environments where Alert is mocked — proceed without prompt.
+            if (await confirm({ title: 'Replace existing terms?', body: 'This template will overwrite what you\'ve typed.', confirmLabel: 'Replace', destructive: true })) {
                 onSelect(body);
             }
             return;

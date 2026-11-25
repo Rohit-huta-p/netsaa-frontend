@@ -100,7 +100,7 @@ function RowFor({ primary, sub, it, idx }: { primary: Primary; sub: string; it: 
         kind="event"
         initial={initialOf(it?.title)}
         title={it?.title ?? 'Registered event'}
-        pill={{ label: 'Registered', tone: 'blue' }}
+        pill={it?._promoted ? { label: 'Seat open · confirm', tone: 'green' } : { label: 'Registered', tone: 'blue' }}
         meta={[it?.location, it?.date ? fmtShortDate(it.date) : null].filter(Boolean).join(' · ')}
         right={free ? 'Free' : fmtRupees(it?.payRupees)}
         onPress={() => router.push(`/events/${it?.id ?? ''}` as any)}

@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 import useUpcoming, { UpcomingItem } from '@/hooks/useUpcoming';
 import useApplications from '@/hooks/useApplications';
 import { useSavedItems } from '@/hooks/useSavedItems';
+import useMyWaitlistMine from '@/hooks/useMyWaitlistMine';
 
 // Applications still "in flight" — everything before a terminal hired/closed.
 const ACTIVE_APP_STATUSES = new Set(['applied', 'shortlisted', 'reviewed', 'offered', 'pending']);
@@ -35,11 +36,12 @@ export function useArtistInvolvement(): ArtistInvolvement {
   const upcomingQ = useUpcoming();
   const appsQ = useApplications();
   const savedQ = useSavedItems();
+  const mineQ = useMyWaitlistMine();
 
   return useMemo(() => {
     const upcomingArr = safeArr((upcomingQ as any)?.data);
     const hired = upcomingArr.filter((u: any) => u?.type === 'gig') as UpcomingItem[];
-    const registered = upcomingArr.filter((u: any) => u?.type === 'event') as UpcomingItem[];
+    const registeredConfirmed = upcomingArr.filter((u: any) => u?.type === 'event') as UpcomingItem[];
 
     const apps = safeArr((appsQ as any)?.data);
     const applied = apps.filter((a: any) => ACTIVE_APP_STATUSES.has(String(a?.status ?? '').toLowerCase()));
@@ -52,14 +54,29 @@ export function useArtistInvolvement(): ArtistInvolvement {
     const savedEvents = allSaved.filter((it: any) => it?.type === 'EVENT');
     const past = safeArr(saved?.historyItems);
 
+    // Promoted waitlist offers (a held seat the user must confirm) lead the Registered
+    // tab with a "Seat open · confirm" pill; a plain 'waiting' entry stays off the list.
+    const promoted = safeArr((mineQ as any)?.data)
+      .filter((e: any) => e?.status === 'promoted' && e?.eventId)
+      .map((e: any): any => ({
+        id: e.eventId._id,
+        title: e.eventId.title,
+        location: e.eventId.location?.venueName || e.eventId.location?.city || '',
+        date: e.eventId.startsAt || e.eventId.schedule?.startDate,
+        payRupees: e.eventId.pricing?.amount ?? e.eventId.ticketPrice ?? 0,
+        _promoted: true,
+      }));
+    const registered = [...promoted, ...registeredConfirmed] as UpcomingItem[];
+
     const isLoading = !!(
       (upcomingQ as any)?.isLoading ||
       (appsQ as any)?.isLoading ||
-      (savedQ as any)?.isLoading
+      (savedQ as any)?.isLoading ||
+      (mineQ as any)?.isLoading
     );
 
     return { applied, hired, savedGigs, registered, savedEvents, past, isLoading };
-  }, [upcomingQ, appsQ, savedQ]);
+  }, [upcomingQ, appsQ, savedQ, mineQ]);
 }
 
 export default useArtistInvolvement;

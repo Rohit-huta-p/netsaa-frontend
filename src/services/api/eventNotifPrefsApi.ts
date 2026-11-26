@@ -77,12 +77,16 @@ export const eventNotifPrefsApi = {
 
   /**
    * POST /v1/events/:id/notifications
-   * Returns { notificationId }. Throws on 429 (5/day quota).
+   * Returns { notificationId, delivered, notified }. `delivered` is true only when
+   * the notification pipeline actually accepted the fan-out (so the UI can confirm
+   * honestly); `notified` is how many attendees were reached. Throws on 429 (5/day
+   * quota). `delivered`/`notified` are optional for backward-compat with an older
+   * backend that returned only { notificationId }.
    */
   sendAnnouncement: async (
     eventId: string,
     payload: AnnouncementPayload,
-  ): Promise<{ notificationId: string }> => {
+  ): Promise<{ notificationId: string; delivered?: boolean; notified?: number }> => {
     const r = await eventClient.post(
       `/v1/events/${eventId}/notifications`,
       payload,

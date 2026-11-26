@@ -22,6 +22,7 @@ import WaitlistJoinSheet from '@/components/events/register/WaitlistJoinSheet';
 import LeaveWaitlistConfirm from '@/components/events/register/LeaveWaitlistConfirm';
 import WithdrawConfirm from '@/components/events/register/WithdrawConfirm';
 import { ctaLabel, lowestPrice, refundLabel, closesLabel } from '@/lib/eventDetailV3';
+import { EVENT_WAITLIST_ENABLED } from '@/lib/constants';
 
 interface Props {
   event: EventDoc;
@@ -484,7 +485,7 @@ export default function EventCtaBar({ event, initialOpen, onInitialOpenConsumed,
                 On waitlist · #{myWaitlist.position}
               </Text>
             </Pressable>
-          ) : isFull && event.allowWaitlist ? (
+          ) : isFull && EVENT_WAITLIST_ENABLED && event.allowWaitlist ? (
             <Pressable
               onPress={() => setWaitlistOpen(true)}
               style={{

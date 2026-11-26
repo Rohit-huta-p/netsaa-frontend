@@ -60,3 +60,12 @@ export const API_SEARCH_URL = url('https://netsaa-search-service.onrender.com', 
 // NOTE: media-service's Render public URL is netsaa-backend-yvy9, NOT netsaa-media-service
 // (that host has no service behind it). Don't "correct" this back without checking Render.
 export const API_MEDIA_URL = url('https://netsaa-backend-yvy9.onrender.com/v1', ':5004/v1');
+
+/**
+ * Master kill-switch for the event-waitlist concept (MVP: OFF), mirroring the INVITES_ENABLED
+ * park pattern. When false, no surface offers a waitlist: the register "Event is full" CTA
+ * reads "Sold out" (no join), the host hub + See-all drop the Waitlist tab/group/Promote, and
+ * the home "Seat open · confirm" pill never appears. The code is kept, not deleted — flip this
+ * to true (and set EVENTS_WAITLIST_ENABLED=1 on events-service) to bring the feature back.
+ */
+export const EVENT_WAITLIST_ENABLED = false;

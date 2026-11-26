@@ -13,6 +13,7 @@
 // Build plan: DOCS/02-engineering/NETSA_Event_SeeAll_Build_Plan.md (§1, §1a).
 
 import type { EventDoc, EventRosterRow, EventRosterData } from '@/services/eventService';
+import { EVENT_WAITLIST_ENABLED } from '@/lib/constants';
 
 export type AttendeeGroup =
   | 'requests' | 'awaitingpay' | 'confirmed' | 'waitlist' | 'checkedin' | 'cancelled';
@@ -119,11 +120,14 @@ type EventShape = Pick<
 export function visibleGroups(
   event?: EventShape | null,
   counts?: Partial<Record<AttendeeGroup, number>>,
+  waitlistEnabled: boolean = EVENT_WAITLIST_ENABLED,
 ): AttendeeGroup[] {
   const door = event?.registration?.door;
   const requiresApproval = door === 'guest_list' || door === 'apply' || !!event?.requiresApproval;
   const isPaid = event?.registrationMode === 'paid_ticket';
-  const hasWaitlist = (event?.capacity?.total ?? 0) > 0 && event?.allowWaitlist !== false;
+  // Waitlist is a global kill-switch (MVP: off). When disabled the group never shows,
+  // even if a legacy event still holds waitlist rows (handled in the filter below).
+  const hasWaitlist = waitlistEnabled && (event?.capacity?.total ?? 0) > 0 && event?.allowWaitlist !== false;
 
   const eligible: Record<AttendeeGroup, boolean> = {
     requests: requiresApproval,
@@ -134,7 +138,11 @@ export function visibleGroups(
     cancelled: true,
   };
   const has = (g: AttendeeGroup) => (counts?.[g] ?? 0) > 0;
-  return GROUP_ORDER.filter((g) => eligible[g] || has(g));
+  return GROUP_ORDER.filter((g) => {
+    // Hard-hide the waitlist stage when disabled, even if stranded rows remain.
+    if (g === 'waitlist' && !waitlistEnabled) return false;
+    return eligible[g] || has(g);
+  });
 }
 
 /** name OR phone contains the query (trim + case-insensitive). Empty query passes. */

@@ -1,4 +1,4 @@
-import { API_EVENTS_URL } from '@/lib/constants';
+import { API_EVENTS_URL, EVENT_WAITLIST_ENABLED } from '@/lib/constants';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
@@ -41,7 +41,7 @@ export function useMyWaitlistEntry(eventId: string) {
         throw err;
       }
     },
-    enabled: !!userId && !!eventId,
+    enabled: EVENT_WAITLIST_ENABLED && !!userId && !!eventId,
     staleTime: 30_000,
   });
 }

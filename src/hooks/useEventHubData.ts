@@ -15,6 +15,7 @@ import { useEventRoster } from '@/hooks/useEventRoster';
 import { usePayoutAccount } from '@/hooks/usePayoutAccount';
 import type { EventDoc, EventRosterRow } from '@/services/eventService';
 import type { PayoutAccount, PayoutStatus } from '@/services/payoutService';
+import { EVENT_WAITLIST_ENABLED } from '@/lib/constants';
 
 /** The attendee-lifecycle spine. `requests` leads only on gated events. */
 export type EventHubStage = 'requests' | 'going' | 'waitlist' | 'checkedIn';
@@ -121,9 +122,12 @@ export function useEventHubData(eventId: string): EventHubData {
     // client-side (registrations.ts:339). Status strings are the backend enum.
     const goingRows = confirmed.filter((r) => r.status === 'registered');
     const checkedInRows = confirmed.filter((r) => r.status === 'attended');
-    const waitlistRows = [...(roster?.waitlist ?? [])].sort(
-      (a, b) => (a.position ?? 0) - (b.position ?? 0),
-    );
+    // Waitlist disabled (MVP) → zero the bucket at the source. This cascades: counts.waitlist
+    // falls to 0 and the "Promote {name}" sticky never fires. Keeps the hub self-consistent
+    // even against a stale backend that still returns waitlist rows.
+    const waitlistRows = EVENT_WAITLIST_ENABLED
+      ? [...(roster?.waitlist ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+      : [];
     const requestRows = roster?.requests ?? [];
     const approvedRows = roster?.approved ?? [];
 

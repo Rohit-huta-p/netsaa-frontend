@@ -86,7 +86,7 @@ export const eventNotifPrefsApi = {
   sendAnnouncement: async (
     eventId: string,
     payload: AnnouncementPayload,
-  ): Promise<{ notificationId: string; delivered?: boolean; notified?: number }> => {
+  ): Promise<{ notificationId: string; delivered?: boolean; notified?: number; reason?: string }> => {
     const r = await eventClient.post(
       `/v1/events/${eventId}/notifications`,
       payload,

@@ -91,7 +91,7 @@ export default function AnnouncementComposer({ visible, eventId, onClose, onSent
   // Non-null once a send completes → show the confirmation panel. `delivered`
   // reflects whether the notification pipeline actually accepted it (the backend
   // tells us honestly), so we never claim "Sent" when nothing went out.
-  const [sent, setSent] = useState<null | { delivered: boolean; notified: number }>(null);
+  const [sent, setSent] = useState<null | { delivered: boolean; notified: number; reason?: string }>(null);
 
   // Reset the confirmation + any error each time the sheet is (re)opened.
   useEffect(() => {
@@ -130,7 +130,7 @@ export default function AnnouncementComposer({ visible, eventId, onClose, onSent
       // Show the confirmation panel. delivered/notified default to a safe
       // "not delivered" when an older backend omits them (that backend didn't
       // deliver either, so this stays honest).
-      setSent({ delivered: result?.delivered ?? false, notified: result?.notified ?? 0 });
+      setSent({ delivered: result?.delivered ?? false, notified: result?.notified ?? 0, reason: result?.reason });
     } catch (err: any) {
       const serverMsg = err?.response?.data?.meta?.message || err?.response?.data?.message;
       if (err?.response?.status === 429 && serverMsg) {
@@ -171,6 +171,22 @@ export default function AnnouncementComposer({ visible, eventId, onClose, onSent
                       : 'Your attendees will see it in their notifications.'}
                   </Text>
                 </>
+              ) : sent.reason === 'no_recipients' ? (
+                <>
+                  <Info size={40} color={BLUE} />
+                  <Text style={styles.doneTitle}>No attendees yet</Text>
+                  <Text style={styles.doneSub}>
+                    No one is in that audience for this event, so there was nothing to send.
+                  </Text>
+                </>
+              ) : sent.reason === 'timeout' ? (
+                <>
+                  <AlertTriangle size={40} color={AMBER} />
+                  <Text style={styles.doneTitle}>Delivery unconfirmed</Text>
+                  <Text style={styles.doneSub}>
+                    We couldn't confirm delivery just now — please don't resend; it may already be on its way.
+                  </Text>
+                </>
               ) : (
                 <>
                   <AlertTriangle size={40} color={AMBER} />
@@ -181,7 +197,7 @@ export default function AnnouncementComposer({ visible, eventId, onClose, onSent
                 </>
               )}
               <TouchableOpacity
-                onPress={() => onSent?.()}
+                onPress={() => (onSent ?? onClose)()}
                 style={styles.doneBtn}
                 accessibilityRole="button"
                 accessibilityLabel="Done"

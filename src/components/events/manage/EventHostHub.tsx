@@ -52,6 +52,7 @@ import EventPreviewModal from '@/components/events/detail/EventPreviewModal';
 import { ContactActionSheet } from '@/features/team/ContactActionSheet';
 import { C, F } from './hubTokens';
 import { pendingSummary } from './requestFormat';
+import { EVENT_WAITLIST_ENABLED } from '@/lib/constants';
 
 const HORIZ = 18;
 const DAY = 86_400_000;
@@ -338,7 +339,7 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
   const spineStages: { key: EventHubStage; label: string; n: string; ph2?: boolean }[] = [
     ...(gated ? [{ key: 'requests' as const, label: 'Requests', n: String(counts.requests), ph2: true }] : []),
     { key: 'going', label: 'Confirmed', n: String(counts.going) },
-    { key: 'waitlist', label: 'Waitlist', n: String(counts.waitlist) },
+    ...(EVENT_WAITLIST_ENABLED ? [{ key: 'waitlist' as const, label: 'Waitlist', n: String(counts.waitlist) }] : []),
     { key: 'checkedIn', label: 'Checked-in', n: counts.checkedIn > 0 ? String(counts.checkedIn) : '—' },
   ];
 

@@ -55,7 +55,7 @@ const HOST: Loop = {
   TabIcon: CalendarDays,
   beats: [
     { Icon: CalendarPlus, title: 'Create the event', sub: 'Workshop, showcase, meetup — free RSVP or paid ticket.' },
-    { Icon: Ticket, title: 'People register', sub: 'Seats fill up; a waitlist catches the overflow.' },
+    { Icon: Ticket, title: 'People register', sub: 'Seats fill up on a first-come, first-served basis.' },
     { Icon: ClipboardList, title: 'Manage the roster', sub: 'Announce, answer questions, and check people in on the day.' },
     { Icon: Wallet, title: 'Host & settle up', sub: 'Run the day. Paid events settle to your account after the NETSA fee.' },
   ],

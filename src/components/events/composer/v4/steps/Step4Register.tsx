@@ -11,7 +11,7 @@ import type { QuestionV4 } from '../composerForm';
  *  a footnote, not a section. Questions and age limit are optional — demoted to quiet
  *  rows that stay empty until a host wants them. */
 const DOORS: { key: DoorPolicy; label: string; line: string }[] = [
-  { key: 'open', label: 'Open door', line: 'Anyone registers instantly. Waitlist when full.' },
+  { key: 'open', label: 'Open door', line: 'Anyone registers instantly, until it fills up.' },
   { key: 'guest_list', label: 'Guest list', line: 'You approve each request.' },
   { key: 'apply', label: 'Apply with work', line: 'They send a reel or photos; you pick.' },
 ];

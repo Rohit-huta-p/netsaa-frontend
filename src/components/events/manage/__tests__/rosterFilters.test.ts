@@ -67,8 +67,10 @@ describe('visibleGroups (derived from the event shape)', () => {
   it('pay-now open, uncapped = 3', () => {
     expect(visibleGroups(ev({ door: 'open', paid: true, total: 0 }))).toEqual(['confirmed', 'checkedin', 'cancelled']);
   });
+  // The shape→group derivation below is exercised with waitlist ENABLED (3rd arg true);
+  // the global kill-switch default (OFF) is covered by its own test at the end.
   it('pay-now open, capped + waitlist = +Waitlist (4)', () => {
-    expect(visibleGroups(ev({ door: 'open', paid: true, total: 50, allowWaitlist: true })))
+    expect(visibleGroups(ev({ door: 'open', paid: true, total: 50, allowWaitlist: true }), undefined, true))
       .toEqual(['confirmed', 'waitlist', 'checkedin', 'cancelled']);
   });
   it('free approval (guest_list), uncapped = +Requests (4)', () => {
@@ -76,11 +78,11 @@ describe('visibleGroups (derived from the event shape)', () => {
       .toEqual(['requests', 'confirmed', 'checkedin', 'cancelled']);
   });
   it('free approval, capped + waitlist = 5', () => {
-    expect(visibleGroups(ev({ door: 'guest_list', paid: false, total: 20, allowWaitlist: true })))
+    expect(visibleGroups(ev({ door: 'guest_list', paid: false, total: 20, allowWaitlist: true }), undefined, true))
       .toEqual(['requests', 'confirmed', 'waitlist', 'checkedin', 'cancelled']);
   });
   it('paid audition (guest_list + paid + capped + waitlist) = all 6', () => {
-    expect(visibleGroups(ev({ door: 'guest_list', paid: true, total: 20, allowWaitlist: true }))).toEqual(GROUP_ORDER);
+    expect(visibleGroups(ev({ door: 'guest_list', paid: true, total: 20, allowWaitlist: true }), undefined, true)).toEqual(GROUP_ORDER);
   });
   it('apply door is also approval-gated', () => {
     expect(visibleGroups(ev({ door: 'apply', paid: true })))
@@ -88,14 +90,22 @@ describe('visibleGroups (derived from the event shape)', () => {
   });
   it('shows an eligible stage even at count 0 (fresh paid audition still returns all 6)', () => {
     expect(visibleGroups(ev({ door: 'guest_list', paid: true, total: 20, allowWaitlist: true }),
-      { requests: 0, awaitingpay: 0, confirmed: 0, waitlist: 0, checkedin: 0, cancelled: 0 })).toEqual(GROUP_ORDER);
+      { requests: 0, awaitingpay: 0, confirmed: 0, waitlist: 0, checkedin: 0, cancelled: 0 }, true)).toEqual(GROUP_ORDER);
   });
   it('never hides a non-empty group the shape calls impossible (stranded data after a door change)', () => {
     expect(visibleGroups(ev({ door: 'open', paid: false }), { requests: 2 })).toContain('requests');
   });
   it('a capped event with waitlist explicitly disabled hides Waitlist', () => {
-    expect(visibleGroups(ev({ door: 'open', paid: false, total: 20, allowWaitlist: false })))
+    expect(visibleGroups(ev({ door: 'open', paid: false, total: 20, allowWaitlist: false }), undefined, true))
       .toEqual(['confirmed', 'checkedin', 'cancelled']);
+  });
+  it('the global waitlist kill-switch (default OFF) hides Waitlist even when the shape allows it', () => {
+    // No 3rd arg → defaults to EVENT_WAITLIST_ENABLED (shipped OFF).
+    expect(visibleGroups(ev({ door: 'open', paid: true, total: 50, allowWaitlist: true })))
+      .toEqual(['confirmed', 'checkedin', 'cancelled']);
+    // Off hides the stage even when stranded waitlist rows remain.
+    expect(visibleGroups(ev({ door: 'open', paid: true, total: 50, allowWaitlist: true }), { waitlist: 3 } as any, false))
+      .not.toContain('waitlist');
   });
   it('tolerates a missing event', () => {
     expect(visibleGroups(undefined)).toEqual(['confirmed', 'checkedin', 'cancelled']);

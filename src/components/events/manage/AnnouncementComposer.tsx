@@ -33,6 +33,7 @@ import {
 } from 'react-native';
 import { Bell, Mail, MessageSquare, Info } from 'lucide-react-native';
 import { eventNotifPrefsApi } from '@/services/api/eventNotifPrefsApi';
+import { EVENT_WAITLIST_ENABLED } from '@/lib/constants';
 
 // ----------------------------------------------------------------- types
 
@@ -57,7 +58,8 @@ const CHANNEL_META: { key: Channel; label: string; Icon: React.ComponentType<any
 const AUDIENCE_META: { key: Audience; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'confirmed', label: 'Confirmed' },
-  { key: 'waitlisted', label: 'Waitlist' },
+  // Waitlist audience hidden while the waitlist concept is disabled (no waitlisters exist).
+  ...(EVENT_WAITLIST_ENABLED ? [{ key: 'waitlisted' as const, label: 'Waitlist' }] : []),
   { key: 'vip', label: 'VIP' },
 ];
 

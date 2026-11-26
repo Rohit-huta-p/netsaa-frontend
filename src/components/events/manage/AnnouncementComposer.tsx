@@ -17,7 +17,7 @@
 // single-select (Confirmed default — safer than All). Send disabled while
 // sending / body empty / no channel. 429 → inline server message, don't close.
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -31,7 +31,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Bell, Mail, MessageSquare, Info } from 'lucide-react-native';
+import { Bell, Mail, MessageSquare, Info, CheckCircle2, AlertTriangle } from 'lucide-react-native';
 import { eventNotifPrefsApi } from '@/services/api/eventNotifPrefsApi';
 import { EVENT_WAITLIST_ENABLED } from '@/lib/constants';
 
@@ -77,6 +77,8 @@ const ORANGE_INK = '#1A0D06';               // --orange-ink (text on white)
 const BLUE = '#5B8DEF';
 const BLUE_SOFT = 'rgba(91,141,239,0.14)';  // --blue-soft
 const RED = '#EF4444';
+const GREEN = '#22C55E';
+const AMBER = '#F59E0B';
 
 // ----------------------------------------------------------------- component
 
@@ -86,6 +88,18 @@ export default function AnnouncementComposer({ visible, eventId, onClose, onSent
   const [audience, setAudience] = useState<Audience>('confirmed');
   const [sending, setSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Non-null once a send completes → show the confirmation panel. `delivered`
+  // reflects whether the notification pipeline actually accepted it (the backend
+  // tells us honestly), so we never claim "Sent" when nothing went out.
+  const [sent, setSent] = useState<null | { delivered: boolean; notified: number; reason?: string }>(null);
+
+  // Reset the confirmation + any error each time the sheet is (re)opened.
+  useEffect(() => {
+    if (visible) {
+      setSent(null);
+      setErrorMsg(null);
+    }
+  }, [visible]);
 
   const toggleChannel = useCallback((ch: Channel) => {
     setChannels((prev) => {
@@ -105,7 +119,7 @@ export default function AnnouncementComposer({ visible, eventId, onClose, onSent
     setErrorMsg(null);
     setSending(true);
     try {
-      await eventNotifPrefsApi.sendAnnouncement(eventId, {
+      const result = await eventNotifPrefsApi.sendAnnouncement(eventId, {
         body: body.trim(),
         channels: Array.from(channels),
         audience,
@@ -113,7 +127,10 @@ export default function AnnouncementComposer({ visible, eventId, onClose, onSent
       setBody('');
       setChannels(new Set(['push']));
       setAudience('confirmed');
-      onSent?.();
+      // Show the confirmation panel. delivered/notified default to a safe
+      // "not delivered" when an older backend omits them (that backend didn't
+      // deliver either, so this stays honest).
+      setSent({ delivered: result?.delivered ?? false, notified: result?.notified ?? 0, reason: result?.reason });
     } catch (err: any) {
       const serverMsg = err?.response?.data?.meta?.message || err?.response?.data?.message;
       if (err?.response?.status === 429 && serverMsg) {
@@ -124,14 +141,11 @@ export default function AnnouncementComposer({ visible, eventId, onClose, onSent
     } finally {
       setSending(false);
     }
-  }, [sending, body, channels, audience, eventId, onSent]);
+  }, [sending, body, channels, audience, eventId]);
 
   const canSend = body.trim().length > 0 && channels.size > 0 && !sending;
 
   const audienceLabel = AUDIENCE_META.find((a) => a.key === audience)?.label ?? 'audience';
-  const channelList = Array.from(channels)
-    .map((ch) => CHANNEL_META.find((c) => c.key === ch)?.label ?? ch)
-    .join(' + ');
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose} statusBarTranslucent>
@@ -145,6 +159,53 @@ export default function AnnouncementComposer({ visible, eventId, onClose, onSent
         <View style={styles.sheet}>
           <View style={styles.grab} />
 
+          {sent ? (
+            <View style={styles.doneWrap}>
+              {sent.delivered ? (
+                <>
+                  <CheckCircle2 size={44} color={GREEN} />
+                  <Text style={styles.doneTitle}>Announcement sent</Text>
+                  <Text style={styles.doneSub}>
+                    {sent.notified > 0
+                      ? `${sent.notified} ${sent.notified === 1 ? 'attendee' : 'attendees'} will see it in their notifications.`
+                      : 'Your attendees will see it in their notifications.'}
+                  </Text>
+                </>
+              ) : sent.reason === 'no_recipients' ? (
+                <>
+                  <Info size={40} color={BLUE} />
+                  <Text style={styles.doneTitle}>No attendees yet</Text>
+                  <Text style={styles.doneSub}>
+                    No one is in that audience for this event, so there was nothing to send.
+                  </Text>
+                </>
+              ) : sent.reason === 'timeout' ? (
+                <>
+                  <AlertTriangle size={40} color={AMBER} />
+                  <Text style={styles.doneTitle}>Delivery unconfirmed</Text>
+                  <Text style={styles.doneSub}>
+                    We couldn't confirm delivery just now — please don't resend; it may already be on its way.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle size={40} color={AMBER} />
+                  <Text style={styles.doneTitle}>Saved</Text>
+                  <Text style={styles.doneSub}>
+                    We couldn't notify your attendees just now. Your message is saved — please try again shortly.
+                  </Text>
+                </>
+              )}
+              <TouchableOpacity
+                onPress={() => (onSent ?? onClose)()}
+                style={styles.doneBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Done"
+              >
+                <Text style={styles.sendBtnText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
             {/* Header */}
             <Text style={styles.title}>New announcement</Text>
@@ -216,7 +277,7 @@ export default function AnnouncementComposer({ visible, eventId, onClose, onSent
               <View style={styles.infoBar}>
                 <Info size={16} color={BLUE} style={{ marginTop: 1 }} />
                 <Text style={styles.infoText}>
-                  Your {audienceLabel.toLowerCase()} attendees will receive this via {channelList}.
+                  Your {audienceLabel.toLowerCase()} attendees will see this in their NETSA notifications.
                 </Text>
               </View>
             )}
@@ -237,6 +298,7 @@ export default function AnnouncementComposer({ visible, eventId, onClose, onSent
               )}
             </TouchableOpacity>
           </ScrollView>
+          )}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -363,4 +425,37 @@ const styles = StyleSheet.create({
   sendBtnDisabled: { backgroundColor: 'rgba(255,255,255,0.08)' },
   sendBtnText: { fontFamily: 'Outfit-Bold', fontSize: 13.5, color: ORANGE_INK, letterSpacing: 0.2 },
   sendBtnTextDisabled: { color: TEXT_3 },
+
+  // Confirmation panel (shown in place of the form after a send completes).
+  doneWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 18,
+    paddingBottom: 20,
+    alignItems: 'center',
+    gap: 12,
+  },
+  doneTitle: {
+    fontFamily: 'DMSerifDisplay_400Regular',
+    fontSize: 22,
+    color: TEXT_0,
+    marginTop: 2,
+  },
+  doneSub: {
+    fontFamily: 'Outfit-Regular',
+    fontSize: 13,
+    lineHeight: 20,
+    color: TEXT_1,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+  },
+  doneBtn: {
+    height: 48,
+    borderRadius: 11,
+    backgroundColor: TEXT_0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    marginTop: 8,
+  },
 });

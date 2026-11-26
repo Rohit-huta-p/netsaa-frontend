@@ -57,7 +57,7 @@ export default function OverviewActions({ event }: { event: EventDoc }) {
         Icon={MessageSquare}
         color="#8B5CF6"
         label="Send announcement"
-        sublabel="push / email / SMS · choose audience"
+        sublabel="reaches attendees in their notifications · choose audience"
         onPress={() => setAnnounceOpen(true)}
       />
 

@@ -6,7 +6,7 @@
 import {
   Briefcase, BadgeCheck, Clock, CalendarCheck, Calendar, MessageCircle,
   UserPlus, UserCheck, Banknote, Ban, MinusCircle, FileText, Settings,
-  Sparkles, Star, Bell, Eye, type LucideIcon,
+  Sparkles, Star, Bell, Eye, Megaphone, type LucideIcon,
 } from 'lucide-react-native';
 import type { Notification } from '@/stores/notificationsStore';
 
@@ -62,6 +62,7 @@ const BY_SUBTYPE: Record<string, NotifVisual> = {
   'event.reminder': { semantic: 'amber', Icon: Calendar },
   'event.reservation.expired': { semantic: 'muted', Icon: Clock, eyebrow: 'Expired' },
   'event.posted.by_followed': { semantic: 'amber', Icon: Calendar }, // someone you follow posted an event
+  'event.announcement': { semantic: 'amber', Icon: Megaphone, eyebrow: 'Announcement' }, // host broadcast to attendees
   'payment.success': { semantic: 'green', Icon: Banknote },
   'payment.failed': { semantic: 'red', Icon: Banknote, eyebrow: 'Payment failed' },
   'payment.refund.initiated': { semantic: 'amber', Icon: Banknote, eyebrow: 'Refund started' },

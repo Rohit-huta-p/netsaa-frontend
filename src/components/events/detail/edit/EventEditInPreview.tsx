@@ -22,7 +22,7 @@ const ORANGE = '#FF6B35';
 export default function EventEditInPreview({ eventId }: { eventId: string }) {
   const router = useRouter();
   const { data: event } = useEvent(eventId);
-  const { controller, saveState, retry } = useEventEdit(eventId, event);
+  const { controller, host, saveState, retry } = useEventEdit(eventId, event);
   const hydratedId = useComposerStoreV4((s) => s.editEventId);
 
   const ready = !!event && hydratedId === eventId;
@@ -42,6 +42,7 @@ export default function EventEditInPreview({ eventId }: { eventId: string }) {
       <EventDetailViewer
         event={event}
         edit={controller}
+        host={host}
         saveState={saveState}
         onRetrySave={retry}
         onExitEdit={exit}

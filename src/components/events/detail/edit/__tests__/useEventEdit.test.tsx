@@ -119,4 +119,59 @@ describe('useEventEdit', () => {
     expect(mockUpdate).toHaveBeenCalledWith('evt-1', { title: 'Flushed' });
     expect(useComposerStoreV4.getState().editEventId).toBeNull(); // reset ran after the flush
   });
+
+  // ── host-only zone / focused sheets (P2) ──
+
+  it('a host-zone sheet edit commits via host.scheduleSave (visibility → whitelist)', async () => {
+    const { result } = renderHook(() => useEventEdit('evt-1', baseEvent() as any), { wrapper });
+    act(() => {
+      useComposerStoreV4.getState().update('visibility', 'unlisted');
+      result.current.host.scheduleSave();
+    });
+    await flush();
+    expect(mockUpdate).toHaveBeenCalledWith('evt-1', { visibility: 'unlisted' });
+  });
+
+  it('an event-type change is escorted so it routes to the composer path (eventType + openToAll)', async () => {
+    const { result } = renderHook(() => useEventEdit('evt-1', baseEvent() as any), { wrapper });
+    act(() => {
+      useComposerStoreV4.getState().setEventType('masterclass');
+      result.current.host.scheduleSave();
+    });
+    await flush();
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    const [, body] = mockUpdate.mock.calls[0];
+    expect(body.eventType).toBe('masterclass');
+    expect(body).toHaveProperty('openToAll'); // forces buildComposerUpdate (else eventType is dropped)
+  });
+
+  it('a details edit sends skillLevel + topicTags together, with no tags and no sentinel', async () => {
+    const { result } = renderHook(() => useEventEdit('evt-1', baseEvent() as any), { wrapper });
+    act(() => {
+      const st = useComposerStoreV4.getState();
+      st.update('levels', ['beginner']);
+      st.update('styles', ['Kathak']);
+      result.current.host.scheduleSave();
+    });
+    await flush();
+    const [, body] = mockUpdate.mock.calls[0];
+    expect(body).toHaveProperty('skillLevel', ['beginner']);
+    expect(body).toHaveProperty('topicTags', ['Kathak']);
+    expect(body).not.toHaveProperty('tags');       // the backend mirrors tags←topicTags
+    expect(body).not.toHaveProperty('openToAll');  // skillLevel already routes to the composer path
+  });
+
+  it('saveDeadline sends a direct { registrationDeadline } PATCH (not through the diff loop)', async () => {
+    const { result } = renderHook(() => useEventEdit('evt-1', baseEvent() as any), { wrapper });
+    act(() => result.current.host.saveDeadline('2026-03-12T00:00:00.000Z'));
+    await flush();
+    expect(mockUpdate).toHaveBeenCalledWith('evt-1', { registrationDeadline: '2026-03-12T00:00:00.000Z' });
+  });
+
+  it('saveDeadline(null) clears the deadline', async () => {
+    const { result } = renderHook(() => useEventEdit('evt-1', baseEvent() as any), { wrapper });
+    act(() => result.current.host.saveDeadline(null));
+    await flush();
+    expect(mockUpdate).toHaveBeenCalledWith('evt-1', { registrationDeadline: null });
+  });
 });

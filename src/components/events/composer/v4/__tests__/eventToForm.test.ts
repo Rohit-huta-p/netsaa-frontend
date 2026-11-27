@@ -72,6 +72,7 @@ describe('eventToForm — edit round-trip (form → payload → eventToForm)', (
     expect(back.questions[0]).toMatchObject({ label: 'Instagram', type: 'link', required: true });
     expect(back.ageRestriction).toBe(16);
     expect(back.about).toBe('A hands-on morning on tatkar and posture.');
+    expect(back.tagline).toBe('Rhythm, posture and the basics.'); // edit-in-preview edits this inline
     expect(back.lineup[0]).toMatchObject({ when: '10:00', title: 'Warm-up' });
     expect(back.included).toEqual(['Certificate']);
     expect(back.visibility).toBe('public');

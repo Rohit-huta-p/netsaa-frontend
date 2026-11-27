@@ -12,7 +12,8 @@
  * event. Everything else is byte-identical to what an artist sees.
  */
 import { useState } from 'react';
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, Text, Pressable } from 'react-native';
+import { Check, RefreshCw } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { eventService, type EventDoc } from '@/services/eventService';
@@ -27,6 +28,7 @@ import EventDetailV3Body from './EventDetailV3Body';
 import { usePublicRoster } from '@/hooks/usePublicRoster';
 import MediaViewer, { type MediaViewerItem } from '@/components/profile/MediaViewer';
 import { muxPoster } from '@/components/media/NetsaVideoPlayer';
+import type { EventEditController, SaveState } from './edit/useEventEdit';
 
 const CANVAS = '#121216'; // A·Minimal C.canvas
 
@@ -38,9 +40,18 @@ interface Props {
   onClose?: () => void;
   /** Route-only: open the register sheet on mount (?openRegister=1). */
   initialOpenRegister?: boolean;
+  /** Host "Edit in Preview" (P0+P1): when present the page is editable in place —
+   *  the register CTA is swapped for a save bar and sections render inline inputs. */
+  edit?: EventEditController | null;
+  saveState?: SaveState;
+  onRetrySave?: () => void;
+  onExitEdit?: () => void;
 }
 
-export default function EventDetailViewer({ event, preview, onClose, initialOpenRegister }: Props) {
+export default function EventDetailViewer({
+  event, preview, onClose, initialOpenRegister, edit, saveState = 'idle', onRetrySave, onExitEdit,
+}: Props) {
+  const editing = !!edit;
   const router = useRouter();
 
   const organizerObj = typeof event.organizerId === 'object' ? event.organizerId : undefined;
@@ -94,15 +105,21 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScrollView contentInsetAdjustmentBehavior="never" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="never"
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps={editing ? 'handled' : undefined}
+        automaticallyAdjustKeyboardInsets={editing}
+      >
         {/* Hero owns the overlaid nav (back · share · save) */}
         <EventHeroV3
           event={event}
-          onBack={handleBack}
+          onBack={editing ? (onExitEdit ?? handleBack) : handleBack}
           onShare={() => shareEvent(event)}
-          onSave={preview ? undefined : onToggleSave}
+          onSave={preview || editing ? undefined : onToggleSave}
           saved={saved}
           goingCount={roster?.count ?? 0}
+          edit={edit}
         />
         <EventDetailV3Body
           event={event}
@@ -112,6 +129,7 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
           onOpenProfile={preview ? undefined : openProfile}
           media={galleryItems}
           onOpenMedia={setMediaIndex}
+          edit={edit}
         />
 
         <View style={{ paddingHorizontal: 20 }}>
@@ -124,8 +142,13 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
         <View style={{ height: 110 }} />
       </ScrollView>
 
-      {/* Register bar — inert while previewing (greyed, non-interactive) */}
-      <EventCtaBar event={event} preview={preview} initialOpen={!preview && !!initialOpenRegister} v3 />
+      {/* Edit mode swaps the register CTA for the auto-save bar; otherwise the
+          register bar (inert while previewing). */}
+      {editing ? (
+        <EditSaveBar saveState={saveState} onRetry={onRetrySave} onDone={onExitEdit} />
+      ) : (
+        <EventCtaBar event={event} preview={preview} initialOpen={!preview && !!initialOpenRegister} v3 />
+      )}
 
       {/* Fullscreen gallery viewer — overlays everything, including the CTA bar */}
       {mediaIndex !== null && galleryItems[mediaIndex] ? (
@@ -139,3 +162,61 @@ export default function EventDetailViewer({ event, preview, onClose, initialOpen
     </View>
   );
 }
+
+/**
+ * The bottom bar in edit mode: an auto-save status line + Done. Replaces the register
+ * CTA — the host can't register for their own event, and "Edit in Preview" saves per
+ * field, so there is no explicit Save.
+ */
+function EditSaveBar({
+  saveState, onRetry, onDone,
+}: {
+  saveState: SaveState;
+  onRetry?: () => void;
+  onDone?: () => void;
+}) {
+  const error = saveState === 'error';
+  return (
+    <View style={sb.bar}>
+      <Pressable
+        onPress={error ? onRetry : undefined}
+        disabled={!error}
+        style={sb.status}
+        accessibilityRole={error ? 'button' : 'text'}
+        accessibilityLabel={error ? 'Retry saving' : undefined}
+      >
+        {saveState === 'saving' ? (
+          <Text style={sb.statusTxt}>Saving…</Text>
+        ) : error ? (
+          <>
+            <RefreshCw size={13} color="#F08B6A" />
+            <Text style={[sb.statusTxt, { color: '#F08B6A' }]}>Couldn’t save · Retry</Text>
+          </>
+        ) : saveState === 'saved' ? (
+          <>
+            <Check size={13} color="#22C55E" />
+            <Text style={sb.statusTxt}>All changes saved</Text>
+          </>
+        ) : (
+          <Text style={[sb.statusTxt, { color: '#8C857B' }]}>Editing</Text>
+        )}
+      </Pressable>
+      <Pressable onPress={onDone} style={sb.done} accessibilityRole="button" accessibilityLabel="Done editing">
+        <Text style={sb.doneTxt}>Done</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const sb = {
+  bar: {
+    position: 'absolute' as const, left: 0, right: 0, bottom: 0,
+    flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12,
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28,
+    backgroundColor: 'rgba(18,18,22,0.96)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  status: { flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 7 },
+  statusTxt: { fontFamily: 'Outfit-Medium', fontSize: 13, color: '#C9C4BC' },
+  done: { paddingHorizontal: 22, paddingVertical: 11, borderRadius: 12, backgroundColor: '#FF6B35' },
+  doneTxt: { fontFamily: 'Outfit-SemiBold', fontSize: 14, color: '#fff' },
+};

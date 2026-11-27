@@ -52,7 +52,7 @@ import EventPreviewModal from '@/components/events/detail/EventPreviewModal';
 import { ContactActionSheet } from '@/features/team/ContactActionSheet';
 import { C, F } from './hubTokens';
 import { pendingSummary } from './requestFormat';
-import { EVENT_WAITLIST_ENABLED } from '@/lib/constants';
+import { EVENT_WAITLIST_ENABLED, EVENT_EDIT_IN_PREVIEW } from '@/lib/constants';
 
 const HORIZ = 18;
 const DAY = 86_400_000;
@@ -138,7 +138,12 @@ export default function EventHostHub({ eventId }: { eventId: string }) {
   const back = () => (router.canGoBack() ? router.back() : router.replace('/' as any));
   const goPayouts = () => router.push('/settings/payouts' as any);
   const goSettings = () => router.push(`/events/${eventId}/manage/settings` as any);
-  const goEdit = () => router.push(`/events/${eventId}/edit` as any);
+  // Edit event → new in-place "Edit in Preview" surface when the flag is on; the
+  // composer wizard (/events/:id/edit) stays the fallback.
+  const goEdit = () =>
+    router.push(
+      (EVENT_EDIT_IN_PREVIEW ? `/events/${eventId}/edit-preview` : `/events/${eventId}/edit`) as any,
+    );
   const goScanner = () => router.push(`/events/${eventId}/manage/check-in` as any);
   const openSeeAll = (stage: string) => router.push(`/events/${eventId}/manage/attendees?stage=${stage}` as any);
 

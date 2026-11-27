@@ -7,7 +7,7 @@
  *
  * Reads only from EventDoc; "who's going" is passed in from the public roster.
  */
-import { View, Text, Pressable, Linking, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, Pressable, Linking, StyleSheet, ScrollView, TextInput } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import {
   BadgeCheck, MapPin, Video, Lock, Navigation, UserPlus, Play,
@@ -17,6 +17,9 @@ import type { MediaViewerItem } from '@/components/profile/MediaViewer';
 import {
   metaParts, dateRange, timeLine, initials, featuringLabel, EVENT_TYPE_LABEL,
 } from '@/lib/eventDetailV3';
+import InlineEdit from './edit/InlineEdit';
+import EditableList from './edit/EditableList';
+import type { EventEditController } from './edit/useEventEdit';
 
 /* ── v6 / E·9 palette ── (canvas = A·Minimal C.canvas #121216) */
 const BG = '#121216';
@@ -51,6 +54,9 @@ interface Props {
   media?: MediaViewerItem[];
   /** Open the fullscreen MediaViewer at this index. */
   onOpenMedia?: (index: number) => void;
+  /** Host "Edit in Preview": About / price / What's-included / Line-up become inline
+   *  editors. When absent the body renders byte-identically to view/preview. */
+  edit?: EventEditController | null;
 }
 
 const AVT_COLORS = ['#8a4a2a', '#46307a', '#2c5a4a', '#6a2a44', '#2a4a6a'];
@@ -66,7 +72,7 @@ function SectionLabel({ children, aside }: { children: string; aside?: string })
   );
 }
 
-export default function EventDetailV3Body({ event, goingCount = 0, goingNames = [], organizerId, onOpenProfile, media = [], onOpenMedia }: Props) {
+export default function EventDetailV3Body({ event, goingCount = 0, goingNames = [], organizerId, onOpenProfile, media = [], onOpenMedia, edit }: Props) {
   const loc = event.location;
   const online = loc?.kind === 'online';
   const total = event.capacity?.total ?? 0;
@@ -102,11 +108,23 @@ export default function EventDetailV3Body({ event, goingCount = 0, goingNames = 
       </View>
 
 
-      {/* ═══ ABOUT ═══ */}
-      {event.about ? (
+      {/* ═══ ABOUT ═══ (editable in place in edit mode; shown even when empty so the
+          host can add it) */}
+      {edit || event.about ? (
         <View style={styles.sec}>
           <Text style={styles.aboutH}>About this {(EVENT_TYPE_LABEL[event.eventType ?? ''] || 'event').toLowerCase()}</Text>
-          <Text style={styles.p}>{event.about}</Text>
+          {edit ? (
+            <InlineEdit
+              value={edit.about}
+              onChangeText={edit.setAbout}
+              textStyle={styles.p}
+              placeholder="Describe your event — what happens, who it's for, why come."
+              multiline
+              accessibilityLabel="about"
+            />
+          ) : (
+            <Text style={styles.p}>{event.about}</Text>
+          )}
           {event.whatToExpect ? <Text style={[styles.p, { marginTop: 12 }]}>{event.whatToExpect}</Text> : null}
 
           {/* ═══ BEGINNER FRIENDLY LINE ═══ */}
@@ -206,7 +224,7 @@ export default function EventDetailV3Body({ event, goingCount = 0, goingNames = 
       ) : null}
 
       {/* ═══ TYPE-SPECIFIC DETAILS ═══ */}
-      <TypeBlock event={event} />
+      <TypeBlock event={event} edit={edit} />
 
       {/* ═══ DAY BY DAY ═══ */}
       {Array.isArray(event.agenda) && event.agenda.length ? (
@@ -221,6 +239,28 @@ export default function EventDetailV3Body({ event, goingCount = 0, goingNames = 
               </View>
             </View>
           ))}
+        </View>
+      ) : null}
+
+      {/* ═══ GETTING IN (price) ═══ — edit-only, single-ticket paid events. Free↔paid,
+          tiered spots and discounts are deferred to the focused sheets (P3); here the
+          host just sets the one price. */}
+      {edit && edit.paid && edit.priceEditable ? (
+        <View style={styles.sec}>
+          <SectionLabel>Getting in</SectionLabel>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceCur}>₹</Text>
+            <TextInput
+              value={edit.price ? String(edit.price) : ''}
+              onChangeText={(t) => edit.setPrice(Number(t.replace(/[^0-9]/g, '')) || 0)}
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              style={styles.priceInput}
+              accessibilityLabel="ticket price"
+            />
+            <Text style={styles.priceUnit}>per ticket</Text>
+          </View>
         </View>
       ) : null}
 
@@ -330,7 +370,7 @@ function PersonCard({ p, index, onOpenProfile }: { p: FeatPerson; index: number;
 }
 
 /* ── Type-specific details (roles / slots / prizes / films / Bring-Get) ── */
-function TypeBlock({ event }: { event: EventDoc }) {
+function TypeBlock({ event, edit }: { event: EventDoc; edit?: EventEditController | null }) {
   const c = event.eventConfig;
   const bring = event.bring?.items ?? [];
   const included = event.included ?? [];
@@ -339,7 +379,26 @@ function TypeBlock({ event }: { event: EventDoc }) {
 
   return (
     <>
-      {bring.length || included.length ? (
+      {/* What to bring / What's included.
+          · view / preview: the two-column YOU BRING | YOU GET grid (unchanged).
+          · edit: YOU BRING stays read-only (not editable in P1); What's-included
+            becomes its own inline-editable list below. */}
+      {edit ? (
+        bring.length ? (
+          <View style={styles.sec}>
+            <SectionLabel>What to bring</SectionLabel>
+            <View style={styles.gg}>
+              <View style={styles.ggCol}>
+                <Text style={styles.ggH}>YOU BRING</Text>
+                {bring.map((b, i) => (
+                  <View key={`br-${i}`} style={styles.ggLi}><View style={styles.ggDot} /><Text style={styles.ggTxt}>{b}</Text></View>
+                ))}
+              </View>
+            </View>
+            {event.bring?.note ? <Text style={[styles.p, { marginTop: 10, fontSize: 13 }]}>{event.bring.note}</Text> : null}
+          </View>
+        ) : null
+      ) : bring.length || included.length ? (
         <View style={styles.sec}>
           <SectionLabel>What to bring</SectionLabel>
           <View style={styles.gg}>
@@ -360,6 +419,22 @@ function TypeBlock({ event }: { event: EventDoc }) {
         </View>
       ) : null}
 
+      {/* What's included — inline-editable list (edit mode only). */}
+      {edit ? (
+        <View style={styles.sec}>
+          <SectionLabel>What's included</SectionLabel>
+          <EditableList
+            items={edit.included}
+            onChangeAt={edit.setIncludedAt}
+            onRemoveAt={edit.removeIncludedAt}
+            onAdd={edit.addIncluded}
+            addLabel="Add an item"
+            placeholder="Something included"
+            prefix="dot"
+          />
+        </View>
+      ) : null}
+
       {prizes.length ? (
         <View style={styles.sec}>
           <SectionLabel>Prizes</SectionLabel>
@@ -374,7 +449,21 @@ function TypeBlock({ event }: { event: EventDoc }) {
         </View>
       ) : null}
 
-      {lineup.length ? (
+      {edit ? (
+        <View style={styles.sec}>
+          <SectionLabel>Line-up</SectionLabel>
+          <EditableList
+            items={edit.lineup.map((l) => l.title)}
+            onChangeAt={edit.setLineupTitleAt}
+            onRemoveAt={edit.removeLineupAt}
+            onAdd={edit.addLineup}
+            addLabel="Add to the line-up"
+            placeholder="What happens"
+            prefix="index"
+            itemTextStyle={styles.agTitle}
+          />
+        </View>
+      ) : lineup.length ? (
         <View style={styles.sec}>
           <SectionLabel>Line-up</SectionLabel>
           {lineup.map((l, i) => (
@@ -433,6 +522,12 @@ const styles = StyleSheet.create({
 
   aboutH: { fontFamily: SERIF, fontSize: 20, color: T0, letterSpacing: -0.2, marginBottom: 10 },
   p: { fontFamily: OUTFIT, fontSize: 14.5, lineHeight: 24, color: T1 },
+
+  /* Getting-in (price) — edit mode only */
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  priceCur: { fontFamily: SERIF, fontSize: 26, color: T0 },
+  priceInput: { fontFamily: SERIF, fontSize: 26, color: T0, padding: 0, minWidth: 90, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.14)' },
+  priceUnit: { fontFamily: OUTFIT, fontSize: 13, color: T2, marginLeft: 2 },
 
   /* Gallery rail (E·★): unlabelled full-bleed row of 150×112 tiles, tap → viewer. */
   gallerySec: { paddingHorizontal: PAD, paddingTop: 16 },

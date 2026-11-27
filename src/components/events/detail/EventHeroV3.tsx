@@ -16,6 +16,8 @@ import { ChevronLeft, Share2, Bookmark } from 'lucide-react-native';
 import NetsaVideoPlayer from '@/components/media/NetsaVideoPlayer';
 import type { EventDoc, EventMedia } from '@/services/eventService';
 import { eyebrow as buildEyebrow } from '@/lib/eventDetailV3';
+import InlineEdit from './edit/InlineEdit';
+import type { EventEditController } from './edit/useEventEdit';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const HERO_H = 220;
@@ -31,9 +33,11 @@ interface Props {
   saved?: boolean;
   goingCount?: number;
   goingLine?: string;
+  /** Host "Edit in Preview": title + tagline become inline editors. */
+  edit?: EventEditController | null;
 }
 
-export default function EventHeroV3({ event, onBack, onShare, onSave, saved = false, goingCount = 0, goingLine }: Props) {
+export default function EventHeroV3({ event, onBack, onShare, onSave, saved = false, goingCount = 0, goingLine, edit }: Props) {
   const [index, setIndex] = useState(0);
   const media: EventMedia[] = [...(event.media ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
   const hasMedia = media.length > 0;
@@ -113,11 +117,38 @@ export default function EventHeroV3({ event, onBack, onShare, onSave, saved = fa
         </View>
       ) : null} */}
 
-      {/* Headline overlay */}
-      <View style={styles.headline} pointerEvents="none">
+      {/* Headline overlay — editable in place when in edit mode (pointerEvents must
+          allow taps so the inline inputs are reachable). */}
+      <View style={styles.headline} pointerEvents={edit ? 'box-none' : 'none'}>
         <Text style={styles.eyebrow}>{buildEyebrow(event).toUpperCase()}</Text>
-        <Text style={styles.title}>{event.title}</Text>
-        {event.tagline ? <Text style={styles.tagline}>{event.tagline}</Text> : null}
+        {edit ? (
+          <InlineEdit
+            value={edit.title}
+            onChangeText={edit.setTitle}
+            textStyle={styles.title}
+            placeholder="Event title"
+            multiline
+            onHero
+            accessibilityLabel="title"
+          />
+        ) : (
+          <Text style={styles.title}>{event.title}</Text>
+        )}
+        {edit ? (
+          <View style={{ marginTop: 6 }}>
+            <InlineEdit
+              value={edit.tagline}
+              onChangeText={edit.setTagline}
+              textStyle={styles.tagline}
+              placeholder="Add a tagline"
+              multiline
+              onHero
+              accessibilityLabel="tagline"
+            />
+          </View>
+        ) : event.tagline ? (
+          <Text style={styles.tagline}>{event.tagline}</Text>
+        ) : null}
         {goingCount > 0 ? (
           <Text style={styles.going}>
             {goingCount} going{goingLine ? ` · ${goingLine}` : ''}

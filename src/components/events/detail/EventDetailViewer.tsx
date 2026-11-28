@@ -28,7 +28,8 @@ import EventDetailV3Body from './EventDetailV3Body';
 import { usePublicRoster } from '@/hooks/usePublicRoster';
 import MediaViewer, { type MediaViewerItem } from '@/components/profile/MediaViewer';
 import { muxPoster } from '@/components/media/NetsaVideoPlayer';
-import type { EventEditController, SaveState } from './edit/useEventEdit';
+import type { EventEditController, HostEditController, SaveState } from './edit/useEventEdit';
+import HostOnlyZone from './edit/HostOnlyZone';
 
 const CANVAS = '#121216'; // A·Minimal C.canvas
 
@@ -43,13 +44,15 @@ interface Props {
   /** Host "Edit in Preview" (P0+P1): when present the page is editable in place —
    *  the register CTA is swapped for a save bar and sections render inline inputs. */
   edit?: EventEditController | null;
+  /** Host "Edit in Preview" (P2/P3): commit handles for the host-only zone + sheets. */
+  host?: HostEditController | null;
   saveState?: SaveState;
   onRetrySave?: () => void;
   onExitEdit?: () => void;
 }
 
 export default function EventDetailViewer({
-  event, preview, onClose, initialOpenRegister, edit, saveState = 'idle', onRetrySave, onExitEdit,
+  event, preview, onClose, initialOpenRegister, edit, host, saveState = 'idle', onRetrySave, onExitEdit,
 }: Props) {
   const editing = !!edit;
   const router = useRouter();
@@ -131,6 +134,9 @@ export default function EventDetailViewer({
           onOpenMedia={setMediaIndex}
           edit={edit}
         />
+
+        {/* Host-only zone — the rest of the event form, edit mode only. */}
+        {editing && host ? <HostOnlyZone host={host} event={event} /> : null}
 
         <View style={{ paddingHorizontal: 20 }}>
           <MeetingLinkRevealCard event={event} />

@@ -20,9 +20,22 @@ import {
 } from '@/components/events/composer/v4/composerForm';
 import { eventService, type EventDoc } from '@/services/eventService';
 import { eventKeys } from '@/hooks/useEvents';
-import { diffEventPayload } from './diffPayload';
+import { buildEventPatch } from './diffPayload';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+/** The commit handles the host-only zone + focused sheets (P2/P3) bind to. The
+ *  sheets mutate the shared composer store directly (reusing the composer's own
+ *  inputs), then call `scheduleSave` to run the same debounced diff save the inline
+ *  fields use. `saveDeadline` is the one field with no composer-form home — it's a
+ *  direct narrow PATCH, orthogonal to buildEventPayload. */
+export interface HostEditController {
+  /** After mutating the store, schedule the debounced diff save (idempotent). */
+  scheduleSave: () => void;
+  /** Registration deadline — a direct `{ registrationDeadline }` PATCH (not in the
+   *  composer form). Optimistically updates the detail cache the host row reads. */
+  saveDeadline: (iso: string | null) => void;
+}
 
 /** The values + commit callbacks the inline editors bind to. P1 fields only. */
 export interface EventEditController {
@@ -51,6 +64,24 @@ export interface EventEditController {
 
 const DEBOUNCE_MS = 700;
 
+/**
+ * eventToForm + the fix-ups the edit surface needs on top of the composer's own mapper.
+ * `eventToForm`'s refund heuristic only flags 'custom' when the stored policy carries a
+ * partial-refund window, so a custom policy with JUST a note rehydrates as 'flex_24h' —
+ * which shows the wrong policy AND lets a later date edit overwrite the host's note (a
+ * paid flex_24h event re-derives cancellationPolicy from the start date). Treat any note
+ * that isn't the canned flex/firm text as a custom policy.
+ */
+function hydrateForm(event: any) {
+  const form = eventToForm(event);
+  const cp = event?.cancellationPolicy;
+  if (form.refundPolicy === 'flex_24h' && cp && typeof cp.notes === 'string' && cp.notes.trim()
+    && !/full refund up to 24h/i.test(cp.notes) && !/no refund/i.test(cp.notes)) {
+    form.refundPolicy = 'custom';
+  }
+  return form;
+}
+
 export function useEventEdit(id: string, event: EventDoc | undefined) {
   const qc = useQueryClient();
   const form = useComposerStoreV4((s) => s.form);
@@ -76,7 +107,7 @@ export function useEventEdit(id: string, event: EventDoc | undefined) {
     if (!event) return;
     const st = useComposerStoreV4.getState();
     if (st.editEventId !== id) {
-      hydrate(eventToForm(event), id);
+      hydrate(hydrateForm(event), id);
       const form = useComposerStoreV4.getState().form;
       baseRef.current = buildEventPayload(form);
       baseFormRef.current = form;
@@ -97,8 +128,8 @@ export function useEventEdit(id: string, event: EventDoc | undefined) {
 
     const sentForm = st.form;                                   // the form as of this send
     const next = buildEventPayload(sentForm);
-    const patch = diffEventPayload(baseRef.current, next);
-    if (Object.keys(patch).length === 0) {                       // nothing changed
+    const { body, advance } = buildEventPatch(baseRef.current, next);
+    if (advance.length === 0) {                                  // nothing to save
       setSaveState((s) => (s === 'saving' ? 'saved' : s));
       return;
     }
@@ -106,9 +137,11 @@ export function useEventEdit(id: string, event: EventDoc | undefined) {
     savingRef.current = true;
     setSaveState('saving');
     eventService
-      .update(id, patch as any)
+      .update(id, body as any)
       .then(() => {
-        baseRef.current = next;                                  // advance base to what we sent
+        // advance ONLY the keys we actually sent — a dropped blank title or an
+        // injected routing sentinel must not be recorded as saved.
+        for (const k of advance) baseRef.current![k] = next[k];
         baseFormRef.current = sentForm;                          // ...and the matching form
         setSaveState('saved');
         qc.invalidateQueries({ queryKey: eventKeys.detail(id) });
@@ -136,6 +169,28 @@ export function useEventEdit(id: string, event: EventDoc | undefined) {
     timerRef.current = setTimeout(runSave, DEBOUNCE_MS);
   }, [runSave]);
 
+  // Registration deadline is the one editable field with no composer-form home, so
+  // it rides its own narrow PATCH ({ registrationDeadline }) instead of the diff loop
+  // — orthogonal to buildEventPayload, so it never touches the base snapshot. The
+  // detail cache is updated optimistically (the host row reads event.registrationDeadline)
+  // and rolled back on failure.
+  const saveDeadline = useCallback((iso: string | null) => {
+    const key = eventKeys.detail(id);
+    const prev = qc.getQueryData<EventDoc>(key);
+    qc.setQueryData<EventDoc>(key, (old) => (old ? { ...old, registrationDeadline: iso ?? undefined } : old));
+    setSaveState('saving');
+    eventService
+      .update(id, { registrationDeadline: iso } as any)
+      .then(() => {
+        setSaveState('saved');
+        qc.invalidateQueries({ queryKey: key });
+      })
+      .catch(() => {
+        if (prev !== undefined) qc.setQueryData(key, prev); // roll back the optimistic write
+        setSaveState('error');
+      });
+  }, [id, qc]);
+
   // Unmount: flush the pending edit, cancel the timer, then reset the shared store so
   // a later composer-create starts clean. The flush reads the form BEFORE reset and
   // fires fire-and-forget (the hook is unmounting), bailing unless it's still our event.
@@ -144,9 +199,9 @@ export function useEventEdit(id: string, event: EventDoc | undefined) {
       if (timerRef.current) clearTimeout(timerRef.current);
       const st = useComposerStoreV4.getState();
       if (st.editEventId === id && baseRef.current) {
-        const patch = diffEventPayload(baseRef.current, buildEventPayload(st.form));
-        if (Object.keys(patch).length) {
-          eventService.update(id, patch as any)
+        const { body, advance } = buildEventPatch(baseRef.current, buildEventPayload(st.form));
+        if (advance.length) {
+          eventService.update(id, body as any)
             .then(() => qc.invalidateQueries({ queryKey: eventKeys.detail(id) }))
             .catch(() => {});
         }
@@ -187,5 +242,12 @@ export function useEventEdit(id: string, event: EventDoc | undefined) {
     removeLineupAt: (i) => { update('lineup', form.lineup.filter((_, j) => j !== i)); schedule(); },
   }), [form, update, updateSpot, schedule, spotId, priceEditable]);
 
-  return { controller, saveState, retry: runSave };
+  // The host-only zone + focused sheets commit through this: they mutate the shared
+  // composer store with the composer's own inputs, then `scheduleSave`.
+  const host = useMemo<HostEditController>(() => ({
+    scheduleSave: schedule,
+    saveDeadline,
+  }), [schedule, saveDeadline]);
+
+  return { controller, host, saveState, retry: runSave };
 }

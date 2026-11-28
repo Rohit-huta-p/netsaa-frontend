@@ -50,3 +50,76 @@ export function diffEventPayload(
   }
   return patch;
 }
+
+/* ─────────────────────────── PATCH routing ───────────────────────────
+ * The events-service PATCH has TWO code paths (controllers/events.ts +
+ * services/composerMapping.ts, verified vs origin/main):
+ *   · isComposerPatch(body) → buildComposerUpdate — field-scoped, `has(k)` guards
+ *     every write, mirrors `tags`←topicTags, merges location, recomputes schedule.
+ *   · otherwise → a narrow UPDATE_WHITELIST copied verbatim.
+ * A minimal diff is right MOST of the time, but a few keys are mishandled by the
+ * whitelist path when they travel ALONE (no composer key to trigger the richer
+ * path). buildEventPatch() fixes those up so both save senders agree. */
+
+/** Keys whose presence in a PATCH body routes the server to buildComposerUpdate
+ *  (mirrors events-service COMPOSER_PATCH_KEYS). */
+const COMPOSER_PATCH_KEYS = new Set<string>([
+  'about', 'spots', 'offers', 'registration', 'registrationMode', 'people', 'lineup',
+  'bring', 'included', 'coverFit', 'skillLevel', 'eligibleArtistTypes', 'otherArtistTypes',
+  'openToAll', 'eventTypeLabel', 'ageRestriction', 'cancellationPolicy', 'timeTbd', 'languages',
+]);
+
+/** Keys the narrow whitelist path handles WRONG when they arrive without a
+ *  composer key of their own, so we must force the composer path:
+ *   · eventType — not whitelisted at all → silently dropped.
+ *   · topicTags / skills — whitelisted, but only the composer path mirrors the
+ *     legacy `tags` field that feed/search read; verbatim leaves `tags` stale.
+ *   · location — the whitelist $sets the whole subdoc (no field merge, no
+ *     kind→type mapping); the composer path merges + maps.
+ *   · startsAt / endsAt / durationKind — written verbatim without recomputing the
+ *     derived `schedule`. */
+const NEEDS_COMPOSER_KEYS = new Set<string>([
+  'eventType', 'topicTags', 'skills', 'location', 'startsAt', 'endsAt', 'durationKind',
+]);
+
+const hasComposerKey = (keys: string[]) => keys.some((k) => COMPOSER_PATCH_KEYS.has(k));
+
+export interface EventPatch {
+  /** The PATCH body to send. Empty object ⇒ nothing to save. */
+  body: Record<string, any>;
+  /** Payload keys whose base snapshot the caller advances on success — the
+   *  genuinely-changed keys only (never a routing sentinel, never a dropped
+   *  blank title). */
+  advance: string[];
+}
+
+/**
+ * Turn a (base → next) payload diff into the exact PATCH body to send, applying the
+ * cross-cutting rules the raw diff can't see — used by BOTH the debounced save AND the
+ * unmount flush so a change committed just before "Done" is never dropped:
+ *   1. never PATCH a blank/whitespace title — the backend rejects it (4xx), which
+ *      would revert the host's *other* in-flight edits too; drop it from the body.
+ *   2. never PATCH a transiently-invalid spot (capacity < 1, or price < 1 on a paid
+ *      event) — a cleared price/capacity box is mid-edit, not a real value; drop the
+ *      spots/pricing/capacity keys until it's valid again.
+ *   3. force the server's composer path (idempotent `openToAll` sentinel, a no-op
+ *      write) whenever the diff carries a NEEDS_COMPOSER key but no composer key.
+ */
+export function buildEventPatch(base: Record<string, any>, next: Record<string, any>): EventPatch {
+  const patch = diffEventPayload(base, next);
+  // (1) a blank/whitespace title must never reach the server.
+  if (typeof patch.title === 'string' && !patch.title.trim()) delete patch.title;
+  // (2) a transiently-invalid spot (cleared capacity/price box) must never be sent.
+  if ('spots' in patch) {
+    const paid = next.registrationMode === 'paid_ticket';
+    const invalid = (next.spots || []).some((sp: any) => (sp?.capacity ?? 0) < 1 || (paid && (sp?.price ?? 0) < 1));
+    if (invalid) { delete patch.spots; delete patch.pricing; delete (patch as any).capacity; }
+  }
+  const advance = Object.keys(patch);
+  if (advance.length === 0) return { body: {}, advance };
+  // (3) force composer routing, idempotently, when a mishandled key travels alone.
+  if (!hasComposerKey(advance) && advance.some((k) => NEEDS_COMPOSER_KEYS.has(k))) {
+    patch.openToAll = next.openToAll; // a composer key at its current value → routes + writes nothing new
+  }
+  return { body: patch, advance };
+}

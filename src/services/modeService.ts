@@ -18,6 +18,7 @@ const getBaseUrl = () => {
 };
 
 const API = axios.create({
+    timeout: 15000,
     baseURL: getBaseUrl(),
 });
 

@@ -14,7 +14,7 @@ const getBaseUrl = () => {
     return process.env.EXPO_PUBLIC_API_SUPPORT_URL || 'https://netsaa-support-service.onrender.com/api/support';
 };
 
-const API = axios.create({ baseURL: getBaseUrl() });
+const API = axios.create({ timeout: 15000, baseURL: getBaseUrl() });
 
 // Request Interceptor: Attach Token
 API.interceptors.request.use((config) => {

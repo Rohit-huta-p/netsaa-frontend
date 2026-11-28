@@ -64,6 +64,24 @@ export interface EventEditController {
 
 const DEBOUNCE_MS = 700;
 
+/**
+ * eventToForm + the fix-ups the edit surface needs on top of the composer's own mapper.
+ * `eventToForm`'s refund heuristic only flags 'custom' when the stored policy carries a
+ * partial-refund window, so a custom policy with JUST a note rehydrates as 'flex_24h' —
+ * which shows the wrong policy AND lets a later date edit overwrite the host's note (a
+ * paid flex_24h event re-derives cancellationPolicy from the start date). Treat any note
+ * that isn't the canned flex/firm text as a custom policy.
+ */
+function hydrateForm(event: any) {
+  const form = eventToForm(event);
+  const cp = event?.cancellationPolicy;
+  if (form.refundPolicy === 'flex_24h' && cp && typeof cp.notes === 'string' && cp.notes.trim()
+    && !/full refund up to 24h/i.test(cp.notes) && !/no refund/i.test(cp.notes)) {
+    form.refundPolicy = 'custom';
+  }
+  return form;
+}
+
 export function useEventEdit(id: string, event: EventDoc | undefined) {
   const qc = useQueryClient();
   const form = useComposerStoreV4((s) => s.form);
@@ -89,7 +107,7 @@ export function useEventEdit(id: string, event: EventDoc | undefined) {
     if (!event) return;
     const st = useComposerStoreV4.getState();
     if (st.editEventId !== id) {
-      hydrate(eventToForm(event), id);
+      hydrate(hydrateForm(event), id);
       const form = useComposerStoreV4.getState().form;
       baseRef.current = buildEventPayload(form);
       baseFormRef.current = form;

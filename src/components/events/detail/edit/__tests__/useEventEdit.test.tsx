@@ -174,4 +174,37 @@ describe('useEventEdit', () => {
     await flush();
     expect(mockUpdate).toHaveBeenCalledWith('evt-1', { registrationDeadline: null });
   });
+
+  // ── guards: a transient invalid value must never be committed by a sheet-close / flush ──
+
+  it('never PATCHes a 0 price for a paid event (transient clear + commit)', async () => {
+    const { result } = renderHook(() => useEventEdit('evt-1', baseEvent() as any), { wrapper });
+    act(() => {
+      const st = useComposerStoreV4.getState();
+      st.updateSpot(st.form.spots[0].id, { price: 0 }); // host clears the price box
+      result.current.host.scheduleSave();                // a sheet close / any commit fires the save
+    });
+    await flush();
+    const sentZeroPrice = mockUpdate.mock.calls.some(([, body]: any) => (body.spots || []).some((sp: any) => sp.price === 0));
+    expect(sentZeroPrice).toBe(false);
+  });
+
+  it('never PATCHes a capacity below 1 (transient clear + commit)', async () => {
+    const { result } = renderHook(() => useEventEdit('evt-1', baseEvent() as any), { wrapper });
+    act(() => {
+      const st = useComposerStoreV4.getState();
+      st.updateSpot(st.form.spots[0].id, { capacity: 0 });
+      result.current.host.scheduleSave();
+    });
+    await flush();
+    const sentZeroCap = mockUpdate.mock.calls.some(([, body]: any) => (body.spots || []).some((sp: any) => (sp.capacity ?? 0) < 1));
+    expect(sentZeroCap).toBe(false);
+  });
+
+  it('a custom refund note hydrates as Custom (not misread as Flexible)', () => {
+    const ev = { ...baseEvent(), cancellationPolicy: { notes: 'Full refund up to 7 days before, then 50% after.' } };
+    renderHook(() => useEventEdit('evt-1', ev as any), { wrapper });
+    expect(useComposerStoreV4.getState().form.refundPolicy).toBe('custom');
+    expect(useComposerStoreV4.getState().form.refundNote).toContain('7 days');
+  });
 });

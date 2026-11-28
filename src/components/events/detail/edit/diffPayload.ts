@@ -95,20 +95,29 @@ export interface EventPatch {
 
 /**
  * Turn a (base → next) payload diff into the exact PATCH body to send, applying the
- * two cross-cutting rules the raw diff can't see — used by BOTH the debounced save
- * AND the unmount flush so a change committed just before "Done" is never dropped:
+ * cross-cutting rules the raw diff can't see — used by BOTH the debounced save AND the
+ * unmount flush so a change committed just before "Done" is never dropped:
  *   1. never PATCH a blank/whitespace title — the backend rejects it (4xx), which
  *      would revert the host's *other* in-flight edits too; drop it from the body.
- *   2. force the server's composer path (idempotent `openToAll` sentinel, a no-op
+ *   2. never PATCH a transiently-invalid spot (capacity < 1, or price < 1 on a paid
+ *      event) — a cleared price/capacity box is mid-edit, not a real value; drop the
+ *      spots/pricing/capacity keys until it's valid again.
+ *   3. force the server's composer path (idempotent `openToAll` sentinel, a no-op
  *      write) whenever the diff carries a NEEDS_COMPOSER key but no composer key.
  */
 export function buildEventPatch(base: Record<string, any>, next: Record<string, any>): EventPatch {
   const patch = diffEventPayload(base, next);
   // (1) a blank/whitespace title must never reach the server.
   if (typeof patch.title === 'string' && !patch.title.trim()) delete patch.title;
+  // (2) a transiently-invalid spot (cleared capacity/price box) must never be sent.
+  if ('spots' in patch) {
+    const paid = next.registrationMode === 'paid_ticket';
+    const invalid = (next.spots || []).some((sp: any) => (sp?.capacity ?? 0) < 1 || (paid && (sp?.price ?? 0) < 1));
+    if (invalid) { delete patch.spots; delete patch.pricing; delete (patch as any).capacity; }
+  }
   const advance = Object.keys(patch);
   if (advance.length === 0) return { body: {}, advance };
-  // (2) force composer routing, idempotently, when a mishandled key travels alone.
+  // (3) force composer routing, idempotently, when a mishandled key travels alone.
   if (!hasComposerKey(advance) && advance.some((k) => NEEDS_COMPOSER_KEYS.has(k))) {
     patch.openToAll = next.openToAll; // a composer key at its current value → routes + writes nothing new
   }

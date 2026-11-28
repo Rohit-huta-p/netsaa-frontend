@@ -144,4 +144,23 @@ describe('buildEventPatch', () => {
     expect(body).toHaveProperty('about', 'New about');
     expect(advance).toEqual(['about']);
   });
+
+  it('a start-date change escorts the whole date group (so the server recomputes schedule)', () => {
+    const dated = (): ComposerFormV4 => ({ ...paidForm(), startsAt: '2026-06-01T10:00:00.000Z', endsAt: '2026-06-03T10:00:00.000Z', durationKind: 'h2', timeTbd: false });
+    const base = buildEventPayload(dated());
+    const next = buildEventPayload({ ...dated(), startsAt: '2026-06-02T10:00:00.000Z' }); // only start changed
+    const { body } = buildEventPatch(base, next);
+    expect(body).toHaveProperty('startsAt', '2026-06-02T10:00:00.000Z');
+    expect(body).toHaveProperty('endsAt', '2026-06-03T10:00:00.000Z'); // escorted though unchanged → end not collapsed
+    expect(body).toHaveProperty('durationKind', 'h2');
+    expect(body).toHaveProperty('timeTbd', false);
+  });
+
+  it('a non-date change never pulls in the date group', () => {
+    const dated = (): ComposerFormV4 => ({ ...paidForm(), startsAt: '2026-06-01T10:00:00.000Z', durationKind: 'h2' });
+    const base = buildEventPayload(dated());
+    const next = buildEventPayload({ ...dated(), about: 'changed' });
+    const { body } = buildEventPatch(base, next);
+    expect(Object.keys(body)).toEqual(['about']);
+  });
 });

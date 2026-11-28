@@ -201,6 +201,19 @@ describe('useEventEdit', () => {
     expect(sentZeroCap).toBe(false);
   });
 
+  it('a valid capacity edit still sends spots (backend re-derives capacity.total + ticketPrice)', async () => {
+    const { result } = renderHook(() => useEventEdit('evt-1', baseEvent() as any), { wrapper });
+    act(() => {
+      const st = useComposerStoreV4.getState();
+      st.updateSpot(st.form.spots[0].id, { capacity: 50 });
+      result.current.host.scheduleSave();
+    });
+    await flush();
+    const [, body] = mockUpdate.mock.calls[0];
+    expect(body).toHaveProperty('spots');
+    expect(body.spots[0].capacity).toBe(50);
+  });
+
   it('a custom refund note hydrates as Custom (not misread as Flexible)', () => {
     const ev = { ...baseEvent(), cancellationPolicy: { notes: 'Full refund up to 7 days before, then 50% after.' } };
     renderHook(() => useEventEdit('evt-1', ev as any), { wrapper });

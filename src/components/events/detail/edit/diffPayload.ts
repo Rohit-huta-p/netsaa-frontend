@@ -84,6 +84,12 @@ const NEEDS_COMPOSER_KEYS = new Set<string>([
 
 const hasComposerKey = (keys: string[]) => keys.some((k) => COMPOSER_PATCH_KEYS.has(k));
 
+/** The schedule is recomputed server-side from the WHOLE date group — `buildComposerUpdate`
+ *  reads `endsAt`/`durationKind`/`timeTbd` as `has(k) ? b[k] : <default>`, and a partial
+ *  body (e.g. startsAt alone) defaults endsAt to undefined, collapsing a multi-day end. So
+ *  whenever any date field changes, send the full group at its current value. */
+const DATE_GROUP_KEYS = ['startsAt', 'endsAt', 'durationKind', 'timeTbd'];
+
 export interface EventPatch {
   /** The PATCH body to send. Empty object ⇒ nothing to save. */
   body: Record<string, any>;
@@ -102,7 +108,9 @@ export interface EventPatch {
  *   2. never PATCH a transiently-invalid spot (capacity < 1, or price < 1 on a paid
  *      event) — a cleared price/capacity box is mid-edit, not a real value; drop the
  *      spots/pricing/capacity keys until it's valid again.
- *   3. force the server's composer path (idempotent `openToAll` sentinel, a no-op
+ *   3. send the whole date group when any date field changes (schedule is recomputed
+ *      server-side from the full group).
+ *   4. force the server's composer path (idempotent `openToAll` sentinel, a no-op
  *      write) whenever the diff carries a NEEDS_COMPOSER key but no composer key.
  */
 export function buildEventPatch(base: Record<string, any>, next: Record<string, any>): EventPatch {
@@ -115,9 +123,14 @@ export function buildEventPatch(base: Record<string, any>, next: Record<string, 
     const invalid = (next.spots || []).some((sp: any) => (sp?.capacity ?? 0) < 1 || (paid && (sp?.price ?? 0) < 1));
     if (invalid) { delete patch.spots; delete patch.pricing; delete (patch as any).capacity; }
   }
+  // (3) date group — if any date field changed, escort the whole group at its current
+  //     value so the server recomputes `schedule` from a complete picture.
+  if (DATE_GROUP_KEYS.some((k) => k in patch)) {
+    for (const k of DATE_GROUP_KEYS) if (!(k in patch) && next[k] !== undefined) patch[k] = next[k];
+  }
   const advance = Object.keys(patch);
   if (advance.length === 0) return { body: {}, advance };
-  // (3) force composer routing, idempotently, when a mishandled key travels alone.
+  // (4) force composer routing, idempotently, when a mishandled key travels alone.
   if (!hasComposerKey(advance) && advance.some((k) => NEEDS_COMPOSER_KEYS.has(k))) {
     patch.openToAll = next.openToAll; // a composer key at its current value → routes + writes nothing new
   }

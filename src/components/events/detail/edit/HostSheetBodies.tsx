@@ -11,12 +11,14 @@
  */
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, Switch } from 'react-native';
-import { Check, ChevronDown, Plus, X } from 'lucide-react-native';
+import { Check, ChevronDown, Plus, X, Calendar, MapPin, Video, Link as LinkIcon, Tag, Users } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../../composer/v4/useComposerStoreV4';
 import { EVENT_TYPE_PRESETS, EVENT_TYPE_KEYS, presetFor } from '../../composer/v4/eventTypePresets';
-import { Group, TagInput, ChipsMulti, Segmented, TextField, Hint, Pills } from '../../composer/v4/ui';
-import type { QuestionV4, SkillLevelV4 } from '../../composer/v4/composerForm';
+import { Group, TagInput, ChipsMulti, Segmented, TextField, Hint, Pills, Field, Chips, ToggleRow, Card } from '../../composer/v4/ui';
+import type { QuestionV4, SkillLevelV4, OfferV4 } from '../../composer/v4/composerForm';
 import { C, F, R } from '../../composer/v4/theme';
+import { formatRupees } from '@/lib/eventPricing';
+import { CalendarModal } from '@/components/ui/CalendarModal';
 
 export interface SheetBodyProps {
   /** Commit: debounced diff save in useEventEdit (idempotent). */
@@ -305,7 +307,261 @@ export function QuestionsSheetBody({ scheduleSave }: SheetBodyProps) {
   );
 }
 
+/* ──────────────────────── Date & location (P3) ──────────────────────── */
+const DURATIONS: { label: string; v: string }[] = [
+  { label: '1 hour', v: 'h1' }, { label: '2 hours', v: 'h2' }, { label: '3 hours', v: 'h3' }, { label: 'Half day', v: 'half' }, { label: 'Full day', v: 'full' },
+];
+const fmtDateLong = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : undefined);
+const fmtDM = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '');
+
+export function DateLocationSheetBody({ scheduleSave }: SheetBodyProps) {
+  const form = useComposerStoreV4((st) => st.form);
+  const update = useComposerStoreV4((st) => st.update);
+  const [startOpen, setStartOpen] = useState(false);
+  const [endOpen, setEndOpen] = useState(false);
+  const [showEnd, setShowEnd] = useState(!!form.endsAt);
+  const online = form.format === 'online';
+  const setLoc = (patch: Partial<typeof form.location>) => { update('location', { ...form.location, ...patch }); scheduleSave(); };
+
+  return (
+    <View>
+      <Group label="Date" required>
+        <Field icon={Calendar} value={fmtDateLong(form.startsAt)} placeholder="Pick a start date" onPress={() => setStartOpen(true)} right={null} />
+        {showEnd || form.endsAt ? (
+          <Field icon={Calendar} value={fmtDateLong(form.endsAt)} placeholder="Pick an end date (multi-day)" onPress={() => setEndOpen(true)} right={null} />
+        ) : (
+          <Pressable onPress={() => setShowEnd(true)}><Text style={s.addEnd}>+ End date</Text></Pressable>
+        )}
+      </Group>
+
+      <Group label="How long" optional sub="Leave blank if the time isn't fixed yet.">
+        <Chips options={DURATIONS.map((d) => d.label)} value={DURATIONS.find((d) => d.v === form.durationKind)?.label}
+          onChange={(lbl) => { update('durationKind', DURATIONS.find((d) => d.label === lbl)!.v); scheduleSave(); }} />
+        <ToggleRow label="Time to be announced" value={form.timeTbd} onChange={(v) => { update('timeTbd', v); scheduleSave(); }} />
+      </Group>
+
+      <Group label="Format" required>
+        <Segmented value={form.format} onChange={(v) => { update('format', v); scheduleSave(); }}
+          options={[{ key: 'in_person', label: 'In person', icon: MapPin }, { key: 'online', label: 'Online', icon: Video }]} />
+      </Group>
+
+      {!online ? (
+        <>
+          <Group label="Location" required>
+            <TextField icon={MapPin} placeholder="Venue name" value={form.location.venueName} onChangeText={(t) => setLoc({ venueName: t })} />
+            <TextField placeholder="Address" value={form.location.address} onChangeText={(t) => setLoc({ address: t })} />
+            <View style={s.row2}>
+              <View style={{ flex: 1 }}><TextField placeholder="City" value={form.location.city} onChangeText={(t) => setLoc({ city: t })} /></View>
+              <View style={{ flex: 1 }}><TextField placeholder="State" value={form.location.state} onChangeText={(t) => setLoc({ state: t })} /></View>
+            </View>
+            <TextField placeholder="Landmark (optional)" value={form.location.landmark} onChangeText={(t) => setLoc({ landmark: t })} />
+          </Group>
+          <Group label="Hide the exact address" optional>
+            <ToggleRow label="Show the address only after they register" sub="For house concerts, home studios and secret gigs"
+              value={!!form.location.hideAddress} onChange={(v) => setLoc({ hideAddress: v })} />
+          </Group>
+        </>
+      ) : (
+        <>
+          <Group label="Platform" optional>
+            <Chips options={['Zoom', 'Google Meet', 'YouTube Live', 'Other']} value={form.location.onlinePlatform} onChange={(t) => setLoc({ onlinePlatform: t })} />
+          </Group>
+          <Group label="Join link" optional sub="Add it now or any time before the event.">
+            <TextField icon={LinkIcon} placeholder="https://…" autoCapitalize="none" value={form.location.meetingLink} onChangeText={(t) => setLoc({ meetingLink: t })} />
+          </Group>
+          <Group label="When attendees see the link">
+            <Chips options={['On registering', '24h before', '1h before']}
+              value={{ on_register: 'On registering', 'T-24h': '24h before', 'T-1h': '1h before' }[form.location.meetingLinkRevealAt ?? 'T-24h']}
+              onChange={(lbl) => setLoc({ meetingLinkRevealAt: ({ 'On registering': 'on_register', '24h before': 'T-24h', '1h before': 'T-1h' } as const)[lbl] })} />
+          </Group>
+        </>
+      )}
+
+      <CalendarModal visible={startOpen} onClose={() => setStartOpen(false)} minDate={new Date()} date={form.startsAt ? new Date(form.startsAt) : undefined}
+        onSelect={(d) => { update('startsAt', d.toISOString()); scheduleSave(); setStartOpen(false); }} />
+      <CalendarModal visible={endOpen} onClose={() => setEndOpen(false)} minDate={form.startsAt ? new Date(form.startsAt) : new Date()} date={form.endsAt ? new Date(form.endsAt) : undefined}
+        onSelect={(d) => { update('endsAt', d.toISOString()); scheduleSave(); setEndOpen(false); }} />
+    </View>
+  );
+}
+
+/* ──────────────────── Discounts + group rates (P3, paid) ─────────────── */
+const MAX_DISCOUNTS = 3, MAX_TIERS = 3;
+
+const Num = ({ value, onChange, prefix, suffix, placeholder = '0' }: {
+  value: number; onChange: (n: number) => void; prefix?: string; suffix?: string; placeholder?: string;
+}) => (
+  <View style={s.num}>
+    {prefix ? <Text style={s.prefix}>{prefix}</Text> : null}
+    <TextInput keyboardType="number-pad" value={value ? String(value) : ''} placeholder={placeholder} placeholderTextColor={C.dim2}
+      onChangeText={(t) => onChange(parseInt(t.replace(/[^0-9]/g, ''), 10) || 0)} style={s.numInput} />
+    {suffix ? <Text style={s.prefix}>{suffix}</Text> : null}
+  </View>
+);
+
+export function DiscountsSheetBody({ scheduleSave }: SheetBodyProps) {
+  const form = useComposerStoreV4((st) => st.form);
+  const update = useComposerStoreV4((st) => st.update);
+  const { addOffer, updateOffer, removeOffer } = useComposerStoreV4.getState();
+  const [deadlineFor, setDeadlineFor] = useState<string | null>(null);
+  const [openDiscount, setOpenDiscount] = useState<string | null>(null);
+
+  const basePrice = form.spots[0]?.price ?? 0;
+  const discounts = form.offers.filter((o) => o.audience === 'everyone');
+  const groupTiers = form.offers.filter((o) => o.audience === 'group');
+  const upd = (id: string, patch: Partial<OfferV4>) => { updateOffer(id, patch); scheduleSave(); };
+
+  // Adding a blank-name offer doesn't save (the backend strips nameless offers); naming it does.
+  const addDiscount = () => {
+    if (discounts.length >= MAX_DISCOUNTS) return;
+    addOffer({ name: '', audience: 'everyone', price: basePrice });
+    const all = useComposerStoreV4.getState().form.offers;
+    setOpenDiscount(all[all.length - 1]?.id ?? null);
+  };
+  const removeDiscount = (id: string) => { removeOffer(id); setOpenDiscount((c) => (c === id ? null : c)); scheduleSave(); };
+  const toggleGroup = () => {
+    if (groupTiers.length) update('offers', form.offers.filter((o) => o.audience !== 'group'));
+    else addOffer({ name: 'Group rate', audience: 'group', minSeats: 2, price: basePrice });
+    scheduleSave();
+  };
+  const addTier = () => {
+    if (groupTiers.length >= MAX_TIERS) return;
+    const nextMin = groupTiers.length ? Math.max(...groupTiers.map((t) => t.minSeats ?? 2)) + 1 : 2;
+    addOffer({ name: 'Group rate', audience: 'group', minSeats: nextMin, price: basePrice });
+    scheduleSave();
+  };
+
+  return (
+    <View>
+      <Group label="Discounts" optional sub="A lower price for everyone — each with its own deadline.">
+        {discounts.map((o) => (
+          <OfferDiscountCard key={o.id} o={o} open={openDiscount === o.id}
+            onToggle={() => setOpenDiscount((c) => (c === o.id ? null : o.id))}
+            onRemove={() => removeDiscount(o.id)} onPickDeadline={() => setDeadlineFor(o.id)} updateOffer={upd} />
+        ))}
+        {discounts.length < MAX_DISCOUNTS ? (
+          <Pressable onPress={addDiscount} style={s.add}><Plus size={16} color={C.orange} /><Text style={s.addDiscTxt}>Add a discount</Text></Pressable>
+        ) : <Hint>{MAX_DISCOUNTS} of {MAX_DISCOUNTS} used. Remove one to add another.</Hint>}
+      </Group>
+
+      <Group label="Group rates" optional sub="Cheaper when people book together.">
+        <View style={[s.disc, groupTiers.length > 0 && s.discOn]}>
+          <View style={s.discHead}>
+            <View style={s.discIc}><Users size={15} color={C.orange} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.discName}>Group pricing</Text>
+              <Text style={s.discMeta}>Set a lower price for bigger groups.</Text>
+            </View>
+            <Switch value={groupTiers.length > 0} onValueChange={toggleGroup} trackColor={{ true: C.orange, false: '#2A2A34' }} thumbColor="#fff" />
+          </View>
+          {groupTiers.length > 0 ? (
+            <View style={{ gap: 7, marginTop: 12 }}>
+              {groupTiers.map((o) => (
+                <View key={o.id} style={s.tier}>
+                  <View style={s.tierMinBox}><Num value={o.minSeats ?? 2} onChange={(n) => upd(o.id, { minSeats: n || 2 })} placeholder="2" /></View>
+                  <Text style={s.tierLbl}>+ people</Text>
+                  <View style={{ flex: 1 }}><Num prefix="₹" value={o.price} onChange={(n) => upd(o.id, { price: n })} /></View>
+                  <Pressable onPress={() => { removeOffer(o.id); scheduleSave(); }} hitSlop={6}><X size={15} color={C.dim2} /></Pressable>
+                </View>
+              ))}
+              {groupTiers.length < MAX_TIERS ? (
+                <Pressable onPress={addTier} style={s.add}><Plus size={15} color={C.orange} /><Text style={s.addDiscTxt}>Add a tier</Text></Pressable>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      </Group>
+
+      {discounts.length > 0 || groupTiers.length > 0 ? (
+        <View style={s.ruleBar}><Text style={s.ruleTxt}>Each person pays the best price they qualify for — a group of 6 gets the 5+ rate, or a discount if it's lower and still running. They don't stack.</Text></View>
+      ) : null}
+
+      <CalendarModal visible={!!deadlineFor} onClose={() => setDeadlineFor(null)} minDate={new Date()}
+        onSelect={(d) => { if (deadlineFor) { updateOffer(deadlineFor, { endsAt: d.toISOString() }); scheduleSave(); } setDeadlineFor(null); }} />
+    </View>
+  );
+}
+
+const OfferDiscountCard = ({ o, open, onToggle, onRemove, onPickDeadline, updateOffer }: {
+  o: OfferV4; open: boolean; onToggle: () => void; onRemove: () => void; onPickDeadline: () => void;
+  updateOffer: (id: string, patch: Partial<OfferV4>) => void;
+}) => {
+  const meta = [o.price ? formatRupees(o.price) : null, o.endsAt ? `till ${fmtDM(o.endsAt)}` : null, o.seatLimit ? `first ${o.seatLimit}` : null].filter(Boolean).join('   ·   ');
+  return (
+    <Card style={s.accCard}>
+      <View style={s.accHeadRow}>
+        <Pressable style={s.accHead} onPress={onToggle} accessibilityRole="button" accessibilityState={{ expanded: open }}>
+          <View style={s.accIc}><Tag size={13} color={C.orange} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.accName, !o.name && { color: C.dim2 }]} numberOfLines={1}>{o.name || 'New discount'}</Text>
+            {meta ? <Text style={s.accMeta} numberOfLines={1}>{meta}</Text> : null}
+          </View>
+          <ChevronDown size={18} color={C.dim2} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
+        </Pressable>
+        <Pressable onPress={onRemove} hitSlop={8} style={s.accX} accessibilityRole="button" accessibilityLabel="Remove discount"><X size={16} color={C.dim2} /></Pressable>
+      </View>
+      {open ? (
+        <View style={s.accBody}>
+          <View>
+            <Text style={s.miniLab}>Name</Text>
+            <View style={s.nameField}><TextInput value={o.name} onChangeText={(t) => updateOffer(o.id, { name: t })} placeholder="e.g. Early bird" placeholderTextColor={C.dim2} style={s.offerNameInput} /></View>
+          </View>
+          <View style={s.row}>
+            <View style={{ flex: 1 }}><Text style={s.miniLab}>Price each</Text><Num prefix="₹" value={o.price} onChange={(n) => updateOffer(o.id, { price: n })} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.miniLab}>Ends on</Text>
+              <View style={s.dateBox}>
+                <Pressable style={s.dateMain} onPress={onPickDeadline}><Calendar size={13} color={C.dim} /><Text style={[s.dateTxt, !o.endsAt && { color: C.dim2 }]} numberOfLines={1}>{o.endsAt ? fmtDM(o.endsAt) : 'No deadline'}</Text></Pressable>
+                {o.endsAt ? <Pressable onPress={() => updateOffer(o.id, { endsAt: null })} hitSlop={6}><X size={13} color={C.dim2} /></Pressable> : null}
+              </View>
+            </View>
+          </View>
+          <View>
+            <Text style={s.miniLab}>First N tickets (optional)</Text>
+            <Num value={o.seatLimit ?? 0} onChange={(n) => updateOffer(o.id, { seatLimit: n || null } as Partial<OfferV4>)} placeholder="No cap" />
+          </View>
+        </View>
+      ) : null}
+    </Card>
+  );
+};
+
 const s = StyleSheet.create({
+  // date & location
+  addEnd: { fontFamily: F.semibold, fontSize: 12.5, color: C.orange, paddingVertical: 4 },
+  row2: { flexDirection: 'row', gap: 10 },
+  // discounts
+  num: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, paddingHorizontal: 12, height: 46 },
+  prefix: { fontFamily: F.body, fontSize: 14, color: C.dim },
+  numInput: { flex: 1, fontFamily: F.body, fontSize: 14, color: C.t1, padding: 0, minWidth: 0 },
+  accCard: { padding: 0, gap: 0, overflow: 'hidden' },
+  accHeadRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 14 },
+  accHead: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  accIc: { width: 28, height: 28, borderRadius: 8, backgroundColor: C.orangeSoft, alignItems: 'center', justifyContent: 'center' },
+  accName: { fontFamily: F.semibold, fontSize: 14, color: C.t1 },
+  accMeta: { fontFamily: F.body, fontSize: 11.5, color: C.dim, marginTop: 2 },
+  accX: { padding: 4 },
+  accBody: { borderTopWidth: 1, borderTopColor: C.border, padding: 14, gap: 11 },
+  nameField: { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, height: 46, paddingHorizontal: 12, justifyContent: 'center' },
+  offerNameInput: { flex: 1, fontFamily: F.body, fontSize: 14, color: C.t1, padding: 0 },
+  dateBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 11, height: 46, paddingHorizontal: 12 },
+  dateMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dateTxt: { flex: 1, fontFamily: F.body, fontSize: 14, color: C.t2 },
+  disc: { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 15 },
+  discOn: { borderColor: C.orangeBorder, backgroundColor: 'rgba(255,107,53,0.05)' },
+  discHead: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  discIc: { width: 30, height: 30, borderRadius: 9, backgroundColor: C.orangeSoft, alignItems: 'center', justifyContent: 'center' },
+  discName: { fontFamily: F.serif, fontSize: 16, color: C.t1, letterSpacing: -0.2 },
+  discMeta: { fontFamily: F.body, fontSize: 10.5, color: C.dim, marginTop: 1 },
+  tier: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  tierMinBox: { width: 68 },
+  tierLbl: { fontFamily: F.semibold, fontSize: 12, color: C.dim },
+  ruleBar: { backgroundColor: 'rgba(139,92,246,0.08)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.22)', borderRadius: 12, padding: 12, marginBottom: 4 },
+  ruleTxt: { fontFamily: F.body, fontSize: 11, color: C.t4, lineHeight: 16 },
+  row: { flexDirection: 'row', gap: 12 },
+  miniLab: { fontFamily: F.semibold, fontSize: 11, color: C.t3, marginBottom: 5 },
+  add: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.well, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, borderRadius: 11, paddingVertical: 11, paddingHorizontal: 12, justifyContent: 'center' },
+  addDiscTxt: { fontFamily: F.semibold, fontSize: 13, color: C.orange },
   // type
   typeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: 14, paddingVertical: 14 },
   typeRowOn: { backgroundColor: C.orangeSoft, borderColor: C.orangeBorder },

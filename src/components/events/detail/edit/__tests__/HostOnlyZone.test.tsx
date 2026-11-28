@@ -85,4 +85,43 @@ describe('HostOnlyZone', () => {
     fireEvent.press(screen.getByLabelText('Remove deadline'));
     expect(host.saveDeadline).toHaveBeenCalledWith(null);
   });
+
+  // ── P3 rows ──
+
+  it('renders the P3 rows for a paid single-spot event', () => {
+    hydrate(paidEvent);
+    render(<HostOnlyZone host={host as any} event={paidEvent} />);
+    expect(screen.getByText('Date & location')).toBeTruthy();
+    expect(screen.getByText('Capacity')).toBeTruthy();
+    expect(screen.getByText('Discounts & group rates')).toBeTruthy();
+  });
+
+  it('hides capacity + discounts for a tiered (multi-spot) event, keeps date & location', () => {
+    const multi = { ...paidEvent, spots: [
+      { _id: 'a', name: 'General', capacity: 20, price: 4500 },
+      { _id: 'b', name: 'VIP', capacity: 10, price: 9000 },
+    ] };
+    hydrate(multi);
+    render(<HostOnlyZone host={host as any} event={multi} />);
+    expect(screen.queryByText('Capacity')).toBeNull();          // spot-gated
+    expect(screen.queryByText('Discounts & group rates')).toBeNull();
+    expect(screen.getByText('Date & location')).toBeTruthy();   // not spot-gated
+  });
+
+  it('editing capacity commits via scheduleSave', () => {
+    hydrate(paidEvent);
+    render(<HostOnlyZone host={host as any} event={paidEvent} />);
+    fireEvent.changeText(screen.getByLabelText('Capacity'), '50');
+    expect(host.scheduleSave).toHaveBeenCalled();
+    expect(useComposerStoreV4.getState().form.spots[0].capacity).toBe(50);
+  });
+
+  it('opens the date & location sheet and committing the format calls scheduleSave', () => {
+    hydrate(paidEvent);
+    render(<HostOnlyZone host={host as any} event={paidEvent} />);
+    fireEvent.press(screen.getByLabelText('Edit Date & location'));
+    fireEvent.press(screen.getByText('Online'));
+    expect(host.scheduleSave).toHaveBeenCalled();
+    expect(useComposerStoreV4.getState().form.format).toBe('online');
+  });
 });

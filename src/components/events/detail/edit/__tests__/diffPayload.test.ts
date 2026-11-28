@@ -1,5 +1,5 @@
 import { diffEventPayload, clearedValue, buildEventPatch } from '../diffPayload';
-import { initialFormV4, buildEventPayload, type ComposerFormV4 } from '@/components/events/composer/v4/composerForm';
+import { initialFormV4, buildEventPayload, type ComposerFormV4, type MediaItemV4 } from '@/components/events/composer/v4/composerForm';
 
 function paidForm(): ComposerFormV4 {
   return {
@@ -162,5 +162,87 @@ describe('buildEventPatch', () => {
     const next = buildEventPayload({ ...dated(), about: 'changed' });
     const { body } = buildEventPatch(base, next);
     expect(Object.keys(body)).toEqual(['about']);
+  });
+});
+
+/* ─────────────────────────── media & cover ───────────────────────────
+ * `media` is a backend WHITELIST key (writes + fires the S3/Mux cleanup diff); `coverFit`
+ * is a COMPOSER key. Confirmed vs events-service: `{media}` alone routes to the whitelist
+ * path (writes media, cleanup fires on `'media' in update`); `{coverFit}` self-routes to
+ * the composer path; `{media, coverFit}` routes to the composer path, which writes BOTH
+ * (buildComposerUpdate lines 334 + 342). So the existing buildEventPatch routing is already
+ * correct for media/cover — these lock it in, plus the delete-safety invariants. */
+const COVER = (url = 'https://netsa-media-dev-1.s3.x/cover.jpg'): MediaItemV4 =>
+  ({ kind: 'photo', url, thumbnailUrl: url, isHero: true, sortOrder: 0 });
+const PHOTO = (n: string): MediaItemV4 =>
+  ({ kind: 'photo', url: `https://netsa-media-dev-1.s3.x/${n}.jpg`, thumbnailUrl: `https://netsa-media-dev-1.s3.x/${n}.jpg` });
+const READY_VIDEO = (pid = 'pid-1'): MediaItemV4 =>
+  ({ kind: 'video', url: `https://stream.mux.com/${pid}.m3u8`, status: 'ready', muxPlaybackId: pid, uploadId: `up-${pid}`, thumbnailUrl: `https://image.mux.com/${pid}/thumbnail.jpg` });
+
+function mediaForm(): ComposerFormV4 {
+  return { ...paidForm(), cover: COVER(), photos: [PHOTO('a'), PHOTO('b')], videos: [READY_VIDEO()] };
+}
+
+describe('buildEventPatch — media & cover', () => {
+  it('no media diff fires on load (base built from the same media-rich form)', () => {
+    const p = buildEventPayload(mediaForm());
+    expect(buildEventPatch(p, { ...p })).toEqual({ body: {}, advance: [] });
+  });
+
+  it('a cover swap travels as {media} alone — whitelist path, NO openToAll escort', () => {
+    const base = buildEventPayload(mediaForm());
+    const next = buildEventPayload({ ...mediaForm(), cover: COVER('https://netsa-media-dev-1.s3.x/cover2.jpg') });
+    const { body, advance } = buildEventPatch(base, next);
+    expect(Object.keys(body)).toEqual(['media']);
+    expect(advance).toEqual(['media']);
+    expect(body).not.toHaveProperty('openToAll');  // media is whitelisted + not a composer key
+    expect(body.media[0].url).toBe('https://netsa-media-dev-1.s3.x/cover2.jpg');
+    expect(body.media[0].isHero).toBe(true);
+  });
+
+  it('a coverFit flip travels as {coverFit} alone — self-routes to the composer path', () => {
+    const base = buildEventPayload(mediaForm());            // coverFit: 'whole'
+    const next = buildEventPayload({ ...mediaForm(), coverFit: 'fill' });
+    const { body, advance } = buildEventPatch(base, next);
+    expect(Object.keys(body)).toEqual(['coverFit']);
+    expect(advance).toEqual(['coverFit']);
+    expect(body).not.toHaveProperty('openToAll');  // coverFit IS a composer key → routes itself
+    expect(body.coverFit).toBe('fill');
+  });
+
+  it('cover + coverFit in one window → both keys, composer path writes both, no sentinel', () => {
+    const base = buildEventPayload(mediaForm());
+    const next = buildEventPayload({ ...mediaForm(), coverFit: 'fill', photos: [PHOTO('a'), PHOTO('b'), PHOTO('c')] });
+    const { body, advance } = buildEventPatch(base, next);
+    expect(Object.keys(body).sort()).toEqual(['coverFit', 'media']);
+    expect(advance.sort()).toEqual(['coverFit', 'media']);
+    expect(body).not.toHaveProperty('openToAll');  // coverFit routes the pair to buildComposerUpdate
+    expect(body.media).toHaveLength(5);            // cover + 3 photos + 1 video
+  });
+
+  it('removing a saved photo sends the shorter media[] (so the server cleans exactly that one)', () => {
+    const base = buildEventPayload(mediaForm());            // cover + a + b + video
+    const next = buildEventPayload({ ...mediaForm(), photos: [PHOTO('a')] }); // b removed
+    const { body, advance } = buildEventPatch(base, next);
+    expect(advance).toEqual(['media']);
+    const urls = (body.media as any[]).map((m) => m.url);
+    expect(urls).toContain('https://netsa-media-dev-1.s3.x/a.jpg');
+    expect(urls).not.toContain('https://netsa-media-dev-1.s3.x/b.jpg'); // server-confirmed removal
+  });
+
+  it('a still-processing reel never reaches the payload → no premature save/cleanup', () => {
+    const base = buildEventPayload(mediaForm());
+    const next = buildEventPayload({
+      ...mediaForm(),
+      videos: [READY_VIDEO(), { kind: 'video', url: '', status: 'processing', uploadId: 'up-x' }],
+    });
+    expect(buildEventPatch(base, next)).toEqual({ body: {}, advance: [] });
+  });
+
+  it('add-then-remove before save nets to the base media → nothing sent, no asset destroyed', () => {
+    const base = buildEventPayload(mediaForm());
+    // host added a photo then removed it: live media is back to the base set.
+    const next = buildEventPayload(mediaForm());
+    expect(buildEventPatch(base, next)).toEqual({ body: {}, advance: [] });
   });
 });

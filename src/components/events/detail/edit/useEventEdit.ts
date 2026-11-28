@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useComposerStoreV4 } from '@/components/events/composer/v4/useComposerStoreV4';
 import {
-  eventToForm, buildEventPayload, type LineupItemV4, type ComposerFormV4,
+  eventToForm, buildEventPayload, type LineupItemV4, type ComposerFormV4, type MediaItemV4,
 } from '@/components/events/composer/v4/composerForm';
 import { eventService, type EventDoc } from '@/services/eventService';
 import { eventKeys } from '@/hooks/useEvents';
@@ -76,8 +76,17 @@ const DEBOUNCE_MS = 700;
  * `schedule.endDate`), so `eventToForm` hydrates endsAt: null. Without this, the date-group
  * escort can't carry the end and a later date edit would collapse a multi-day event to
  * start + duration. Seed it only when schedule.endDate falls on a LATER day.
+ *
+ * ⚠️ Media must rehydrate LOSSLESSLY. `media` is one array, and events-service deletes any
+ * stored item that a later PATCH's media[] omits (diffRemovedEventMedia → S3/Mux cleanup).
+ * `buildEventPayload` → `buildMedia` only keeps a video with `status === 'ready'` and a single
+ * `isHero` image, so `eventToForm`'s output would silently drop (a) a stored reel whose status
+ * wasn't persisted as 'ready' and (b) any 2nd+ hero image — and the host's next unrelated media
+ * edit would then DESTROY those untouched assets. Re-derive cover/photos/videos straight off
+ * `event.media` so every stored item survives the round-trip: a reel with a muxPlaybackId is
+ * treated as ready, and every image except the chosen cover becomes a photo (stray heroes incl.).
  */
-function hydrateForm(event: any) {
+export function hydrateForm(event: any) {
   const form = eventToForm(event);
   const cp = event?.cancellationPolicy;
   if (form.refundPolicy === 'flex_24h' && cp && typeof cp.notes === 'string' && cp.notes.trim()
@@ -89,6 +98,16 @@ function hydrateForm(event: any) {
   if (start && end && !isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start && end.toDateString() !== start.toDateString()) {
     form.endsAt = end.toISOString();
   }
+
+  const media: MediaItemV4[] = Array.isArray(event?.media) ? event.media : [];
+  const imgs = media.filter((m) => m?.kind !== 'video');          // undefined kind = legacy photo
+  const heroIdx = imgs.findIndex((m) => m?.isHero);
+  form.cover = heroIdx >= 0 ? imgs[heroIdx] : null;
+  form.photos = imgs.filter((_, i) => i !== heroIdx);             // every non-cover image survives
+  form.videos = media
+    .filter((m) => m?.kind === 'video')
+    .map((v) => (v?.muxPlaybackId ? { ...v, status: 'ready' as const } : v)); // a persisted reel is ready
+
   return form;
 }
 

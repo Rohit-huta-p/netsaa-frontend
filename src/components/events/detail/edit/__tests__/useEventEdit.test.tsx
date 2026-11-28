@@ -220,4 +220,24 @@ describe('useEventEdit', () => {
     expect(useComposerStoreV4.getState().form.refundPolicy).toBe('custom');
     expect(useComposerStoreV4.getState().form.refundNote).toContain('7 days');
   });
+
+  it('a duration edit on a multi-day event keeps the end (endsAt seeded from schedule.endDate)', async () => {
+    const ev = {
+      ...baseEvent(),
+      startsAt: '2026-06-01T10:00:00.000Z',
+      durationKind: 'h2',
+      schedule: { startDate: '2026-06-01T10:00:00.000Z', endDate: '2026-06-03T12:00:00.000Z', totalDurationMinutes: 120 },
+    };
+    const { result } = renderHook(() => useEventEdit('evt-1', ev as any), { wrapper });
+    // seeded from schedule.endDate (the doc has no top-level endsAt)
+    expect(useComposerStoreV4.getState().form.endsAt).toBe('2026-06-03T12:00:00.000Z');
+    act(() => {
+      useComposerStoreV4.getState().update('durationKind', 'h3');
+      result.current.host.scheduleSave();
+    });
+    await flush();
+    const [, body] = mockUpdate.mock.calls[0];
+    expect(body).toHaveProperty('durationKind', 'h3');
+    expect(body).toHaveProperty('endsAt', '2026-06-03T12:00:00.000Z'); // escorted → multi-day end not collapsed
+  });
 });

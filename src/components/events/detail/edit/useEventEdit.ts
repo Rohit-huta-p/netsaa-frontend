@@ -71,6 +71,11 @@ const DEBOUNCE_MS = 700;
  * which shows the wrong policy AND lets a later date edit overwrite the host's note (a
  * paid flex_24h event re-derives cancellationPolicy from the start date). Treat any note
  * that isn't the canned flex/firm text as a custom policy.
+ *
+ * Also seed a multi-day `endsAt`: the event doc has no top-level endsAt (the end lives in
+ * `schedule.endDate`), so `eventToForm` hydrates endsAt: null. Without this, the date-group
+ * escort can't carry the end and a later date edit would collapse a multi-day event to
+ * start + duration. Seed it only when schedule.endDate falls on a LATER day.
  */
 function hydrateForm(event: any) {
   const form = eventToForm(event);
@@ -78,6 +83,11 @@ function hydrateForm(event: any) {
   if (form.refundPolicy === 'flex_24h' && cp && typeof cp.notes === 'string' && cp.notes.trim()
     && !/full refund up to 24h/i.test(cp.notes) && !/no refund/i.test(cp.notes)) {
     form.refundPolicy = 'custom';
+  }
+  const start = form.startsAt ? new Date(form.startsAt) : null;
+  const end = event?.schedule?.endDate ? new Date(event.schedule.endDate) : null;
+  if (start && end && !isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start && end.toDateString() !== start.toDateString()) {
+    form.endsAt = end.toISOString();
   }
   return form;
 }

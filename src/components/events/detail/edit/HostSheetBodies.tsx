@@ -10,15 +10,17 @@
  * buildEventPatch, so these bodies only ever worry about the form.
  */
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, Switch } from 'react-native';
-import { Check, ChevronDown, Plus, X, Calendar, MapPin, Video, Link as LinkIcon, Tag, Users } from 'lucide-react-native';
+import { View, Text, StyleSheet, Pressable, TextInput, Switch, Image, ActivityIndicator } from 'react-native';
+import { Check, ChevronDown, Plus, X, Calendar, MapPin, Video, Link as LinkIcon, Tag, Users, Image as ImageIcon, Play } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../../composer/v4/useComposerStoreV4';
+import { useComposerMediaV4 } from '../../composer/v4/useComposerMediaV4';
 import { EVENT_TYPE_PRESETS, EVENT_TYPE_KEYS, presetFor } from '../../composer/v4/eventTypePresets';
 import { Group, TagInput, ChipsMulti, Segmented, TextField, Hint, Pills, Field, Chips, ToggleRow, Card } from '../../composer/v4/ui';
 import type { QuestionV4, SkillLevelV4, OfferV4 } from '../../composer/v4/composerForm';
 import { C, F, R } from '../../composer/v4/theme';
 import { formatRupees } from '@/lib/eventPricing';
 import { CalendarModal } from '@/components/ui/CalendarModal';
+import MediaCropper from '@/components/media/MediaCropper';
 
 export interface SheetBodyProps {
   /** Commit: debounced diff save in useEventEdit (idempotent). */
@@ -526,6 +528,127 @@ const OfferDiscountCard = ({ o, open, onToggle, onRemove, onPickDeadline, update
   );
 };
 
+/* ───────────────────────── Photos & video (cover) ───────────────────────── */
+// Reuses the composer's own media hook (useComposerMediaV4) 1:1 — the proven
+// presign→S3 (photos/cover) + direct-to-Mux (video) flow — and ports Step5Describe's
+// media UI. Edit-mode differences from the wizard:
+//   · Cover is CHANGE-only (no remove). This is an already-published event and autosave
+//     has no publish gate, so dropping the cover to nothing would leave a live event with
+//     an empty hero (the wizard lists a cover as a readiness item; the mockup's hero shows
+//     "Change cover", never remove).
+//   · Remove controls are disabled WHILE an upload is in flight — otherwise a remove tapped
+//     mid-upload autosaves the deletion, then the upload's stale closure re-adds the removed
+//     item with its now-deleted URL (resurrection race). The shared hook is left untouched.
+// This body does NOT call scheduleSave: every persistable media change (cover/photos/coverFit/
+// ready-video) is caught by HostOnlyZone's single media-save effect, which also fires when a
+// reel finishes processing after the sheet has closed. See HostOnlyZone.
+const MAX_VIDEOS = 2; // keep in sync with useComposerMediaV4
+
+export function MediaSheetBody() {
+  const form = useComposerStoreV4((st) => st.form);
+  const update = useComposerStoreV4((st) => st.update);
+  const media = useComposerMediaV4();
+  const busy = !!media.uploading;
+
+  return (
+    <View>
+      <Group label="Cover / poster" required>
+        {form.cover ? (
+          <View style={s.coverWrap}>
+            <Image source={{ uri: form.cover.thumbnailUrl || form.cover.url }} style={s.coverImg}
+              resizeMode={form.coverFit === 'fill' ? 'cover' : 'contain'} />
+            {/* Change-only — no remove (keeps a live event from going coverless). */}
+            <Pressable style={s.coverChange} onPress={media.addCover} disabled={busy} accessibilityRole="button" accessibilityLabel="Change cover">
+              {media.uploading === 'cover' ? <ActivityIndicator color="#fff" size="small" /> : <ImageIcon size={12} color="#fff" />}
+              <Text style={s.coverChangeTxt}>Change</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable style={s.coverAdd} onPress={media.addCover} disabled={media.uploading === 'cover'} accessibilityRole="button" accessibilityLabel="Add a cover photo">
+            {media.uploading === 'cover' ? (
+              <ActivityIndicator color={C.orange} />
+            ) : (
+              <>
+                <ImageIcon size={22} color={C.dim} />
+                <Text style={s.coverAddTxt}>Add a poster or photo</Text>
+                <Text style={s.coverAddHint}>Portrait posters keep their text on the “whole poster” fit.</Text>
+              </>
+            )}
+          </Pressable>
+        )}
+        <View style={s.fitRow}>
+          <Text style={s.fitLab}>FIT</Text>
+          <View style={{ flex: 1 }}>
+            <Segmented value={form.coverFit} onChange={(v) => update('coverFit', v)}
+              options={[{ key: 'whole', label: 'Whole poster' }, { key: 'fill', label: 'Fill the frame' }]} />
+          </View>
+        </View>
+      </Group>
+
+      <Group label="More photos" optional sub="Up to 6, including the cover.">
+        <View style={s.thumbs}>
+          {form.photos.map((p, i) => (
+            <View key={p.url || i} style={s.thumbWrap}>
+              <Image source={{ uri: p.thumbnailUrl || p.url }} style={s.thumb} />
+              {/* Disabled while uploading → no mid-upload remove (resurrection race). */}
+              <Pressable style={[s.thumbRemove, busy && s.removeOff]} onPress={() => media.removePhoto(i)} disabled={busy} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Remove photo ${i + 1}`}>
+                <X size={11} color="#fff" />
+              </Pressable>
+            </View>
+          ))}
+          <Pressable style={s.thumbAdd} onPress={media.addPhoto} disabled={busy} accessibilityRole="button" accessibilityLabel="Add a photo">
+            {media.uploading === 'gallery' ? <ActivityIndicator color={C.dim} size="small" /> : <Plus size={18} color={C.dim} />}
+          </Pressable>
+        </View>
+        <Hint>Photos help people choose.</Hint>
+      </Group>
+
+      <Group label="Video" optional sub={`Up to ${MAX_VIDEOS} — a promo, trailer or past highlight.`}>
+        <View style={{ gap: 8 }}>
+          {form.videos.map((v, i) => (
+            <View key={v.uploadId || v.muxPlaybackId || i} style={s.reel}>
+              {v.status === 'processing' ? (
+                <View style={s.reelCenter}>
+                  <ActivityIndicator color={C.orange} />
+                  <Text style={s.reelMeta}>Processing…</Text>
+                </View>
+              ) : v.status === 'errored' ? (
+                <View style={s.reelCenter}>
+                  <Text style={[s.reelMeta, { color: C.red }]}>Upload failed</Text>
+                  <Text style={s.reelSub}>Remove and try another clip.</Text>
+                </View>
+              ) : (
+                <>
+                  {v.thumbnailUrl
+                    ? <Image source={{ uri: v.thumbnailUrl }} style={s.reelImg} />
+                    : <View style={[s.reelImg, { backgroundColor: C.well }]} />}
+                  <View style={s.reelPlay}><Play size={15} color="#fff" fill="#fff" /></View>
+                </>
+              )}
+              <Pressable style={[s.reelRemove, busy && s.removeOff]} onPress={() => media.removeVideo(i)} disabled={busy} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Remove video ${i + 1}`}>
+                <X size={13} color="#fff" />
+              </Pressable>
+            </View>
+          ))}
+          {form.videos.length < MAX_VIDEOS ? (
+            <Pressable style={s.reelAdd} onPress={media.addVideo} disabled={busy} accessibilityRole="button" accessibilityLabel="Add a video">
+              {media.uploading === 'video'
+                ? <ActivityIndicator color={C.dim} />
+                : (<><Video size={18} color={C.dim} /><Text style={s.reelAddTxt}>Add video</Text></>)}
+            </Pressable>
+          ) : null}
+        </View>
+        <Hint>Short clips play on your event page — up to 60 seconds each.</Hint>
+      </Group>
+
+      {/* The cropper is a Modal rendered inside this sheet (a Modal) — same nesting pattern
+          as CalendarModal in the date sheet; the picker → cropper handoff over the sheet is
+          on the owed physical-iPhone pass. */}
+      <MediaCropper {...media.cropperProps} />
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   // date & location
   addEnd: { fontFamily: F.semibold, fontSize: 12.5, color: C.orange, paddingVertical: 4 },
@@ -607,4 +730,29 @@ const s = StyleSheet.create({
   addPlus: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.orangeSoft, alignItems: 'center', justifyContent: 'center' },
   addTxt: { flex: 1, fontFamily: F.semibold, fontSize: 14, color: C.t2 },
   addMeta: { fontFamily: F.medium, fontSize: 11, color: C.dim2 },
+  // photos & video (cover) — ported from Step5Describe
+  coverAdd: { height: 150, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center', gap: 5 },
+  coverAddTxt: { fontFamily: F.semibold, fontSize: 13, color: C.t3 },
+  coverAddHint: { fontFamily: F.body, fontSize: 10.5, color: C.dim2 },
+  coverWrap: { height: 180, borderRadius: 14, overflow: 'hidden', backgroundColor: C.well, position: 'relative' },
+  coverImg: { width: '100%', height: '100%' },
+  coverChange: { position: 'absolute', bottom: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.55)' },
+  coverChangeTxt: { fontFamily: F.semibold, fontSize: 11, color: '#fff' },
+  fitRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
+  fitLab: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.2, color: C.dim, width: 22 },
+  thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  thumbWrap: { width: 72, height: 72, borderRadius: 10, overflow: 'hidden', position: 'relative' },
+  thumb: { width: '100%', height: '100%', backgroundColor: C.well },
+  thumbRemove: { position: 'absolute', top: 3, right: 3, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  thumbAdd: { width: 72, height: 72, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, alignItems: 'center', justifyContent: 'center' },
+  removeOff: { opacity: 0.4 },
+  reel: { aspectRatio: 16 / 9, borderRadius: 12, overflow: 'hidden', backgroundColor: C.card, borderWidth: 1, borderColor: C.border, position: 'relative' },
+  reelCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 5 },
+  reelMeta: { fontFamily: F.semibold, fontSize: 11, color: C.dim, textTransform: 'uppercase', letterSpacing: 1 },
+  reelSub: { fontFamily: F.body, fontSize: 11, color: C.dim2 },
+  reelImg: { width: '100%', height: '100%' },
+  reelPlay: { position: 'absolute', top: '50%', left: '50%', width: 40, height: 40, borderRadius: 20, marginLeft: -20, marginTop: -20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  reelRemove: { position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  reelAdd: { aspectRatio: 16 / 9, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border2, backgroundColor: C.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  reelAddTxt: { fontFamily: F.semibold, fontSize: 13, color: C.t3 },
 });

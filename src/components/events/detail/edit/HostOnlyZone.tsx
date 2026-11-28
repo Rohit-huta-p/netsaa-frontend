@@ -7,11 +7,12 @@
  * Gated entirely on edit mode by the caller (EventDetailViewer), so the view/preview
  * output stays byte-identical. P3 adds capacity, discounts, media + cover.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
 import dayjs from 'dayjs';
-import { EyeOff, Shapes, DoorOpen, Clock, MessageSquare, Users, ShieldAlert, Eye, RotateCcw, Pencil, ChevronRight, X, CalendarDays, Ticket, Tag } from 'lucide-react-native';
+import { EyeOff, Shapes, DoorOpen, Clock, MessageSquare, Users, ShieldAlert, Eye, RotateCcw, Pencil, ChevronRight, X, CalendarDays, Ticket, Tag, Images } from 'lucide-react-native';
 import { useComposerStoreV4 } from '../../composer/v4/useComposerStoreV4';
+import { useComposerVideoPoll } from '../../composer/v4/useComposerVideoPoll';
 import { presetFor } from '../../composer/v4/eventTypePresets';
 import { Segmented } from '../../composer/v4/ui';
 import { C, F, R } from '../../composer/v4/theme';
@@ -21,10 +22,10 @@ import type { HostEditController } from './useEventEdit';
 import FieldSheet from './FieldSheet';
 import {
   TypeSheetBody, DetailsSheetBody, AgeSheetBody, VisibilitySheetBody, RefundSheetBody, QuestionsSheetBody,
-  DateLocationSheetBody, DiscountsSheetBody,
+  DateLocationSheetBody, DiscountsSheetBody, MediaSheetBody,
 } from './HostSheetBodies';
 
-type SheetKey = 'type' | 'details' | 'whenwhere' | 'questions' | 'age' | 'visibility' | 'refund' | 'discounts';
+type SheetKey = 'type' | 'details' | 'whenwhere' | 'questions' | 'age' | 'visibility' | 'refund' | 'discounts' | 'media';
 
 const AGES: Record<number, string> = { 0: 'Any age', 16: '16+', 18: '18+', 21: '21+' };
 
@@ -37,6 +38,7 @@ const SHEETS: Record<SheetKey, { title: string; sub?: string; scroll?: boolean }
   visibility: { title: 'Who can see it', scroll: false },
   refund: { title: 'Refund policy', scroll: false },
   discounts: { title: 'Discounts & group rates', sub: 'Lower prices — for everyone, or for groups.' },
+  media: { title: 'Photos & video', sub: 'Your cover, gallery photos and short clips.' },
 };
 
 export default function HostOnlyZone({ host, event }: { host: HostEditController; event: EventDoc }) {
@@ -45,6 +47,31 @@ export default function HostOnlyZone({ host, event }: { host: HostEditController
   const updateSpot = useComposerStoreV4((s) => s.updateSpot);
   const [sheet, setSheet] = useState<SheetKey | null>(null);
   const [calOpen, setCalOpen] = useState(false);
+
+  // Drive Mux reel polling for the whole edit session. The composer runs this at its shell
+  // level so polling survives step changes; edit mode has no shell, so the host zone — always
+  // mounted in edit mode, and alive across sheet open/close — owns it. A reel added in the media
+  // sheet keeps processing after the sheet closes; the poll fills in its playbackId when ready.
+  useComposerVideoPoll();
+
+  // The single place media persists: the media sheet only mutates the store, and this effect
+  // fires the debounced diff save whenever the PERSISTABLE media fingerprint changes — a cover
+  // swap, a photo add/remove, a coverFit flip, or a reel finishing processing (incl. after the
+  // sheet has closed). Keyed on exactly what buildMedia emits, so a still-processing reel (no
+  // playbackId) is absent until ready → no premature save and no premature S3/Mux cleanup. The
+  // first run only seeds the ref (no save-on-hydrate); a remove→restore within the debounce
+  // nets to the base payload, so nothing is sent and no asset is wrongly deleted.
+  const mediaKey = JSON.stringify({
+    cover: form.cover?.url ?? null,
+    coverFit: form.coverFit,
+    photos: form.photos.map((p) => p.url),
+    videos: form.videos.filter((v) => v.status === 'ready' && v.muxPlaybackId).map((v) => v.muxPlaybackId),
+  });
+  const prevMediaKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevMediaKey.current === null) { prevMediaKey.current = mediaKey; return; }
+    if (prevMediaKey.current !== mediaKey) { prevMediaKey.current = mediaKey; host.scheduleSave(); }
+  }, [mediaKey, host]);
 
   const close = () => { host.scheduleSave(); setSheet(null); }; // commit on close (idempotent)
 
@@ -69,6 +96,7 @@ export default function HostOnlyZone({ host, event }: { host: HostEditController
   const whenLabel = whenWhereSummary(form);
   const capValue = spot?.capacity ?? 0;
   const discountLabel = form.offers.length ? discountSummary(form) : 'None';
+  const mediaLabel = mediaSummary(form);
 
   const setCapacity = (n: number) => { if (spot) { updateSpot(spot.id, { capacity: n }); if (n >= 1) host.scheduleSave(); } };
 
@@ -141,6 +169,7 @@ export default function HostOnlyZone({ host, event }: { host: HostEditController
         </Pressable>
       </View>
 
+      <SheetRow icon={Images} label="Photos & video" value={mediaLabel} onPress={() => setSheet('media')} />
       <SheetRow icon={MessageSquare} label="Sign-up questions" value={qCount ? `${qCount} asked at sign-up` : 'None'} onPress={() => setSheet('questions')} />
       <SheetRow icon={ShieldAlert} label="Age limit" value={ageLabel} onPress={() => setSheet('age')} />
       <SheetRow icon={Eye} label="Who can see it" value={visLabel} onPress={() => setSheet('visibility')} />
@@ -159,6 +188,7 @@ export default function HostOnlyZone({ host, event }: { host: HostEditController
           {sheet === 'type' ? <TypeSheetBody scheduleSave={host.scheduleSave} /> : null}
           {sheet === 'details' ? <DetailsSheetBody scheduleSave={host.scheduleSave} /> : null}
           {sheet === 'whenwhere' ? <DateLocationSheetBody scheduleSave={host.scheduleSave} /> : null}
+          {sheet === 'media' ? <MediaSheetBody /> : null}
           {sheet === 'discounts' ? <DiscountsSheetBody scheduleSave={host.scheduleSave} /> : null}
           {sheet === 'questions' ? <QuestionsSheetBody scheduleSave={host.scheduleSave} /> : null}
           {sheet === 'age' ? <AgeSheetBody scheduleSave={host.scheduleSave} /> : null}
@@ -198,6 +228,16 @@ function discountSummary(form: Form): string {
   return form.offers
     .map((o) => (o.audience === 'group' ? `Group of ${o.minSeats ?? 2}+` : (o.name || 'Discount')))
     .join(' · ');
+}
+
+function mediaSummary(form: Form): string {
+  const parts: string[] = [];
+  parts.push(form.cover ? '1 cover' : 'No cover');
+  if (form.photos.length) parts.push(`${form.photos.length} photo${form.photos.length === 1 ? '' : 's'}`);
+  // Count only reels that actually persist (processing/errored don't ride the payload).
+  const vids = form.videos.filter((v) => v.status === 'ready' && v.muxPlaybackId).length;
+  if (vids) parts.push(`${vids} video${vids === 1 ? '' : 's'}`);
+  return parts.join(' · ');
 }
 
 function SheetRow({ icon: Icon, label, value, onPress }: {

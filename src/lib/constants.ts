@@ -69,3 +69,15 @@ export const API_MEDIA_URL = url('https://netsaa-backend-yvy9.onrender.com/v1', 
  * to true (and set EVENTS_WAITLIST_ENABLED=1 on events-service) to bring the feature back.
  */
 export const EVENT_WAITLIST_ENABLED = false;
+
+/**
+ * "Edit in Preview" — host edits an event in place on its own Artists-view page
+ * (EventDetailViewer in `edit` mode) instead of the composer wizard. Ships OFF; the
+ * old `/events/:id/edit` → ComposerV4 wizard stays the working fallback. Flip on per
+ * build with EXPO_PUBLIC_EVENT_EDIT_IN_PREVIEW=1 (mirrors the EXPO_PUBLIC_USE_PROD_API
+ * env pattern above). First slice = inline text (title/tagline/About/price + the
+ * What's-included and Day-by-day lists); host-only zone + focused sheets land later.
+ */
+export const EVENT_EDIT_IN_PREVIEW =
+  process.env.EXPO_PUBLIC_EVENT_EDIT_IN_PREVIEW === '1' ||
+  process.env.EXPO_PUBLIC_EVENT_EDIT_IN_PREVIEW === 'true';
